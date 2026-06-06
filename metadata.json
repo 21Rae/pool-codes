@@ -1,0 +1,6 @@
+{
+  "name": "Pool Codes Multi-Portal Suite",
+  "description": "An interactive multi-app simulator representing a standalone Customer Portal and SaaS Admin panel sharing a relational database.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
