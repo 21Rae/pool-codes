@@ -1,6 +1,6 @@
 export type UserRole = 'admin' | 'editor' | 'user';
 export type UserStatus = 'active' | 'suspended' | 'unverified';
-export type BillingCycle = 'weekly' | 'monthly' | 'yearly';
+export type BillingCycle = 'weekly' | 'monthly' | 'quarterly' | 'biannual' | 'yearly';
 export type PoolType = 'uk' | 'aussie' | 'international';
 export type WeekStatus = 'upcoming' | 'active' | 'closed';
 export type AccessLevel = 'free' | 'premium';

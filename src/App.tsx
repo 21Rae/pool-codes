@@ -44,6 +44,7 @@ import {
 
 // Modular imports
 import CustomerPortal from './components/CustomerPortal';
+import OfficePoolStopHome from './components/OfficePoolStopHome';
 
 export default function App() {
   // Shared global state proxying relational tables
@@ -63,6 +64,7 @@ export default function App() {
   // 'customer' -> app.poolcodes.com
   // 'admin' -> admin.poolcodes.com
   const [currentAppSelector, setCurrentAppSelector] = useState<'customer' | 'admin'>('customer');
+  const [viewMode, setViewMode] = useState<'homepage' | 'portal'>('homepage');
 
   const [activeTable, setActiveTable] = useState<string>('users');
   const [selectedPersonaId, setSelectedPersonaId] = useState<string>('usr-free-101');
@@ -377,6 +379,50 @@ export default function App() {
     }
   };
 
+  const handleRegisterUser = (username: string, email: string) => {
+    const newId = `usr-reg-${Math.floor(Math.random() * 90000 + 10000)}`;
+    const newUser: User = {
+      id: newId,
+      username: username.toLowerCase().replace(/\s+/g, '_'),
+      email: email.toLowerCase(),
+      role: 'user',
+      status: 'active',
+      phone: '',
+      created_at: new Date().toISOString(),
+      email_verified_at: new Date().toISOString()
+    };
+    
+    setDb(prev => ({
+      ...prev,
+      users: [...prev.users, newUser]
+    }));
+    
+    setSelectedPersonaId(newId);
+    setViewMode('portal');
+    
+    logSQL(
+      `-- Real-time registration insert transaction\nINSERT INTO users (id, username, email, role, status, created_at, email_verified_at)\nVALUES ('${newId}', '${newUser.username}', '${newUser.email}', 'user', 'active', NOW(), NOW());`,
+      `Newly registered customer @${newUser.username} joined fastpoolcodes.com`
+    );
+  };
+
+  const handleLoginUserWithCreds = (emailOrUsername: string) => {
+    const found = db.users.find(
+      u => u.email.toLowerCase() === emailOrUsername.toLowerCase() || 
+           u.username.toLowerCase() === emailOrUsername.toLowerCase()
+    );
+    if (found) {
+      setSelectedPersonaId(found.id);
+      setViewMode('portal');
+      logSQL(
+        `-- Member login verify\nSELECT * FROM users WHERE (email = '${emailOrUsername}' OR username = '${emailOrUsername}') LIMIT 1;`,
+        `Authenticated visitor session for @${found.username}`
+      );
+      return true;
+    }
+    return false;
+  };
+
   // Paths mapping indicator
   const getSimulatedUrl = () => {
     if (currentAppSelector === 'customer') {
@@ -387,7 +433,7 @@ export default function App() {
   };
 
   return (
-    <div className="h-screen bg-[#090D1A] flex flex-col font-sans select-none text-slate-100 overflow-hidden">
+    <div className="h-screen bg-[#FCFDFE] flex flex-col font-sans select-none text-slate-800 overflow-hidden">
       {/* Dynamic Toast banner bubble element */}
       <AnimatePresence>
         {toast && (
@@ -395,12 +441,12 @@ export default function App() {
             initial={{ opacity: 0, y: -30, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -20, scale: 0.95 }}
-            className={`fixed top-6 left-1/2 -translate-x-1/2 z-[999] shadow-md border rounded-full px-5 py-2.5 text-xs font-semibold flex items-center gap-2 ${
+            className={`fixed top-6 left-1/2 -translate-x-1/2 z-[999] shadow-lg border rounded-full px-5 py-2.5 text-xs font-semibold flex items-center gap-2 ${
               toast.type === 'success'
-                ? 'bg-emerald-950/90 border-emerald-800 text-emerald-250'
+                ? 'bg-emerald-950/95 border-emerald-800 text-emerald-100'
                 : toast.type === 'error'
-                ? 'bg-rose-950/90 border-rose-800 text-rose-250'
-                : 'bg-indigo-950/90 border-indigo-800 text-indigo-250'
+                ? 'bg-rose-950/95 border-rose-800 text-rose-100'
+                : 'bg-indigo-950/95 border-indigo-805 text-indigo-100'
             }`}
           >
             {toast.type === 'success' ? (
@@ -415,91 +461,132 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Main Application Navigation Header (Styled naturally as key workspace views) */}
-      <header className="bg-[#090D1A] border-b border-[#1E293B]/70 sticky top-0 z-50 shadow-md">
-        <div className="w-full px-4 md:px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 text-white flex items-center justify-center font-bold text-lg shadow-lg shadow-emerald-500/10">
-              ⚽
-            </div>
-            <div>
-              <h1 className="font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-300 tracking-wider text-sm leading-none uppercase">
-                PoolCodes Arena
-              </h1>
-              <span className="text-[10px] text-slate-400 font-mono mt-1 block">Soccer Prediction & Coupon Suite</span>
-            </div>
-          </div>
-
-          {/* Active Context indicator */}
-          <div className="hidden md:flex items-center gap-2 bg-emerald-955/20 bg-emerald-950/40 px-3.5 py-1.5 rounded-full border border-emerald-900/40 shadow-inner">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span className="text-[10.5px] font-mono text-emerald-350 select-none uppercase tracking-wider font-extrabold">
-              Aussie Pool Season • Week 49 Active
-            </span>
-          </div>
-
-          {/* Quick-switch persona dropdown & reload db seeds */}
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg">
-              <span className="text-[9px] text-slate-450 uppercase font-mono font-bold text-slate-450">Simulate As:</span>
-              <select
-                value={selectedPersonaId}
-                onChange={(e) => {
-                  setSelectedPersonaId(e.target.value);
-                  const u = db.users.find(x => x.id === e.target.value);
-                  triggerToast(`Session authenticated to: @${u?.username}`, 'info');
-                }}
-                className="bg-transparent font-mono text-xs text-amber-400 font-bold border-none focus:outline-none cursor-pointer outline-none uppercase"
-              >
-                {db.users.filter(u => u.role !== 'admin').map(u => {
-                  const s = db.user_subscriptions.find(sub => sub.user_id === u.id && sub.status === 'active');
-                  const tierLabel = u.status === 'suspended' ? 'Suspended' : s ? 'Premium VIP' : 'Free Tier';
-                  return (
-                    <option key={u.id} value={u.id} className="bg-[#0f172a] text-slate-100">
-                      @{u.username} ({tierLabel})
-                    </option>
-                  );
-                })}
-              </select>
-            </div>
-
-            <button
-              onClick={resetDatabaseValues}
-              className="p-2.5 bg-slate-950 border border-slate-800 rounded-lg hover:border-slate-700 hover:text-rose-455 text-slate-400 transition hover:bg-slate-900 active:scale-95 duration-150"
-              title="Reset Simulated Database Seeds"
-            >
-              <RefreshCw className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Workspace Frame container */}
-      <main className="flex-1 w-full p-4 md:p-6 flex flex-col gap-6 min-h-0 overflow-hidden">
-        <div className="flex-1 bg-[#0A0F1D]/50 border border-emerald-950 rounded-xl overflow-hidden shadow-2xl relative flex flex-col min-h-0">
-          <CustomerPortal
+      {viewMode === 'homepage' ? (
+        <div className="flex-1 overflow-y-auto">
+          <OfficePoolStopHome
             db={db}
-            currentUser={currentUser}
-            activePlan={activePlan}
-            activeSubscription={activeSubscription}
-            buySubscription={buySubscription}
-            handleDownloadCode={handleDownloadCode}
+            onSignIn={() => {
+              setViewMode('portal');
+              triggerToast('Authenticated secure session to system dashboard.', 'success');
+            }}
+            onEnterManagerPanel={() => {
+              setViewMode('portal');
+              // Automatically switch to admin persona
+              const adminUsr = db.users.find(u => u.role === 'admin');
+              if (adminUsr) {
+                setSelectedPersonaId(adminUsr.id);
+              }
+              triggerToast('Entered administrative manager dashboard.', 'success');
+            }}
+            onNavigateToCodes={() => {
+              setViewMode('portal');
+              triggerToast('Redirected to pool codes list.', 'info');
+            }}
             triggerToast={triggerToast}
-            markAllNotificationsRead={markAllNotificationsRead}
+            onRegisterUser={handleRegisterUser}
+            onLoginUser={handleLoginUserWithCreds}
           />
         </div>
-      </main>
+      ) : (
+        <div className="h-screen bg-[#090D1A] flex flex-col overflow-hidden text-slate-100">
+          {/* Main Application Navigation Header (Styled naturally as key workspace views) */}
+          <header className="bg-[#090D1A] border-b border-[#1E293B]/70 sticky top-0 z-50 shadow-md">
+            <div className="w-full px-4 md:px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => {
+                    setViewMode('homepage');
+                    triggerToast('Returned to main marketing landing page.', 'info');
+                  }}
+                  className="bg-slate-850 hover:bg-slate-800 text-slate-305 font-bold px-3 py-1.5 rounded-lg text-xs transition border border-slate-700/65 flex items-center gap-1.5 cursor-pointer"
+                >
+                  ← HOME PAGE
+                </button>
+                <div className="flex items-center gap-2 px-2 border-l border-slate-800">
+                  <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#FA3E65] to-teal-500 text-white flex items-center justify-center font-bold text-sm shadow-lg">
+                    ⚽
+                  </div>
+                  <div>
+                    <h1 className="font-extrabold text-[#FA3E65] tracking-wider text-xs leading-none uppercase">
+                      PoolCodes Arena
+                    </h1>
+                    <span className="text-[9px] text-slate-400 font-mono mt-0.5 block">RELATIONAL MULTI-PORTAL SUITE</span>
+                  </div>
+                </div>
+              </div>
 
-      {/* Footer metadata tracker */}
-      <footer className="bg-[#070B14] border-t border-[#1E293B] p-4 text-[10px] text-slate-500 font-mono">
-        <div className="w-full px-4 md:px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex gap-2 items-center">
-            <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span>Relational Application State Engine Active</span>
-          </div>
-          <span>Active Persona Status: {currentUser.status.toUpperCase()} • Local Time: 2026-06-06 UTC</span>
+              {/* Active Context indicator */}
+              <div className="hidden md:flex items-center gap-2 bg-emerald-955/20 bg-emerald-950/40 px-3.5 py-1.5 rounded-full border border-emerald-900/40 shadow-inner">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span className="text-[10.5px] font-mono text-emerald-350 select-none uppercase tracking-wider font-extrabold">
+                  Aussie Pool Season • Week 49 Active
+                </span>
+              </div>
+
+              {/* Quick-switch persona dropdown & reload db seeds */}
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg">
+                  <span className="text-[9px] text-slate-450 uppercase font-mono font-bold">Simulate As:</span>
+                  <select
+                    value={selectedPersonaId}
+                    onChange={(e) => {
+                      setSelectedPersonaId(e.target.value);
+                      const u = db.users.find(x => x.id === e.target.value);
+                      triggerToast(`Session authenticated to: @${u?.username}`, 'info');
+                    }}
+                    className="bg-transparent font-mono text-xs text-amber-400 font-bold border-none focus:outline-none cursor-pointer outline-none uppercase"
+                  >
+                    {db.users.filter(u => u.role !== 'admin').map(u => {
+                      const s = db.user_subscriptions.find(sub => sub.user_id === u.id && sub.status === 'active');
+                      const tierLabel = u.status === 'suspended' ? 'Suspended' : s ? 'Premium VIP' : 'Free Tier';
+                      return (
+                        <option key={u.id} value={u.id} className="bg-[#0f172a] text-slate-100">
+                          @{u.username} ({tierLabel})
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+
+                <button
+                  onClick={resetDatabaseValues}
+                  className="p-2.5 bg-slate-950 border border-slate-800 rounded-lg hover:border-slate-700 hover:text-rose-455 text-slate-400 transition hover:bg-slate-900 active:scale-95 duration-150 cursor-pointer"
+                  title="Reset Simulated Database Seeds"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </header>
+
+          {/* Main Workspace Frame container */}
+          <main className="flex-1 w-full p-4 md:p-6 flex flex-col gap-6 min-h-0 overflow-hidden">
+            <div className="flex-1 bg-[#0A0F1D]/50 border border-emerald-950 rounded-xl overflow-hidden shadow-2xl relative flex flex-col min-h-0">
+              <CustomerPortal
+                db={db}
+                currentUser={currentUser}
+                activePlan={activePlan}
+                activeSubscription={activeSubscription}
+                buySubscription={buySubscription}
+                handleDownloadCode={handleDownloadCode}
+                triggerToast={triggerToast}
+                markAllNotificationsRead={markAllNotificationsRead}
+              />
+            </div>
+          </main>
+
+          {/* Footer metadata tracker */}
+          <footer className="bg-[#070B14] border-t border-[#1E293B] p-4 text-[10px] text-slate-500 font-mono">
+            <div className="w-full px-4 md:px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="flex gap-2 items-center">
+                <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>Relational Application State Engine Active</span>
+              </div>
+              <span>Active Persona Status: {currentUser.status.toUpperCase()} • Local Time: 2026-06-06 UTC</span>
+            </div>
+          </footer>
         </div>
-      </footer>
+      )}
     </div>
   );
 }

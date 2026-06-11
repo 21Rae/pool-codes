@@ -79,9 +79,9 @@ export const INITIAL_PLANS: SubscriptionPlan[] = [
   },
   {
     id: 'plan-weekly',
-    name: 'Weekly Premium Pro',
-    description: 'Unlock premium secret forecast codes for the current active week.',
-    price: 1500.00,
+    name: 'Weekly Plan',
+    description: '1 Week Only. Ideal for temporary coupon verification.',
+    price: 300.00,
     billing_cycle: 'weekly',
     has_premium_codes: true,
     has_odds_comparison: true,
@@ -92,9 +92,9 @@ export const INITIAL_PLANS: SubscriptionPlan[] = [
   },
   {
     id: 'plan-monthly',
-    name: 'Monthly Premium King',
-    description: 'Get full access of all bookmakers, notifications, and premium odds comparisons.',
-    price: 5000.00,
+    name: 'Monthly Plan',
+    description: '4 Weeks + 1 Week Bonus. Active perming suite access.',
+    price: 1200.00,
     billing_cycle: 'monthly',
     has_premium_codes: true,
     has_odds_comparison: true,
@@ -104,16 +104,42 @@ export const INITIAL_PLANS: SubscriptionPlan[] = [
     created_at: '2026-01-01T00:00:00Z'
   },
   {
-    id: 'plan-yearly',
-    name: 'Yearly VIP Champion',
-    description: 'Full automated elite privileges. Complete notification feeds via SMS and Email.',
-    price: 45000.00,
-    billing_cycle: 'yearly',
+    id: 'plan-quarterly',
+    name: 'Quarterly Plan (New)',
+    description: '12 Weeks + 1 Week Bonus. Standard season length.',
+    price: 3600.00,
+    billing_cycle: 'quarterly',
+    has_premium_codes: true,
+    has_odds_comparison: true,
+    has_results: true,
+    has_notifications: true,
+    max_bookmakers: 8,
+    created_at: '2026-01-01T00:00:00Z'
+  },
+  {
+    id: 'plan-biannual',
+    name: 'BI - Annual Plan (New)',
+    description: '24 Weeks + 2 Weeks Bonus. Half-year coverage of draw sequences.',
+    price: 7800.00,
+    billing_cycle: 'biannual',
     has_premium_codes: true,
     has_odds_comparison: true,
     has_results: true,
     has_notifications: true,
     max_bookmakers: 10,
+    created_at: '2026-01-01T00:00:00Z'
+  },
+  {
+    id: 'plan-yearly',
+    name: 'Yearly Plan (New)',
+    description: '48 Weeks + 4 Weeks Bonus. Elite multi-season VIP privileges.',
+    price: 15600.00,
+    billing_cycle: 'yearly',
+    has_premium_codes: true,
+    has_odds_comparison: true,
+    has_results: true,
+    has_notifications: true,
+    max_bookmakers: 12,
     created_at: '2026-01-01T00:00:00Z'
   }
 ];

@@ -1,6 +1,6 @@
 {
-  "name": "Pool Codes Multi-Portal Suite",
-  "description": "An interactive multi-app simulator representing a standalone Customer Portal and SaaS Admin panel sharing a relational database.",
+  "name": "FastPoolCodes Marketplace",
+  "description": "A high-fidelity premium marketplace platform for Aussie weekly key sheets, UK football pool codes, and bet365 matches decryptor forecasting data.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
