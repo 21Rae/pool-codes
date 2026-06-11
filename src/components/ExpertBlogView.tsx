@@ -17,7 +17,10 @@ import {
   Lock,
   Trophy,
   Activity,
-  Award
+  Award,
+  Volume2,
+  TrendingUp,
+  Check
 } from 'lucide-react';
 
 interface ExpertBlogViewProps {
@@ -122,7 +125,9 @@ export default function ExpertBlogView({
               <span onClick={() => triggerToast('Loading Football Pools Home...', 'info')} className="hover:text-white transition cursor-pointer text-white border-b-2 border-rose-500 pb-4 pt-4 block">Football Pools</span>
               <span onClick={() => { triggerToast('Showing Aussie Keys directory...', 'info'); }} className="hover:text-white transition cursor-pointer pb-4 pt-4 block">Aussie Keys</span>
               <span onClick={() => { triggerToast('Showing UK Draw matrix...', 'info'); }} className="hover:text-white transition cursor-pointer pb-4 pt-4 block">UK Coupon Matrix</span>
-              <span onClick={() => { triggerToast('Opening bet365 matching files...', 'info'); }} className="hover:text-[#fa3e65] transition cursor-pointer pb-4 pt-4 block text-[#fa3e65]/90">★ bet365 Special</span>
+              <span onClick={() => { triggerToast('Opening bet365 matching files...', 'info'); }} className="hover:text-[#fa3e65] transition cursor-pointer pb-4 pt-4 block text-[#fa3e65]/90 flex items-center gap-1">
+                <Sparkles className="w-3 h-3 text-[#fa3e65] animate-pulse" /> bet365 Special
+              </span>
               <span onClick={() => { triggerToast('Showing MSport Indicator streams...', 'info'); }} className="hover:text-white transition cursor-pointer pb-4 pt-4 block">MSport Indicators</span>
               <span onClick={() => { triggerToast('Showing BetKing verified codes...', 'info'); }} className="hover:text-white transition cursor-pointer pb-4 pt-4 block">BetKing Pointers</span>
               <span onClick={() => triggerToast('Opening premium analysis archives...', 'info')} className="hover:text-white transition cursor-pointer flex items-center gap-1 pb-4 pt-4 block">
@@ -133,14 +138,17 @@ export default function ExpertBlogView({
 
           {/* Right side utilities */}
           <div className="flex items-center gap-4 text-xs font-bold text-neutral-300">
-            <span onClick={() => triggerToast('Opening live audio stream...', 'info')} className="hover:text-white cursor-pointer transition flex items-center gap-1">
-              <span>Listen</span> 🎧
+            <span onClick={() => triggerToast('Opening live audio stream...', 'info')} className="hover:text-white cursor-pointer transition flex items-center gap-1.5 bg-zinc-800/50 hover:bg-zinc-800 px-2 py-1 rounded border border-zinc-700/30">
+              <Volume2 className="w-3.5 h-3.5 text-[#fa3e65]" />
+              <span>Listen Live</span>
             </span>
-            <span onClick={() => triggerToast('Loading FastPoolCodes Fantasy coupon contest...', 'success')} className="hover:text-white cursor-pointer transition flex items-center gap-1">
-              <span>Fantasy</span> 🏆
+            <span onClick={() => triggerToast('Loading FastPoolCodes Fantasy coupon contest...', 'success')} className="hover:text-white cursor-pointer transition flex items-center gap-1.5 bg-zinc-800/50 hover:bg-zinc-800 px-2 py-1 rounded border border-zinc-700/30">
+              <Trophy className="w-3.5 h-3.5 text-amber-400" />
+              <span>Fantasy League</span>
             </span>
-            <span onClick={onOpenPaywall} className="hover:text-amber-400 text-amber-300 cursor-pointer transition flex items-center gap-1 bg-amber-500/10 border border-amber-500/35 px-2 py-1 rounded">
-              <span>VIP Pass</span> 💎
+            <span onClick={onOpenPaywall} className="hover:text-amber-400 text-amber-300 cursor-pointer transition flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/35 px-2.5 py-1 rounded-full shadow-sm animate-pulse">
+              <Award className="w-3.5 h-3.5 text-amber-400" />
+              <span>VIP Premium Pass</span>
             </span>
           </div>
 
@@ -151,15 +159,20 @@ export default function ExpertBlogView({
       <div className="bg-white border-b border-zinc-200 shadow-sm text-zinc-900 shrink-0 select-none">
         <div className="max-w-[1360px] mx-auto px-4 flex items-center justify-between h-10 text-xs">
           <div className="flex items-center gap-4 font-bold">
-            <span className="font-extrabold uppercase text-[#1c1c1e] flex items-center gap-1">
-              <span className="text-rose-500 text-base">⚽</span> Football Pools Forecasts
+            <span className="font-extrabold uppercase text-[#1c1c1e] flex items-center gap-2">
+              <span className="bg-rose-500 text-white p-1 rounded-md flex items-center justify-center shadow-sm">
+                <TrendingUp className="w-3.5 h-3.5" />
+              </span>
+              Football Pools Forecasts
             </span>
             <span className="text-zinc-300">|</span>
             <span className="text-rose-600 border-b-2 border-rose-600 font-extrabold h-10 flex items-center px-1">Blog Home</span>
             <span onClick={() => triggerToast('Opening weekly schedule sheet...', 'info')} className="hover:text-[#fa3e65] cursor-pointer transition text-zinc-600 font-medium leading-none">Weekly Sheets</span>
             <span onClick={() => triggerToast('Opening Aussie perming matrices...', 'info')} className="hover:text-[#fa3e65] cursor-pointer transition text-zinc-600 font-medium leading-none">Aussie Decrypters</span>
             <span onClick={() => triggerToast('Opening UK code archives...', 'info')} className="hover:text-[#fa3e65] cursor-pointer transition text-zinc-600 font-medium leading-none">UK Matrices</span>
-            <span onClick={onOpenPaywall} className="hover:text-[#fa3e65] cursor-pointer transition text-[#fa3e65] font-black leading-none">★ Join VIP Pass</span>
+            <span onClick={onOpenPaywall} className="hover:text-[#fa3e65] cursor-pointer transition text-[#fa3e65] font-black leading-none flex items-center gap-1">
+              <Sparkles className="w-3 h-3 text-[#fa3e65] animate-pulse" /> Join VIP Pass
+            </span>
           </div>
 
           <div className="hidden md:flex items-center gap-2">
@@ -199,28 +212,48 @@ export default function ExpertBlogView({
                     onClick={() => triggerToast('Loading Aussie Season Power Rankings...', 'info')}
                     className="p-3 hover:bg-zinc-50 hover:text-rose-600 transition cursor-pointer flex items-center justify-between group"
                   >
-                    <span>🏆 Aussie Power Rankings</span>
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-7 h-7 rounded-md bg-amber-500/10 text-amber-600 flex items-center justify-center border border-amber-500/20 shadow-sm group-hover:bg-amber-500 group-hover:text-white transition duration-200 shrink-0">
+                        <Trophy className="w-3.5 h-3.5" />
+                      </span>
+                      <span>Aussie Power Rankings</span>
+                    </div>
                     <ChevronRight className="w-3.5 h-3.5 text-zinc-400 group-hover:translate-x-0.5 transition" />
                   </div>
                   <div 
                     onClick={() => triggerToast('Loading Chelsea vs Arsenal Weekly final indicators...', 'info')}
                     className="p-3 hover:bg-zinc-50 hover:text-rose-600 transition cursor-pointer flex items-center justify-between group"
                   >
-                    <span>📊 UK Coupon Finals</span>
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-7 h-7 rounded-md bg-blue-500/10 text-blue-600 flex items-center justify-center border border-blue-500/20 shadow-sm group-hover:bg-blue-500 group-hover:text-white transition duration-200 shrink-0">
+                        <Activity className="w-3.5 h-3.5" />
+                      </span>
+                      <span>UK Coupon Finals</span>
+                    </div>
                     <ChevronRight className="w-3.5 h-3.5 text-zinc-400 group-hover:translate-x-0.5 transition" />
                   </div>
                   <div 
                     onClick={() => triggerToast('Loading bet365 Core draft tables...', 'info')}
                     className="p-3 hover:bg-zinc-50 hover:text-rose-600 transition cursor-pointer flex items-center justify-between group"
                   >
-                    <span>📈 bet365 Core Draft</span>
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-7 h-7 rounded-md bg-emerald-500/10 text-emerald-600 flex items-center justify-center border border-emerald-500/20 shadow-sm group-hover:bg-emerald-500 group-hover:text-white transition duration-200 shrink-0">
+                        <TrendingUp className="w-3.5 h-3.5" />
+                      </span>
+                      <span>bet365 Core Draft</span>
+                    </div>
                     <ChevronRight className="w-3.5 h-3.5 text-zinc-400 group-hover:translate-x-0.5 transition" />
                   </div>
                   <div 
                     onClick={() => triggerToast('Opening MSport Forecast matrix wizard...', 'info')}
                     className="p-3 hover:bg-zinc-50 hover:text-rose-600 transition cursor-pointer flex items-center justify-between group"
                   >
-                    <span>🎯 MSport Forecast Matrix</span>
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-7 h-7 rounded-md bg-rose-500/10 text-rose-600 flex items-center justify-center border border-rose-500/20 shadow-sm group-hover:bg-rose-500 group-hover:text-white transition duration-200 shrink-0">
+                        <Award className="w-3.5 h-3.5" />
+                      </span>
+                      <span>MSport Forecast Matrix</span>
+                    </div>
                     <ChevronRight className="w-3.5 h-3.5 text-zinc-400 group-hover:translate-x-0.5 transition" />
                   </div>
                 </div>
@@ -492,16 +525,22 @@ export default function ExpertBlogView({
               <div className="bg-white border border-zinc-200 rounded p-4 text-left shadow-sm">
                 <span className="font-black text-[10px] tracking-widest text-zinc-400 uppercase">VIP PASS BENEFITS</span>
                 <div className="space-y-3 mt-3">
-                  <div className="flex items-start gap-2 select-none text-[11px] font-bold text-zinc-700 leading-normal">
-                    <span className="text-emerald-500 font-black text-xs">✓</span>
+                  <div className="flex items-start gap-2.5 select-none text-[11px] font-bold text-zinc-700 leading-normal">
+                    <span className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 mt-0.5">
+                      <Check className="w-2.5 h-2.5 stroke-[3]" />
+                    </span>
                     <span>1 Week Bonus included in Monthly access (1200 NGN)</span>
                   </div>
-                  <div className="flex items-start gap-2 select-none text-[11px] font-bold text-zinc-700 leading-normal">
-                    <span className="text-emerald-500 font-black text-xs">✓</span>
+                  <div className="flex items-start gap-2.5 select-none text-[11px] font-bold text-zinc-700 leading-normal">
+                    <span className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 mt-0.5">
+                      <Check className="w-2.5 h-2.5 stroke-[3]" />
+                    </span>
                     <span>No weekly limits on Coupon key sheets downloads</span>
                   </div>
-                  <div className="flex items-start gap-2 select-none text-[11px] font-bold text-zinc-700 leading-normal">
-                    <span className="text-emerald-500 font-black text-xs">✓</span>
+                  <div className="flex items-start gap-2.5 select-none text-[11px] font-bold text-zinc-700 leading-normal">
+                    <span className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 mt-0.5">
+                      <Check className="w-2.5 h-2.5 stroke-[3]" />
+                    </span>
                     <span>Automated copy perming codes tool access</span>
                   </div>
                 </div>

@@ -35,7 +35,9 @@ import {
   Check,
   Mail,
   Smartphone,
-  CheckSquare
+  CheckSquare,
+  Compass,
+  Award
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import ExpertBlogView from './ExpertBlogView';
@@ -348,7 +350,7 @@ export default function OfficePoolStopHome({
           {/* Logo FastPoolCodes */}
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => triggerToast('Welcome to FastPoolCodes!', 'info')}>
             <div className="relative flex items-center justify-center font-black text-white text-xl md:text-2xl tracking-tighter bg-gradient-to-r from-emerald-400 to-teal-500 px-3 py-1 rounded-lg shadow-md shadow-emerald-950/40">
-              ⚡ <span className="ml-1 text-slate-950 drop-shadow-sm truncate" style={{ fontFamily: 'sans-serif' }}>FAST</span>
+              <Zap className="w-5 h-5 text-slate-950 fill-current animate-pulse mr-1 inline" /> <span className="text-slate-950 drop-shadow-sm truncate" style={{ fontFamily: 'sans-serif' }}>FAST</span>
             </div>
             <div className="hidden sm:block">
               <span className="font-mono text-[9px] text-emerald-400 leading-none tracking-widest block font-black">SPORTS VERIFIED</span>
@@ -497,9 +499,9 @@ export default function OfficePoolStopHome({
               </span>
             </h1>
 
-            <div className="space-y-1">
-              <p className="text-emerald-400 text-lg font-black tracking-wide uppercase select-none">
-                ⚽ Premium Sports Pool Codes Store
+            <div className="space-y-2 flex flex-col items-center">
+              <p className="text-emerald-400 text-xs font-black tracking-widest uppercase select-none bg-emerald-950/80 border border-emerald-500/35 px-4.5 py-2 rounded-full inline-flex items-center gap-2 shadow-inner">
+                <Trophy className="w-4 h-4 text-emerald-400 animate-pulse" /> PREMIUM SPORTS POOL CODES STORE
               </p>
               <p className="text-slate-300 text-base md:text-lg font-bold select-none leading-relaxed">
                 Instant secure delivery of UK & Aussie football pool codes.
@@ -689,9 +691,9 @@ export default function OfficePoolStopHome({
                 </div>
               </div>
 
-              {/* Floating Ball decoration in center of the circles */}
-              <div className="absolute bg-slate-900/95 w-14 h-14 rounded-full border-2 border-emerald-400 flex items-center justify-center shadow-[0_0_25px_rgba(16,185,129,0.5)] animate-bounce text-xl pointer-events-none select-none z-20">
-                ⚽
+              {/* Floating Ball decoration replaced with premium styled Trophy */}
+              <div className="absolute bg-[#03110d] w-14 h-14 rounded-full border-2 border-emerald-400 flex items-center justify-center shadow-[0_0_25px_rgba(16,185,129,0.5)] animate-bounce pointer-events-none select-none z-20">
+                <Trophy className="w-6 h-6 text-emerald-400 animate-pulse" />
               </div>
 
               {/* Arrow design accents */}
@@ -909,10 +911,10 @@ export default function OfficePoolStopHome({
         <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-12 gap-10 items-start">
           
           {/* Column 1: Brand description & Socials */}
-          <div className="md:col-span-5 flex flex-col items-start gap-5">
+          <div className="md:col-span-12 lg:col-span-5 flex flex-col items-start gap-5">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-400 to-teal-700 text-slate-950 flex items-center justify-center font-bold text-base shadow-lg">
-                ⚽
+              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-400 to-teal-600 text-slate-950 flex items-center justify-center shadow-lg">
+                <Trophy className="w-5 h-5 text-slate-950 stroke-[2.5]" />
               </div>
               <span className="font-sans font-black text-white uppercase text-sm tracking-widest">
                 FASTPOOLCODES
@@ -921,47 +923,89 @@ export default function OfficePoolStopHome({
             <p className="text-xs leading-relaxed text-emerald-300/60 text-left max-w-sm">
               The world's most trusted online pool codes marketplace, providing accurate Aussie weekly football coupon sheets, UK pools codes, and bet365 matching decryption files safely and instantly.
             </p>
-            <div className="flex items-center gap-2.5 pt-2">
-              <span onClick={() => triggerToast('Opening Facebook Page...', 'success')} className="w-8 h-8 rounded bg-emerald-500/10 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/25 flex items-center justify-center font-bold text-xs cursor-pointer hover:scale-105 transition duration-150">f</span>
-              <span onClick={() => triggerToast('Opening Twitter Page...', 'success')} className="w-8 h-8 rounded bg-emerald-500/10 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/25 flex items-center justify-center font-bold text-xs cursor-pointer hover:scale-105 transition duration-150">𝕏</span>
-              <span onClick={() => triggerToast('Opening Instagram feed...', 'success')} className="w-8 h-8 rounded bg-emerald-500/10 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/25 flex items-center justify-center font-bold text-[10px] cursor-pointer hover:scale-105 transition duration-150 font-mono">IG</span>
+            <div className="flex items-center gap-3 pt-2">
+              <span 
+                onClick={() => triggerToast('Opening Facebook Page...', 'success')} 
+                className="w-8 h-8 rounded-full bg-emerald-500/10 hover:bg-emerald-550 text-emerald-400 hover:text-slate-950 border border-emerald-500/20 flex items-center justify-center font-black text-xs cursor-pointer hover:scale-110 hover:shadow-[0_0_15px_rgba(16,185,129,0.4)] transition-all duration-200"
+              >
+                f
+              </span>
+              <span 
+                onClick={() => triggerToast('Opening Twitter Page...', 'success')} 
+                className="w-8 h-8 rounded-full bg-emerald-500/10 hover:bg-emerald-550 text-emerald-400 hover:text-slate-950 border border-emerald-500/20 flex items-center justify-center font-black text-xs cursor-pointer hover:scale-110 hover:shadow-[0_0_15px_rgba(16,185,129,0.4)] transition-all duration-200"
+              >
+                𝕏
+              </span>
+              <span 
+                onClick={() => triggerToast('Opening Instagram feed...', 'success')} 
+                className="w-8 h-8 rounded-full bg-emerald-500/10 hover:bg-emerald-550 text-emerald-400 hover:text-slate-950 border border-emerald-500/20 flex items-center justify-center font-bold text-[10px] cursor-pointer hover:scale-110 hover:shadow-[0_0_15px_rgba(16,185,129,0.4)] transition-all duration-200 font-mono"
+              >
+                IG
+              </span>
             </div>
           </div>
 
           {/* Column 2: Key Action Pages */}
-          <div className="md:col-span-3 text-left">
+          <div className="md:col-span-6 lg:col-span-3 text-left">
             <h4 className="font-bold text-white text-[11px] uppercase tracking-widest mb-4 font-mono text-emerald-400/80">
               COUPONS & DECODERS
             </h4>
-            <ul className="space-y-2.5 text-xs font-medium text-emerald-300/75">
-              <li onClick={() => handleOpenAuth('signup')} className="hover:text-amber-400 transition cursor-pointer flex items-center gap-1.5">
-                <span>✦</span> Generate Code Pack
+            <ul className="space-y-3 text-xs font-medium text-emerald-300/75">
+              <li onClick={() => handleOpenAuth('signup')} className="hover:text-amber-400 transition cursor-pointer flex items-center gap-2 group">
+                <span className="w-5 h-5 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-slate-950 transition-all duration-200 shadow-sm shrink-0">
+                  <Sparkles className="w-3 h-3" />
+                </span>
+                <span>Generate Code Pack</span>
               </li>
-              <li onClick={onNavigateToCodes} className="hover:text-amber-400 transition cursor-pointer flex items-center gap-1.5">
-                <span>✦</span> Browse Coupons
+              <li onClick={onNavigateToCodes} className="hover:text-amber-400 transition cursor-pointer flex items-center gap-2 group">
+                <span className="w-5 h-5 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-slate-950 transition-all duration-200 shadow-sm shrink-0">
+                  <Compass className="w-3 h-3" />
+                </span>
+                <span>Browse Coupons</span>
               </li>
-              <li onClick={() => { document.getElementById('spotlight-arena')?.scrollIntoView({ behavior: 'smooth' }); }} className="hover:text-amber-400 transition cursor-pointer flex items-center gap-1.5">
-                <span>✦</span> Sports Blog
+              <li onClick={() => { document.getElementById('spotlight-arena')?.scrollIntoView({ behavior: 'smooth' }); }} className="hover:text-amber-400 transition cursor-pointer flex items-center gap-2 group">
+                <span className="w-5 h-5 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-slate-950 transition-all duration-200 shadow-sm shrink-0">
+                  <BookOpen className="w-3 h-3" />
+                </span>
+                <span>Sports Blog</span>
               </li>
-              <li onClick={() => { setActiveAccordion('brackets'); }} className="hover:text-amber-400 transition cursor-pointer flex items-center gap-1.5">
-                <span>✦</span> Perming Guides
+              <li onClick={() => { setActiveAccordion('brackets'); }} className="hover:text-amber-400 transition cursor-pointer flex items-center gap-2 group">
+                <span className="w-5 h-5 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-slate-950 transition-all duration-200 shadow-sm shrink-0">
+                  <Wrench className="w-3 h-3" />
+                </span>
+                <span>Perming Guides</span>
               </li>
-              <li onClick={onNavigateToCodes} className="hover:text-amber-400 transition cursor-pointer flex items-center gap-1.5">
-                <span>✦</span> Decoder Keys
+              <li onClick={onNavigateToCodes} className="hover:text-amber-400 transition cursor-pointer flex items-center gap-2 group">
+                <span className="w-5 h-5 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-slate-950 transition-all duration-200 shadow-sm shrink-0">
+                  <Lock className="w-3 h-3" />
+                </span>
+                <span>Decoder Keys</span>
               </li>
             </ul>
           </div>
 
           {/* Column 3: Important Info & Links */}
-          <div className="md:col-span-4 text-left space-y-4">
+          <div className="md:col-span-6 lg:col-span-4 text-left space-y-4">
             <h4 className="font-bold text-white text-[11px] uppercase tracking-widest mb-4 font-mono text-emerald-400/80">
               SUPPORT & CONTACT
             </h4>
-            <ul className="space-y-2.5 text-xs font-medium text-emerald-300/75">
-              <li onClick={() => triggerToast('Loading About Us directory...', 'info')} className="hover:text-amber-400 transition cursor-pointer">About The Marketplace</li>
-              <li onClick={() => triggerToast('Opening online FAQ knowledgebase...', 'info')} className="hover:text-amber-400 transition cursor-pointer">Frequently Asked Questions</li>
-              <li onClick={() => triggerToast('Loading Term of Use contract...', 'info')} className="hover:text-amber-400 transition cursor-pointer">Terms & Agreements</li>
-              <li onClick={() => triggerToast('Loading Privacy Policy guidelines...', 'info')} className="hover:text-amber-400 transition cursor-pointer">Privacy Protection</li>
+            <ul className="space-y-3.5 text-xs font-medium text-emerald-300/75">
+              <li onClick={() => triggerToast('Loading About Us directory...', 'info')} className="hover:text-amber-400 transition cursor-pointer flex items-center gap-2 group">
+                <ChevronRight className="w-3.5 h-3.5 text-emerald-500 group-hover:translate-x-1 transition shrink-0" />
+                <span>About The Marketplace</span>
+              </li>
+              <li onClick={() => triggerToast('Opening online FAQ knowledgebase...', 'info')} className="hover:text-amber-400 transition cursor-pointer flex items-center gap-2 group">
+                <ChevronRight className="w-3.5 h-3.5 text-emerald-500 group-hover:translate-x-1 transition shrink-0" />
+                <span>Frequently Asked Questions</span>
+              </li>
+              <li onClick={() => triggerToast('Loading Term of Use contract...', 'info')} className="hover:text-amber-400 transition cursor-pointer flex items-center gap-2 group">
+                <ChevronRight className="w-3.5 h-3.5 text-emerald-500 group-hover:translate-x-1 transition shrink-0" />
+                <span>Terms & Agreements</span>
+              </li>
+              <li onClick={() => triggerToast('Loading Privacy Policy guidelines...', 'info')} className="hover:text-amber-400 transition cursor-pointer flex items-center gap-2 group">
+                <ChevronRight className="w-3.5 h-3.5 text-emerald-500 group-hover:translate-x-1 transition shrink-0" />
+                <span>Privacy Protection</span>
+              </li>
             </ul>
 
             <div className="pt-4 border-t border-emerald-950/40 space-y-2">
@@ -1071,8 +1115,8 @@ export default function OfficePoolStopHome({
                 </div>
                 
                 <div className="flex items-center gap-2.5">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 text-slate-950 flex items-center justify-center font-bold text-lg shadow">
-                    ⚽
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 text-slate-950 flex items-center justify-center shadow">
+                    <Trophy className="w-5 h-5 text-slate-950 stroke-[2.5]" />
                   </div>
                   <div>
                     <h3 className="font-sans font-black text-white text-base tracking-widest uppercase leading-none">
@@ -1261,140 +1305,188 @@ export default function OfficePoolStopHome({
               {/* Pricing Grid */}
               <div className="p-6 md:p-8 space-y-6">
                 <div>
-                  <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-emerald-400 mb-3 text-left">
+                  <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-emerald-400 mb-4 text-left">
                     Select Access Plan
                   </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+                  <div className="space-y-2.5 max-h-[290px] overflow-y-auto pr-1 select-none scrollbar-thin scrollbar-thumb-emerald-800 scrollbar-track-[#020706]">
                     
                     {/* Weekly Plan */}
                     <div
                       onClick={() => setPaywallPlan('weekly')}
-                      className={`border-2 rounded-2xl p-3.5 cursor-pointer transition-all flex flex-col justify-between ${
+                      className={`border px-4 py-3 cursor-pointer transition-all duration-200 rounded-xl flex items-center justify-between gap-4 relative ${
                         paywallPlan === 'weekly'
-                          ? 'border-emerald-500 bg-emerald-950/25 shadow-[0_0_15px_rgba(16,185,129,0.2)]'
-                          : 'border-emerald-950/50 bg-[#020706] hover:border-emerald-800/40'
+                          ? 'border-emerald-500 bg-emerald-950/20 shadow-[0_0_12px_rgba(16,185,129,0.15)]'
+                          : 'border-emerald-950/30 bg-[#020706] hover:border-emerald-800/40'
                       }`}
                     >
-                      <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-[9px] font-bold text-slate-400 font-mono uppercase tracking-widest">1 WEEK</span>
-                          {paywallPlan === 'weekly' && <div className="w-3.5 h-3.5 rounded-full bg-emerald-500 flex items-center justify-center text-[8px] text-slate-950 font-black">✓</div>}
+                      <div className="flex items-center gap-3 min-w-0">
+                        {/* Custom Styled Radio */}
+                        <div className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
+                          paywallPlan === 'weekly' ? 'border-emerald-500 bg-emerald-950' : 'border-slate-700 bg-slate-900'
+                        }`}>
+                          {paywallPlan === 'weekly' && <div className="w-2.5 h-2.5 rounded-full bg-emerald-400" />}
                         </div>
-                        <div className="text-white font-extrabold text-sm uppercase tracking-wide">Weekly Plan</div>
-                        <p className="text-[10px] text-zinc-400 mt-1 leading-snug">
-                          1 week Only. Full features checklist codes.
-                        </p>
+                        <div className="min-w-0 text-left">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="text-white font-black text-xs md:text-sm uppercase tracking-wide">Weekly Plan</span>
+                            <span className="bg-slate-800 text-slate-300 text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider border border-slate-700">1 WEEK ACCESSIBILITY</span>
+                          </div>
+                          <p className="text-[10px] text-zinc-400 mt-1 truncate max-w-[200px] sm:max-w-[340px] leading-snug">
+                            1 week Only. Full features checklist codes. Ideal for temporary coupon verification.
+                          </p>
+                        </div>
                       </div>
-                      <div className="text-base font-mono text-emerald-400 font-black mt-3">
-                        300 NGN
+                      <div className="text-right shrink-0">
+                        <div className="text-sm md:text-base font-mono text-emerald-400 font-black">
+                          300 NGN
+                        </div>
+                        <div className="text-[8px] text-slate-500 font-mono font-bold uppercase tracking-widest block mt-0.5">
+                          7 DAYS PASS
+                        </div>
                       </div>
                     </div>
 
                     {/* Monthly Plan */}
                     <div
                       onClick={() => setPaywallPlan('monthly')}
-                      className={`border-2 rounded-2xl p-3.5 cursor-pointer transition-all flex flex-col justify-between relative ${
+                      className={`border px-4 py-3 cursor-pointer transition-all duration-200 rounded-xl flex items-center justify-between gap-4 relative ${
                         paywallPlan === 'monthly'
-                          ? 'border-emerald-500 bg-emerald-950/25 shadow-[0_0_15px_rgba(16,185,129,0.2)]'
-                          : 'border-emerald-950/50 bg-[#020706] hover:border-emerald-800/40'
+                          ? 'border-emerald-500 bg-emerald-950/20 shadow-[0_0_12px_rgba(16,185,129,0.15)]'
+                          : 'border-emerald-950/30 bg-[#020706] hover:border-emerald-800/40'
                       }`}
                     >
-                      <div className="absolute -top-2.5 right-2 bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider shadow">
-                        POPULAR
-                      </div>
-                      <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-[9px] font-bold text-slate-400 font-mono uppercase tracking-widest">4 WEEKS</span>
-                          {paywallPlan === 'monthly' && <div className="w-3.5 h-3.5 rounded-full bg-emerald-500 flex items-center justify-center text-[8px] text-slate-950 font-black">✓</div>}
+                      <div className="flex items-center gap-3 min-w-0">
+                        {/* Custom Styled Radio */}
+                        <div className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
+                          paywallPlan === 'monthly' ? 'border-emerald-500 bg-emerald-950' : 'border-slate-700 bg-slate-900'
+                        }`}>
+                          {paywallPlan === 'monthly' && <div className="w-2.5 h-2.5 rounded-full bg-emerald-400" />}
                         </div>
-                        <div className="text-white font-extrabold text-sm uppercase tracking-wide">Monthly Plan</div>
-                        <p className="text-[10px] text-zinc-400 mt-1 leading-snug">
-                          4 weeks + 1 week bonus key sheets.
-                        </p>
+                        <div className="min-w-0 text-left">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="text-white font-black text-xs md:text-sm uppercase tracking-wide">Monthly Plan</span>
+                            <span className="bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider shadow">POPULAR VALUE</span>
+                          </div>
+                          <p className="text-[10px] text-zinc-400 mt-1 truncate max-w-[200px] sm:max-w-[340px] leading-snug">
+                            4 weeks + 1 week bonus key sheets. Active perming suite access.
+                          </p>
+                        </div>
                       </div>
-                      <div className="text-base font-mono text-emerald-400 font-black mt-3">
-                        1,200 NGN
+                      <div className="text-right shrink-0">
+                        <div className="text-sm md:text-base font-mono text-emerald-400 font-black">
+                          1,200 NGN
+                        </div>
+                        <div className="text-[8px] text-slate-500 font-mono font-bold uppercase tracking-widest block mt-0.5">
+                          35 DAYS PASS
+                        </div>
                       </div>
                     </div>
 
                     {/* Quarterly Plan */}
                     <div
                       onClick={() => setPaywallPlan('quarterly')}
-                      className={`border-2 rounded-2xl p-3.5 cursor-pointer transition-all flex flex-col justify-between relative ${
+                      className={`border px-4 py-3 cursor-pointer transition-all duration-200 rounded-xl flex items-center justify-between gap-4 relative ${
                         paywallPlan === 'quarterly'
-                          ? 'border-emerald-500 bg-emerald-950/25 shadow-[0_0_15px_rgba(16,185,129,0.2)]'
-                          : 'border-emerald-950/50 bg-[#020706] hover:border-emerald-800/40'
+                          ? 'border-emerald-500 bg-emerald-950/20 shadow-[0_0_12px_rgba(16,185,129,0.15)]'
+                          : 'border-emerald-950/30 bg-[#020706] hover:border-emerald-800/40'
                       }`}
                     >
-                      <div className="absolute -top-2.5 right-2 bg-gradient-to-r from-rose-500 to-red-600 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider shadow">
-                        NEW
-                      </div>
-                      <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-[9px] font-bold text-slate-400 font-mono uppercase tracking-widest">12 WEEKS</span>
-                          {paywallPlan === 'quarterly' && <div className="w-3.5 h-3.5 rounded-full bg-emerald-500 flex items-center justify-center text-[8px] text-slate-950 font-black">✓</div>}
+                      <div className="flex items-center gap-3 min-w-0">
+                        {/* Custom Styled Radio */}
+                        <div className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
+                          paywallPlan === 'quarterly' ? 'border-emerald-500 bg-emerald-950' : 'border-slate-700 bg-slate-900'
+                        }`}>
+                          {paywallPlan === 'quarterly' && <div className="w-2.5 h-2.5 rounded-full bg-emerald-400" />}
                         </div>
-                        <div className="text-white font-extrabold text-sm uppercase tracking-wide">Quarterly Plan</div>
-                        <p className="text-[10px] text-zinc-400 mt-1 leading-snug">
-                          12 weeks + 1 week bonus indicators.
-                        </p>
+                        <div className="min-w-0 text-left">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="text-white font-black text-xs md:text-sm uppercase tracking-wide">Quarterly Plan</span>
+                            <span className="bg-gradient-to-r from-rose-500 to-red-600 text-white text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider shadow">NEW SEASON</span>
+                          </div>
+                          <p className="text-[10px] text-zinc-400 mt-1 truncate max-w-[200px] sm:max-w-[340px] leading-snug">
+                            12 weeks + 1 week bonus indicators. Standard seasonal length.
+                          </p>
+                        </div>
                       </div>
-                      <div className="text-base font-mono text-emerald-400 font-black mt-3">
-                        3,600 NGN
+                      <div className="text-right shrink-0">
+                        <div className="text-sm md:text-base font-mono text-emerald-400 font-black">
+                          3,600 NGN
+                        </div>
+                        <div className="text-[8px] text-slate-500 font-mono font-bold uppercase tracking-widest block mt-0.5">
+                          91 DAYS PASS
+                        </div>
                       </div>
                     </div>
 
                     {/* BI - Annual Plan */}
                     <div
                       onClick={() => setPaywallPlan('biannual')}
-                      className={`border-2 rounded-2xl p-3.5 cursor-pointer transition-all flex flex-col justify-between relative ${
+                      className={`border px-4 py-3 cursor-pointer transition-all duration-200 rounded-xl flex items-center justify-between gap-4 relative ${
                         paywallPlan === 'biannual'
-                          ? 'border-emerald-500 bg-emerald-950/25 shadow-[0_0_15px_rgba(16,185,129,0.2)]'
-                          : 'border-emerald-950/50 bg-[#020706] hover:border-emerald-800/40'
+                          ? 'border-emerald-500 bg-emerald-950/20 shadow-[0_0_12px_rgba(16,185,129,0.15)]'
+                          : 'border-emerald-950/30 bg-[#020706] hover:border-emerald-800/40'
                       }`}
                     >
-                      <div className="absolute -top-2.5 right-2 bg-gradient-to-r from-emerald-400 to-teal-500 text-slate-950 text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider shadow">
-                        NEW
-                      </div>
-                      <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-[9px] font-bold text-slate-400 font-mono uppercase tracking-widest">24 WEEKS</span>
-                          {paywallPlan === 'biannual' && <div className="w-3.5 h-3.5 rounded-full bg-emerald-500 flex items-center justify-center text-[8px] text-slate-950 font-black">✓</div>}
+                      <div className="flex items-center gap-3 min-w-0">
+                        {/* Custom Styled Radio */}
+                        <div className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
+                          paywallPlan === 'biannual' ? 'border-emerald-500 bg-emerald-950' : 'border-slate-700 bg-slate-900'
+                        }`}>
+                          {paywallPlan === 'biannual' && <div className="w-2.5 h-2.5 rounded-full bg-emerald-400" />}
                         </div>
-                        <div className="text-white font-extrabold text-sm uppercase tracking-wide">Bi-Annual Plan</div>
-                        <p className="text-[10px] text-zinc-400 mt-1 leading-snug">
-                          24 weeks + 2 weeks free bonus.
-                        </p>
+                        <div className="min-w-0 text-left">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="text-white font-black text-xs md:text-sm uppercase tracking-wide">Bi-Annual Plan</span>
+                            <span className="bg-gradient-to-r from-emerald-400 to-teal-500 text-slate-950 text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider shadow">HIGH SAVINGS</span>
+                          </div>
+                          <p className="text-[10px] text-zinc-400 mt-1 truncate max-w-[200px] sm:max-w-[340px] leading-snug">
+                            24 weeks + 2 weeks free bonus. Half-year coverage of draw sequences.
+                          </p>
+                        </div>
                       </div>
-                      <div className="text-base font-mono text-emerald-400 font-black mt-3">
-                        7,800 NGN
+                      <div className="text-right shrink-0">
+                        <div className="text-sm md:text-base font-mono text-emerald-400 font-black">
+                          7,800 NGN
+                        </div>
+                        <div className="text-[8px] text-slate-500 font-mono font-bold uppercase tracking-widest block mt-0.5">
+                          182 DAYS PASS
+                        </div>
                       </div>
                     </div>
 
                     {/* Yearly Plan */}
                     <div
                       onClick={() => setPaywallPlan('yearly')}
-                      className={`border-2 rounded-2xl p-3.5 cursor-pointer transition-all flex flex-col justify-between relative ${
+                      className={`border px-4 py-3 cursor-pointer transition-all duration-200 rounded-xl flex items-center justify-between gap-4 relative ${
                         paywallPlan === 'yearly'
-                          ? 'border-emerald-500 bg-emerald-950/25 shadow-[0_0_15px_rgba(16,185,129,0.2)]'
-                          : 'border-emerald-950/50 bg-[#020706] hover:border-emerald-800/40'
+                          ? 'border-emerald-500 bg-emerald-950/20 shadow-[0_0_12px_rgba(16,185,129,0.15)]'
+                          : 'border-emerald-950/30 bg-[#020706] hover:border-emerald-800/40'
                       }`}
                     >
-                      <div className="absolute -top-2.5 right-2 bg-gradient-to-r from-[#fa3e65] to-rose-600 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider shadow">
-                        NEW
-                      </div>
-                      <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-[9px] font-bold text-slate-400 font-mono uppercase tracking-widest">48 WEEKS</span>
-                          {paywallPlan === 'yearly' && <div className="w-3.5 h-3.5 rounded-full bg-emerald-500 flex items-center justify-center text-[8px] text-slate-950 font-black">✓</div>}
+                      <div className="flex items-center gap-3 min-w-0">
+                        {/* Custom Styled Radio */}
+                        <div className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
+                          paywallPlan === 'yearly' ? 'border-emerald-500 bg-emerald-950' : 'border-slate-700 bg-slate-900'
+                        }`}>
+                          {paywallPlan === 'yearly' && <div className="w-2.5 h-2.5 rounded-full bg-emerald-400" />}
                         </div>
-                        <div className="text-white font-extrabold text-sm uppercase tracking-wide">Yearly Plan</div>
-                        <p className="text-[10px] text-zinc-400 mt-1 leading-snug">
-                          48 weeks + 4 weeks free bonus.
-                        </p>
+                        <div className="min-w-0 text-left">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="text-white font-black text-xs md:text-sm uppercase tracking-wide">Yearly Plan</span>
+                            <span className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider shadow">ELITE UNLIMITED</span>
+                          </div>
+                          <p className="text-[10px] text-zinc-400 mt-1 truncate max-w-[200px] sm:max-w-[340px] leading-snug">
+                            48 weeks + 4 weeks free bonus. Elite multi-season VIP privileges.
+                          </p>
+                        </div>
                       </div>
-                      <div className="text-base font-mono text-emerald-400 font-black mt-3">
-                        15,600 NGN
+                      <div className="text-right shrink-0">
+                        <div className="text-sm md:text-base font-mono text-emerald-400 font-black">
+                          15,600 NGN
+                        </div>
+                        <div className="text-[8px] text-slate-500 font-mono font-bold uppercase tracking-widest block mt-0.5">
+                          364 DAYS PASS
+                        </div>
                       </div>
                     </div>
 

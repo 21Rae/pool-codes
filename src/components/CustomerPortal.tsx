@@ -205,7 +205,7 @@ export default function CustomerPortal({
           {/* Sports branding design */}
           <div className="flex items-center gap-3 pb-5 border-b border-emerald-950/40">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center font-bold text-lg shadow-lg shadow-emerald-500/20">
-              ⚽
+              <Trophy className="w-5 h-5 text-white stroke-[2.5]" />
             </div>
             <div>
               <span className="font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-300 tracking-tight block text-sm">
@@ -406,7 +406,7 @@ export default function CustomerPortal({
                     <div className="relative z-10 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-955 text-[9.5px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md font-mono">
-                          {activePlan?.id !== 'plan-free' ? '🏆 ARENA VIP STADIUM MASTER' : '⚽ STANDARD PITCH SEAT'}
+                          {activePlan?.id !== 'plan-free' ? 'ARENA VIP STADIUM MASTER' : 'STANDARD PITCH SEAT'}
                         </span>
                         <span className="text-xs text-emerald-350 font-mono font-bold select-none">[Verified Draw Forecaster]</span>
                       </div>
