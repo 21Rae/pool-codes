@@ -30,7 +30,13 @@ import {
   Eye,
   Copy,
   Search,
-  Globe
+  Globe,
+  ChevronDown,
+  ChevronUp,
+  Star,
+  X,
+  Info,
+  Play
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DatabaseState, User, SubscriptionPlan, UserSubscription, PoolCode } from '../types';
@@ -62,6 +68,321 @@ export default function CustomerPortal({
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'portal' | 'decryptor'>('portal');
   const [selectedResultId, setSelectedResultId] = useState<string>('pr-w43');
+
+  // Dynamic posted games coupon states
+  const [postedGames, setPostedGames] = useState([
+    {
+      id: 'g-1',
+      poolNo: 1,
+      betCode: '2531',
+      home: 'Marconi S.',
+      away: 'Sydney FC',
+      homeWin: '1.40',
+      draw: '4.35',
+      awayWin: '6.40',
+      betTips: 'Ov 2.5',
+      status: 'Friday',
+      kickOff: '11:00 AM',
+      bookmaker: 'Bet9ja',
+      week: 'Week 49 Aussie'
+    },
+    {
+      id: 'g-2',
+      poolNo: 2,
+      betCode: '4922',
+      home: 'Apia L. Tigers',
+      away: 'Rockdale City',
+      homeWin: '2.10',
+      draw: '3.85',
+      awayWin: '3.10',
+      betTips: 'Draw (X)',
+      status: 'Saturday',
+      kickOff: '03:15 PM',
+      bookmaker: 'Bet9ja',
+      week: 'Week 49 Aussie'
+    },
+    {
+      id: 'g-3',
+      poolNo: 3,
+      betCode: '1853',
+      home: 'Wollongong Wolves',
+      away: 'Manly United',
+      homeWin: '1.85',
+      draw: '4.00',
+      awayWin: '4.50',
+      betTips: 'Un 2.5',
+      status: 'Saturday',
+      kickOff: '04:30 PM',
+      bookmaker: 'Bet9ja',
+      week: 'Week 49 Aussie'
+    },
+    {
+      id: 'g-4',
+      poolNo: 4,
+      betCode: '7721',
+      home: 'Melbourne Knights',
+      away: 'Oakleigh Cannons',
+      homeWin: '2.45',
+      draw: '3.60',
+      awayWin: '2.20',
+      betTips: 'Home Draw',
+      status: 'Sunday',
+      kickOff: '05:00 PM',
+      bookmaker: 'BetKing',
+      week: 'Week 49 Aussie'
+    },
+    {
+      id: 'g-5',
+      poolNo: 5,
+      betCode: '8824',
+      home: 'Hume City',
+      away: 'South Melbourne',
+      homeWin: '3.10',
+      draw: '3.40',
+      awayWin: '1.95',
+      betTips: 'Away Win',
+      status: 'Sunday',
+      kickOff: '07:30 PM',
+      bookmaker: 'SportyBet',
+      week: 'Week 49 Aussie'
+    },
+    {
+      id: 'g-6',
+      poolNo: 6,
+      betCode: '9012',
+      home: 'St George FC',
+      away: 'Sutherland Sharks',
+      homeWin: '1.70',
+      draw: '4.20',
+      awayWin: '5.10',
+      betTips: 'Ov 1.5',
+      status: 'Friday',
+      kickOff: '12:45 PM',
+      bookmaker: 'MSport',
+      week: 'Week 49 Aussie'
+    },
+    {
+      id: 'g-7',
+      poolNo: 7,
+      betCode: '3104',
+      home: 'Sydney Olympic',
+      away: 'Western Sydney',
+      homeWin: '2.05',
+      draw: '3.70',
+      awayWin: '2.85',
+      betTips: 'Home To Win',
+      status: 'Saturday',
+      kickOff: '06:00 PM',
+      bookmaker: 'Bet9ja',
+      week: 'Week 49 Aussie'
+    },
+    {
+      id: 'g-8',
+      poolNo: 8,
+      betCode: '1540',
+      home: 'St George City',
+      away: 'NWS Spirit',
+      homeWin: '1.90',
+      draw: '3.90',
+      awayWin: '3.40',
+      betTips: 'Draw (X)',
+      status: 'Saturday',
+      kickOff: '04:15 PM',
+      bookmaker: 'BetKing',
+      week: 'Week 49 Aussie'
+    }
+  ]);
+  const [dashboardGameSearch, setDashboardGameSearch] = useState('');
+  const [dashboardBookmakerFilter, setDashboardBookmakerFilter] = useState('All');
+  const [dashboardTheme, setDashboardTheme] = useState<'paper' | 'dark'>('dark');
+
+  // Admin form state for posting games
+  const [adminPoolNo, setAdminPoolNo] = useState<string>('9');
+  const [adminBetCode, setAdminBetCode] = useState('');
+  const [adminHome, setAdminHome] = useState('');
+  const [adminAway, setAdminAway] = useState('');
+  const [adminHomeWin, setAdminHomeWin] = useState('1.50');
+  const [adminDraw, setAdminDraw] = useState('4.00');
+  const [adminAwayWin, setAdminAwayWin] = useState('5.50');
+  const [adminBetTips, setAdminBetTips] = useState('Ov 2.5');
+  const [adminStatus, setAdminStatus] = useState('Friday');
+  const [adminKickOff, setAdminKickOff] = useState('04:00 PM');
+  const [adminBookmakerCode, setAdminBookmakerCode] = useState('Bet9ja');
+  const [showAdminForm, setShowAdminForm] = useState(false);
+
+  // Event handlers for dashboard posted games board
+  const handleAddGame = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminBetCode || !adminHome || !adminAway) {
+      triggerToast('Please fill in Bet Code, Home, and Away team fields.', 'error');
+      return;
+    }
+    const newGame = {
+      id: `g-${Date.now()}`,
+      poolNo: Number(adminPoolNo) || (postedGames.length + 1),
+      betCode: adminBetCode,
+      home: adminHome,
+      away: adminAway,
+      homeWin: adminHomeWin || '1.00',
+      draw: adminDraw || '1.00',
+      awayWin: adminAwayWin || '1.05',
+      betTips: adminBetTips || 'X',
+      status: adminStatus,
+      kickOff: adminKickOff,
+      bookmaker: adminBookmakerCode,
+      week: 'Week 49 Aussie'
+    };
+    setPostedGames(prev => [...prev, newGame]);
+    triggerToast(`Game #${newGame.poolNo} [${newGame.home} vs ${newGame.away}] posted live!`, 'success');
+    
+    // Auto increment default pool No for ease-of-use
+    setAdminPoolNo(String(newGame.poolNo + 1));
+    setAdminBetCode('');
+    setAdminHome('');
+    setAdminAway('');
+  };
+
+  const handleDeleteGame = (id: string, matchName: string) => {
+    setPostedGames(prev => prev.filter(g => g.id !== id));
+    triggerToast(`Removed game: ${matchName}`, 'info');
+  };
+
+  const handleResetGames = () => {
+    setPostedGames([
+      {
+        id: 'g-1',
+        poolNo: 1,
+        betCode: '2531',
+        home: 'Marconi S.',
+        away: 'Sydney FC',
+        homeWin: '1.40',
+        draw: '4.35',
+        awayWin: '6.40',
+        betTips: 'Ov 2.5',
+        status: 'Friday',
+        kickOff: '11:00 AM',
+        bookmaker: 'Bet9ja',
+        week: 'Week 49 Aussie'
+      },
+      {
+        id: 'g-2',
+        poolNo: 2,
+        betCode: '4922',
+        home: 'Apia L. Tigers',
+        away: 'Rockdale City',
+        homeWin: '2.10',
+        draw: '3.85',
+        awayWin: '3.10',
+        betTips: 'Draw (X)',
+        status: 'Saturday',
+        kickOff: '03:15 PM',
+        bookmaker: 'Bet9ja',
+        week: 'Week 49 Aussie'
+      },
+      {
+        id: 'g-3',
+        poolNo: 3,
+        betCode: '1853',
+        home: 'Wollongong Wolves',
+        away: 'Manly United',
+        homeWin: '1.85',
+        draw: '4.00',
+        awayWin: '4.50',
+        betTips: 'Un 2.5',
+        status: 'Saturday',
+        kickOff: '04:30 PM',
+        bookmaker: 'Bet9ja',
+        week: 'Week 49 Aussie'
+      },
+      {
+        id: 'g-4',
+        poolNo: 4,
+        betCode: '7721',
+        home: 'Melbourne Knights',
+        away: 'Oakleigh Cannons',
+        homeWin: '2.45',
+        draw: '3.60',
+        awayWin: '2.20',
+        betTips: 'Home Draw',
+        status: 'Sunday',
+        kickOff: '05:00 PM',
+        bookmaker: 'BetKing',
+        week: 'Week 49 Aussie'
+      },
+      {
+        id: 'g-5',
+        poolNo: 5,
+        betCode: '8824',
+        home: 'Hume City',
+        away: 'South Melbourne',
+        homeWin: '3.10',
+        draw: '3.40',
+        awayWin: '1.95',
+        betTips: 'Away Win',
+        status: 'Sunday',
+        kickOff: '07:30 PM',
+        bookmaker: 'SportyBet',
+        week: 'Week 49 Aussie'
+      },
+      {
+        id: 'g-6',
+        poolNo: 6,
+        betCode: '9012',
+        home: 'St George FC',
+        away: 'Sutherland Sharks',
+        homeWin: '1.70',
+        draw: '4.20',
+        awayWin: '5.10',
+        betTips: 'Ov 1.5',
+        status: 'Friday',
+        kickOff: '12:45 PM',
+        bookmaker: 'MSport',
+        week: 'Week 49 Aussie'
+      },
+      {
+        id: 'g-7',
+        poolNo: 7,
+        betCode: '3104',
+        home: 'Sydney Olympic',
+        away: 'Western Sydney',
+        homeWin: '2.05',
+        draw: '3.70',
+        awayWin: '2.85',
+        betTips: 'Home To Win',
+        status: 'Saturday',
+        kickOff: '06:00 PM',
+        bookmaker: 'Bet9ja',
+        week: 'Week 49 Aussie'
+      },
+      {
+        id: 'g-8',
+        poolNo: 8,
+        betCode: '1540',
+        home: 'St George City',
+        away: 'NWS Spirit',
+        homeWin: '1.90',
+        draw: '3.90',
+        awayWin: '3.40',
+        betTips: 'Draw (X)',
+        status: 'Saturday',
+        kickOff: '04:15 PM',
+        bookmaker: 'BetKing',
+        week: 'Week 49 Aussie'
+      }
+    ]);
+    setAdminPoolNo('9');
+    triggerToast('Games list reset to high-fidelity default coupon!', 'info');
+  };
+
+  // Interactive Live Scoreboard States
+  const [selectedSport, setSelectedSport] = useState<string>('Football');
+  const [selectedTeamFilter, setSelectedTeamFilter] = useState<string>('all');
+  const [selectedCompFilter, setSelectedCompFilter] = useState<string>('all');
+  const [selectedRegionFilter, setSelectedRegionFilter] = useState<string>('all');
+  const [selectedMatchFixtureId, setSelectedMatchFixtureId] = useState<string>('f-1');
+  const [matchActiveTab, setMatchActiveTab] = useState<'info' | 'lineups' | 'table' | 'h2h'>('info');
+  const [isBannerDismissed, setIsBannerDismissed] = useState<boolean>(false);
+  const [favoritesList, setFavoritesList] = useState<string[]>(['f-1']);
 
   const [intlCodes, setIntlCodes] = useState([
     {
@@ -258,7 +579,7 @@ export default function CustomerPortal({
             >
               <span className="flex items-center gap-3">
                 <Target className="w-4 h-4" />
-                <span>POOL CODES</span>
+                <span>EUROPE CODES</span>
               </span>
               <span className="bg-emerald-950/80 text-[10px] text-emerald-400 font-mono px-2 py-0.5 rounded-full border border-emerald-900/40">
                 {db.pool_codes.length}
@@ -275,7 +596,7 @@ export default function CustomerPortal({
             >
               <span className="flex items-center gap-3">
                 <Globe className="w-4 h-4" />
-                <span>INTERNATIONAL CODES</span>
+                <span>AUSSIE CODES</span>
               </span>
               <span className="bg-emerald-950/80 text-[10px] text-emerald-400 font-mono px-2 py-0.5 rounded-full border border-emerald-900/40">
                 {intlCodes.length}
@@ -436,11 +757,532 @@ export default function CustomerPortal({
 
 
 
-                  {/* Hot fixtures download dashboard section */}
+                  {/* WEEKLY POSTED COUPONS SECTION (SCREENSHOT ALIGNED LAYOUT) */}
+                  <div className="bg-[#111827] rounded-2xl border border-slate-800 p-6 shadow-xl flex flex-col gap-6" id="posted-games-bulletin">
+                    
+                    {/* Header Controls Block */}
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-5">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                          <h3 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+                            WEEKLY POSTED GAMES BULLETIN
+                          </h3>
+                        </div>
+                        <p className="text-xs text-slate-400 mt-1">
+                          Verified coupon odds and bet slip system formats parsed directly from raw feed.
+                        </p>
+                      </div>
+
+                      {/* Theme Toggle & Admin Quick Trigger */}
+                      <div className="flex flex-wrap items-center gap-2.5">
+                        <span className="text-xs font-mono text-slate-400">THEME ENGINE:</span>
+                        <div className="bg-slate-950 p-1 rounded-xl border border-slate-800 flex items-center gap-1">
+                          <button
+                            onClick={() => {
+                              setDashboardTheme('dark');
+                              triggerToast('Switched to Stadium Neon Grid', 'info');
+                            }}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                              dashboardTheme === 'dark' 
+                                ? 'bg-emerald-600 text-white shadow-md' 
+                                : 'text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            Stadium Dark
+                          </button>
+                          <button
+                            onClick={() => {
+                              setDashboardTheme('paper');
+                              triggerToast('Switched to Authentic newsprint coupon format', 'success');
+                            }}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                              dashboardTheme === 'paper' 
+                                ? 'bg-white text-slate-900 shadow-md border-b-2 border-slate-300' 
+                                : 'text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            📰 Authentic Coupon
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Verified Site Contact Banner (Explicitly Matching Photo Header Style) */}
+                    <div className="bg-[#05080E] rounded-xl border border-emerald-900/30 p-3 text-center transition-all duration-300">
+                      <p className="text-xs md:text-sm font-bold tracking-wide text-amber-300 font-mono">
+                        (For Enquiries Visit : <a href="https://www.fastpoolcodes.com" target="_blank" rel="noreferrer" className="underline hover:text-amber-200">www.fastpoolcodes.com</a> Call or WhatsApp: <span className="text-white">+234 8030587933</span>, <span className="text-white">+234 9037595705</span>)
+                      </p>
+                    </div>
+
+                    {/* Interactive Filter Strip */}
+                    <div className="flex flex-col lg:flex-row gap-4 justify-between items-start lg:items-center">
+                      
+                      {/* Bookmaker Selector Tabs */}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs font-mono text-slate-400 mr-1 hidden sm:inline">BOOKMAKER:</span>
+                        {['All', 'Bet9ja', 'BetKing', 'SportyBet', 'MSport'].map((bookie) => (
+                          <button
+                            key={bookie}
+                            onClick={() => setDashboardBookmakerFilter(bookie)}
+                            className={`px-3.5 py-1.5 text-xs font-bold font-mono uppercase tracking-wide rounded-lg transition duration-150 ${
+                              dashboardBookmakerFilter === bookie
+                                ? 'bg-amber-500 text-slate-950 font-black'
+                                : 'bg-slate-900 text-slate-350 hover:bg-slate-800 border border-slate-800'
+                            }`}
+                          >
+                            {bookie}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Real-time search */}
+                      <div className="relative w-full lg:w-72">
+                        <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
+                        <input
+                          type="text"
+                          value={dashboardGameSearch}
+                          onChange={(e) => setDashboardGameSearch(e.target.value)}
+                          placeholder="Search Team, Bet tip, Bet code..."
+                          className="w-full bg-slate-950/95 text-slate-200 text-xs pl-9 pr-4 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition font-mono placeholder:text-slate-600"
+                        />
+                        {dashboardGameSearch && (
+                          <button 
+                            onClick={() => setDashboardGameSearch('')}
+                            className="absolute right-3 top-2.5 text-xs text-slate-500 hover:text-slate-300 uppercase font-mono"
+                          >
+                            clear
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* THE TABLE CANVAS CONTAINER (COUPON RENDERER) */}
+                    <div>
+                      {(() => {
+                        const filteredList = postedGames.filter(game => {
+                          const matchesBookmaker = dashboardBookmakerFilter === 'All' || game.bookmaker === dashboardBookmakerFilter;
+                          const matchesSearch = dashboardGameSearch === '' ||
+                            game.home.toLowerCase().includes(dashboardGameSearch.toLowerCase()) ||
+                            game.away.toLowerCase().includes(dashboardGameSearch.toLowerCase()) ||
+                            game.betCode.includes(dashboardGameSearch) ||
+                            game.betTips.toLowerCase().includes(dashboardGameSearch.toLowerCase()) ||
+                            game.status.toLowerCase().includes(dashboardGameSearch.toLowerCase());
+                          return matchesBookmaker && matchesSearch;
+                        });
+
+                        const isPaperMode = dashboardTheme === 'paper';
+
+                        return (
+                          <div className="overflow-x-auto rounded-xl">
+                            {/* Visual Coupon Frame Wrapper */}
+                            <div className={`p-1 pt-1.5 rounded-xl transition-all duration-300 ${
+                              isPaperMode 
+                                ? 'bg-[#FFFFFA] text-[#0A0D14] border-4 border-[#161D2E] p-4 font-sans select-text shadow-2xl' 
+                                : 'bg-slate-950/40 text-slate-100 border border-slate-800 shadow-inner'
+                            }`}>
+                              
+                              {/* Small Paper Header Indicator */}
+                              {isPaperMode && (
+                                <div className="border-b-4 border-[#161D2E] pb-3 mb-4 text-center">
+                                  <div className="text-xl font-extrabold tracking-widest font-serif text-slate-950 uppercase italic">
+                                    ★★★ WEEK 49 AUTHENTIC DRAW CLASSIFICATION SHEET ★★★
+                                  </div>
+                                  <div className="text-[11px] font-mono font-bold text-gray-700 tracking-wider mt-1">
+                                    FAST POOL OFFICIAL FIXTURE RELEASE — AUSSIE FOOTBALL POOLS
+                                  </div>
+                                </div>
+                              )}
+
+                              {filteredList.length === 0 ? (
+                                <div className="p-12 text-center flex flex-col items-center justify-center">
+                                  <div className="text-3xl">📭</div>
+                                  <p className={`text-sm mt-2 font-mono ${isPaperMode ? 'text-gray-600' : 'text-slate-400'}`}>
+                                    No posted fixtures match your filter or search query.
+                                  </p>
+                                  {(dashboardBookmakerFilter !== 'All' || dashboardGameSearch !== '') && (
+                                    <button
+                                      onClick={() => {
+                                        setDashboardBookmakerFilter('All');
+                                        setDashboardGameSearch('');
+                                      }}
+                                      className="mt-3 text-xs text-emerald-400 hover:underline font-mono"
+                                    >
+                                      Reset filters
+                                    </button>
+                                  )}
+                                </div>
+                              ) : (
+                                <table className={`w-full min-w-[850px] border-collapse transition-all duration-300 ${
+                                  isPaperMode 
+                                    ? 'border-4 border-slate-950 text-slate-950 font-sans' 
+                                    : 'border border-slate-800 text-slate-250 font-mono text-xs'
+                                }`}>
+                                  
+                                  {/* Table Header exactly matching the layout columns: */}
+                                  {/* POOL No. / BET CODE / HOME / AWAY / HOME WIN / DRAW (X) / AWAY WIN / BET Tips / STATUS / KICK OFF (W.A.T) */}
+                                  <thead>
+                                    <tr className={`transition-all duration-300 ${
+                                      isPaperMode 
+                                        ? 'bg-[#EFECE3] border-b-4 border-slate-950 text-slate-950 text-sm font-extrabold uppercase' 
+                                        : 'bg-slate-900/80 border-b border-slate-800 text-emerald-400 uppercase text-[10.5px] tracking-wider'
+                                    }`}>
+                                      <th className={`px-2 py-3 text-center border-r font-bold transition-all duration-300 ${isPaperMode ? 'border-slate-950 font-black' : 'border-slate-800'}`}>POOL No.</th>
+                                      <th className={`px-2 py-3 text-center border-r font-bold transition-all duration-300 ${isPaperMode ? 'border-slate-950 font-black text-rose-700' : 'border-slate-800'}`}>BET CODE</th>
+                                      <th className={`px-4 py-3 text-left border-r font-bold transition-all duration-300 ${isPaperMode ? 'border-slate-950 font-black' : 'border-slate-800'}`}>HOME</th>
+                                      <th className={`px-4 py-3 text-left border-r font-bold transition-all duration-300 ${isPaperMode ? 'border-slate-950 font-black' : 'border-slate-800'}`}>AWAY</th>
+                                      <th className={`px-2 py-3 text-center border-r font-bold transition-all duration-300 ${isPaperMode ? 'border-slate-950' : 'border-slate-800'}`}>HOME WIN</th>
+                                      <th className={`px-2 py-3 text-center border-r font-bold transition-all duration-300 ${isPaperMode ? 'border-slate-950 bg-amber-100 text-amber-950' : 'border-slate-800'}`}>DRAW (X)</th>
+                                      <th className={`px-2 py-3 text-center border-r font-bold transition-all duration-300 ${isPaperMode ? 'border-slate-950' : 'border-slate-800'}`}>AWAY WIN</th>
+                                      <th className={`px-3 py-3 text-center border-r font-bold transition-all duration-300 ${isPaperMode ? 'border-slate-950 font-bold text-emerald-800' : 'border-slate-800 text-amber-400'}`}>BET Tips</th>
+                                      <th className={`px-3 py-3 text-center border-r font-bold transition-all duration-300 ${isPaperMode ? 'border-slate-950' : 'border-slate-800'}`}>STATUS</th>
+                                      <th className={`px-3 py-3 text-center border-r font-bold transition-all duration-300 ${isPaperMode ? 'border-slate-950' : 'border-slate-800'}`}>KICK OFF (W.A.T)</th>
+                                      <th className={`px-2 py-3 text-center font-bold transition-all duration-300 ${isPaperMode ? 'border-slate-950' : 'border-slate-800'}`}>SYSTEM</th>
+                                    </tr>
+                                  </thead>
+
+                                  {/* Table Body */}
+                                  <tbody className={`divide-y transition-all duration-300 ${
+                                    isPaperMode 
+                                      ? 'divide-slate-950/80 text-slate-950 font-semibold bg-white' 
+                                      : 'divide-slate-800/60 bg-slate-950/20'
+                                  }`}>
+                                    {filteredList.map((game) => (
+                                      <tr 
+                                        key={game.id} 
+                                        className={`transition-all duration-150 group ${
+                                          isPaperMode 
+                                            ? 'hover:bg-[#FFF9EA]' 
+                                            : 'hover:bg-slate-900/60 text-slate-300'
+                                        }`}
+                                      >
+                                        {/* POOL NO */}
+                                        <td className={`px-2 py-3 text-center font-bold border-r transition-all duration-300 ${
+                                          isPaperMode ? 'border-r border-slate-950 text-base font-black' : 'border-r border-slate-800/60'
+                                        }`}>
+                                          {game.poolNo}
+                                        </td>
+                                        
+                                        {/* BET CODE */}
+                                        <td className={`px-2 py-3 text-center font-bold border-r transition-all duration-300 ${
+                                          isPaperMode 
+                                            ? 'border-r border-slate-950 text-[#C21C2F] text-base font-black' 
+                                            : 'border-r border-slate-800/60 text-amber-400 font-extrabold bg-slate-950/40'
+                                        }`}>
+                                          <span className="flex items-center justify-center gap-1">
+                                            {game.betCode}
+                                            <button
+                                              onClick={() => {
+                                                navigator.clipboard.writeText(game.betCode);
+                                                triggerToast(`Bet Code [${game.betCode}] copied to clipboard!`, 'success');
+                                              }}
+                                              title="Copy Code"
+                                              className="opacity-0 group-hover:opacity-100 transition p-1 hover:bg-slate-350/20 rounded shrink-0"
+                                            >
+                                              <span className="text-[10px] block text-slate-400">📋</span>
+                                            </button>
+                                          </span>
+                                        </td>
+
+                                        {/* HOME NAME */}
+                                        <td className={`px-4 py-3 text-left font-bold border-r transition-all duration-300 ${
+                                          isPaperMode ? 'border-r border-slate-950 text-sm font-black text-slate-950 uppercase' : 'border-r border-slate-800/60 font-semibold'
+                                        }`}>
+                                          {game.home}
+                                        </td>
+
+                                        {/* AWAY NAME */}
+                                        <td className={`px-4 py-3 text-left font-bold border-r transition-all duration-300 ${
+                                          isPaperMode ? 'border-r border-slate-950 text-sm font-black text-slate-950 uppercase' : 'border-r border-slate-800/60 font-semibold'
+                                        }`}>
+                                          {game.away}
+                                        </td>
+
+                                        {/* HOME WIN ODDS */}
+                                        <td className={`px-2 py-3 text-center border-r transition-all duration-300 ${
+                                          isPaperMode ? 'border-r border-slate-950 text-gray-800' : 'border-r border-slate-800/60 font-mono text-slate-400'
+                                        }`}>
+                                          {game.homeWin}
+                                        </td>
+
+                                        {/* DRAW (X) ODDS */}
+                                        <td className={`px-2 py-3 text-center border-r font-bold transition-all duration-300 ${
+                                          isPaperMode 
+                                            ? 'border-r border-slate-950 bg-[#FFFFE3] text-[#0F172A] font-black' 
+                                            : 'border-r border-slate-800/60 bg-emerald-950/15 text-emerald-400 font-extrabold'
+                                        }`}>
+                                          {game.draw}
+                                        </td>
+
+                                        {/* AWAY WIN ODDS */}
+                                        <td className={`px-2 py-3 text-center border-r transition-all duration-300 ${
+                                          isPaperMode ? 'border-r border-slate-950 text-gray-800' : 'border-r border-slate-800/60 font-mono text-slate-400'
+                                        }`}>
+                                          {game.awayWin}
+                                        </td>
+
+                                        {/* BET TIPS */}
+                                        <td className={`px-3 py-3 text-center font-bold border-r transition-all duration-300 ${
+                                          isPaperMode 
+                                            ? 'border-r border-slate-950 text-emerald-900 font-extrabold' 
+                                            : 'border-r border-slate-800/60 font-black text-yellow-400'
+                                        }`}>
+                                          {game.betTips}
+                                        </td>
+
+                                        {/* STATUS */}
+                                        <td className={`px-3 py-3 text-center border-r font-semibold transition-all duration-300 ${
+                                          isPaperMode ? 'border-r border-slate-950 text-gray-800' : 'border-r border-slate-800/60 font-mono'
+                                        }`}>
+                                          {game.status}
+                                        </td>
+
+                                        {/* KICK OFF */}
+                                        <td className={`px-3 py-3 text-center border-r font-bold transition-all duration-300 ${
+                                          isPaperMode ? 'border-r border-slate-950' : 'border-r border-slate-800/60 font-mono'
+                                        }`}>
+                                          {game.kickOff}
+                                        </td>
+
+                                        {/* SYSTEM / ACTION */}
+                                        <td className="px-2 py-3 text-center font-mono">
+                                          <div className="flex items-center justify-center gap-1">
+                                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-black uppercase ${
+                                              isPaperMode 
+                                                ? 'bg-slate-200 text-slate-900 border border-slate-350' 
+                                                : 'bg-slate-900 text-slate-400 border border-slate-800'
+                                            }`}>
+                                              {game.bookmaker[0].toUpperCase()}
+                                            </span>
+
+                                            {currentUser.role === 'admin' && (
+                                              <button
+                                                onClick={() => handleDeleteGame(game.id, `${game.home} vs ${game.away}`)}
+                                                className="px-1 text-red-500 hover:text-red-400 transition"
+                                                title="Delete fixture"
+                                              >
+                                                ✕
+                                              </button>
+                                            )}
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              )}
+
+                              {isPaperMode && (
+                                <div className="mt-4 border-t-2 border-slate-950 pt-2 text-center text-[10px] font-mono text-gray-850 font-bold">
+                                  * AUTHENTIC FASTPOOL TELECOMMUNICATIONS WORKSPACE PROTOCOL. UNAUTHORIZED DUPLICATION STRICTLY FORBIDDEN.
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+
+                    {/* PRINT ACTION & SOCIAL UTILITY CONTROL */}
+                    <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-950/40 p-4 rounded-xl border border-slate-800">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            window.print();
+                          }}
+                          className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 border border-slate-800"
+                        >
+                          🖨️ Print Coupon Sheet
+                        </button>
+                        <button
+                          onClick={() => {
+                            const clipText = postedGames.map(g => `Pool #${g.poolNo} [Code: ${g.betCode}] ${g.home} vs ${g.away} (${g.betTips}) [Draw: ${g.draw}]`).join('\n');
+                            navigator.clipboard.writeText(clipText);
+                            triggerToast('Entire high-fidelity posted matches copy-formatted to clipboard!', 'success');
+                          }}
+                          className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-slate-200 rounded-lg text-xs font-bold transition flex items-center gap-1.5 border border-slate-800"
+                        >
+                          📋 Copy Raw fixtures code text
+                        </button>
+                      </div>
+
+                      {currentUser.role === 'admin' && (
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setShowAdminForm(!showAdminForm)}
+                            className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-lg text-xs font-black transition flex items-center gap-1.5"
+                          >
+                            ➕ {showAdminForm ? 'Close Admin Panel' : 'Publish / Post New Game'}
+                          </button>
+                          <button
+                            onClick={handleResetGames}
+                            className="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200 rounded-lg text-xs font-bold transition border border-slate-800"
+                            title="Reset to default authentic fixtures catalogue"
+                          >
+                            🔄 Reset Sheet
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* ADMIN PANEL FORM: DYNAMIC POSTER BULLETINS */}
+                    {currentUser.role === 'admin' && showAdminForm && (
+                      <div className="bg-slate-900/95 border-2 border-amber-500/30 p-5 rounded-2xl flex flex-col gap-4 animate-fadeIn">
+                        <div className="border-b border-slate-800 pb-2">
+                          <h4 className="text-sm font-black font-mono text-amber-400 uppercase tracking-wider">
+                            🛡️ ADMIN CONSOLE: POST / RE-PUBLISH FIXTURES BULLETIN
+                          </h4>
+                          <p className="text-[11px] text-slate-400">
+                            Updates live predictions instantly for all logged in subscribers. Check layout formatting.
+                          </p>
+                        </div>
+
+                        <form onSubmit={handleAddGame} className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 text-xs font-mono">
+                          <div>
+                            <label className="block text-slate-400 mb-1">POOL No.</label>
+                            <input
+                              type="number"
+                              value={adminPoolNo}
+                              onChange={(e) => setAdminPoolNo(e.target.value)}
+                              className="w-full bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-white"
+                              required
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-slate-400 mb-1 text-amber-300 font-bold">BET CODE (REQUIRED)</label>
+                            <input
+                              type="text"
+                              value={adminBetCode}
+                              onChange={(e) => setAdminBetCode(e.target.value)}
+                              placeholder="e.g. 2531"
+                              className="w-full bg-slate-950 border border-[#D97706]/60 rounded px-2.5 py-1.5 text-white placeholder:text-slate-700"
+                              required
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-slate-400 mb-1 text-emerald-400 font-bold">HOME TEAM</label>
+                            <input
+                              type="text"
+                              value={adminHome}
+                              onChange={(e) => setAdminHome(e.target.value)}
+                              placeholder="e.g. Marconi S."
+                              className="w-full bg-slate-950 border border-slate-850 rounded px-2.5 py-1.5 text-white placeholder:text-slate-700"
+                              required
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-slate-400 mb-1 text-emerald-400 font-bold">AWAY TEAM</label>
+                            <input
+                              type="text"
+                              value={adminAway}
+                              onChange={(e) => setAdminAway(e.target.value)}
+                              placeholder="e.g. Sydney FC"
+                              className="w-full bg-slate-950 border border-slate-850 rounded px-2.5 py-1.5 text-white placeholder:text-slate-700"
+                              required
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-slate-400 mb-1">HOME WIN ODDS</label>
+                            <input
+                              type="text"
+                              value={adminHomeWin}
+                              onChange={(e) => setAdminHomeWin(e.target.value)}
+                              className="w-full bg-slate-950 border border-slate-850 rounded px-2.5 py-1.5 text-white"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-slate-400 mb-1">DRAW ODDS (X)</label>
+                            <input
+                              type="text"
+                              value={adminDraw}
+                              onChange={(e) => setAdminDraw(e.target.value)}
+                              className="w-full bg-slate-950 border border-slate-850 rounded px-2.5 py-1.5 text-white"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-slate-400 mb-1">AWAY WIN ODDS</label>
+                            <input
+                              type="text"
+                              value={adminAwayWin}
+                              onChange={(e) => setAdminAwayWin(e.target.value)}
+                              className="w-full bg-slate-950 border border-slate-850 rounded px-2.5 py-1.5 text-white"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-slate-400 mb-1">BET Tips</label>
+                            <input
+                              type="text"
+                              value={adminBetTips}
+                              onChange={(e) => setAdminBetTips(e.target.value)}
+                              placeholder="Ov 2.5 / Un 2.5 / X"
+                              className="w-full bg-slate-950 border border-slate-850 rounded px-2.5 py-1.5 text-white"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-slate-400 mb-1">STATUS DAY</label>
+                            <select
+                              value={adminStatus}
+                              onChange={(e) => setAdminStatus(e.target.value)}
+                              className="w-full bg-slate-950 border border-slate-850 rounded px-2.5 py-1.5 text-white"
+                            >
+                              <option value="Friday">Friday</option>
+                              <option value="Saturday">Saturday</option>
+                              <option value="Sunday">Sunday</option>
+                              <option value="Completed">Completed</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-slate-400 mb-1">KICK OFF TIME</label>
+                            <input
+                              type="text"
+                              value={adminKickOff}
+                              onChange={(e) => setAdminKickOff(e.target.value)}
+                              className="w-full bg-slate-950 border border-slate-850 rounded px-2.5 py-1.5 text-white"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-slate-400 mb-1">BOOKMAKER CODES SYSTEM</label>
+                            <select
+                              value={adminBookmakerCode}
+                              onChange={(e) => setAdminBookmakerCode(e.target.value)}
+                              className="w-full bg-slate-950 border border-slate-850 rounded px-2.5 py-1.5 text-white"
+                            >
+                              <option value="Bet9ja">Bet9ja</option>
+                              <option value="BetKing">BetKing</option>
+                              <option value="SportyBet">SportyBet</option>
+                              <option value="MSport">MSport</option>
+                            </select>
+                          </div>
+
+                          <div className="flex items-end">
+                            <button
+                              type="submit"
+                              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded-lg transition"
+                            >
+                              ⚡ POST TO LIVE BULLETIN
+                            </button>
+                          </div>
+                        </form>
+                      </div>
+                    )}
+                  </div>
+
+
+                  {/* SECONDARY SECTION: HOT DECRYPTABLE SHEETS */}
                   <div className="bg-[#111827] rounded-xl border border-slate-800 p-5 shadow-lg">
                     <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
                       <h4 className="font-extrabold text-white text-xs uppercase tracking-wider font-mono flex items-center gap-1.5">
-                        <Flame className="w-4 h-4 text-amber-400" /> Hot forecast sheets this fixture week
+                        <Flame className="w-4 h-4 text-amber-400" /> Decryptable Weekly Bookmaker Code Sheets
                       </h4>
                       <button
                         onClick={() => setActiveSubTab('codes')}
@@ -507,241 +1349,1067 @@ export default function CustomerPortal({
                 </div>
               )}
 
-              {/* SUBTAB 2: POOL CODES BROWSER (DECRYPTORS LIST) */}
-              {activeSubTab === 'codes' && (
-                <div className="flex flex-col gap-6">
-                  
-                  {/* Neatly Organized Header Card */}
-                  <div className="bg-[#111827] border border-slate-800/80 rounded-2xl p-5 shadow-lg flex flex-col gap-5">
+              {/* SUBTAB 2: POOL CODES BROWSER (IMMERSIBLE LIVE SCOREBOARD AND DECRYPTOR SYSTEM) */}
+              {activeSubTab === 'codes' && (() => {
+                // Static high-fidelity scoreboard fixtures
+                const stadiumMatches = [
+                  {
+                    id: 'f-1',
+                    sport: 'Football',
+                    competition: 'World Cup 2026',
+                    region: 'International',
+                    group: 'Group A',
+                    homeTeam: 'Mexico',
+                    awayTeam: 'South Africa',
+                    homeLogo: '🇲🇽',
+                    awayLogo: '🇿🇦',
+                    time: '20:00',
+                    status: 'Today',
+                    date: '11 Jun 2026',
+                    referee: 'Wilton Sampaio (Brazil)',
+                    venue: 'Estadio Azteca (Mexico City)',
+                    matchingCodeId: 'pc-001',
+                    bookmaker: 'Bet9ja',
+                    week: 'Week 49 Aussie'
+                  },
+                  {
+                    id: 'f-2',
+                    sport: 'Football',
+                    competition: 'Premier League',
+                    region: 'England',
+                    group: 'Matchday 38',
+                    homeTeam: 'Arsenal',
+                    awayTeam: 'Chelsea',
+                    homeLogo: '🔴',
+                    awayLogo: '🔵',
+                    time: '16:00',
+                    status: 'FT 2-1',
+                    date: '12 Jun 2026',
+                    referee: 'Michael Oliver (England)',
+                    venue: 'Emirates Stadium (London)',
+                    matchingCodeId: 'pc-001',
+                    bookmaker: 'Bet9ja',
+                    week: 'Week 49 Aussie'
+                  },
+                  {
+                    id: 'f-3',
+                    sport: 'Football',
+                    competition: 'Premier League',
+                    region: 'England',
+                    group: 'Matchday 38',
+                    homeTeam: 'Liverpool',
+                    awayTeam: 'Leeds',
+                    homeLogo: '🔴',
+                    awayLogo: '🟡',
+                    time: '18:30',
+                    status: 'Tomorrow',
+                    date: '13 Jun 2026',
+                    referee: 'Anthony Taylor (England)',
+                    venue: 'Anfield (Liverpool)',
+                    matchingCodeId: 'pc-002',
+                    bookmaker: 'BetKing',
+                    week: 'Week 49 Aussie'
+                  },
+                  {
+                    id: 'f-4',
+                    sport: 'Football',
+                    competition: 'Serie A 25/26',
+                    region: 'Italy',
+                    group: 'Matchday 35',
+                    homeTeam: 'Napoli',
+                    awayTeam: 'Juventus',
+                    homeLogo: '🔵',
+                    awayLogo: '⚫',
+                    time: '20:45',
+                    status: 'Completed',
+                    date: '14 Jun 2026',
+                    referee: 'Daniele Orsato (Italy)',
+                    venue: 'Diego Armando Maradona (Naples)',
+                    matchingCodeId: 'pc-003',
+                    bookmaker: 'SportyBet',
+                    week: 'Week 49 Aussie'
+                  },
+                  {
+                    id: 'f-5',
+                    sport: 'Football',
+                    competition: 'LaLiga',
+                    region: 'Spain',
+                    group: 'Matchday 37',
+                    homeTeam: 'Real Madrid',
+                    awayTeam: 'Sevilla',
+                    homeLogo: '⚪',
+                    awayLogo: '🔴',
+                    time: '21:00',
+                    status: 'Friday',
+                    date: '15 Jun 2026',
+                    referee: 'Jesús Gil Manzano (Spain)',
+                    venue: 'Santiago Bernabéu (Madrid)',
+                    matchingCodeId: 'pc-old',
+                    bookmaker: 'Bet9ja',
+                    week: 'Week 48'
+                  },
+                  {
+                    id: 'f-6',
+                    sport: 'Football',
+                    competition: 'Bundesliga',
+                    region: 'Germany',
+                    group: 'Matchday 34',
+                    homeTeam: 'Bayern Munich',
+                    awayTeam: 'Dortmund',
+                    homeLogo: '🔴',
+                    awayLogo: '🟡',
+                    time: '15:30',
+                    status: 'Today',
+                    date: '11 Jun 2026',
+                    referee: 'Felix Zwayer (Germany)',
+                    venue: 'Allianz Arena (Munich)',
+                    matchingCodeId: 'pc-001',
+                    bookmaker: 'Bet9ja',
+                    week: 'Week 49 Aussie'
+                  },
+                  {
+                    id: 'f-7',
+                    sport: 'Football',
+                    competition: 'Africa Cup of Nations',
+                    region: 'Africa',
+                    group: 'Group C',
+                    homeTeam: 'Nigeria',
+                    awayTeam: 'Ivory Coast',
+                    homeLogo: '🇳🇬',
+                    awayLogo: '🇨🇮',
+                    time: '17:00',
+                    status: 'Today',
+                    date: '11 Jun 2026',
+                    referee: 'Mustapha Ghorbal',
+                    venue: 'Cairo International Stadium',
+                    matchingCodeId: 'pc-001',
+                    bookmaker: 'Bet9ja',
+                    week: 'Week 49'
+                  },
+                  {
+                    id: 'f-8',
+                    sport: 'Football',
+                    competition: 'Africa Cup of Nations',
+                    region: 'Africa',
+                    group: 'Group C',
+                    homeTeam: 'Ghana',
+                    awayTeam: 'Cameroon',
+                    homeLogo: '🇬🇭',
+                    awayLogo: '🇨🇲',
+                    time: '20:00',
+                    status: 'Tomorrow',
+                    date: '12 Jun 2026',
+                    referee: 'Bakary Gassama',
+                    venue: 'Cairo International Stadium',
+                    matchingCodeId: 'pc-002',
+                    bookmaker: 'BetKing',
+                    week: 'Week 49 Aussie'
+                  },
+                  {
+                    id: 'f-9',
+                    sport: 'Football',
+                    competition: 'Africa Cup of Nations',
+                    region: 'Africa',
+                    group: 'Group B',
+                    homeTeam: 'Algeria',
+                    awayTeam: 'Egypt',
+                    homeLogo: '🇩🇿',
+                    awayLogo: '🇪🇬',
+                    time: '19:30',
+                    status: 'Sunday',
+                    date: '14 Jun 2026',
+                    referee: 'Victor Gomes',
+                    venue: 'Stade du 5 Juillet (Algiers)',
+                    matchingCodeId: 'pc-003',
+                    bookmaker: 'SportyBet',
+                    week: 'Week 49 Aussie'
+                  },
+                  {
+                    id: 'h-1',
+                    sport: 'Hockey',
+                    competition: 'NHL Season',
+                    region: 'USA',
+                    group: 'Semifinals',
+                    homeTeam: 'Bruins',
+                    awayTeam: 'Red Wings',
+                    homeLogo: '🐻',
+                    awayLogo: '🐙',
+                    time: '19:00',
+                    status: 'Today',
+                    date: '11 Jun 2026',
+                    referee: 'Kelly Sutherland',
+                    venue: 'TD Garden (Boston)',
+                    matchingCodeId: 'pc-001',
+                    bookmaker: 'Bet9ja',
+                    week: 'Week 49 Aussie'
+                  },
+                  {
+                    id: 'b-1',
+                    sport: 'Basketball',
+                    competition: 'NBA Finals 2026',
+                    region: 'USA',
+                    group: 'Game 5',
+                    homeTeam: 'Celtics',
+                    awayTeam: 'Lakers',
+                    homeLogo: '☘️',
+                    awayLogo: '🏆',
+                    time: '21:30',
+                    status: 'Tomorrow',
+                    date: '12 Jun 2026',
+                    referee: 'Scott Foster',
+                    venue: 'Crypto.com Arena (LA)',
+                    matchingCodeId: 'pc-002',
+                    bookmaker: 'BetKing',
+                    week: 'Week 49 Aussie'
+                  },
+                  {
+                    id: 't-1',
+                    sport: 'Tennis',
+                    competition: 'Wimbledon',
+                    region: 'England',
+                    group: 'Quarterfinals',
+                    homeTeam: 'Alcaraz',
+                    awayTeam: 'Djokovic',
+                    homeLogo: '🎾',
+                    awayLogo: '🏆',
+                    time: '14:00',
+                    status: 'Today',
+                    date: '11 Jun 2026',
+                    referee: 'Lars Graff',
+                    venue: 'Center Court (London)',
+                    matchingCodeId: 'pc-003',
+                    bookmaker: 'SportyBet',
+                    week: 'Week 49 Aussie'
+                  },
+                  {
+                    id: 'c-1',
+                    sport: 'Cricket',
+                    competition: 'IPL 2026',
+                    region: 'India',
+                    group: 'Grand Finale',
+                    homeTeam: 'Mumbai Indians',
+                    awayTeam: 'Chennai Super Kings',
+                    homeLogo: '🏏',
+                    awayLogo: '🦁',
+                    time: '15:30',
+                    status: 'Sunday',
+                    date: '14 Jun 2026',
+                    referee: 'Nitin Menon',
+                    venue: 'Wankhede Stadium (Mumbai)',
+                    matchingCodeId: 'pc-001',
+                    bookmaker: 'Bet9ja',
+                    week: 'Week 49 Aussie'
+                  }
+                ];
+
+                // Filter matches dynamically
+                const filteredMatches = stadiumMatches.filter(m => {
+                  if (m.sport !== selectedSport) return false;
+
+                  if (selectedTeamFilter !== 'all') {
+                    if (m.homeTeam !== selectedTeamFilter && m.awayTeam !== selectedTeamFilter) return false;
+                  }
+
+                  if (selectedCompFilter !== 'all') {
+                    if (m.competition !== selectedCompFilter) return false;
+                  }
+
+                  if (selectedRegionFilter !== 'all') {
+                    if (m.region !== selectedRegionFilter) return false;
+                  }
+
+                  if (searchTerm) {
+                    const term = searchTerm.toLowerCase();
+                    const hasMatch = m.homeTeam.toLowerCase().includes(term) ||
+                                     m.awayTeam.toLowerCase().includes(term) ||
+                                     m.competition.toLowerCase().includes(term) ||
+                                     (m.bookmaker && m.bookmaker.toLowerCase().includes(term));
+                    if (!hasMatch) return false;
+                  }
+
+                  return true;
+                });
+
+                // Retrieve active selected match
+                const activeMatch = filteredMatches.find(m => m.id === selectedMatchFixtureId) || filteredMatches[0] || stadiumMatches[0];
+
+                // Associated code sheet details
+                const associatedCodeId = activeMatch?.matchingCodeId;
+                const associatedCode = db.pool_codes.find(c => c.id === associatedCodeId);
+                const isCodeUnlocked = associatedCode ? isAlreadyUnlocked(associatedCode.id) : false;
+                const isPremium = associatedCode?.access_level === 'premium';
+                const isLocked = isPremium && activePlan?.id === 'plan-free' && currentUser.role !== 'admin';
+                const bookmaker = db.bookmakers.find(b => b.id === associatedCode?.bookmaker_id);
+
+                return (
+                  <div className="flex flex-col gap-5 text-slate-100 select-none">
                     
-                    {/* Top Row: Search and Pool Type Filter */}
-                    <div className="flex flex-col md:flex-row gap-4 items-stretch justify-between">
-                      <div className="relative flex-1">
-                        <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-550 text-slate-500">
-                          <Search className="w-4 h-4" />
-                        </span>
-                        <input
-                          type="text"
-                          placeholder="Search codes (e.g. Bet9ja, sporty)..."
-                          value={searchTerm}
-                          onChange={(e) => setSearchTerm(e.target.value)}
-                          className="w-full text-xs font-sans p-3 pl-9 border border-slate-800 rounded-lg focus:outline-none focus:border-emerald-500 bg-[#070B14] text-slate-100 placeholder-slate-500"
-                        />
-                      </div>
-
-                      <div className="shrink-0 flex items-center gap-3">
-                        <span className="text-[10px] text-slate-500 font-mono uppercase font-bold hidden sm:inline">TYPE:</span>
-                        <select
-                          value={codeTypeFilter}
-                          onChange={(e) => setCodeTypeFilter(e.target.value as any)}
-                          className="bg-[#070B14] border border-slate-800 text-xs text-slate-300 py-2.5 px-3 rounded-lg focus:outline-none focus:border-emerald-500 font-bold"
-                        >
-                          <option value="all">ALL POOL CODES TYPES</option>
-                          <option value="uk">UK POOL MATCHES</option>
-                          <option value="aussie">AUSSIE LEAGUE POOLS</option>
-                          <option value="international">INTERNATIONAL MATCH FIXTURES</option>
-                        </select>
-                      </div>
+                    {/* Top Sports Ribbon Tabs */}
+                    <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none border-b border-slate-900 pr-2">
+                      {['Football', 'Hockey', 'Basketball', 'Tennis', 'Cricket'].map((sportName) => {
+                        const isActive = selectedSport === sportName;
+                        return (
+                          <button
+                            key={sportName}
+                            id={`sport-tab-${sportName.toLowerCase()}`}
+                            onClick={() => {
+                              setSelectedSport(sportName);
+                              setSelectedTeamFilter('all');
+                              setSelectedCompFilter('all');
+                              setSelectedRegionFilter('all');
+                              // Automatically auto-select first match in the selected sport
+                              const sportFirstMatch = stadiumMatches.find(m => m.sport === sportName);
+                              if (sportFirstMatch) {
+                                setSelectedMatchFixtureId(sportFirstMatch.id);
+                              }
+                            }}
+                            className={`px-5 py-2 text-xs font-bold font-sans transition-all duration-150 rounded-full shrink-0 ${
+                              isActive
+                                ? 'bg-white text-slate-950 font-black shadow-lg scale-102'
+                                : 'bg-[#121622] hover:bg-[#1A2033] text-slate-300 border border-slate-800/40'
+                            }`}
+                          >
+                            {sportName}
+                          </button>
+                        );
+                      })}
                     </div>
 
-                    {/* Bottom Row: Neat Bookie Filters */}
-                    <div className="border-t border-slate-800/50 pt-4 flex flex-col gap-2">
-                      <div className="flex items-center gap-1.5 mb-1">
-                        <span className="text-[10px] uppercase tracking-wider font-mono font-bold text-slate-400">
-                          ⚡ Quick Bookmaker Selection:
-                        </span>
-                      </div>
-                      <div className="flex flex-wrap gap-2 items-center">
-                        <button
-                          onClick={() => setBookmakerFilter('all')}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
-                            bookmakerFilter === 'all'
-                              ? 'bg-emerald-600 text-white border-emerald-500 font-extrabold shadow-sm shadow-emerald-955/40'
-                              : 'bg-[#070B14] text-slate-400 border-slate-800 hover:text-slate-200 hover:border-slate-700'
-                          }`}
-                        >
-                          Show All
-                        </button>
-                        {db.bookmakers.filter(b => b.is_active).map(bm => {
-                          const isSelected = bookmakerFilter === bm.id;
-                          let activeStyle = "bg-emerald-600 text-white border-emerald-500";
-                          
-                          const lowercaseName = bm.name.toLowerCase();
-                          if (lowercaseName.includes('9ja')) {
-                            activeStyle = "bg-emerald-600 text-white border-emerald-500";
-                          } else if (lowercaseName.includes('sporty')) {
-                            activeStyle = "bg-rose-600 text-white border-rose-500";
-                          } else if (lowercaseName.includes('king')) {
-                            activeStyle = "bg-blue-600 text-white border-blue-500";
-                          } else if (lowercaseName.includes('msport')) {
-                            activeStyle = "bg-amber-600 text-slate-950 border-amber-500";
-                          }
+                    {/* Master Layout: 2 Columns */}
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+                      
+                      {/* Left Column: Explorer Directory Filter (3 Cols on large) */}
+                      <div className="lg:col-span-4 bg-[#0B0F19] border border-slate-800/80 rounded-2xl p-4 flex flex-col gap-5">
+                        
+                        {/* Search Bar matching screenshot exactly */}
+                        <div className="relative">
+                          <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-500">
+                            <Search className="w-4 h-4 text-slate-400" />
+                          </span>
+                          <input
+                            type="text"
+                            placeholder="Search"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full text-xs font-sans py-2.5 pl-9 pr-3 border border-slate-800 rounded-lg focus:outline-none focus:border-emerald-500 bg-[#060810] text-slate-100 placeholder-slate-500 transition-colors"
+                          />
+                        </div>
 
-                          return (
+                        {/* Accordion Categories */}
+                        <div className="space-y-4">
+                          
+                          {/* TEAMS Category */}
+                          <div>
+                            <div className="flex items-center justify-between text-[11px] font-mono tracking-widest uppercase text-slate-400 font-bold mb-2 cursor-pointer hover:text-white transition-colors">
+                              <span>TEAMS</span>
+                              <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
+                            </div>
+                            <div className="space-y-1 max-h-48 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-800">
+                              <div
+                                onClick={() => setSelectedTeamFilter('all')}
+                                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold text-left cursor-pointer transition-all flex items-center gap-2 ${
+                                  selectedTeamFilter === 'all'
+                                    ? 'bg-[#1A253C]/60 text-emerald-400 border-l-2 border-emerald-500'
+                                    : 'hover:bg-slate-900/40 text-slate-400 hover:text-slate-200'
+                                }`}
+                              >
+                                <span className="text-slate-500 text-xs text-center w-5">★</span>
+                                <span className="uppercase text-[10.5px]">All Teams Directory</span>
+                              </div>
+                              {[
+                                { name: 'Nigeria', icon: '🇳🇬', country: 'Nigeria' },
+                                { name: 'Cameroon', icon: '🇨🇲', country: 'Cameroon' },
+                                { name: 'Ivory Coast', icon: '🇨🇮', country: 'Ivory Coast' },
+                                { name: 'Ghana', icon: '🇬🇭', country: 'Ghana' },
+                                { name: 'Algeria', icon: '🇩🇿', country: 'Algeria' }
+                              ].map((team) => {
+                                const isSel = selectedTeamFilter === team.name;
+                                return (
+                                  <div
+                                    key={team.name}
+                                    onClick={() => {
+                                      setSelectedTeamFilter(isSel ? 'all' : team.name);
+                                      const matching = stadiumMatches.find(m => m.sport === selectedSport && (m.homeTeam === team.name || m.awayTeam === team.name));
+                                      if (matching) {
+                                        setSelectedMatchFixtureId(matching.id);
+                                      }
+                                    }}
+                                    className={`px-2.5 py-1.5 rounded-lg text-xs font-bold text-left cursor-pointer transition-all flex items-center justify-between ${
+                                      isSel
+                                        ? 'bg-[#1A253C] text-emerald-400 border-l-2 border-emerald-400'
+                                        : 'hover:bg-slate-900/40 text-slate-350 hover:text-slate-100'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <span className="shrink-0 text-sm select-none">{team.icon}</span>
+                                      <span className="truncate">{team.name}</span>
+                                    </div>
+                                    <span className="text-[9px] text-slate-500 uppercase">{team.country}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* COMPETITIONS Category */}
+                          <div>
+                            <div className="flex items-center justify-between text-[11px] font-mono tracking-widest uppercase text-slate-400 font-bold mb-2 cursor-pointer hover:text-white transition-colors">
+                              <span>COMPETITIONS</span>
+                              <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
+                            </div>
+                            <div className="space-y-1">
+                              <div
+                                onClick={() => setSelectedCompFilter('all')}
+                                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold text-left cursor-pointer transition-all flex items-center gap-2 ${
+                                  selectedCompFilter === 'all'
+                                    ? 'bg-[#1A253C]/60 text-emerald-400 border-l-2 border-emerald-500'
+                                    : 'hover:bg-slate-900/40 text-slate-400 hover:text-slate-200'
+                                }`}
+                              >
+                                <span className="text-slate-500 text-xs text-center w-5">★</span>
+                                <span className="uppercase text-[10.5px]">All Tournaments</span>
+                              </div>
+                              {[
+                                { name: 'World Cup 2026', flag: '🏆', origin: 'International' },
+                                { name: 'Premier League', flag: '🇬🇧', origin: 'England' },
+                                { name: 'Serie A 25/26', flag: '🇮🇹', origin: 'Italy' },
+                                { name: 'LaLiga', flag: '🇪🇸', origin: 'Spain' },
+                                { name: 'Bundesliga', flag: '🇩🇪', origin: 'Germany' }
+                              ].map((comp) => {
+                                const isSel = selectedCompFilter === comp.name;
+                                return (
+                                  <div
+                                    key={comp.name}
+                                    onClick={() => {
+                                      setSelectedCompFilter(isSel ? 'all' : comp.name);
+                                      const matching = stadiumMatches.find(m => m.sport === selectedSport && m.competition === comp.name);
+                                      if (matching) {
+                                        setSelectedMatchFixtureId(matching.id);
+                                      }
+                                    }}
+                                    className={`px-2.5 py-1.5 rounded-lg text-xs font-bold text-left cursor-pointer transition-all flex items-center justify-between ${
+                                      isSel
+                                        ? 'bg-[#1A253C] text-emerald-400 border-l-2 border-emerald-400'
+                                        : 'hover:bg-slate-900/40 text-slate-350 hover:text-slate-100'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <span className="text-slate-500 font-mono text-[10px] w-5 text-center shrink-0">{comp.flag}</span>
+                                      <span className="truncate">{comp.name}</span>
+                                    </div>
+                                    <span className="text-[9px] text-slate-500 uppercase">{comp.origin}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* REGION Category */}
+                          <div>
+                            <div className="flex items-center justify-between text-[11px] font-mono tracking-widest uppercase text-slate-400 font-bold mb-2 cursor-pointer hover:text-white transition-colors">
+                              <span>REGION</span>
+                              <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
+                            </div>
+                            <div className="space-y-1">
+                              <div
+                                onClick={() => setSelectedRegionFilter('all')}
+                                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold text-left cursor-pointer transition-all flex items-center gap-2 ${
+                                  selectedRegionFilter === 'all'
+                                    ? 'bg-[#1A253C]/60 text-emerald-400 border-l-2 border-emerald-500'
+                                    : 'hover:bg-slate-900/40 text-slate-400 hover:text-slate-200'
+                                }`}
+                              >
+                                <span className="text-slate-500 text-xs text-center w-5">★</span>
+                                <span className="uppercase text-[10.5px]">All Regions</span>
+                              </div>
+                              {[
+                                { name: 'England', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', code: 'ENG' },
+                                { name: 'Champions League', flag: '🇪🇺', code: 'UEFA' },
+                                { name: 'Spain', flag: '🇪🇸', code: 'ESP' },
+                                { name: 'Italy', flag: '🇮🇹', code: 'ITA' },
+                                { name: 'Germany', flag: '🇩🇪', code: 'GER' }
+                              ].map((region) => {
+                                const isSel = selectedRegionFilter === region.name;
+                                return (
+                                  <div
+                                    key={region.name}
+                                    onClick={() => setSelectedRegionFilter(isSel ? 'all' : region.name)}
+                                    className={`px-2.5 py-1.5 rounded-lg text-xs font-bold text-left cursor-pointer transition-all flex items-center justify-between ${
+                                      isSel
+                                        ? 'bg-[#1A253C] text-emerald-400 border-l-2 border-emerald-400'
+                                        : 'hover:bg-slate-900/40 text-slate-350 hover:text-slate-100'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <span className="text-slate-500 font-mono text-[10px] w-5 text-center shrink-0">{region.flag}</span>
+                                      <span className="truncate">{region.name}</span>
+                                    </div>
+                                    <span className="text-[10px] text-slate-500 font-mono font-black">{region.code}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                        </div>
+
+                        {/* Fast matches browser selector */}
+                        <div className="border-t border-slate-800/60 pt-4">
+                          <span className="text-[10px] text-slate-400 font-mono font-bold uppercase tracking-wider block mb-2.5">
+                            📚 Matches list ({filteredMatches.length})
+                          </span>
+                          {filteredMatches.length === 0 ? (
+                            <p className="text-[11px] text-slate-500 italic block py-2 text-center">No matching matches found</p>
+                          ) : (
+                            <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-800">
+                              {filteredMatches.map((m) => {
+                                const isActive = activeMatch?.id === m.id;
+                                return (
+                                  <div
+                                    key={m.id}
+                                    onClick={() => {
+                                      setSelectedMatchFixtureId(m.id);
+                                    }}
+                                    className={`p-2.5 rounded-xl cursor-pointer transition-all flex items-center justify-between gap-3 text-left border ${
+                                      isActive
+                                        ? 'border-emerald-500/50 bg-[#162035]/65'
+                                        : 'border-slate-800 bg-[#060810]/40 hover:bg-slate-900/40 hover:border-slate-700/60'
+                                    }`}
+                                  >
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-[9px] bg-slate-800 text-slate-400 font-mono px-1 py-0.2 rounded uppercase block select-none border border-slate-750 font-semibold">
+                                          {m.competition}
+                                        </span>
+                                        {m.time && (
+                                          <span className="text-[9px] text-[#A78BFA] font-mono font-bold select-none">{m.status}</span>
+                                        )}
+                                      </div>
+                                      <div className="text-[11.5px] font-bold text-slate-200 mt-1 block truncate">
+                                        {m.homeTeam} vs {m.awayTeam}
+                                      </div>
+                                    </div>
+                                    <div className="text-right shrink-0">
+                                      <span className="text-[10px] font-mono text-emerald-400 font-black tracking-tighter uppercase whitespace-nowrap block">
+                                        {m.bookmaker}
+                                      </span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+
+                      </div>
+
+                      {/* Right Column: Scoreboard Hero Match Layout (8 Cols on large) */}
+                      <div className="lg:col-span-8 flex flex-col gap-4">
+                        
+                        {/* Scoreboard Hero Container matching screenshot exactly */}
+                        <div className="bg-[#0B0F19] border border-slate-800/80 rounded-2xl overflow-hidden shadow-2xl flex flex-col">
+                          
+                          {/* Upper Header strip: WC Logo/Title and Star icon */}
+                          <div className="px-5 py-3.5 border-b border-slate-900 bg-[#121827]/60 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              {/* Representative Shield */}
+                              <div className="w-8 h-8 rounded bg-[#101422] border border-slate-800 flex items-center justify-center font-bold text-[10px] text-slate-400 font-mono select-none">
+                                WC
+                              </div>
+                              <div className="text-left">
+                                <span className="text-xs font-black text-slate-100 block tracking-wider uppercase font-sans">
+                                  {activeMatch?.competition || 'World Cup 2026'}
+                                </span>
+                                <span className="text-[10px] text-slate-400 font-mono tracking-tight block">
+                                  {activeMatch?.group || 'Group A'}
+                                </span>
+                              </div>
+                            </div>
+                            
+                            {/* Star Icon for favorite status toggle */}
                             <button
-                              key={bm.id}
-                              onClick={() => setBookmakerFilter(bm.id)}
-                              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all border uppercase ${
-                                isSelected 
-                                  ? `${activeStyle} font-black shadow-md` 
-                                  : 'bg-[#070B14] text-slate-400 border-slate-800 hover:text-slate-200 hover:border-slate-700'
-                              }`}
+                              onClick={() => {
+                                const isFav = favoritesList.includes(activeMatch.id);
+                                if (isFav) {
+                                  setFavoritesList(prev => prev.filter(id => id !== activeMatch.id));
+                                  triggerToast('Fixture removed from favorites!', 'info');
+                                } else {
+                                  setFavoritesList(prev => [...prev, activeMatch.id]);
+                                  triggerToast('Fixture saved to your favorite pool codes!', 'success');
+                                }
+                              }}
+                              className="w-8 h-8 rounded-full hover:bg-slate-800 flex items-center justify-center transition-colors"
                             >
-                              {bm.name}
+                              <Star className={`w-4 h-4 ${favoritesList.includes(activeMatch.id) ? 'text-amber-400 fill-amber-400' : 'text-slate-400'}`} />
                             </button>
-                          );
-                        })}
-                      </div>
-                    </div>
+                          </div>
 
-                  </div>
+                          {/* Scoreboard Center Panel (Team Mexico vs team South Africa) */}
+                          <div className="p-6 md:p-8 bg-gradient-to-b from-[#0e1424] via-[#090d18] to-[#060810] flex items-center justify-between text-center select-none relative">
+                            
+                            {/* Left Team (Mexico style layout) */}
+                            <div className="flex-1 min-w-0 flex flex-col items-center gap-3.5">
+                              <div className="w-16 h-16 rounded-full bg-[#121A30]/60 border-2 border-slate-800 flex items-center justify-center text-3xl shadow-xl transition-transform hover:scale-105 duration-300 relative overflow-hidden">
+                                <div className="absolute inset-0 bg-emerald-500/5"></div>
+                                <span className="relative z-10 select-none">{activeMatch?.homeLogo}</span>
+                              </div>
+                              <span className="font-extrabold text-white text-xs sm:text-sm tracking-wide block uppercase truncate">
+                                {activeMatch?.homeTeam}
+                              </span>
+                            </div>
 
-                  {/* Clean List Items Container */}
-                  <div className="flex flex-col gap-4">
-                    <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                      <h3 className="font-extrabold text-white text-xs tracking-widest uppercase font-mono flex items-center gap-1.5">
-                        <span>📋 Neat Pool Codes Directory</span>
-                      </h3>
-                      <span className="text-[10px] text-slate-500 font-mono">
-                        Showing {filteredCodes.length} matches
-                      </span>
-                    </div>
+                            {/* Center Status & Clock time matching screenshot "20:00 Today" */}
+                            <div className="px-4 flex flex-col justify-center items-center shrink-0 min-w-[120px] sm:min-w-[160px]">
+                              <span className="font-mono text-xl sm:text-2xl font-black text-white tracking-widest block font-sans">
+                                {activeMatch?.time || '20:00'}
+                              </span>
+                              <span className="bg-emerald-950/80 text-emerald-400 border border-emerald-900/60 font-mono text-[9px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest mt-2 block shadow-sm select-none">
+                                {activeMatch?.status || 'Today'}
+                              </span>
+                            </div>
 
-                    {filteredCodes.length === 0 ? (
-                      <div className="text-center py-16 bg-[#111827] border border-slate-800 rounded-2xl p-5 text-slate-400 font-mono text-xs">
-                        No active pool fixtures or code sheets found matching the active bookmaker filters.
-                      </div>
-                    ) : (
-                      <div className="flex flex-col gap-3.5">
-                        {filteredCodes.map((code) => {
-                          const bookmaker = db.bookmakers.find(b => b.id === code.bookmaker_id);
-                          const week = db.pool_weeks.find(w => w.id === code.pool_week_id);
-                          const isDownloaded = myDownloads.some(d => d.pool_code_id === code.id);
-                          const isPremium = code.access_level === 'premium';
-                          const isLocked = isPremium && activePlan?.id === 'plan-free' && currentUser.role !== 'admin';
-                          
-                          const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', year: 'numeric' };
-                          const dateString = new Date(code.created_at).toLocaleDateString('en-US', options);
-                          
-                          // Determine bookie active styles
-                          const norm = (bookmaker?.name || '').toLowerCase();
-                          let borderLeft = 'border-l-slate-700';
-                          let bgBadge = 'bg-slate-900 border-slate-800 text-slate-300';
-                          if (norm.includes('9ja')) {
-                            borderLeft = 'border-l-emerald-500';
-                            bgBadge = 'bg-emerald-950/80 border-emerald-900/60 text-emerald-400';
-                          } else if (norm.includes('sporty')) {
-                            borderLeft = 'border-l-rose-500';
-                            bgBadge = 'bg-rose-950/80 border-rose-900/60 text-rose-400';
-                          } else if (norm.includes('king')) {
-                            borderLeft = 'border-l-blue-500';
-                            bgBadge = 'bg-blue-950/80 border-blue-900/60 text-blue-400';
-                          } else if (norm.includes('msport')) {
-                            borderLeft = 'border-l-amber-500';
-                            bgBadge = 'bg-amber-955/80 border-amber-900/60 text-amber-500';
-                          }
+                            {/* Right Team (South Africa style layout) */}
+                            <div className="flex-1 min-w-0 flex flex-col items-center gap-3.5">
+                              <div className="w-16 h-16 rounded-full bg-[#121A30]/60 border-2 border-slate-800 flex items-center justify-center text-3xl shadow-xl transition-transform hover:scale-105 duration-300 relative overflow-hidden">
+                                <div className="absolute inset-0 bg-yellow-500/5"></div>
+                                <span className="relative z-10 select-none">{activeMatch?.awayLogo}</span>
+                              </div>
+                              <span className="font-extrabold text-white text-xs sm:text-sm tracking-wide block uppercase truncate">
+                                {activeMatch?.awayTeam}
+                              </span>
+                            </div>
 
-                          return (
-                            <div
-                              key={code.id}
-                              className={`bg-[#111827] border ${isAlreadyUnlocked(code.id) ? 'border-emerald-500/25' : 'border-slate-800/80'} rounded-xl p-4 flex flex-col md:flex-row gap-5 items-stretch md:items-center justify-between transition-all hover:bg-slate-900/30 font-sans border-l-4 ${borderLeft} relative`}
+                          </div>
+
+                          {/* Sub Scoreboard Info, Line-ups, Table, H2H navigation bars */}
+                          <div className="flex border-t border-slate-900 bg-[#0B0F19] text-xs font-bold leading-none select-none scrollbar-none overflow-x-auto">
+                            {([
+                              { id: 'info', label: 'Info' },
+                              { id: 'lineups', label: 'Line-ups' },
+                              { id: 'table', label: 'Table' },
+                              { id: 'h2h', label: 'H2H' }
+                            ] as const).map((tab) => {
+                              const isActiv = matchActiveTab === tab.id;
+                              return (
+                                <button
+                                  key={tab.id}
+                                  onClick={() => setMatchActiveTab(tab.id)}
+                                  className={`flex-1 text-center py-4 border-b-2 font-black uppercase tracking-wider transition-all duration-150 min-w-[70px] whitespace-nowrap px-4 ${
+                                    isActiv
+                                      ? 'border-white text-white bg-slate-900/30'
+                                      : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-900/10'
+                                  }`}
+                                >
+                                  {tab.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                        </div>
+
+                        {/* Interactive Banner: Win with your favorite team! styled like mock 1xBet */}
+                        {!isBannerDismissed && (
+                          <div className="bg-[#121A2E] border border-blue-500/15 p-4 rounded-xl relative flex items-center gap-4 text-left shadow-lg overflow-hidden select-none animate-fade-in group">
+                            {/* Blue Accent background light effect */}
+                            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.15),transparent_60%)]"></div>
+                            
+                            {/* 1X bet styled logo container */}
+                            <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl flex items-center justify-center font-black italic tracking-tighter text-white shrink-0 text-sm shadow-md shadow-blue-500/10 border border-blue-400/20">
+                              1X
+                            </div>
+
+                            <div className="flex-1 min-w-0 relative z-10">
+                              <span className="text-white font-extrabold text-[12px] sm:text-xs block leading-tight">
+                                Win with your favorite team!
+                              </span>
+                              <span className="text-[10px] text-[#93C5FD] block mt-0.5 font-sans leading-normal">
+                                Make your predictions and pick a winner! Play on soccer coupons with FastPool verification codes.
+                              </span>
+                              <span className="text-[9px] text-[#A78BFA] font-mono mt-1 font-bold block select-none uppercase tracking-wider">
+                                Bet sasa! • 105% Multi-Coupon Bonus Active
+                              </span>
+                            </div>
+
+                            <button
+                              onClick={() => {
+                                setIsBannerDismissed(true);
+                                triggerToast('Promotional advisory closed.', 'info');
+                              }}
+                              className="absolute top-2.5 right-2.5 w-6 h-6 rounded-full bg-slate-950/20 hover:bg-slate-900 text-slate-400 hover:text-white flex items-center justify-center transition-colors shrink-0"
                             >
-                              {/* Left & Middle details: Bookmaker, Week, fixture parameters */}
-                              <div className="flex flex-col sm:flex-row sm:items-center gap-4 flex-1 min-w-0">
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Orange strip banner block */}
+                        <div className="h-2.5 bg-gradient-to-r from-orange-400 via-orange-500 to-red-600 rounded-full w-full select-none shadow"></div>
+
+                        {/* Active tab content viewport details */}
+                        <div className="bg-[#0B0F19] border border-slate-800/80 rounded-2xl p-5 shadow-xl text-left select-text">
+                          
+                          {/* TAB 1: INFO DIRECTORY (Matches Referee, Stadium details, PLUS central pool codes) */}
+                          {matchActiveTab === 'info' && (
+                            <div className="space-y-5 animate-fade-in">
+                              
+                              <div>
+                                <span className="text-xs font-mono font-black uppercase text-slate-400 block tracking-widest mb-3">
+                                  MATCH INFO
+                                </span>
                                 
-                                {/* Bookie Primary Info */}
-                                <div className="sm:w-44 shrink-0 flex flex-col gap-1">
-                                  <span className={`text-[10px] font-mono font-black tracking-widest px-2.5 py-0.5 rounded border inline-block text-center uppercase ${bgBadge}`}>
-                                    {bookmaker?.name || 'BOOKMAKER'}
-                                  </span>
-                                  <span className="text-[9.5px] text-slate-500 font-mono block text-center uppercase md:text-left md:pl-1">
-                                    {bookmaker?.country || 'International'} Fixtures
-                                  </span>
-                                </div>
-
-                                {/* Main Title Info */}
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                    <h4 className="font-extrabold text-[#38BDF8] text-sm md:text-sm tracking-wide select-text leading-tight uppercase">
-                                      Week {week?.week_number || 49} pool match fixtures codes
-                                    </h4>
-                                    <span className={`text-[8.5px] font-mono font-black uppercase px-2 py-0.5 rounded border ${
-                                      isPremium
-                                        ? 'bg-amber-955/80 text-amber-400 border-amber-900/35 bg-amber-950/65'
-                                        : 'bg-emerald-955/80 text-emerald-400 border-emerald-900/35 bg-emerald-950/65'
-                                    }`}>
-                                      {code.access_level.toUpperCase()}
-                                    </span>
+                                <div className="p-4 bg-[#060810]/50 rounded-xl border border-slate-850 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 font-mono text-[11px] text-slate-300">
+                                  
+                                  {/* Date element */}
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded bg-[#111827] border border-slate-800 flex items-center justify-center shrink-0">
+                                      <Calendar className="w-4 h-4 text-slate-400" />
+                                    </div>
+                                    <div className="truncate">
+                                      <span className="text-slate-500 text-[9px] block uppercase font-bold">MATCH DATE</span>
+                                      <span className="font-bold text-slate-200 block mt-0.5">{activeMatch?.date || '11 Jun 2026'}</span>
+                                    </div>
                                   </div>
 
-                                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-slate-400 text-[10px] font-mono">
-                                    <span className="flex items-center gap-1">
-                                      <Calendar className="w-3.5 h-3.5 text-slate-500" />
-                                      Released {dateString}
-                                    </span>
-                                    <span className="text-slate-700">•</span>
-                                    <span className="text-[9px] text-emerald-400 font-bold uppercase">{week?.pool_type} LEAGUE POOL</span>
-                                    <span className="text-slate-700">•</span>
-                                    <span className="text-slate-500">unzipped {code.download_count} times</span>
+                                  {/* Referee element */}
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded bg-[#111827] border border-slate-800 flex items-center justify-center shrink-0">
+                                      <Activity className="w-4 h-4 text-slate-400" />
+                                    </div>
+                                    <div className="truncate">
+                                      <span className="text-slate-500 text-[9px] block uppercase font-bold">MATCH REFEREE</span>
+                                      <span className="font-bold text-slate-200 block mt-0.5">{activeMatch?.referee || 'Wilton Sampaio (Brazil)'}</span>
+                                    </div>
                                   </div>
-                                </div>
 
+                                  {/* Venue elements */}
+                                  <div className="flex items-center gap-3 sm:col-span-2 lg:col-span-1">
+                                    <div className="w-8 h-8 rounded bg-[#111827] border border-slate-800 flex items-center justify-center shrink-0">
+                                      <Compass className="w-4 h-4 text-slate-400" />
+                                    </div>
+                                    <div className="truncate">
+                                      <span className="text-slate-500 text-[9px] block uppercase font-bold">MATCH VENUE</span>
+                                      <span className="font-bold text-slate-200 block mt-0.5">{activeMatch?.venue || 'Estadio Azteca (Mexico City)'}</span>
+                                    </div>
+                                  </div>
+
+                                </div>
                               </div>
 
-                              {/* Codes content or decryption controls container */}
-                              <div className="md:w-80 w-full shrink-0 flex flex-col justify-center gap-1.5">
-                                {isLocked ? (
-                                  <div className="bg-[#070B14] border border-slate-850 p-3 rounded-lg text-amber-500 text-center text-[10px] font-mono flex flex-col items-center gap-1 select-none">
-                                    <span className="flex items-center gap-1.5 font-bold">
-                                      <Lock className="w-3.5 h-3.5 text-amber-500" /> PREMIUM SHEET SECURED
+                              {/* Pool coupon decryption panel inside Info tab */}
+                              <div className="border-t border-slate-800/80 pt-4">
+                                <div className="flex items-center justify-between mb-3.5">
+                                  <div>
+                                    <span className="text-xs font-mono font-black uppercase text-emerald-450 block tracking-widest">
+                                      🔒 Verification Decryptor Panel
                                     </span>
-                                    <button
-                                      onClick={() => setActiveSubTab('subscription')}
-                                      className="mt-1.5 w-full bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-500 hover:to-yellow-600 text-slate-950 font-black text-[9.5px] py-1.5 px-3 rounded uppercase transition shadow-sm"
-                                    >
-                                      Upgrade to Reveal Coupon
-                                    </button>
+                                    <p className="text-[10px] text-slate-500 font-mono mt-0.5">
+                                      RSA-encrypted verified coupon drawn indicators
+                                    </p>
                                   </div>
-                                ) : isAlreadyUnlocked(code.id) ? (
-                                  <div className="bg-[#070B14] border border-slate-850 p-2.5 rounded-lg font-mono text-[11px] text-emerald-400 leading-normal block relative">
-                                    <div className="flex justify-between items-center mb-1 pb-1 border-b border-slate-850 text-[9px] text-slate-500 select-none">
-                                      <span>🔑 DECRYPTED COUPON LEDGER</span>
-                                      <button 
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          navigator.clipboard.writeText(code.codes_content || '');
-                                          triggerToast('Pool codes copied to clipboard!', 'success');
-                                        }}
-                                        className="hover:text-emerald-400 text-slate-500 font-bold flex items-center gap-1 transition-colors"
-                                      >
-                                        <Copy className="w-2.5 h-2.5" /> COPY
-                                      </button>
-                                    </div>
-                                    <div className="max-h-24 overflow-y-auto select-text pr-1 font-semibold scrollbar-thin scrollbar-thumb-slate-800">
-                                      {code.codes_content}
-                                    </div>
+                                  {associatedCode && isCodeUnlocked && (
+                                    <button
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(associatedCode.codes_content);
+                                        triggerToast('Pool codes copied to clipboard!', 'success');
+                                      }}
+                                      className="text-[9.5px] text-emerald-400 hover:text-emerald-300 font-mono font-black flex items-center gap-1 bg-emerald-950/60 border border-emerald-900/50 px-2 py-1 rounded transition-all"
+                                    >
+                                      <Copy className="w-3 h-3" /> COPY KEY
+                                    </button>
+                                  )}
+                                </div>
+
+                                {associatedCode ? (
+                                  <div>
+                                    {isLocked ? (
+                                      <div className="p-6 bg-[#060810]/80 border border-amber-900/40 rounded-xl text-center flex flex-col items-center gap-2">
+                                        <Lock className="w-7 h-7 text-amber-500 stroke-[2.5]" />
+                                        <span className="text-xs font-extrabold text-amber-400 uppercase tracking-widest font-mono">Premium Forecast Codes Locked</span>
+                                        <p className="text-[11px] text-slate-400 max-w-sm mt-0.5 font-sans leading-relaxed">
+                                          This is a premium high-odds coupon validation indicator sheet. Revealing is locked to VIP Arena members on the active `{associatedCode.access_level}` plan.
+                                        </p>
+                                        <button
+                                          onClick={() => {
+                                            setActiveSubTab('subscription');
+                                            triggerToast('Choose an upgrade plan to reveal premium sheets!', 'info');
+                                          }}
+                                          className="mt-3 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-slate-950 font-black text-xs px-5 py-2 rounded-xl transition shadow-md shadow-amber-500/10 uppercase"
+                                        >
+                                          Upgrade Membership Plan
+                                        </button>
+                                      </div>
+                                    ) : isCodeUnlocked ? (
+                                      <div className="space-y-3">
+                                        {/* Decoder indicators box */}
+                                        <div className="bg-[#03060C] border border-[#0B1E28]/60 p-4 rounded-xl font-mono text-[11.5px] leading-relaxed block relative select-text border-l-4 border-l-emerald-500">
+                                          <div className="text-[8px] text-slate-500 uppercase font-black mb-1.5 pb-1 border-b border-slate-850/60 font-mono tracking-widest">
+                                            ✓ {activeMatch?.bookmaker || 'BET9JA'} VERIFIED POOL SEQUENCE DETAILS ({activeMatch?.week || 'Week 49'})
+                                          </div>
+                                          <div className="text-emerald-400 select-text font-medium font-sans whitespace-pre-wrap leading-relaxed">
+                                            {associatedCode.codes_content}
+                                          </div>
+                                        </div>
+
+                                        {/* Perm indicators key figures */}
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                                          <div className="p-3 bg-slate-900/30 border border-slate-800/60 rounded-xl text-left">
+                                            <span className="text-[8.5px] text-slate-500 font-mono font-bold uppercase tracking-wider block">VERIFICATION KEY</span>
+                                            <span className="text-xs text-slate-100 font-mono font-black mt-1 block">A365-LNK-{associatedCode.id.toUpperCase()}</span>
+                                          </div>
+                                          <div className="p-3 bg-slate-900/30 border border-slate-800/60 rounded-xl text-left">
+                                            <span className="text-[8.5px] text-slate-500 font-mono font-bold uppercase tracking-wider block">ACCESSED LEVEL</span>
+                                            <span className="text-xs text-emerald-400 font-mono font-black mt-1 block uppercase">✓ FREE PUBLIC USE PASS</span>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <div className="p-6 bg-[#060810]/80 border border-slate-800 rounded-xl text-center flex flex-col items-center gap-2">
+                                        <Unlock className="w-7 h-7 text-emerald-500 stroke-[2.5]" />
+                                        <span className="text-xs font-extrabold text-slate-350 uppercase tracking-widest font-mono">Unlock Indicators Key Block</span>
+                                        <p className="text-[11px] text-slate-500 max-w-sm mt-0.5">
+                                          Please decrypt to register validation token and reveal codes sheet.
+                                        </p>
+                                        <button
+                                          onClick={() => {
+                                            handleDownloadCode(associatedCode);
+                                            triggerToast('Registering token...', 'info');
+                                          }}
+                                          className="mt-3 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs px-5 py-2 rounded-xl transition uppercase shadow-md shadow-emerald-555/15 flex items-center gap-1.5"
+                                        >
+                                          <Unlock className="w-3.5 h-3.5" />
+                                          <span>Decrypt Match Codes</span>
+                                        </button>
+                                      </div>
+                                    )}
                                   </div>
                                 ) : (
-                                  <button
-                                    onClick={() => handleDownloadCode(code)}
-                                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold uppercase py-3 px-4 rounded-lg transition text-xs flex items-center justify-center gap-2 shadow-sm"
-                                  >
-                                    <Unlock className="w-4 h-4" />
-                                    <span>Decrypt & Reveal Codes</span>
-                                  </button>
+                                  <div className="p-4 bg-[#060810]/60 border border-slate-800 rounded-xl text-center text-slate-400 text-xs font-mono select-none">
+                                    No custom code sheet attached to this live scoreboard match fixture. Defaulting to free public decrypt rules.
+                                  </div>
                                 )}
                               </div>
 
                             </div>
-                          );
-                        })}
+                          )}
+
+                          {/* TAB 2: LINEUPS (Tactical football field rendering) */}
+                          {matchActiveTab === 'lineups' && (
+                            <div className="space-y-4 animate-fade-in text-center">
+                              <span className="text-xs font-mono font-black uppercase text-slate-400 block tracking-widest mb-1">
+                                TACTICAL FIELD FORMATIONS
+                              </span>
+                              
+                              <div className="grid grid-cols-2 gap-4 font-mono text-[10.5px] text-slate-400 mb-4 bg-[#060810]/40 p-3 rounded-lg border border-slate-850">
+                                <div>
+                                  <span className="text-white block font-black uppercase">{activeMatch?.homeTeam} Formation</span>
+                                  <span className="text-emerald-450 font-black block mt-1">4-3-3 Attacking</span>
+                                </div>
+                                <div className="border-l border-slate-800">
+                                  <span className="text-white block font-black uppercase">{activeMatch?.awayTeam} Formation</span>
+                                  <span className="text-[#A78BFA] font-black block mt-1">4-2-3-1 Defensive</span>
+                                </div>
+                              </div>
+
+                              {/* Canvas Pitch Graphic */}
+                              <div className="w-full h-80 bg-gradient-to-b from-emerald-950 via-emerald-900 to-[#122A1E] rounded-xl border border-emerald-800/50 p-4 relative flex flex-col justify-between overflow-hidden shadow-inner">
+                                {/* Grid field lines */}
+                                <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 border-b border-white/10 w-full z-0"></div>
+                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-28 h-28 border border-white/10 rounded-full z-0"></div>
+                                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-14 border border-white/10 rounded-b-lg z-0"></div>
+                                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-40 h-14 border-t border-x border-white/10 rounded-t-lg z-0"></div>
+
+                                {/* Home Team on Top Field */}
+                                <div className="relative z-10 flex flex-col gap-4">
+                                  {/* Forwards */}
+                                  <div className="flex justify-around px-8 mt-2">
+                                    <div className="flex flex-col items-center">
+                                      <div className="w-6 h-6 rounded-full bg-emerald-600 border border-white text-white flex items-center justify-center text-[10px] font-black">11</div>
+                                      <span className="text-[9px] text-white/80 font-mono font-bold mt-1 shadow-sm">L. Lozano</span>
+                                    </div>
+                                    <div className="flex flex-col items-center">
+                                      <div className="w-6 h-6 rounded-full bg-emerald-600 border border-white text-white flex items-center justify-center text-[10px] font-black">9</div>
+                                      <span className="text-[9px] text-white/80 font-mono font-bold mt-1 shadow-sm">R. Jimenez</span>
+                                    </div>
+                                    <div className="flex flex-col items-center">
+                                      <div className="w-6 h-6 rounded-full bg-emerald-600 border border-white text-white flex items-center justify-center text-[10px] font-black">17</div>
+                                      <span className="text-[9px] text-white/80 font-mono font-bold mt-1 shadow-sm">H. Martin</span>
+                                    </div>
+                                  </div>
+
+                                  {/* Midfielders */}
+                                  <div className="flex justify-around px-12">
+                                    <div className="flex flex-col items-center">
+                                      <div className="w-6 h-6 rounded-full bg-emerald-700/80 border border-white/50 text-white flex items-center justify-center text-[10px]">8</div>
+                                      <span className="text-[9px] text-white/70 font-mono mt-1">E. Alvarez</span>
+                                    </div>
+                                    <div className="flex flex-col items-center">
+                                      <div className="w-6 h-6 rounded-full bg-emerald-700/80 border border-white/50 text-white flex items-center justify-center text-[10px]">10</div>
+                                      <span className="text-[9px] text-white/70 font-mono mt-1">L. Chavez</span>
+                                    </div>
+                                    <div className="flex flex-col items-center">
+                                      <div className="w-6 h-6 rounded-full bg-emerald-700/80 border border-white/50 text-white flex items-center justify-center text-[10px]">6</div>
+                                      <span className="text-[9px] text-white/70 font-mono mt-1">E. Sanchez</span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Away Team on Bottom Field */}
+                                <div className="relative z-10 flex flex-col-reverse gap-4">
+                                  {/* Defenders */}
+                                  <div className="flex justify-around px-6 mb-2">
+                                    <div className="flex flex-col items-center">
+                                      <div className="w-6 h-6 rounded-full bg-[#1e293b] border border-[#a78bfa] text-white flex items-center justify-center text-[10px] font-black">2</div>
+                                      <span className="text-[9px] text-white/80 font-mono font-bold mt-1 shadow-sm">S. Mobara</span>
+                                    </div>
+                                    <div className="flex flex-col items-center">
+                                      <div className="w-6 h-6 rounded-full bg-[#1e293b] border border-[#a78bfa] text-white flex items-center justify-center text-[10px] font-black">4</div>
+                                      <span className="text-[9px] text-white/80 font-mono font-bold mt-1 shadow-sm">M. Mvala</span>
+                                    </div>
+                                    <div className="flex flex-col items-center">
+                                      <div className="w-6 h-6 rounded-full bg-[#1e293b] border border-[#a78bfa] text-white flex items-center justify-center text-[10px] font-black">5</div>
+                                      <span className="text-[9px] text-white/80 font-mono font-bold mt-1 shadow-sm font-sans">A. Modiba</span>
+                                    </div>
+                                    <div className="flex flex-col items-center">
+                                      <div className="w-6 h-6 rounded-full bg-[#1e293b] border border-[#a78bfa] text-white flex items-center justify-center text-[10px] font-black">20</div>
+                                      <span className="text-[9px] text-white/80 font-mono font-bold mt-1 shadow-sm">K. Mudau</span>
+                                    </div>
+                                  </div>
+
+                                  {/* Midfield Anchor */}
+                                  <div className="flex justify-around px-16">
+                                    <div className="flex flex-col items-center">
+                                      <div className="w-6 h-6 rounded-full bg-slate-800/80 border border-slate-700 text-white flex items-center justify-center text-[10px]">14</div>
+                                      <span className="text-[9px] text-slate-400 font-mono mt-1">T. Mokoena</span>
+                                    </div>
+                                    <div className="flex flex-col items-center">
+                                      <div className="w-6 h-6 rounded-full bg-slate-800/80 border border-slate-700 text-white flex items-center justify-center text-[10px]">15</div>
+                                      <span className="text-[9px] text-slate-400 font-mono mt-1">S. Sithole</span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                              </div>
+                              <p className="text-[10px] text-slate-500 font-mono italic mt-1 text-center">
+                                Real-time dynamic lineup data synced directly with the respective team rosters.
+                              </p>
+                            </div>
+                          )}
+
+                          {/* TAB 3: TABLE (League standings standings metrics) */}
+                          {matchActiveTab === 'table' && (
+                            <div className="space-y-4 animate-fade-in">
+                              <span className="text-xs font-mono font-black uppercase text-slate-400 block tracking-widest">
+                                STANDINGS & DRAW RATIO STATISTICS
+                              </span>
+
+                              <div className="overflow-x-auto border border-slate-800/80 rounded-xl bg-[#060810]/30">
+                                <table className="w-full text-left font-mono text-[11px] divide-y divide-slate-800">
+                                  <thead className="bg-[#121827]/80 text-slate-400 font-extrabold uppercase text-[9.5px]">
+                                    <tr>
+                                      <th className="p-3 text-center">Pos</th>
+                                      <th className="p-3">Team</th>
+                                      <th className="p-3 text-center">MP</th>
+                                      <th className="p-3 text-center">Wins</th>
+                                      <th className="p-3 text-center">Draws</th>
+                                      <th className="p-3 text-center">Loss</th>
+                                      <th className="p-3 text-[#10B981] text-center">Dr% Ratio</th>
+                                      <th className="p-3 text-center">PTS</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-850/80">
+                                    {[
+                                      { pos: 1, team: 'Mexico 🇲🇽', mp: 12, w: 7, d: 4, l: 1, dr: '33%', pts: 25 },
+                                      { pos: 2, team: 'South Africa 🇿🇦', mp: 12, w: 6, d: 5, l: 1, dr: '41.6%', pts: 23, highlighted: true },
+                                      { pos: 3, team: 'Nigeria 🇳🇬', mp: 12, w: 5, d: 5, l: 2, dr: '41.6%', pts: 20 },
+                                      { pos: 4, team: 'Ivory Coast 🇨🇮', mp: 12, w: 4, d: 4, l: 4, dr: '33.3%', pts: 16 },
+                                      { pos: 5, team: 'Cameroon 🇨🇲', mp: 12, w: 3, d: 6, l: 3, dr: '50.0%', pts: 15 }
+                                    ].map((row) => (
+                                      <tr
+                                        key={row.pos}
+                                        className={`hover:bg-slate-900/30 ${
+                                          row.highlighted ? 'bg-emerald-950/10 border-emerald-900/10' : ''
+                                        }`}
+                                      >
+                                        <td className="p-3 text-center text-slate-500 font-black">{row.pos}</td>
+                                        <td className="p-3 font-bold text-slate-200">{row.team}</td>
+                                        <td className="p-3 text-center text-slate-400">{row.mp}</td>
+                                        <td className="p-3 text-center text-slate-400">{row.w}</td>
+                                        <td className="p-3 text-center text-slate-400">{row.d}</td>
+                                        <td className="p-3 text-center text-slate-400">{row.l}</td>
+                                        <td className="p-3 text-center font-black text-emerald-400">{row.dr}</td>
+                                        <td className="p-3 text-center text-slate-100 font-bold">{row.pts}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                              <p className="text-[10px] text-slate-500 font-mono italic">
+                                *Dr% represents the pool draw frequency. Higher frequency matches are premium targets for soccer coupon perms.
+                              </p>
+                            </div>
+                          )}
+
+                          {/* TAB 4: H2H (Historical meets) */}
+                          {matchActiveTab === 'h2h' && (
+                            <div className="space-y-4 animate-fade-in">
+                              <span className="text-xs font-mono font-black uppercase text-slate-400 block tracking-widest">
+                                HEAD TO HEAD HISTORICAL ANALYSIS
+                              </span>
+
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="p-3.5 bg-slate-900/20 border border-slate-800 rounded-xl text-left">
+                                  <span className="text-[10px] text-slate-500 font-mono font-bold block uppercase tracking-wider">LCR DRAW PROBABILITY</span>
+                                  <span className="text-2xl font-mono text-emerald-400 font-black block mt-1.5">65.8%</span>
+                                  <p className="text-[9.5px] text-slate-450 font-sans mt-1 leading-normal">
+                                    Highly correlated draw sequence verified. Excellent candidate for Aussie draw-perming checklist combinations.
+                                  </p>
+                                </div>
+                                <div className="p-3.5 bg-slate-900/20 border border-slate-800 rounded-xl text-left">
+                                  <span className="text-[10px] text-slate-500 font-mono font-bold block uppercase tracking-wider">MUTUAL HISTORY</span>
+                                  <span className="text-xs text-white font-mono font-black mt-2 block">TOTAL MATCHES PLAYED: 5</span>
+                                  <div className="flex flex-col gap-1 mt-1 font-mono text-[10px] text-slate-400">
+                                    <span className="flex justify-between"><span>Mexico Wins:</span> <span className="font-bold text-slate-300">1</span></span>
+                                    <span className="flex justify-between"><span>South Africa Wins:</span> <span className="font-bold text-slate-300">1</span></span>
+                                    <span className="flex justify-between text-emerald-400 font-bold"><span>Draws Recorded:</span> <span>3 (60.0%)</span></span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="space-y-2">
+                                <span className="text-[10px] text-slate-400 font-mono font-bold uppercase tracking-wider block">PREVIOUS MEETING SCORES</span>
+                                <div className="space-y-1.5">
+                                  {[
+                                    { date: '18 Nov 2024', home: 'South Africa', away: 'Mexico', score: '2 - 2', outcome: 'DRAW' },
+                                    { date: '14 Jun 2022', home: 'Mexico', away: 'South Africa', score: '1 - 1', outcome: 'DRAW' },
+                                    { date: '10 Oct 2021', home: 'Mexico', away: 'South Africa', score: '1 - 0', outcome: 'MEXICO WIN' },
+                                    { date: '11 Jun 2010', home: 'South Africa', away: 'Mexico', score: '1 - 1', outcome: 'DRAW' }
+                                  ].map((meet, idx) => (
+                                    <div key={idx} className="p-2.5 rounded-lg bg-[#060810]/35 border border-slate-850 flex items-center justify-between text-[11px] font-mono font-bold">
+                                      <span className="text-slate-550 font-normal select-none">{meet.date}</span>
+                                      <span className="text-slate-200">{meet.home} {meet.score} {meet.away}</span>
+                                      <span className={`text-[9.5px] px-2 py-0.2 rounded font-black ${
+                                        meet.outcome === 'DRAW' ? 'bg-emerald-950 text-emerald-400' : 'bg-slate-800 text-slate-400'
+                                      }`}>
+                                        {meet.outcome}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+
+                            </div>
+                          )}
+
+                        </div>
+
                       </div>
-                    )}
+
+                    </div>
 
                   </div>
-
-                </div>
-              )}
+                );
+              })()}
 
               {/* SUBTAB: POOL CODES (INTERNATIONAL) */}
               {activeSubTab === 'international' && (() => {
@@ -751,8 +2419,8 @@ export default function CustomerPortal({
                   <div className="flex flex-col gap-6" id="intl-codes-arena">
                     {/* Header title mimicking screenshot style */}
                     <div className="border-b border-slate-800 pb-4 mb-2">
-                      <h2 className="text-xl font-extrabold tracking-wider text-slate-100 font-mono uppercase">
-                        POOL CODES (INTERNATIONAL)
+                       <h2 className="text-xl font-extrabold tracking-wider text-slate-100 font-mono uppercase">
+                        AUSSIE CODES
                       </h2>
                     </div>
 
