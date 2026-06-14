@@ -165,6 +165,16 @@ export default function OfficePoolStopHome({
     }
   ];
 
+  // Extracted games list representing the Top Score ticker on the screenshot
+  const scoreboardGames = [
+    { type: 'Aussie • FT', team1: 'MELB', score1: '2', team2: 'SYD', score2: '1', status: 'COMPLETED' },
+    { type: 'UK • FT', team1: 'CHE', score1: '1', team2: 'ARS', score2: '1', status: 'COMPLETED' },
+    { type: 'Aussie • FT', team1: 'BRIS', score1: '1', team2: 'ADEL', score2: '1', status: 'COMPLETED' },
+    { type: 'UK • FT', team1: 'TOT', score1: '0', team2: 'MUN', score2: '2', status: 'COMPLETED' },
+    { type: 'Gilas • LIVE', team1: 'NGR', score1: '84', team2: 'GHA', score2: '79', status: 'Q4 2:15' },
+    { type: 'PBA • LIVE', team1: 'SMB', score1: '95', team2: 'BGSM', score2: '93', status: 'Q4 0:42' },
+  ];
+
   // Simulated live picks statistics
   const [pickStats, setPickStats] = useState({
     match1: { Home: 72, Away: 28 },
@@ -357,109 +367,42 @@ export default function OfficePoolStopHome({
               <span className="font-sans font-extrabold text-[#FBBF24] text-sm tracking-wide leading-none block uppercase">Pool Codes</span>
             </div>
           </div>
+        </div>
 
-          {/* Nav Links */}
-          <nav className="hidden lg:flex items-center gap-6 font-semibold text-xs tracking-wide text-slate-300">
-            <button
-              onClick={() => {
-                triggerToast('Navigating to codes database...', 'info');
-                onNavigateToCodes();
-              }}
-              className="hover:text-amber-400 transition duration-150 py-1"
-            >
-              Buy Weekly Codes
-            </button>
-            
-            {/* Pools Dropdown Mock */}
-            <div className="relative group py-1 cursor-pointer">
-              <span className="hover:text-emerald-400 transition duration-150 flex items-center gap-1">
-                Active Pools <ChevronDown className="w-3.5 h-3.5" />
-              </span>
-              <div className="absolute top-full left-0 mt-2 w-56 bg-[#061411] border border-emerald-900/40 rounded-lg p-2.5 shadow-2xl opacity-0 translate-y-2 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto transition-all duration-250 flex flex-col gap-1.5 z-50 text-slate-300">
-                <span className="text-[10px] uppercase font-mono font-bold tracking-widest text-amber-400 px-2 mb-1">Product Catalog</span>
-                <span onClick={() => { triggerToast('Showing UK Football Pool weekly key sheets...', 'info'); onNavigateToCodes(); }} className="hover:bg-emerald-950/50 hover:text-white px-2 py-1.5 rounded text-[11px] font-medium block">UK Football weekly codes</span>
-                <span onClick={() => { triggerToast('Showing Aussie Football Pool weekly key sheets...', 'info'); onNavigateToCodes(); }} className="hover:bg-emerald-950/50 hover:text-white px-2 py-1.5 rounded text-[11px] font-medium block">Aussie Pool weekly codes</span>
-                <span onClick={() => { triggerToast('Showing bet365 prediction lookup sheets...', 'info'); onNavigateToCodes(); }} className="hover:bg-emerald-950/50 hover:text-white px-2 py-1.5 rounded text-[11px] font-medium block">bet365 Decoder Sheets</span>
-                <span onClick={() => { triggerToast('Showing Bet9ja & BetKing verified tables...', 'info'); onNavigateToCodes(); }} className="hover:bg-emerald-950/50 hover:text-white px-2 py-1.5 rounded text-[11px] font-medium block">Bet9ja & BetKing Tables</span>
+        {/* TOP SCOREBOARD STRIP (PREMIUM STYLE) - MOVED IN-BETWEEN */}
+        <div className="hidden md:flex flex-1 mx-8 text-xs md:text-sm h-12 items-center select-none text-white border-l border-emerald-800/60 px-6 overflow-hidden">
+          <div className="flex items-center gap-3 h-full overflow-hidden whitespace-nowrap">
+            {scoreboardGames.map((game, idx) => (
+              <div 
+                key={idx}
+                onClick={() => triggerToast(`Match details: ${game.team1} vs ${game.team2}`, 'info')}
+                className="flex items-center border-r border-emerald-950/60 pr-5 pl-2 hover:bg-emerald-950/40 transition cursor-pointer h-full gap-4 text-left"
+              >
+                <div className="flex flex-col justify-center">
+                  <span className={`text-[9.5px] font-black tracking-widest ${game.type.includes('LIVE') ? 'text-amber-400' : 'text-emerald-400'}`}>
+                    {game.type.toUpperCase()}
+                  </span>
+                  <div className="flex items-center gap-1.5 mt-0.5 font-extrabold">
+                    <span className="text-neutral-100 text-[12.5px] tracking-wide">{game.team1}</span> 
+                    <span className="text-amber-300 font-black text-[11.5px]">{game.score1}</span>
+                    <span className="text-emerald-500 text-[10px]">-</span>
+                    <span className="text-neutral-100 text-[12.5px] tracking-wide">{game.team2}</span> 
+                    <span className="text-amber-300 font-black text-[11.5px]">{game.score2}</span>
+                  </div>
+                </div>
+                {game.type.includes('LIVE') && (
+                  <span className="bg-amber-500 text-slate-950 text-[9px] font-black px-2 py-0.5 rounded shadow animate-pulse">
+                    {game.status}
+                  </span>
+                )}
               </div>
-            </div>
-
-            {/* Resources Dropdown Mock */}
-            <div className="relative group py-1 cursor-pointer">
-              <span className="hover:text-emerald-400 transition duration-150 flex items-center gap-1">
-                Resources <ChevronDown className="w-3.5 h-3.5" />
-              </span>
-              <div className="absolute top-full left-0 mt-2 w-48 bg-[#061411] border border-emerald-900/40 rounded-lg p-2 shadow-2xl opacity-0 translate-y-2 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto transition-all duration-250 flex flex-col gap-1 z-50 text-slate-300 text-[11px]">
-                <span onClick={onNavigateToCodes} className="hover:bg-emerald-950 px-2.5 py-1.5 rounded">View Pool Codes</span>
-                <span onClick={() => { triggerToast('Opening free decode key sheets archives...', 'info'); }} className="hover:bg-emerald-950 px-2.5 py-1.5 rounded">Free Decode Keys</span>
-                <span onClick={() => { triggerToast('Opening bookmaker odds comparison calculator...', 'info'); }} className="hover:bg-emerald-950 px-2.5 py-1.5 rounded">Odds Calculator</span>
-              </div>
-            </div>
-
-            <button
-              onClick={() => {
-                document.getElementById('spotlight-arena')?.scrollIntoView({ behavior: 'smooth' });
-                triggerToast('See our featured experts tips blogs.', 'info');
-              }}
-              className="hover:text-emerald-400 transition duration-150 py-1"
-            >
-              Expert Forecasts
-            </button>
-
-            <button
-              onClick={() => {
-                triggerToast('FastPoolCodes offers both Free weekly sheets and VIP season passes with maximum analytics!', 'info');
-                document.getElementById('grid-layout-anchor')?.scrollIntoView({ behavior: 'smooth' });
-              }}
-              className="hover:text-emerald-400 transition duration-150 py-1"
-            >
-              VIP Passes
-            </button>
-
-            {/* Help Dropdown Mock */}
-            <div className="relative group py-1 cursor-pointer">
-              <span className="hover:text-emerald-400 transition duration-150 flex items-center gap-1">
-                Help <ChevronDown className="w-3.5 h-3.5" />
-              </span>
-              <div className="absolute top-full left-0 mt-2 w-48 bg-[#061411] border border-emerald-900/30 rounded-lg p-2 shadow-2xl opacity-0 translate-y-2 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto transition-all duration-250 flex flex-col gap-1 z-50 text-slate-300 text-[11px]">
-                <span onClick={() => { triggerToast('Launching Support Ticket System...', 'success'); }} className="hover:bg-emerald-950 px-2.5 py-1.5 rounded">Contact Helpdesk</span>
-                <span onClick={() => { triggerToast('Loading Rules & Forecasting glossary...', 'info'); }} className="hover:bg-emerald-950 px-2.5 py-1.5 rounded">Official Rules</span>
-                <span onClick={() => { triggerToast('Loading generic FAQ database...', 'info'); }} className="hover:bg-emerald-950 px-2.5 py-1.5 rounded">FAQ & Decryptor Help</span>
-              </div>
-            </div>
-          </nav>
+            ))}
+          </div>
         </div>
 
         {/* Header CTA action */}
         <div className="flex items-center gap-4">
-          <div className="flex bg-slate-950/70 border border-emerald-950/60 p-1 rounded-xl">
-            <button
-              onClick={() => {
-                setCurrentView('marketing');
-                triggerToast('Navigating to Marketing Platform Home', 'info');
-              }}
-              className={`px-3 py-1.5 text-[10px] font-black uppercase rounded-lg transition-all cursor-pointer ${
-                currentView === 'marketing'
-                  ? 'bg-emerald-500 text-slate-950 shadow'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Classic Home
-            </button>
-            <button
-              onClick={() => {
-                setCurrentView('blog');
-                triggerToast('Loading expert forecasts blog...', 'success');
-              }}
-              className={`px-3 py-1.5 text-[10px] font-black uppercase rounded-lg transition-all cursor-pointer ${
-                currentView === 'blog'
-                  ? 'bg-emerald-500 text-slate-950 shadow'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Expert News
-            </button>
-          </div>
+
 
           <button
             onClick={() => handleOpenAuth('login')}

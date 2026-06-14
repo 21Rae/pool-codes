@@ -45,152 +45,22 @@ export default function ExpertBlogView({
   onOpenPaywall,
   triggerToast
 }: ExpertBlogViewProps) {
-  const [selectedEdition, setSelectedEdition] = useState('NGR VIP');
-  const [searchQuery, setSearchQuery] = useState('');
-
-  // Extracted games list representing the Top Score ticker on the screenshot
-  const scoreboardGames = [
-    { type: 'Aussie • FT', team1: 'MELB', score1: '2', team2: 'SYD', score2: '1', status: 'COMPLETED' },
-    { type: 'UK • FT', team1: 'CHE', score1: '1', team2: 'ARS', score2: '1', status: 'COMPLETED' },
-    { type: 'Aussie • FT', team1: 'BRIS', score1: '1', team2: 'ADEL', score2: '1', status: 'COMPLETED' },
-    { type: 'UK • FT', team1: 'TOT', score1: '0', team2: 'MUN', score2: '2', status: 'COMPLETED' },
-    { type: 'Gilas • LIVE', team1: 'NGR', score1: '84', team2: 'GHA', score2: '79', status: 'Q4 2:15' },
-    { type: 'PBA • LIVE', team1: 'SMB', score1: '95', team2: 'BGSM', score2: '93', status: 'Q4 0:42' },
-  ];
 
   return (
     <div className="bg-[#f3f4f6] text-[#1c1c1e] min-h-screen font-sans flex flex-col antialiased">
       
-      {/* 1. TOP SCOREBOARD STRIP (PREMIUM STYLE) */}
-      <div className="bg-[#1c1c1e] border-b border-[#2c2c2e] text-[11px] h-11 flex items-center overflow-x-auto whitespace-nowrap pl-4 pr-4 select-none scrollbar-hide shrink-0 text-white shadow-inner">
-        <div 
-          onClick={() => triggerToast('Opening full Match Dashboard...', 'info')}
-          className="flex items-center gap-2 pr-4 border-r border-[#2c2c2e] hover:bg-neutral-800 transition cursor-pointer h-full px-2 font-black text-rose-500 uppercase tracking-widest text-[9.5px]"
-        >
-          <span>FPCODES CODES TICKER</span>
-          <ChevronDown className="w-3 h-3 text-neutral-400" />
-        </div>
-
-        <div className="flex items-center gap-1.5 h-full">
-          {scoreboardGames.map((game, idx) => (
-            <div 
-              key={idx}
-              onClick={() => triggerToast(`Match details: ${game.team1} vs ${game.team2}`, 'info')}
-              className="flex items-center border-r border-[#2c2c2e] pr-4 pl-3 hover:bg-neutral-800/60 transition cursor-pointer h-full gap-4 text-left"
-            >
-              <div className="flex flex-col justify-center">
-                <span className={`text-[8.5px] font-black tracking-wider ${game.type.includes('LIVE') ? 'text-amber-400' : 'text-neutral-400'}`}>
-                  {game.type}
-                </span>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className="font-extrabold text-neutral-200">{game.team1}</span> 
-                  <span className="text-zinc-400 font-bold text-[10px]">{game.score1}</span>
-                  <span className="text-zinc-500 text-[9px] font-mono">-</span>
-                  <span className="font-extrabold text-neutral-200">{game.team2}</span> 
-                  <span className="text-zinc-400 font-bold text-[10px]">{game.score2}</span>
-                </div>
-              </div>
-              {game.type.includes('LIVE') && (
-                <span className="bg-amber-500 text-slate-950 text-[8px] font-black px-1.5 py-0.5 rounded animate-pulse">
-                  {game.status}
-                </span>
-              )}
-            </div>
-          ))}
-        </div>
-
-        <div 
-          onClick={() => triggerToast('Loading all registered bookmaker live indicators...', 'success')}
-          className="ml-auto font-black text-rose-400 text-[10px] hover:text-rose-300 transition cursor-pointer uppercase tracking-wider pl-4"
-        >
-          ALL SCORES & STANDINGS »
-        </div>
-      </div>
-
       {/* 2. MAIN NAVIGATION STRIP (BAR 1 - BRAND FOCUS) */}
       <div className="bg-[#1a1a1c] border-b border-zinc-900 text-white shrink-0 select-none">
-        <div className="max-w-[1360px] mx-auto px-4 flex items-center justify-between h-14">
+        <div className="max-w-[1360px] mx-auto px-4 flex items-center justify-center h-14">
           
-          {/* Logo Brand with red banner backing */}
-          <div className="flex items-center">
-            <div 
-              onClick={() => triggerToast('FASTPOOLCODES Official Blog Portal', 'info')}
-              className="bg-[#fa3e65] text-white font-black px-4 py-2 text-xl tracking-tighter italic mr-6 skew-x-[-12deg] inline-block shadow-md select-none cursor-pointer hover:bg-[#ff4e75] transition"
-            >
-              <span className="tracking-tight block select-none">FPCODES</span>
-            </div>
+          <button 
+            onClick={onOpenPaywall} 
+            className="hover:scale-105 active:scale-95 text-amber-300 cursor-pointer transition-all duration-300 flex items-center gap-2.5 bg-gradient-to-r from-amber-500/25 via-yellow-400/35 to-amber-500/25 border-2 border-amber-400/90 px-6 py-1.5 rounded-full shadow-[0_0_20px_rgba(245,158,11,0.4)] animate-pulse hover:shadow-[0_0_25px_rgba(245,158,11,0.6)]"
+          >
+            <Award className="w-4.5 h-4.5 text-amber-400" />
+            <span className="text-xs font-black uppercase tracking-widest text-amber-100">Unlock VIP Premium Pass</span>
+          </button>
 
-            {/* Menu Items */}
-            <nav className="hidden lg:flex items-center gap-5 text-xs font-black uppercase tracking-wider text-neutral-300">
-              <span onClick={() => triggerToast('Loading Football Pools Home...', 'info')} className="hover:text-white transition cursor-pointer text-white border-b-2 border-rose-500 pb-4 pt-4 block">Football Pools</span>
-              <span onClick={() => { triggerToast('Showing Aussie Keys directory...', 'info'); }} className="hover:text-white transition cursor-pointer pb-4 pt-4 block">Aussie Keys</span>
-              <span onClick={() => { triggerToast('Showing UK Draw matrix...', 'info'); }} className="hover:text-white transition cursor-pointer pb-4 pt-4 block">UK Coupon Matrix</span>
-              <span onClick={() => { triggerToast('Opening bet365 matching files...', 'info'); }} className="hover:text-[#fa3e65] transition cursor-pointer pb-4 pt-4 block text-[#fa3e65]/90 flex items-center gap-1">
-                <Sparkles className="w-3 h-3 text-[#fa3e65] animate-pulse" /> bet365 Special
-              </span>
-              <span onClick={() => { triggerToast('Showing MSport Indicator streams...', 'info'); }} className="hover:text-white transition cursor-pointer pb-4 pt-4 block">MSport Indicators</span>
-              <span onClick={() => { triggerToast('Showing BetKing verified codes...', 'info'); }} className="hover:text-white transition cursor-pointer pb-4 pt-4 block">BetKing Pointers</span>
-              <span onClick={() => triggerToast('Opening premium analysis archives...', 'info')} className="hover:text-white transition cursor-pointer flex items-center gap-1 pb-4 pt-4 block">
-                More <ChevronDown className="w-3.5 h-3.5 text-neutral-400" />
-              </span>
-            </nav>
-          </div>
-
-          {/* Right side utilities */}
-          <div className="flex items-center gap-4 text-xs font-bold text-neutral-300">
-            <span onClick={() => triggerToast('Opening live audio stream...', 'info')} className="hover:text-white cursor-pointer transition flex items-center gap-1.5 bg-zinc-800/50 hover:bg-zinc-800 px-2 py-1 rounded border border-zinc-700/30">
-              <Volume2 className="w-3.5 h-3.5 text-[#fa3e65]" />
-              <span>Listen Live</span>
-            </span>
-            <span onClick={() => triggerToast('Loading FastPoolCodes Fantasy coupon contest...', 'success')} className="hover:text-white cursor-pointer transition flex items-center gap-1.5 bg-zinc-800/50 hover:bg-zinc-800 px-2 py-1 rounded border border-zinc-700/30">
-              <Trophy className="w-3.5 h-3.5 text-amber-400" />
-              <span>Fantasy League</span>
-            </span>
-            <span onClick={onOpenPaywall} className="hover:text-amber-400 text-amber-300 cursor-pointer transition flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/35 px-2.5 py-1 rounded-full shadow-sm animate-pulse">
-              <Award className="w-3.5 h-3.5 text-amber-400" />
-              <span>VIP Premium Pass</span>
-            </span>
-          </div>
-
-        </div>
-      </div>
-
-      {/* 3. SUB-CATEGORY NAVIGATION STRIP (BAR 2) */}
-      <div className="bg-white border-b border-zinc-200 shadow-sm text-zinc-900 shrink-0 select-none">
-        <div className="max-w-[1360px] mx-auto px-4 flex items-center justify-between h-10 text-xs">
-          <div className="flex items-center gap-4 font-bold">
-            <span className="font-extrabold uppercase text-[#1c1c1e] flex items-center gap-2">
-              <span className="bg-rose-500 text-white p-1 rounded-md flex items-center justify-center shadow-sm">
-                <TrendingUp className="w-3.5 h-3.5" />
-              </span>
-              Football Pools Forecasts
-            </span>
-            <span className="text-zinc-300">|</span>
-            <span className="text-rose-600 border-b-2 border-rose-600 font-extrabold h-10 flex items-center px-1">Blog Home</span>
-            <span onClick={() => triggerToast('Opening weekly schedule sheet...', 'info')} className="hover:text-[#fa3e65] cursor-pointer transition text-zinc-600 font-medium leading-none">Weekly Sheets</span>
-            <span onClick={() => triggerToast('Opening Aussie perming matrices...', 'info')} className="hover:text-[#fa3e65] cursor-pointer transition text-zinc-600 font-medium leading-none">Aussie Decrypters</span>
-            <span onClick={() => triggerToast('Opening UK code archives...', 'info')} className="hover:text-[#fa3e65] cursor-pointer transition text-zinc-600 font-medium leading-none">UK Matrices</span>
-            <span onClick={onOpenPaywall} className="hover:text-[#fa3e65] cursor-pointer transition text-[#fa3e65] font-black leading-none flex items-center gap-1">
-              <Sparkles className="w-3 h-3 text-[#fa3e65] animate-pulse" /> Join VIP Pass
-            </span>
-          </div>
-
-          <div className="hidden md:flex items-center gap-2">
-            <span className="text-zinc-500 font-medium">Edition:</span>
-            <select 
-              value={selectedEdition} 
-              onChange={(e) => {
-                setSelectedEdition(e.target.value);
-                triggerToast(`Switched view edition to ${e.target.value}`, 'success');
-              }}
-              className="bg-zinc-100 hover:bg-zinc-200 font-bold border-none rounded py-1 px-2.5 text-[11px] text-zinc-800 outline-none cursor-pointer"
-            >
-              <option value="NGR VIP">NGR - Lagos Hub</option>
-              <option value="UK PREMIUM">UK - London Direct</option>
-              <option value="GHA STANDARD">GHA - Accra Free</option>
-              <option value="GLOBAL PRESET">Global Decrypt</option>
-            </select>
-          </div>
         </div>
       </div>
 
