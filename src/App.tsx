@@ -542,42 +542,43 @@ export default function App() {
         <div className="h-screen bg-[#090D1A] flex flex-col overflow-hidden text-slate-100">
           {/* Main Application Navigation Header (Styled naturally as key workspace views) */}
           <header className="bg-[#090D1A] border-b border-[#1E293B]/70 sticky top-0 z-50 shadow-md">
-            <div className="w-full px-4 md:px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
+            <div className="w-full px-3 md:px-6 py-2 md:py-3 flex flex-row items-center justify-between gap-2 md:gap-4">
+              <div className="flex items-center gap-1.5 md:gap-3">
                 <button
                   onClick={() => {
                     setViewMode('homepage');
                     triggerToast('Returned to main marketing landing page.', 'info');
                   }}
-                  className="bg-slate-850 hover:bg-slate-800 text-slate-305 font-bold px-3 py-1.5 rounded-lg text-xs transition border border-slate-700/65 flex items-center gap-1.5 cursor-pointer"
+                  className="bg-slate-850 hover:bg-slate-800 text-slate-305 font-bold px-2 py-1 md:px-3 md:py-1.5 rounded-lg text-[10px] md:text-xs transition border border-slate-700/65 flex items-center gap-1 cursor-pointer shrink-0"
                 >
-                  ← HOME PAGE
+                  <span className="xs:inline hidden">← HOME PAGE</span>
+                  <span className="xs:hidden inline">← HOME</span>
                 </button>
-                <div className="flex items-center gap-2 px-2 border-l border-slate-800">
-                  <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#FA3E65] to-teal-500 text-white flex items-center justify-center font-bold text-sm shadow-lg">
+                <div className="flex items-center gap-1.5 md:gap-2 px-1.5 md:px-2 border-l border-slate-800">
+                  <div className="w-6 h-6 md:w-8 md:h-8 rounded-lg md:rounded-xl bg-gradient-to-br from-[#FA3E65] to-teal-500 text-white flex items-center justify-center font-bold text-xs md:text-sm shadow-lg shrink-0">
                     ⚽
                   </div>
-                  <div>
-                    <h1 className="font-extrabold text-[#FA3E65] tracking-wider text-xs leading-none uppercase">
+                  <div className="min-w-0">
+                    <h1 className="font-extrabold text-[#FA3E65] tracking-tight md:tracking-wider text-[10px] md:text-xs leading-none uppercase truncate">
                       PoolCodes Arena
                     </h1>
-                    <span className="text-[9px] text-slate-400 font-mono mt-0.5 block">RELATIONAL MULTI-PORTAL SUITE</span>
+                    <span className="text-[8px] md:text-[9px] text-slate-400 font-mono mt-0.5 block truncate">RELATIONAL SUITE</span>
                   </div>
                 </div>
               </div>
 
               {/* Active Context indicator */}
-              <div className="hidden md:flex items-center gap-2 bg-emerald-955/20 bg-emerald-950/40 px-3.5 py-1.5 rounded-full border border-emerald-900/40 shadow-inner">
+              <div className="hidden lg:flex items-center gap-2 bg-emerald-950/40 px-3 py-1 rounded-full border border-emerald-900/40 shadow-inner">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span className="text-[10.5px] font-mono text-emerald-350 select-none uppercase tracking-wider font-extrabold">
+                <span className="text-[10px] font-mono text-emerald-350 select-none uppercase tracking-wider font-extrabold">
                   Aussie Pool Season • Week 49 Active
                 </span>
               </div>
 
               {/* Quick-switch persona dropdown & reload db seeds */}
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg">
-                  <span className="text-[9px] text-slate-450 uppercase font-mono font-bold">Simulate As:</span>
+              <div className="flex items-center gap-1.5 md:gap-3 shrink-0">
+                <div className="flex items-center gap-1 px-2 py-1 md:px-3 md:py-1.5 bg-slate-950 border border-slate-800 rounded-lg">
+                  <span className="text-[8px] md:text-[9px] text-slate-500 uppercase font-mono font-bold hidden xs:inline">Simulate As:</span>
                   <select
                     value={selectedPersonaId}
                     onChange={(e) => {
@@ -585,7 +586,7 @@ export default function App() {
                       const u = db.users.find(x => x.id === e.target.value);
                       triggerToast(`Session authenticated to: @${u?.username}`, 'info');
                     }}
-                    className="bg-transparent font-mono text-xs text-amber-400 font-bold border-none focus:outline-none cursor-pointer outline-none uppercase"
+                    className="bg-transparent font-mono text-[10px] md:text-xs text-amber-400 font-bold border-none focus:outline-none cursor-pointer outline-none uppercase bg-[#0f172a]"
                   >
                     {db.users.filter(u => u.role !== 'admin').map(u => {
                       const s = db.user_subscriptions.find(sub => sub.user_id === u.id && sub.status === 'active');
@@ -611,8 +612,8 @@ export default function App() {
           </header>
 
           {/* Main Workspace Frame container */}
-          <main className="flex-1 w-full p-4 md:p-6 flex flex-col gap-6 min-h-0 overflow-hidden">
-            <div className="flex-1 bg-[#0A0F1D]/50 border border-emerald-950 rounded-xl overflow-hidden shadow-2xl relative flex flex-col min-h-0">
+          <main className="flex-1 w-full p-0 sm:p-4 md:p-6 flex flex-col gap-4 sm:gap-6 min-h-0 overflow-hidden">
+            <div className="flex-1 bg-[#0A0F1D]/50 sm:border border-emerald-950 sm:rounded-xl overflow-hidden shadow-2xl relative flex flex-col min-h-0">
               <CustomerPortal
                 db={db}
                 currentUser={currentUser}

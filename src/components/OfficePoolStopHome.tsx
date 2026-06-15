@@ -1198,63 +1198,7 @@ export default function OfficePoolStopHome({
                   )}
                 </div>
 
-                {/* Simulated database details notice line */}
-                <div className="bg-[#05110e]/75 border border-emerald-950/70 p-3 rounded-xl flex flex-col gap-2 select-none text-left">
-                  <div className="flex items-start gap-2">
-                    <Info className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                    <p className="text-[10px] text-emerald-400/80 leading-normal">
-                      {authMode === 'signup' 
-                        ? 'Signing up instantiates your user record in our SQL simulator for Week 49 pass download.'
-                        : 'Preset profiles exist to explore: you may also login with "john_doe_free" or "alex_premium".'}
-                    </p>
-                  </div>
-                  
-                  {/* Quick bypass / dev buttons */}
-                  <div className="border-t border-emerald-920/40 border-emerald-950/50 pt-2 mt-1">
-                    <span className="text-[9px] font-mono tracking-wider text-amber-400 font-bold block mb-1.5 uppercase">⚡ Fast-Track Simulator Sign-In:</span>
-                    <div className="grid grid-cols-3 gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (onLoginUser) {
-                            onLoginUser('alex_premium');
-                            setShowSystemAuth(false);
-                            triggerToast('Authenticated instantly with alex_premium (VIP Account)!', 'success');
-                          }
-                        }}
-                        className="bg-emerald-950/45 hover:bg-emerald-900/40 border border-emerald-500/20 text-emerald-300 text-[9px] font-extrabold py-1 rounded cursor-pointer transition hover:scale-105 active:scale-95 text-center truncate"
-                      >
-                        👑 Alex (VIP)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (onLoginUser) {
-                            onLoginUser('pool_master_admin');
-                            setShowSystemAuth(false);
-                            triggerToast('Authenticated instantly with pool_master_admin (Manager account)!', 'success');
-                          }
-                        }}
-                        className="bg-amber-950/45 hover:bg-amber-900/40 border border-amber-500/20 text-amber-300 text-[9px] font-extrabold py-1 rounded cursor-pointer transition hover:scale-105 active:scale-95 text-center truncate"
-                      >
-                        🛠️ Admin
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (onLoginUser) {
-                            onLoginUser('john_doe_free');
-                            setShowSystemAuth(false);
-                            triggerToast('Authenticated instantly with john_doe_free (Free account)!', 'success');
-                          }
-                        }}
-                        className="bg-sky-950/45 hover:bg-sky-900/40 border border-sky-500/20 text-sky-305 text-sky-300 text-[9px] font-extrabold py-1 rounded cursor-pointer transition hover:scale-105 active:scale-95 text-center truncate"
-                      >
-                        👤 John (Free)
-                      </button>
-                    </div>
-                  </div>
-                </div>
+
 
                 {/* Submission CTA */}
                 <button

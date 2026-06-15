@@ -36,7 +36,8 @@ import {
   Star,
   X,
   Info,
-  Play
+  Play,
+  Menu
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DatabaseState, User, SubscriptionPlan, UserSubscription, PoolCode } from '../types';
@@ -68,31 +69,93 @@ export default function CustomerPortal({
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'portal' | 'decryptor'>('portal');
   const [selectedResultId, setSelectedResultId] = useState<string>('pr-w43');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  const exportResultToCSV = (result: typeof db.pool_results[0]) => {
+    try {
+      const headers = ['Match No', 'Home Team Selection', 'Away Team Companion', 'Score FT', 'POOL Outcome', 'PAY Status'];
+      const rows = (result.results_table || []).map(row => [
+        row.matchNo,
+        `"${row.homeTeam}"`,
+        `"${row.awayTeam}"`,
+        `"${row.fullTimeScore}"`,
+        `"${row.outcome}"`,
+        `"${row.payoutStatus}"`
+      ]);
+      const csvContent = "data:text/csv;charset=utf-8," 
+        + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+      
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `Pool_Results_Week_${result.week_number || 43}_${(result.pool_type || 'UK').toUpperCase()}_Pool.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      triggerToast('Spreadsheet exported successfully as CSV!', 'success');
+    } catch (error) {
+      triggerToast('Could not export spreadsheet.', 'error');
+    }
+  };
 
   // Dynamic sports score auto-scroll ticker control
   const arenaScoreboardRef = useRef<HTMLDivElement>(null);
   const [isArenaScoreboardHovered, setIsArenaScoreboardHovered] = useState(false);
+  const touchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleTouchStart = () => {
+    setIsArenaScoreboardHovered(true);
+    if (touchTimeoutRef.current) {
+      clearTimeout(touchTimeoutRef.current);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (touchTimeoutRef.current) {
+      clearTimeout(touchTimeoutRef.current);
+    }
+    touchTimeoutRef.current = setTimeout(() => {
+      setIsArenaScoreboardHovered(false);
+    }, 800);
+  };
 
   useEffect(() => {
     const container = arenaScoreboardRef.current;
     if (!container) return;
 
     let animationFrameId: number;
-    const speed = 0.45; // Pixels per frame
+    let scrollPos = container.scrollLeft;
+    const speed = 0.55; 
 
     const scroll = () => {
       if (!isArenaScoreboardHovered) {
-        container.scrollLeft += speed;
-        // Reset when reaching halfway of duplicated list content
-        if (container.scrollLeft >= container.scrollWidth / 2) {
-          container.scrollLeft = 0;
+        scrollPos += speed;
+        if (scrollPos >= container.scrollWidth / 2) {
+          scrollPos = 0;
         }
+        container.scrollLeft = Math.round(scrollPos);
+      } else {
+        scrollPos = container.scrollLeft;
       }
       animationFrameId = requestAnimationFrame(scroll);
     };
 
+    const handleScroll = () => {
+      if (isArenaScoreboardHovered) {
+        scrollPos = container.scrollLeft;
+      }
+    };
+
+    container.addEventListener('scroll', handleScroll, { passive: true });
     animationFrameId = requestAnimationFrame(scroll);
-    return () => cancelAnimationFrame(animationFrameId);
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+      container.removeEventListener('scroll', handleScroll);
+      if (touchTimeoutRef.current) {
+        clearTimeout(touchTimeoutRef.current);
+      }
+    };
   }, [isArenaScoreboardHovered]);
 
   // Dynamic posted games coupon states
@@ -541,13 +604,177 @@ export default function CustomerPortal({
     return true;
   });
 
-
-
   return (
     <div id="customer-portal-app" className="flex-1 flex flex-col md:flex-row bg-[#0A0F1D] text-slate-100 font-sans min-h-0 h-full">
+
+      {/* Mobile Sticky Navigation header */}
+      <div className="md:hidden flex items-center justify-between px-4 py-3 bg-[#0F172A] border-b border-slate-800 sticky top-0 z-30 shadow-md">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setIsMobileMenuOpen(true)}
+            className="p-2 bg-slate-900 border border-slate-800 rounded-lg text-slate-300 hover:text-white"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+          
+          <div>
+            <span className="text-xs font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-300 uppercase tracking-wider block">
+              {activeSubTab === 'dashboard' ? 'Arena Dashboard' : activeSubTab === 'results' ? 'Result Sheets' : activeSubTab === 'subscription' ? 'VIP Premium' : 'User Profile'}
+            </span>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-1.5 min-w-0 shrink">
+          <span className="text-[10px] font-mono text-slate-400 truncate max-w-[110px] sm:max-w-[200px]" title={currentUser.username}>@{currentUser.username}</span>
+          <div className="w-7 h-7 rounded-full bg-slate-900 border border-emerald-550 flex items-center justify-center font-bold text-emerald-400 text-xs shrink-0">
+            {currentUser.username[0].toUpperCase()}
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile Sidebar sliding drawer overlay */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <div className="md:hidden fixed inset-0 z-[100] flex">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.5 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="absolute inset-0 bg-black/80"
+            />
+            
+            {/* Drawer Body */}
+            <motion.div
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="relative w-72 max-w-[85vw] h-full bg-gradient-to-b from-[#0F172A] to-[#0D1527] text-slate-300 p-5 flex flex-col justify-between border-r border-slate-800/80 shadow-2xl overflow-y-auto"
+            >
+              {/* Close Button Inside Drawer */}
+              <button 
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="absolute top-4 right-4 p-2 bg-slate-900 border border-slate-800 rounded-lg text-slate-450 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              <div className="flex flex-col gap-6 mt-6">
+                {/* Sports branding design */}
+                <div className="flex items-center gap-3 pb-5 border-b border-emerald-950/40">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center font-bold text-lg shadow-lg">
+                    <Trophy className="w-5 h-5 text-white stroke-[2.5]" />
+                  </div>
+                  <div>
+                    <span className="font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-300 tracking-tight block text-sm">
+                      POOLCODES ARENA
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-mono flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+                      stadium-client v4.9
+                    </span>
+                  </div>
+                </div>
+
+                {/* User Profile identity Badge */}
+                <div className="p-3.5 bg-gradient-to-r from-[#172540]/80 to-[#121F38]/80 rounded-xl border border-emerald-600/20 flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-full bg-slate-900 border-2 border-emerald-400 flex items-center justify-center font-bold text-emerald-400 text-sm font-mono shadow-inner">
+                    {currentUser.username[0].toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-xs font-black text-slate-5 block truncate">@{currentUser.username}</span>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className="inline-block w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                      <span className="text-[9.5px] font-mono text-emerald-350 tracking-wider uppercase font-semibold">
+                        {activePlan?.id !== 'plan-free' ? '★ VIP Arena Member' : 'Free Trial Tier'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Primary Navigation inside Drawer */}
+                <nav className="flex flex-col gap-2">
+                  <button
+                    onClick={() => {
+                      setActiveSubTab('dashboard');
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className={`flex items-center gap-3 px-3.5 py-3 rounded-lg text-xs font-bold tracking-wide transition duration-150 ${
+                      activeSubTab === 'dashboard'
+                        ? 'bg-gradient-to-r from-emerald-555/15 to-emerald-500/5 text-emerald-400 border-l-4 border-emerald-500 pl-2.5'
+                        : 'hover:bg-slate-800/60 text-slate-400 hover:text-slate-150'
+                    }`}
+                  >
+                    <Home className="w-4 h-4" />
+                    <span>DASHBOARD ARENA</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setActiveSubTab('results');
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className={`flex items-center justify-between px-3.5 py-3 rounded-lg text-xs font-bold tracking-wide transition duration-150 ${
+                      activeSubTab === 'results'
+                        ? 'bg-gradient-to-r from-emerald-555/15 to-emerald-500/5 text-emerald-400 border-l-4 border-emerald-500 pl-2.5'
+                        : 'hover:bg-slate-800/60 text-slate-400 hover:text-slate-150'
+                    }`}
+                  >
+                    <span className="flex items-center gap-3">
+                      <Trophy className="w-4 h-4" />
+                      <span>CHAMPIONS RESULT SHEETS</span>
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setActiveSubTab('subscription');
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className={`flex items-center gap-3 px-3.5 py-3 rounded-lg text-xs font-bold tracking-wide transition duration-150 ${
+                      activeSubTab === 'subscription'
+                        ? 'bg-gradient-to-r from-emerald-555/15 to-emerald-500/5 text-emerald-400 border-l-4 border-emerald-500 pl-2.5'
+                        : 'hover:bg-slate-800/60 text-slate-400 hover:text-slate-150'
+                    }`}
+                  >
+                    <CreditCard className="w-4 h-4" />
+                    <span>VIP PREMIUM MEMBERSHIP</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setActiveSubTab('profile');
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className={`flex items-center gap-3 px-3.5 py-3 rounded-lg text-xs font-bold tracking-wide transition duration-150 ${
+                      activeSubTab === 'profile'
+                        ? 'bg-gradient-to-r from-emerald-555/15 to-emerald-500/5 text-emerald-400 border-l-4 border-emerald-500 pl-2.5'
+                        : 'hover:bg-slate-800/60 text-slate-400 hover:text-slate-150'
+                    }`}
+                  >
+                    <UserIcon className="w-4 h-4" />
+                    <span>USER PROFILE</span>
+                  </button>
+                </nav>
+              </div>
+
+              {/* Security Encryption Badge Footer */}
+              <div className="pt-4 border-t border-slate-800/60 text-[10px] text-slate-500 font-mono space-y-1">
+                <div className="flex items-center gap-1.5 text-[#10B981]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                  <span>SECURE STADIUM ENCRYPTED</span>
+                </div>
+                <p className="text-slate-600">RSA 2048-Bit Draw Verifications Active</p>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
       
-      {/* Interactive Stadium Locker-Room Sidebar */}
-      <aside className="w-full md:w-68 bg-gradient-to-b from-[#0F172A] to-[#0D1527] text-slate-300 p-5 flex flex-col justify-between border-right border-slate-800/80 shrink-0 overflow-y-auto">
+      {/* Interactive Stadium Locker-Room Sidebar (Desktop) */}
+      <aside className="hidden md:flex w-68 bg-gradient-to-b from-[#0F172A] to-[#0D1527] text-slate-300 p-5 flex-col justify-between border-r border-slate-800/80 shrink-0 overflow-y-auto">
         <div className="flex flex-col gap-6">
           {/* Sports branding design */}
           <div className="flex items-center gap-3 pb-5 border-b border-emerald-950/40">
@@ -571,7 +798,7 @@ export default function CustomerPortal({
               {currentUser.username[0].toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
-              <span className="text-xs font-black text-slate-50 block truncate">@{currentUser.username}</span>
+              <span className="text-xs font-black text-slate-5 block truncate">@{currentUser.username}</span>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <span className="inline-block w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></span>
                 <span className="text-[9.5px] font-mono text-emerald-350 tracking-wider uppercase font-semibold">
@@ -646,7 +873,7 @@ export default function CustomerPortal({
       </aside>
 
       {/* Main Panel View Area */}
-      <main className="flex-1 p-5 md:p-8 bg-[#070B14] flex flex-col gap-6 overflow-x-hidden overflow-y-auto min-h-0">
+      <main className="flex-1 p-3 sm:p-5 md:p-8 bg-[#070B14] flex flex-col gap-4 sm:gap-6 overflow-x-hidden overflow-y-auto min-h-0">
         
         {/* Revocation Warning Alert */}
         {currentUser.status === 'suspended' && (
@@ -691,8 +918,8 @@ export default function CustomerPortal({
                       ref={arenaScoreboardRef}
                       onMouseEnter={() => setIsArenaScoreboardHovered(true)}
                       onMouseLeave={() => setIsArenaScoreboardHovered(false)}
-                      onTouchStart={() => setIsArenaScoreboardHovered(true)}
-                      onTouchEnd={() => setIsArenaScoreboardHovered(false)}
+                      onTouchStart={handleTouchStart}
+                      onTouchEnd={handleTouchEnd}
                       className="flex items-center gap-3 overflow-x-auto scrollbar-none py-1 whitespace-nowrap"
                     >
                       {[
@@ -702,7 +929,14 @@ export default function CustomerPortal({
                         { type: 'Aussie • FT', team1: 'ST GEORGE', score1: '2', team2: 'NWS SPIRIT', score2: '3', status: 'Completed' },
                         { type: 'UK • LIVE', team1: 'WOLLONGONG', score1: '0', team2: 'MANLY UTID', score2: '0', status: 'TODAY' },
                         { type: 'PBA • LIVE', team1: 'SMB GIANTS', score1: '95', team2: 'BG SAN MIG', score2: '93', status: 'Ended' }
-                      ].reduce((acc, game) => [...acc, game, { ...game, idExt: 'dup' }], [] as any[]).map((game, idx) => (
+                      ].concat([
+                        { type: 'Aussie • LIVE', team1: 'MELB KNIGHTS', score1: '2', team2: 'OAKLEIGH', score2: '2', status: 'Q4 8:44' },
+                        { type: 'Aussie • LIVE', team1: 'HUME CITY', score1: '1', team2: 'S MELBOURNE', score2: '0', status: 'Q2 12:15' },
+                        { type: 'UK • FT', team1: 'APIA TIGERS', score1: '1', team2: 'ROCKDALE', score2: '1', status: 'Completed' },
+                        { type: 'Aussie • FT', team1: 'ST GEORGE', score1: '2', team2: 'NWS SPIRIT', score2: '3', status: 'Completed' },
+                        { type: 'UK • LIVE', team1: 'WOLLONGONG', score1: '0', team2: 'MANLY UTID', score2: '0', status: 'TODAY' },
+                        { type: 'PBA • LIVE', team1: 'SMB GIANTS', score1: '95', team2: 'BG SAN MIG', score2: '93', status: 'Ended' }
+                      ]).map((game, idx) => (
                         <div 
                           key={idx}
                           onClick={() => triggerToast(`Match Details: ${game.team1} vs ${game.team2} (${game.status})`, 'info')}
@@ -792,7 +1026,7 @@ export default function CustomerPortal({
                         const isPaperMode = dashboardTheme === 'paper';
 
                         return (
-                          <div className="overflow-x-auto rounded-xl">
+                          <div className="w-full overflow-hidden rounded-xl">
                             {/* Visual Coupon Frame Wrapper */}
                             <div className={`p-1 pt-1.5 rounded-xl transition-all duration-300 ${
                               isPaperMode 
@@ -831,31 +1065,42 @@ export default function CustomerPortal({
                                   )}
                                 </div>
                               ) : (
-                                <table className={`w-full min-w-[850px] border-collapse transition-all duration-300 ${
-                                  isPaperMode 
-                                    ? 'border-4 border-slate-950 text-slate-950 font-sans' 
-                                    : 'border border-slate-800 text-slate-250 font-mono text-xs'
-                                }`}>
+                                <div className="flex flex-col gap-2">
+                                  {/* Mobile Swipe Helper Alert banner */}
+                                  <div className="md:hidden flex items-center justify-between bg-slate-900/40 border border-slate-800/60 rounded-lg p-2.5 px-3 text-[10.5px] text-slate-300">
+                                    <div className="flex items-center gap-2">
+                                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                                      <span>Swipe matrix left/right ↔ to explore full odds, status & bookmakers</span>
+                                    </div>
+                                    <span className="text-[9px] bg-[#10B981]/15 text-emerald-450 px-2 py-0.5 rounded font-mono font-bold">GRID</span>
+                                  </div>
+
+                                  <div className="overflow-x-auto custom-scrollbar rounded-lg border border-slate-800/10">
+                                    <table className={`w-full min-w-[750px] sm:min-w-[850px] border-collapse transition-all duration-300 ${
+                                      isPaperMode 
+                                        ? 'border-4 border-slate-950 text-slate-950 font-sans' 
+                                        : 'border border-slate-800 text-slate-250 font-mono text-[11px] sm:text-xs'
+                                    }`}>
                                   
                                   {/* Table Header exactly matching the layout columns: */}
                                   {/* POOL No. / BET CODE / HOME / AWAY / HOME WIN / DRAW (X) / AWAY WIN / BET Tips / STATUS / KICK OFF (W.A.T) */}
                                   <thead>
                                     <tr className={`transition-all duration-300 ${
                                       isPaperMode 
-                                        ? 'bg-[#EFECE3] border-b-4 border-slate-950 text-slate-950 text-sm font-extrabold uppercase' 
-                                        : 'bg-slate-900/80 border-b border-slate-800 text-emerald-400 uppercase text-[10.5px] tracking-wider'
+                                        ? 'bg-[#EFECE3] border-b-4 border-slate-950 text-slate-950 text-xs sm:text-sm font-extrabold uppercase' 
+                                        : 'bg-slate-900/80 border-b border-slate-800 text-emerald-400 uppercase text-[9.5px] sm:text-[10.5px] tracking-wider'
                                     }`}>
-                                      <th className={`px-2 py-3 text-center border-r font-bold transition-all duration-300 ${isPaperMode ? 'border-slate-950 font-black' : 'border-slate-800'}`}>POOL No.</th>
-                                      <th className={`px-2 py-3 text-center border-r font-bold transition-all duration-300 ${isPaperMode ? 'border-slate-950 font-black text-rose-700' : 'border-slate-800'}`}>BET CODE</th>
-                                      <th className={`px-4 py-3 text-left border-r font-bold transition-all duration-300 ${isPaperMode ? 'border-slate-950 font-black' : 'border-slate-800'}`}>HOME</th>
-                                      <th className={`px-4 py-3 text-left border-r font-bold transition-all duration-300 ${isPaperMode ? 'border-slate-950 font-black' : 'border-slate-800'}`}>AWAY</th>
-                                      <th className={`px-2 py-3 text-center border-r font-bold transition-all duration-300 ${isPaperMode ? 'border-slate-950' : 'border-slate-800'}`}>HOME WIN</th>
-                                      <th className={`px-2 py-3 text-center border-r font-bold transition-all duration-300 ${isPaperMode ? 'border-slate-950 bg-amber-100 text-amber-950' : 'border-slate-800'}`}>DRAW (X)</th>
-                                      <th className={`px-2 py-3 text-center border-r font-bold transition-all duration-300 ${isPaperMode ? 'border-slate-950' : 'border-slate-800'}`}>AWAY WIN</th>
-                                      <th className={`px-3 py-3 text-center border-r font-bold transition-all duration-300 ${isPaperMode ? 'border-slate-950 font-bold text-emerald-800' : 'border-slate-800 text-amber-400'}`}>BET Tips</th>
-                                      <th className={`px-3 py-3 text-center border-r font-bold transition-all duration-300 ${isPaperMode ? 'border-slate-950' : 'border-slate-800'}`}>STATUS</th>
-                                      <th className={`px-3 py-3 text-center border-r font-bold transition-all duration-300 ${isPaperMode ? 'border-slate-950' : 'border-slate-800'}`}>KICK OFF (W.A.T)</th>
-                                      <th className={`px-2 py-3 text-center font-bold transition-all duration-300 ${isPaperMode ? 'border-slate-950' : 'border-slate-800'}`}>SYSTEM</th>
+                                      <th className={`px-1.5 py-2.5 sm:px-2 sm:py-3 text-center border-r font-bold transition-all duration-300 ${isPaperMode ? 'border-slate-950 font-black' : 'border-slate-800'}`}>POOL No.</th>
+                                      <th className={`px-1.5 py-2.5 sm:px-2 sm:py-3 text-center border-r font-bold transition-all duration-300 ${isPaperMode ? 'border-slate-950 font-black text-rose-700' : 'border-slate-800'}`}>BET CODE</th>
+                                      <th className={`px-2.5 py-2.5 sm:px-4 sm:py-3 text-left border-r font-bold transition-all duration-300 ${isPaperMode ? 'border-slate-950 font-black' : 'border-slate-800'}`}>HOME</th>
+                                      <th className={`px-2.5 py-2.5 sm:px-4 sm:py-3 text-left border-r font-bold transition-all duration-300 ${isPaperMode ? 'border-slate-950 font-black' : 'border-slate-800'}`}>AWAY</th>
+                                      <th className={`px-1.5 py-2.5 sm:px-2 sm:py-3 text-center border-r font-bold transition-all duration-300 ${isPaperMode ? 'border-slate-950' : 'border-slate-800'}`}>HOME WIN</th>
+                                      <th className={`px-1.5 py-2.5 sm:px-2 sm:py-3 text-center border-r font-bold transition-all duration-300 ${isPaperMode ? 'border-slate-950 bg-amber-100 text-amber-950' : 'border-slate-800'}`}>DRAW (X)</th>
+                                      <th className={`px-1.5 py-2.5 sm:px-2 sm:py-3 text-center border-r font-bold transition-all duration-300 ${isPaperMode ? 'border-slate-950' : 'border-slate-800'}`}>AWAY WIN</th>
+                                      <th className={`px-2 py-2.5 sm:px-3 sm:py-3 text-center border-r font-bold transition-all duration-300 ${isPaperMode ? 'border-slate-950 font-bold text-emerald-800' : 'border-slate-800 text-amber-400'}`}>BET Tips</th>
+                                      <th className={`px-2 py-2.5 sm:px-3 sm:py-3 text-center border-r font-bold transition-all duration-300 ${isPaperMode ? 'border-slate-950' : 'border-slate-800'}`}>STATUS</th>
+                                      <th className={`px-2 py-2.5 sm:px-3 sm:py-3 text-center border-r font-bold transition-all duration-300 ${isPaperMode ? 'border-slate-950' : 'border-slate-800'}`}>KICK OFF</th>
+                                      <th className={`px-1.5 py-2.5 sm:px-2 sm:py-3 text-center font-bold transition-all duration-300 ${isPaperMode ? 'border-slate-950' : 'border-slate-800'}`}>SYSTEM</th>
                                     </tr>
                                   </thead>
 
@@ -875,14 +1120,14 @@ export default function CustomerPortal({
                                         }`}
                                       >
                                         {/* POOL NO */}
-                                        <td className={`px-2 py-3 text-center font-bold border-r transition-all duration-300 ${
+                                        <td className={`px-1.5 py-2.5 sm:px-2 sm:py-3 text-center font-bold border-r transition-all duration-300 ${
                                           isPaperMode ? 'border-r border-slate-950 text-base font-black' : 'border-r border-slate-800/60'
                                         }`}>
                                           {game.poolNo}
                                         </td>
                                         
                                         {/* BET CODE */}
-                                        <td className={`px-2 py-3 text-center font-bold border-r transition-all duration-300 ${
+                                        <td className={`px-1.5 py-2.5 sm:px-2 sm:py-3 text-center font-bold border-r transition-all duration-300 ${
                                           isPaperMode 
                                             ? 'border-r border-slate-950 text-[#C21C2F] text-base font-black' 
                                             : 'border-r border-slate-800/60 text-amber-400 font-extrabold bg-slate-950/40'
@@ -903,28 +1148,28 @@ export default function CustomerPortal({
                                         </td>
 
                                         {/* HOME NAME */}
-                                        <td className={`px-4 py-3 text-left font-bold border-r transition-all duration-300 ${
+                                        <td className={`px-2.5 py-2.5 sm:px-4 sm:py-3 text-left font-bold border-r transition-all duration-300 ${
                                           isPaperMode ? 'border-r border-slate-950 text-sm font-black text-slate-950 uppercase' : 'border-r border-slate-800/60 font-semibold'
                                         }`}>
                                           {game.home}
                                         </td>
 
                                         {/* AWAY NAME */}
-                                        <td className={`px-4 py-3 text-left font-bold border-r transition-all duration-300 ${
+                                        <td className={`px-2.5 py-2.5 sm:px-4 sm:py-3 text-left font-bold border-r transition-all duration-300 ${
                                           isPaperMode ? 'border-r border-slate-950 text-sm font-black text-slate-950 uppercase' : 'border-r border-slate-800/60 font-semibold'
                                         }`}>
                                           {game.away}
                                         </td>
 
                                         {/* HOME WIN ODDS */}
-                                        <td className={`px-2 py-3 text-center border-r transition-all duration-300 ${
+                                        <td className={`px-1.5 py-2.5 sm:px-2 sm:py-3 text-center border-r transition-all duration-300 ${
                                           isPaperMode ? 'border-r border-slate-950 text-gray-800' : 'border-r border-slate-800/60 font-mono text-slate-400'
                                         }`}>
                                           {game.homeWin}
                                         </td>
 
                                         {/* DRAW (X) ODDS */}
-                                        <td className={`px-2 py-3 text-center border-r font-bold transition-all duration-300 ${
+                                        <td className={`px-1.5 py-2.5 sm:px-2 sm:py-3 text-center border-r font-bold transition-all duration-300 ${
                                           isPaperMode 
                                             ? 'border-r border-slate-950 bg-[#FFFFE3] text-[#0F172A] font-black' 
                                             : 'border-r border-slate-800/60 bg-emerald-950/15 text-emerald-400 font-extrabold'
@@ -933,14 +1178,14 @@ export default function CustomerPortal({
                                         </td>
 
                                         {/* AWAY WIN ODDS */}
-                                        <td className={`px-2 py-3 text-center border-r transition-all duration-300 ${
+                                        <td className={`px-1.5 py-2.5 sm:px-2 sm:py-3 text-center border-r transition-all duration-300 ${
                                           isPaperMode ? 'border-r border-slate-950 text-gray-800' : 'border-r border-slate-800/60 font-mono text-slate-400'
                                         }`}>
                                           {game.awayWin}
                                         </td>
 
                                         {/* BET TIPS */}
-                                        <td className={`px-3 py-3 text-center font-bold border-r transition-all duration-300 ${
+                                        <td className={`px-2 py-2.5 sm:px-3 sm:py-3 text-center font-bold border-r transition-all duration-300 ${
                                           isPaperMode 
                                             ? 'border-r border-slate-950 text-emerald-900 font-extrabold' 
                                             : 'border-r border-slate-800/60 font-black text-yellow-400'
@@ -949,21 +1194,21 @@ export default function CustomerPortal({
                                         </td>
 
                                         {/* STATUS */}
-                                        <td className={`px-3 py-3 text-center border-r font-semibold transition-all duration-300 ${
+                                        <td className={`px-2 py-2.5 sm:px-3 sm:py-3 text-center border-r font-semibold transition-all duration-300 ${
                                           isPaperMode ? 'border-r border-slate-950 text-gray-800' : 'border-r border-slate-800/60 font-mono'
                                         }`}>
                                           {game.status}
                                         </td>
 
                                         {/* KICK OFF */}
-                                        <td className={`px-3 py-3 text-center border-r font-bold transition-all duration-300 ${
+                                        <td className={`px-2 py-2.5 sm:px-3 sm:py-3 text-center border-r font-bold transition-all duration-300 ${
                                           isPaperMode ? 'border-r border-slate-950' : 'border-r border-slate-800/60 font-mono'
                                         }`}>
                                           {game.kickOff}
                                         </td>
 
                                         {/* SYSTEM / ACTION */}
-                                        <td className="px-2 py-3 text-center font-mono">
+                                        <td className="px-1.5 py-2.5 sm:px-2 sm:py-3 text-center font-mono">
                                           <div className="flex items-center justify-center gap-1">
                                             <span className={`text-[10px] px-1.5 py-0.5 rounded font-black uppercase ${
                                               isPaperMode 
@@ -988,6 +1233,8 @@ export default function CustomerPortal({
                                     ))}
                                   </tbody>
                                 </table>
+                                </div>
+                                </div>
                               )}
 
                               {isPaperMode && (
@@ -999,48 +1246,6 @@ export default function CustomerPortal({
                           </div>
                         );
                       })()}
-                    </div>
-
-                    {/* PRINT ACTION & SOCIAL UTILITY CONTROL */}
-                    <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-950/40 p-4 rounded-xl border border-slate-800">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => {
-                            window.print();
-                          }}
-                          className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 border border-slate-800"
-                        >
-                          🖨️ Print Coupon Sheet
-                        </button>
-                        <button
-                          onClick={() => {
-                            const clipText = postedGames.map(g => `Pool #${g.poolNo} [Code: ${g.betCode}] ${g.home} vs ${g.away} (${g.betTips}) [Draw: ${g.draw}]`).join('\n');
-                            navigator.clipboard.writeText(clipText);
-                            triggerToast('Entire high-fidelity posted matches copy-formatted to clipboard!', 'success');
-                          }}
-                          className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-slate-200 rounded-lg text-xs font-bold transition flex items-center gap-1.5 border border-slate-800"
-                        >
-                          📋 Copy Raw fixtures code text
-                        </button>
-                      </div>
-
-                      {currentUser.role === 'admin' && (
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => setShowAdminForm(!showAdminForm)}
-                            className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-lg text-xs font-black transition flex items-center gap-1.5"
-                          >
-                            ➕ {showAdminForm ? 'Close Admin Panel' : 'Publish / Post New Game'}
-                          </button>
-                          <button
-                            onClick={handleResetGames}
-                            className="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200 rounded-lg text-xs font-bold transition border border-slate-800"
-                            title="Reset to default authentic fixtures catalogue"
-                          >
-                            🔄 Reset Sheet
-                          </button>
-                        </div>
-                      )}
                     </div>
 
                     {/* ADMIN PANEL FORM: DYNAMIC POSTER BULLETINS */}
@@ -2536,74 +2741,45 @@ export default function CustomerPortal({
                       </h2>
                     </div>
 
-                    {/* Posts Browser Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                      {db.pool_results.map((res) => {
-                        const isSelected = res.id === selectedResultId;
-                        const weekNo = res.week_number || 43;
-                        const typeLabel = (res.pool_type || 'uk').toUpperCase();
-                        
-                        // Parse mock display dates from publication/creation
-                        const displayDate = new Date(res.created_at).toLocaleDateString('en-US', {
-                          month: 'long',
-                          day: 'numeric',
-                          year: 'numeric'
-                        });
-
-                        return (
-                          <div 
-                            key={res.id}
-                            onClick={() => setSelectedResultId(res.id)}
-                            className={`flex gap-4 p-3 rounded-lg bg-[#111827]/85 border text-left cursor-pointer transition-all duration-200 ${
-                              isSelected 
-                                ? 'border-emerald-500 shadow-md shadow-emerald-500/10 scale-[1.02] bg-[#111827]' 
-                                : 'border-slate-800/80 hover:border-slate-700/80 hover:bg-[#141E33]'
-                            }`}
-                          >
-                            {/* FastPoolCodes.com Style Thumbnail */}
-                            <div className="w-28 h-20 shrink-0 rounded bg-gradient-to-br from-[#0F1D36] to-[#070B14] border border-slate-700/60 p-2 flex flex-col justify-between items-center shadow-inner relative overflow-hidden select-none">
-                              {/* Background ambient texture */}
-                              <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(16,185,129,0.08)_0%,transparent_80%)]"></div>
-                              
-                              <span className="text-[9px] font-mono font-black text-slate-400 uppercase tracking-widest bg-slate-900/60 px-1 py-0.5 rounded border border-slate-800/40 z-10">
-                                Week {weekNo}
-                              </span>
-                              
-                              <div className="flex flex-col items-center z-10 leading-none my-0.5">
-                                <span className="text-[10px] font-mono tracking-tight font-black text-emerald-400">POOL</span>
-                                <span className="text-[11px] font-sans font-black tracking-wider text-slate-100">RESULT</span>
-                              </div>
-                              
-                              <span className="text-[7.5px] font-mono text-slate-500 tracking-tight z-10">
-                                fastpoolcodes.com
-                              </span>
-                            </div>
-
-                            {/* Post Meta Side Info */}
-                            <div className="flex flex-col justify-between min-w-0">
-                              <h3 className="font-bold text-xs text-slate-100 hover:text-emerald-450 leading-snug tracking-normal line-clamp-2 transition-colors">
-                                {res.title || `Week ${weekNo} ${typeLabel} Pool results: Pool results for the week`}
-                              </h3>
-                              
-                              <div className="flex flex-col gap-1 mt-1 font-mono text-[10.5px] text-slate-400">
-                                <span className="flex items-center gap-1">
-                                  <Calendar className="w-3.5 h-3.5 shrink-0 text-slate-500" />
-                                  {displayDate}
-                                </span>
-                                <span className="flex items-center gap-1.5 text-slate-500 text-[10px]">
-                                  <MessageSquare className="w-3 h-3 text-slate-500" />
-                                  <span>{res.comments_count || 0} Comments</span>
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-
                     {/* Interactive Excel/Spreadsheet Sheet Component */}
                     {activeResult && (
-                      <div className="mt-6 flex flex-col bg-[#0B0F19] rounded-xl border border-slate-800/80 shadow-2xl overflow-hidden">
+                      <div className="flex flex-col mt-6">
+                        {/* Interactive Spreadsheet Controller & Exporter Banner */}
+                        <div className="bg-[#0B1528]/80 border border-slate-800/80 rounded-xl p-3 px-4 flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4 shadow-lg select-none backdrop-blur-sm relative overflow-hidden">
+                          {/* Ambient background accent */}
+                          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_left,rgba(16,185,129,0.06)_0%,transparent_70%)] pointer-events-none"></div>
+                          
+                          <div className="flex items-center gap-3 z-10">
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                              <span className="font-mono font-black text-[10px] text-emerald-400 uppercase tracking-widest">Active Sheet</span>
+                            </div>
+                            <div className="w-px h-3.5 bg-slate-800 hidden sm:block shrink-0"></div>
+                            <p className="text-slate-300 text-xs font-medium">
+                              <span className="md:hidden">Swipe grid left/right ↔ to explore full columns A to F</span>
+                              <span className="hidden md:inline">Use hover scroll or mouse click-drag to explore all columns A to F</span>
+                            </p>
+                          </div>
+
+                          <div className="flex items-center justify-end gap-2.5 z-10 shrink-0">
+                            <span className="text-[10px] font-mono text-slate-400 bg-slate-950/40 border border-slate-800 px-2 py-1 rounded font-bold">
+                              6 COL × {(activeResult.results_table || []).length} ROW
+                            </span>
+                            <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-0.5 rounded font-mono font-black tracking-wider uppercase">
+                              XLS
+                            </span>
+                            <button
+                              onClick={() => exportResultToCSV(activeResult)}
+                              className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold font-mono px-3 py-1.5 rounded-lg transition-all duration-150 active:scale-95 shadow-md cursor-pointer border border-emerald-500 hover:shadow-emerald-500/20"
+                            >
+                              <Download className="w-3.5 h-3.5 shrink-0" />
+                              <span>EXPORT CSV</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="w-full overflow-x-auto custom-scrollbar rounded-xl border border-slate-800/80 shadow-2xl">
+                          <div className="flex flex-col bg-[#0B0F19] min-w-[715px]">
                         {/* Fake spreadsheet browser column index labels row: A B C D E F G H I j */}
                         <div className="flex bg-[#1E293B]/70 border-b border-slate-800 text-[10.5px] font-mono text-slate-400 select-none text-center">
                           <div className="w-[45px] shrink-0 border-r border-slate-800 py-1.5 bg-slate-900/40"></div>
@@ -2626,13 +2802,13 @@ export default function CustomerPortal({
                             </div>
                             
                             {/* The giant emerald center header */}
-                            <div className="flex-grow bg-[#004D40] text-slate-100 flex flex-col items-center justify-center py-6 px-10 text-center relative">
+                            <div className="flex-grow bg-[#004D40] text-slate-100 flex flex-col items-start md:items-center justify-center py-6 px-4 md:px-10 text-left md:text-center relative">
                               {/* Glowing overlay */}
                               <div className="absolute inset-0 bg-[#10B981]/15 mix-blend-overlay"></div>
-                              <h1 className="font-black text-xl md:text-2xl tracking-widest text-[#FFF] uppercase leading-none drop-shadow-md">
+                              <h1 className="font-black text-lg md:text-2xl tracking-tight md:tracking-widest text-[#FFF] uppercase leading-none drop-shadow-md whitespace-normal break-words max-w-[240px] xs:max-w-[300px] sm:max-w-none">
                                 {activeResult.pool_type?.toUpperCase() === 'AUSSIE' ? 'AUSSIE' : 'UK'} POOL DRAW SHEET
                               </h1>
-                              <p className="text-xs tracking-wider text-emerald-300 font-bold mt-1.5 drop-shadow-sm font-mono uppercase">
+                              <p className="text-[10px] md:text-xs tracking-wider text-emerald-300 font-bold mt-1.5 drop-shadow-sm font-mono uppercase whitespace-normal break-words max-w-[240px] xs:max-w-[300px] sm:max-w-none">
                                 OFFICIAL RECORD OF CONFIRMED fixtures SCORE OUTCOMES
                               </p>
                             </div>
@@ -2746,6 +2922,8 @@ export default function CustomerPortal({
                           })}
                         </div>
 
+                      </div>
+                      </div>
                       </div>
                     )}
                   </div>
