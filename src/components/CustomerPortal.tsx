@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Home,
   Check,
@@ -62,12 +62,38 @@ export default function CustomerPortal({
   triggerToast,
   markAllNotificationsRead
 }: CustomerPortalProps) {
-  const [activeSubTab, setActiveSubTab] = useState<'dashboard' | 'codes' | 'international' | 'results' | 'subscription' | 'notifications' | 'downloads' | 'profile'>('dashboard');
+  const [activeSubTab, setActiveSubTab] = useState<'dashboard' | 'results' | 'subscription' | 'profile'>('dashboard');
   const [codeTypeFilter, setCodeTypeFilter] = useState<'all' | 'uk' | 'aussie' | 'international'>('all');
   const [bookmakerFilter, setBookmakerFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'portal' | 'decryptor'>('portal');
   const [selectedResultId, setSelectedResultId] = useState<string>('pr-w43');
+
+  // Dynamic sports score auto-scroll ticker control
+  const arenaScoreboardRef = useRef<HTMLDivElement>(null);
+  const [isArenaScoreboardHovered, setIsArenaScoreboardHovered] = useState(false);
+
+  useEffect(() => {
+    const container = arenaScoreboardRef.current;
+    if (!container) return;
+
+    let animationFrameId: number;
+    const speed = 0.45; // Pixels per frame
+
+    const scroll = () => {
+      if (!isArenaScoreboardHovered) {
+        container.scrollLeft += speed;
+        // Reset when reaching halfway of duplicated list content
+        if (container.scrollLeft >= container.scrollWidth / 2) {
+          container.scrollLeft = 0;
+        }
+      }
+      animationFrameId = requestAnimationFrame(scroll);
+    };
+
+    animationFrameId = requestAnimationFrame(scroll);
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [isArenaScoreboardHovered]);
 
   // Dynamic posted games coupon states
   const [postedGames, setPostedGames] = useState([
@@ -570,40 +596,6 @@ export default function CustomerPortal({
             </button>
 
             <button
-              onClick={() => setActiveSubTab('codes')}
-              className={`flex items-center justify-between px-3.5 py-3 rounded-lg text-xs font-bold tracking-wide transition duration-150 ${
-                activeSubTab === 'codes'
-                  ? 'bg-gradient-to-r from-emerald-550/15 to-emerald-500/5 text-emerald-400 border-l-4 border-emerald-500 pl-2.5'
-                  : 'hover:bg-slate-800/60 text-slate-400 hover:text-slate-150'
-              }`}
-            >
-              <span className="flex items-center gap-3">
-                <Target className="w-4 h-4" />
-                <span>EUROPE CODES</span>
-              </span>
-              <span className="bg-emerald-950/80 text-[10px] text-emerald-400 font-mono px-2 py-0.5 rounded-full border border-emerald-900/40">
-                {db.pool_codes.length}
-              </span>
-            </button>
-
-            <button
-              onClick={() => setActiveSubTab('international')}
-              className={`flex items-center justify-between px-3.5 py-3 rounded-lg text-xs font-bold tracking-wide transition duration-150 ${
-                activeSubTab === 'international'
-                  ? 'bg-gradient-to-r from-emerald-550/15 to-emerald-500/5 text-emerald-400 border-l-4 border-emerald-500 pl-2.5'
-                  : 'hover:bg-slate-800/60 text-slate-400 hover:text-slate-150'
-              }`}
-            >
-              <span className="flex items-center gap-3">
-                <Globe className="w-4 h-4" />
-                <span>AUSSIE CODES</span>
-              </span>
-              <span className="bg-emerald-950/80 text-[10px] text-emerald-400 font-mono px-2 py-0.5 rounded-full border border-emerald-900/40">
-                {intlCodes.length}
-              </span>
-            </button>
-
-            <button
               onClick={() => setActiveSubTab('results')}
               className={`flex items-center justify-between px-3.5 py-3 rounded-lg text-xs font-bold tracking-wide transition duration-150 ${
                 activeSubTab === 'results'
@@ -627,37 +619,6 @@ export default function CustomerPortal({
             >
               <CreditCard className="w-4 h-4" />
               <span>VIP PREMIUM MEMBERSHIP</span>
-            </button>
-
-            <button
-              onClick={() => setActiveSubTab('notifications')}
-              className={`flex items-center justify-between px-3.5 py-3 rounded-lg text-xs font-bold tracking-wide transition duration-150 ${
-                activeSubTab === 'notifications'
-                  ? 'bg-gradient-to-r from-emerald-550/15 to-emerald-500/5 text-emerald-400 border-l-4 border-emerald-500 pl-2.5'
-                  : 'hover:bg-slate-800/60 text-slate-400 hover:text-slate-150'
-              }`}
-            >
-              <span className="flex items-center gap-3">
-                <Bell className="w-4 h-4" />
-                <span>ALERTS TELECOM</span>
-              </span>
-              {unreadCount > 0 && (
-                <span className="bg-rose-600 text-white text-[9.5px] font-bold h-4.5 min-w-[18px] px-1 rounded-full flex items-center justify-center animate-bounce">
-                  {unreadCount}
-                </span>
-              )}
-            </button>
-
-            <button
-              onClick={() => setActiveSubTab('downloads')}
-              className={`flex items-center gap-3 px-3.5 py-3 rounded-lg text-xs font-bold tracking-wide transition duration-150 ${
-                activeSubTab === 'downloads'
-                  ? 'bg-gradient-to-r from-emerald-550/15 to-emerald-500/5 text-emerald-400 border-l-4 border-emerald-500 pl-2.5'
-                  : 'hover:bg-slate-800/60 text-slate-400 hover:text-slate-150'
-              }`}
-            >
-              <History className="w-4 h-4" />
-              <span>KEY ACCESS LOGS</span>
             </button>
 
             <button
@@ -713,107 +674,64 @@ export default function CustomerPortal({
               {/* SUBTAB 1: SPORT CODES DASHBOARD CONTAINER */}
               {activeSubTab === 'dashboard' && (
                 <div className="flex flex-col gap-6">
-                  
-                  {/* Dynamic Matchday Hero Boardroom Widget */}
-                  <div className="bg-gradient-to-br from-[#1E3A24] via-[#0E1F13] to-[#0D1527] border border-emerald-500/20 text-slate-100 p-6 rounded-2xl relative overflow-hidden flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 shadow-2xl">
-                    <div className="absolute top-0 right-0 opacity-[0.03] select-none pointer-events-none -mr-9 -mt-10">
-                      <svg width="400" height="400" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <circle cx="50" cy="50" r="45" stroke="currentColor" strokeWidth="1"/>
-                        <circle cx="50" cy="50" r="15" stroke="currentColor" strokeWidth="1"/>
-                        <line x1="50" y1="5" x2="50" y2="95" stroke="currentColor" strokeWidth="1" />
-                      </svg>
+
+                  {/* LIVE ARENA SPORTS SCORE TICKER (FULLY RESPONSIVE & MOBILE SWEET SWIPER) */}
+                  <div className="bg-[#111827] rounded-2xl border border-slate-800 p-4 shadow-xl flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-[#FA3E65] animate-ping shrink-0"></span>
+                        <h2 className="text-xs font-black font-sans uppercase tracking-widest text-[#FA3E65] flex items-center gap-1.5">
+                          LIVE Arena Sports Scores
+                        </h2>
+                      </div>
+                      <span className="text-[9px] font-mono text-slate-500 uppercase">Swipe Left/Right to browse</span>
                     </div>
 
-                    <div className="relative z-10 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-955 text-[9.5px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md font-mono">
-                          {activePlan?.id !== 'plan-free' ? 'ARENA VIP STADIUM MASTER' : 'STANDARD PITCH SEAT'}
-                        </span>
-                        <span className="text-xs text-emerald-350 font-mono font-bold select-none">[Verified Draw Forecaster]</span>
-                      </div>
-                      <h2 className="text-2xl font-black italic tracking-wide text-white mt-3 uppercase">
-                        Welcome back, {currentUser.username}!
-                      </h2>
-                      <p className="text-sm text-slate-300 mt-2 max-w-xl leading-relaxed">
-                        Access real-time bookmaker pool codes, secret forecast draw worksheets, & historical fixtures summaries.
-                      </p>
-                    </div>
-
-                    {/* Arena live stats countdown banner */}
-                    <div className="p-4 bg-slate-950/90 rounded-2xl border-2 border-emerald-500/40 text-xs w-full lg:w-68 shadow-inner flex flex-col justify-between">
-                      <span className="text-[#10B981] font-mono font-bold text-[9.5px] tracking-wide uppercase block">● ARENA PITCH ACTIVE</span>
-                      <div className="my-2">
-                        <span className="text-[10px] text-slate-400 font-mono block">CURRENT WORKSPACE</span>
-                        <span className="font-black text-white text-base block tracking-wide italic">Week 49 (Aussie Pools)</span>
-                      </div>
-                      <div className="pt-2 border-t border-slate-800/85 text-[11px] font-mono text-emerald-400 flex items-center justify-between">
-                        <span>Fixtures: SATURDAY 16:00</span>
-                        <span>ACTIVE✓</span>
-                      </div>
+                    <div 
+                      ref={arenaScoreboardRef}
+                      onMouseEnter={() => setIsArenaScoreboardHovered(true)}
+                      onMouseLeave={() => setIsArenaScoreboardHovered(false)}
+                      onTouchStart={() => setIsArenaScoreboardHovered(true)}
+                      onTouchEnd={() => setIsArenaScoreboardHovered(false)}
+                      className="flex items-center gap-3 overflow-x-auto scrollbar-none py-1 whitespace-nowrap"
+                    >
+                      {[
+                        { type: 'Aussie • LIVE', team1: 'MELB KNIGHTS', score1: '2', team2: 'OAKLEIGH', score2: '2', status: 'Q4 8:44' },
+                        { type: 'Aussie • LIVE', team1: 'HUME CITY', score1: '1', team2: 'S MELBOURNE', score2: '0', status: 'Q2 12:15' },
+                        { type: 'UK • FT', team1: 'APIA TIGERS', score1: '1', team2: 'ROCKDALE', score2: '1', status: 'Completed' },
+                        { type: 'Aussie • FT', team1: 'ST GEORGE', score1: '2', team2: 'NWS SPIRIT', score2: '3', status: 'Completed' },
+                        { type: 'UK • LIVE', team1: 'WOLLONGONG', score1: '0', team2: 'MANLY UTID', score2: '0', status: 'TODAY' },
+                        { type: 'PBA • LIVE', team1: 'SMB GIANTS', score1: '95', team2: 'BG SAN MIG', score2: '93', status: 'Ended' }
+                      ].reduce((acc, game) => [...acc, game, { ...game, idExt: 'dup' }], [] as any[]).map((game, idx) => (
+                        <div 
+                          key={idx}
+                          onClick={() => triggerToast(`Match Details: ${game.team1} vs ${game.team2} (${game.status})`, 'info')}
+                          className="flex items-center bg-[#070B14] border border-slate-800 hover:border-slate-700 rounded-xl px-4 py-2.5 transition cursor-pointer gap-4 text-left shadow-md select-none shrink-0"
+                        >
+                          <div className="flex flex-col justify-center">
+                            <span className={`text-[9px] font-mono font-black tracking-widest ${game.type.includes('LIVE') ? 'text-amber-400' : 'text-emerald-400'}`}>
+                              {game.type.toUpperCase()}
+                            </span>
+                            <div className="flex items-center gap-2 mt-1 font-black">
+                              <span className="text-neutral-250 text-xs tracking-wide">{game.team1}</span> 
+                              <span className="text-amber-400 font-black text-xs">{game.score1}</span>
+                              <span className="text-slate-600 text-[10px]">-</span>
+                              <span className="text-neutral-250 text-xs tracking-wide">{game.team2}</span> 
+                              <span className="text-amber-400 font-black text-xs">{game.score2}</span>
+                            </div>
+                          </div>
+                          {game.type.includes('LIVE') && (
+                            <span className="bg-rose-500/15 border border-rose-500/20 text-[#FA3E65] text-[8.5px] font-black px-1.5 py-0.5 rounded shadow animate-pulse uppercase tracking-wider font-mono">
+                              {game.status}
+                            </span>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   </div>
 
-
-
-
-
                   {/* WEEKLY POSTED COUPONS SECTION (SCREENSHOT ALIGNED LAYOUT) */}
                   <div className="bg-[#111827] rounded-2xl border border-slate-800 p-6 shadow-xl flex flex-col gap-6" id="posted-games-bulletin">
-                    
-                    {/* Header Controls Block */}
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-5">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                          <h3 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-                            WEEKLY POSTED GAMES BULLETIN
-                          </h3>
-                        </div>
-                        <p className="text-xs text-slate-400 mt-1">
-                          Verified coupon odds and bet slip system formats parsed directly from raw feed.
-                        </p>
-                      </div>
-
-                      {/* Theme Toggle & Admin Quick Trigger */}
-                      <div className="flex flex-wrap items-center gap-2.5">
-                        <span className="text-xs font-mono text-slate-400">THEME ENGINE:</span>
-                        <div className="bg-slate-950 p-1 rounded-xl border border-slate-800 flex items-center gap-1">
-                          <button
-                            onClick={() => {
-                              setDashboardTheme('dark');
-                              triggerToast('Switched to Stadium Neon Grid', 'info');
-                            }}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-                              dashboardTheme === 'dark' 
-                                ? 'bg-emerald-600 text-white shadow-md' 
-                                : 'text-slate-400 hover:text-white'
-                            }`}
-                          >
-                            Stadium Dark
-                          </button>
-                          <button
-                            onClick={() => {
-                              setDashboardTheme('paper');
-                              triggerToast('Switched to Authentic newsprint coupon format', 'success');
-                            }}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-                              dashboardTheme === 'paper' 
-                                ? 'bg-white text-slate-900 shadow-md border-b-2 border-slate-300' 
-                                : 'text-slate-400 hover:text-white'
-                            }`}
-                          >
-                            📰 Authentic Coupon
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Verified Site Contact Banner (Explicitly Matching Photo Header Style) */}
-                    <div className="bg-[#05080E] rounded-xl border border-emerald-900/30 p-3 text-center transition-all duration-300">
-                      <p className="text-xs md:text-sm font-bold tracking-wide text-amber-300 font-mono">
-                        (For Enquiries Visit : <a href="https://www.fastpoolcodes.com" target="_blank" rel="noreferrer" className="underline hover:text-amber-200">www.fastpoolcodes.com</a> Call or WhatsApp: <span className="text-white">+234 8030587933</span>, <span className="text-white">+234 9037595705</span>)
-                      </p>
-                    </div>
 
                     {/* Interactive Filter Strip */}
                     <div className="flex flex-col lg:flex-row gap-4 justify-between items-start lg:items-center">
@@ -1278,79 +1196,13 @@ export default function CustomerPortal({
                   </div>
 
 
-                  {/* SECONDARY SECTION: HOT DECRYPTABLE SHEETS */}
-                  <div className="bg-[#111827] rounded-xl border border-slate-800 p-5 shadow-lg">
-                    <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
-                      <h4 className="font-extrabold text-white text-xs uppercase tracking-wider font-mono flex items-center gap-1.5">
-                        <Flame className="w-4 h-4 text-amber-400" /> Decryptable Weekly Bookmaker Code Sheets
-                      </h4>
-                      <button
-                        onClick={() => setActiveSubTab('codes')}
-                        className="text-xs text-emerald-400 hover:text-emerald-300 font-bold uppercase tracking-wider transition font-mono"
-                      >
-                        Browse all sheets →
-                      </button>
-                    </div>
 
-                    <div className="divide-y divide-slate-800/80">
-                      {db.pool_codes.slice(0, 3).map((code) => {
-                        const bookmaker = db.bookmakers.find(b => b.id === code.bookmaker_id);
-                        const week = db.pool_weeks.find(w => w.id === code.pool_week_id);
-                        const isDownloaded = myDownloads.some(d => d.pool_code_id === code.id);
-                        const isPremium = code.access_level === 'premium';
-                        const isLocked = isPremium && activePlan?.id === 'plan-free' && currentUser.role !== 'admin';
-
-                        return (
-                          <div key={code.id} className="py-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 font-mono text-center flex items-center justify-center font-black text-sm text-emerald-400 shadow-md">
-                                {bookmaker?.name[0].toUpperCase()}
-                              </div>
-                              <div>
-                                <span className="text-sm font-extrabold text-white block uppercase tracking-wide">{bookmaker?.name} VIP Forecast Codes</span>
-                                <span className="text-[11px] text-slate-400 block font-mono mt-0.5">
-                                  Aussie Season Week {week?.week_number} • {week?.pool_type.toUpperCase()} Pool Matches
-                                </span>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
-                              <span className={`text-[10px] font-black font-mono uppercase px-2.5 py-1 rounded ${
-                                isPremium ? 'bg-amber-950/85 text-amber-400 border border-amber-900/40' : 'bg-emerald-950/85 text-emerald-400 border border-emerald-900/40'
-                              }`}>
-                                {code.access_level.toUpperCase()} MODULE
-                              </span>
-
-                              <button
-                                onClick={() => handleDownloadCode(code)}
-                                className={`text-[11.5px] font-bold px-3.5 py-2 rounded-lg transition ${
-                                  isLocked
-                                    ? 'bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-500 hover:to-yellow-600 text-slate-950'
-                                    : isDownloaded
-                                    ? 'bg-emerald-900/30 text-emerald-350 border border-emerald-800/40'
-                                    : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-xl shadow-emerald-700/10'
-                                }`}
-                              >
-                                {isLocked ? (
-                                  <span className="flex items-center gap-1.5"><Lock className="w-3.5 h-3.5" /> LOCKED KEY</span>
-                                ) : isDownloaded ? (
-                                  '✓ VIEW DECRYPTED KEY'
-                                ) : (
-                                  'DECRYPT CODE-SHEET'
-                                )}
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
 
                 </div>
               )}
 
               {/* SUBTAB 2: POOL CODES BROWSER (IMMERSIBLE LIVE SCOREBOARD AND DECRYPTOR SYSTEM) */}
-              {activeSubTab === 'codes' && (() => {
+              {false && (() => {
                 // Static high-fidelity scoreboard fixtures
                 const stadiumMatches = [
                   {
@@ -1644,37 +1496,6 @@ export default function CustomerPortal({
                 return (
                   <div className="flex flex-col gap-5 text-slate-100 select-none">
                     
-                    {/* Top Sports Ribbon Tabs */}
-                    <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none border-b border-slate-900 pr-2">
-                      {['Football', 'Hockey', 'Basketball', 'Tennis', 'Cricket'].map((sportName) => {
-                        const isActive = selectedSport === sportName;
-                        return (
-                          <button
-                            key={sportName}
-                            id={`sport-tab-${sportName.toLowerCase()}`}
-                            onClick={() => {
-                              setSelectedSport(sportName);
-                              setSelectedTeamFilter('all');
-                              setSelectedCompFilter('all');
-                              setSelectedRegionFilter('all');
-                              // Automatically auto-select first match in the selected sport
-                              const sportFirstMatch = stadiumMatches.find(m => m.sport === sportName);
-                              if (sportFirstMatch) {
-                                setSelectedMatchFixtureId(sportFirstMatch.id);
-                              }
-                            }}
-                            className={`px-5 py-2 text-xs font-bold font-sans transition-all duration-150 rounded-full shrink-0 ${
-                              isActive
-                                ? 'bg-white text-slate-950 font-black shadow-lg scale-102'
-                                : 'bg-[#121622] hover:bg-[#1A2033] text-slate-300 border border-slate-800/40'
-                            }`}
-                          >
-                            {sportName}
-                          </button>
-                        );
-                      })}
-                    </div>
-
                     {/* Master Layout: 2 Columns */}
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
                       
@@ -2412,7 +2233,7 @@ export default function CustomerPortal({
               })()}
 
               {/* SUBTAB: POOL CODES (INTERNATIONAL) */}
-              {activeSubTab === 'international' && (() => {
+              {false && (() => {
                 const activeIntl = intlCodes.find(c => c.id === selectedIntlId) || intlCodes[0];
 
                 return (
@@ -2923,36 +2744,8 @@ export default function CustomerPortal({
                               </div>
                             );
                           })}
-
-                          {/* Raw representation box */}
-                          <div className="flex border-b border-slate-800 bg-[#070C15]/80">
-                            <div className="w-[45px] shrink-0 bg-[#0F172A] border-r border-slate-800 flex items-center justify-center font-mono text-[10px] text-slate-500 select-none">
-                              {/* Auto increment row index */}
-                              {(activeResult.results_table || []).length + 4}
-                            </div>
-                            <div className="flex-grow p-4">
-                              <span className="text-[10px] text-slate-400 font-mono block mb-2 uppercase tracking-wide">
-                                📝 PLAIN DOCUMENT SOURCE ARCHIVE:
-                              </span>
-                              <pre className="p-3 bg-[#02050A] text-[#10B981] font-mono text-[11px] rounded border border-slate-850 overflow-x-auto whitespace-pre-wrap select-text text-left">
-                                {activeResult.results_content}
-                              </pre>
-                            </div>
-                          </div>
-
                         </div>
 
-                        {/* Excel bottom layout row button mimicking 'PRINT NOW' yellow buttons */}
-                        <button 
-                          onClick={() => {
-                            triggerToast(`Preparing print pool draw result ledger for Week ${activeResult.week_number || 43}...`, 'success');
-                            window.print();
-                          }}
-                          className="w-full bg-[#FFE600] hover:bg-[#E2CC00] text-[#0A0F1D] font-black text-xs py-4 transition-colors duration-150 uppercase tracking-widest flex items-center justify-center gap-2 select-none cursor-pointer border-t border-slate-850"
-                        >
-                          <span>PRINT RESULTS LEDGER SHEET</span>
-                          <span className="text-sm">🖨️</span>
-                        </button>
                       </div>
                     )}
                   </div>
@@ -3058,114 +2851,7 @@ export default function CustomerPortal({
                 </div>
               )}
 
-              {/* SUBTAB 5: SYSTEM NOTIFICATION LIVE TELETEX */}
-              {activeSubTab === 'notifications' && (
-                <div className="flex flex-col gap-5">
-                  <div className="bg-[#111827] border border-slate-800 rounded-xl p-5 shadow-lg flex justify-between items-center flex-wrap gap-4">
-                    <div>
-                      <h3 className="font-extrabold text-[#10B981] text-xs uppercase tracking-wider font-mono flex items-center gap-2">
-                        🔔 LIVE STADIUM TELECOM ALERT BROADCASTS ({myNotifications.length} feeds)
-                      </h3>
-                      <p className="text-xs text-slate-400 mt-1">
-                        Log system signals, score disclosures, and verification notifications.
-                      </p>
-                    </div>
-
-                    <button
-                      onClick={markAllNotificationsRead}
-                      className="text-xs text-emerald-400 hover:text-emerald-300 font-mono font-bold uppercase transition"
-                    >
-                      Clear Alert mailbox read log →
-                    </button>
-                  </div>
-
-                  <div className="bg-[#111827] border border-slate-800 rounded-2xl overflow-hidden divide-y divide-slate-850">
-                    {myNotifications.length === 0 ? (
-                      <div className="p-8 text-center text-slate-450 text-xs italic font-mono text-slate-450">
-                        Teletex alerts inbox is currently empty. No stadium signals broadcast yet.
-                      </div>
-                    ) : (
-                      myNotifications.map((notif) => (
-                        <div
-                          key={notif.id}
-                          className={`p-5 transition-all flex items-start gap-4 justify-between ${
-                            notif.is_read ? 'bg-[#0E1424]/40 opacity-70' : 'bg-emerald-950/20'
-                          }`}
-                        >
-                          <div className="flex gap-3 items-start">
-                            <span className={`w-2.5 h-2.5 rounded-full mt-1.5 shrink-0 ${notif.is_read ? 'bg-slate-700' : 'bg-emerald-400 animate-pulse'}`}></span>
-                            <div>
-                              <span className="font-black text-xs text-white uppercase tracking-wider block">{notif.title}</span>
-                              <p className="text-slate-300 text-xs mt-1.5 leading-normal font-sans">{notif.body}</p>
-                              <span className="text-[10px] text-slate-500 font-mono mt-2 block">
-                                Trigger Timestamp: {new Date(notif.created_at).toLocaleTimeString()}
-                              </span>
-                            </div>
-                          </div>
-
-                          <span className="text-[10px] uppercase font-mono bg-[#070B14] border border-slate-800 px-2 py-0.5 rounded text-slate-400 shrink-0">
-                            {notif.type.toUpperCase()}
-                          </span>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* SUBTAB 6: KEY DOWNLOAD ACCOUNTABILITY REVIEWS */}
-              {activeSubTab === 'downloads' && (
-                <div className="flex flex-col gap-5">
-                  <div className="bg-[#111827] border border-slate-800 rounded-xl p-5 shadow-lg relative overflow-hidden">
-                    <div className="absolute right-4 top-4 text-emerald-500/10">
-                      <History className="w-12 h-12" />
-                    </div>
-                    <h3 className="font-extrabold text-[#10B981] text-xs uppercase tracking-wider font-mono">
-                      📥 ACCESSED BOOKMAKER KEYS LOGS
-                    </h3>
-                    <p className="text-xs text-slate-350 leading-relaxed max-w-xl mt-1">
-                      Historical tracking of verified decrypted codesheet unlocks. Protected against mechanical scrape crawlers.
-                    </p>
-                  </div>
-
-                  <div className="bg-[#111827] border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-xs text-left">
-                        <thead className="bg-[#070B14] border-b border-slate-850 text-slate-450 font-mono text-[9.5px] uppercase tracking-wider text-slate-400">
-                          <tr>
-                            <th className="p-4">Simulated Key ID</th>
-                            <th className="p-4">Decrypted Bookmaker Match</th>
-                            <th className="p-4">Key Verification Timestamp</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-850">
-                          {myDownloads.length === 0 ? (
-                            <tr>
-                              <td colSpan={3} className="p-8 text-center text-slate-450 italic font-mono text-slate-500">
-                                You have not unlocked any game coupon key decryptions yet today. Keep scouting!
-                              </td>
-                            </tr>
-                          ) : (
-                            myDownloads.map((dl) => {
-                              const codeRecord = db.pool_codes.find(c => c.id === dl.pool_code_id);
-                              const bookmaker = db.bookmakers.find(b => b.id === codeRecord?.bookmaker_id);
-                              return (
-                                <tr key={dl.id} className="hover:bg-[#070B14]/40 font-mono text-[11px] text-slate-300">
-                                  <td className="p-4 text-emerald-400 font-bold">{dl.id}</td>
-                                  <td className="p-4 font-sans text-slate-100 text-xs font-black uppercase tracking-wide">{bookmaker?.name || 'GENERIC'} CODESHEET</td>
-                                  <td className="p-4 text-slate-400">{new Date(dl.downloaded_at).toLocaleString()}</td>
-                                </tr>
-                              );
-                            })
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* SUBTAB 7: USER PROFILE INFORMATION */}
+               {/* SUBTAB 7: USER PROFILE INFORMATION */}
               {activeSubTab === 'profile' && (
                 <div className="flex flex-col gap-6">
                   <div className="bg-[#111827] border border-slate-800 rounded-2xl p-6 shadow-lg grid grid-cols-1 md:grid-cols-2 gap-6">
