@@ -37,7 +37,9 @@ import {
   X,
   Info,
   Play,
-  Menu
+  Menu,
+  Tv,
+  LogOut
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DatabaseState, User, SubscriptionPlan, UserSubscription, PoolCode } from '../types';
@@ -51,6 +53,8 @@ interface CustomerPortalProps {
   handleDownloadCode: (code: PoolCode) => void;
   triggerToast: (message: string, type?: 'success' | 'info' | 'error') => void;
   markAllNotificationsRead: () => void;
+  onSignOut?: () => void;
+  onUpdateProfile?: (updated: { username: string; email: string; phone?: string; password?: string }) => void;
 }
 
 export default function CustomerPortal({
@@ -61,20 +65,107 @@ export default function CustomerPortal({
   buySubscription,
   handleDownloadCode,
   triggerToast,
-  markAllNotificationsRead
+  markAllNotificationsRead,
+  onSignOut,
+  onUpdateProfile
 }: CustomerPortalProps) {
-  const [activeSubTab, setActiveSubTab] = useState<'dashboard' | 'results' | 'subscription' | 'profile'>('dashboard');
+  const [activeSubTab, setActiveSubTab] = useState<'dashboard' | 'streaming' | 'results' | 'subscription' | 'profile'>(() => {
+    return activePlan?.id === 'plan-free' ? 'streaming' : 'dashboard';
+  });
+
+  useEffect(() => {
+    if (activeSubTab === 'dashboard' && activePlan?.id === 'plan-free') {
+      setActiveSubTab('streaming');
+      triggerToast('Arena Dashboard is restricted on standard Free Plan list. Please select a premium plan to unlock!', 'info');
+    }
+  }, [activeSubTab, activePlan]);
+
   const [codeTypeFilter, setCodeTypeFilter] = useState<'all' | 'uk' | 'aussie' | 'international'>('all');
   const [bookmakerFilter, setBookmakerFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'portal' | 'decryptor'>('portal');
   const [selectedResultId, setSelectedResultId] = useState<string>('pr-w43');
+  const [filterSeason, setFilterSeason] = useState<string>('all');
+  const [filterWeek, setFilterWeek] = useState<string>('all');
+  const [filterFixtureDate, setFilterFixtureDate] = useState<string>('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [streamAlertEmail, setStreamAlertEmail] = useState(currentUser?.email || '');
+  const [streamSubscribed, setStreamSubscribed] = useState(false);
+  const [streamReminders, setStreamReminders] = useState<Record<string, boolean>>({});
+
+  // Personal Info & Password edit states
+  const [profileUsername, setProfileUsername] = useState(currentUser.username);
+  const [profileEmail, setProfileEmail] = useState(currentUser.email);
+  const [profilePhone, setProfilePhone] = useState(currentUser.phone || '');
+  const [profilePassword, setProfilePassword] = useState('');
+  const [profileConfirmPassword, setProfileConfirmPassword] = useState('');
+
+  useEffect(() => {
+    setProfileUsername(currentUser.username);
+    setProfileEmail(currentUser.email);
+    setProfilePhone(currentUser.phone || '');
+    setProfilePassword('');
+    setProfileConfirmPassword('');
+  }, [currentUser]);
+
+  const handleSavePersonalInfo = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profileUsername.trim()) {
+      triggerToast('Username cannot be empty!', 'error');
+      return;
+    }
+    if (!profileEmail.trim() || !profileEmail.includes('@')) {
+      triggerToast('Please specify a valid email address!', 'error');
+      return;
+    }
+    if (onUpdateProfile) {
+      onUpdateProfile({
+        username: profileUsername.trim(),
+        email: profileEmail.trim(),
+        phone: profilePhone.trim()
+      });
+    } else {
+      triggerToast('Simulated profile database update successful!', 'success');
+    }
+  };
+
+  const handleSavePassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profilePassword) {
+      triggerToast('Please enter your new security password.', 'error');
+      return;
+    }
+    if (profilePassword.length < 5) {
+      triggerToast('Security requirements fail: Password must be at least 5 characters long.', 'error');
+      return;
+    }
+    if (profilePassword !== profileConfirmPassword) {
+      triggerToast('Validation discrepancy: Input password confirmation does not match.', 'error');
+      return;
+    }
+    if (onUpdateProfile) {
+      onUpdateProfile({
+        username: profileUsername.trim(),
+        email: profileEmail.trim(),
+        phone: profilePhone.trim(),
+        password: profilePassword
+      });
+      setProfilePassword('');
+      setProfileConfirmPassword('');
+    } else {
+      triggerToast('Simulated password key synchronized successfully!', 'success');
+      setProfilePassword('');
+      setProfileConfirmPassword('');
+    }
+  };
 
   const exportResultToCSV = (result: typeof db.pool_results[0]) => {
     try {
-      const headers = ['Match No', 'Home Team Selection', 'Away Team Companion', 'Score FT', 'POOL Outcome', 'PAY Status'];
+      const headers = ['Season', 'Active Week', 'Fixture Date', 'Match No', 'Home Team Selection', 'Away Team Companion', 'Score FT', 'POOL Outcome', 'PAY Status'];
       const rows = (result.results_table || []).map(row => [
+        `"${result.season_year || 2026}"`,
+        `"WEEK #${result.week_number || 43}"`,
+        `"${result.fixture_date || '2026-04-25'}"`,
         row.matchNo,
         `"${row.homeTeam}"`,
         `"${row.awayTeam}"`,
@@ -159,128 +250,247 @@ export default function CustomerPortal({
   }, [isArenaScoreboardHovered]);
 
   // Dynamic posted games coupon states
-  const [postedGames, setPostedGames] = useState([
-    {
-      id: 'g-1',
-      poolNo: 1,
-      betCode: '2531',
-      home: 'Marconi S.',
-      away: 'Sydney FC',
-      homeWin: '1.40',
-      draw: '4.35',
-      awayWin: '6.40',
-      betTips: 'Ov 2.5',
-      status: 'Friday',
-      kickOff: '11:00 AM',
-      bookmaker: 'Bet9ja',
-      week: 'Week 49 Aussie'
-    },
-    {
-      id: 'g-2',
-      poolNo: 2,
-      betCode: '4922',
-      home: 'Apia L. Tigers',
-      away: 'Rockdale City',
-      homeWin: '2.10',
-      draw: '3.85',
-      awayWin: '3.10',
-      betTips: 'Draw (X)',
-      status: 'Saturday',
-      kickOff: '03:15 PM',
-      bookmaker: 'Bet9ja',
-      week: 'Week 49 Aussie'
-    },
-    {
-      id: 'g-3',
-      poolNo: 3,
-      betCode: '1853',
-      home: 'Wollongong Wolves',
-      away: 'Manly United',
-      homeWin: '1.85',
-      draw: '4.00',
-      awayWin: '4.50',
-      betTips: 'Un 2.5',
-      status: 'Saturday',
-      kickOff: '04:30 PM',
-      bookmaker: 'Bet9ja',
-      week: 'Week 49 Aussie'
-    },
-    {
-      id: 'g-4',
-      poolNo: 4,
-      betCode: '7721',
-      home: 'Melbourne Knights',
-      away: 'Oakleigh Cannons',
-      homeWin: '2.45',
-      draw: '3.60',
-      awayWin: '2.20',
-      betTips: 'Home Draw',
-      status: 'Sunday',
-      kickOff: '05:00 PM',
-      bookmaker: 'BetKing',
-      week: 'Week 49 Aussie'
-    },
-    {
-      id: 'g-5',
-      poolNo: 5,
-      betCode: '8824',
-      home: 'Hume City',
-      away: 'South Melbourne',
-      homeWin: '3.10',
-      draw: '3.40',
-      awayWin: '1.95',
-      betTips: 'Away Win',
-      status: 'Sunday',
-      kickOff: '07:30 PM',
-      bookmaker: 'SportyBet',
-      week: 'Week 49 Aussie'
-    },
-    {
-      id: 'g-6',
-      poolNo: 6,
-      betCode: '9012',
-      home: 'St George FC',
-      away: 'Sutherland Sharks',
-      homeWin: '1.70',
-      draw: '4.20',
-      awayWin: '5.10',
-      betTips: 'Ov 1.5',
-      status: 'Friday',
-      kickOff: '12:45 PM',
-      bookmaker: 'MSport',
-      week: 'Week 49 Aussie'
-    },
-    {
-      id: 'g-7',
-      poolNo: 7,
-      betCode: '3104',
-      home: 'Sydney Olympic',
-      away: 'Western Sydney',
-      homeWin: '2.05',
-      draw: '3.70',
-      awayWin: '2.85',
-      betTips: 'Home To Win',
-      status: 'Saturday',
-      kickOff: '06:00 PM',
-      bookmaker: 'Bet9ja',
-      week: 'Week 49 Aussie'
-    },
-    {
-      id: 'g-8',
-      poolNo: 8,
-      betCode: '1540',
-      home: 'St George City',
-      away: 'NWS Spirit',
-      homeWin: '1.90',
-      draw: '3.90',
-      awayWin: '3.40',
-      betTips: 'Draw (X)',
-      status: 'Saturday',
-      kickOff: '04:15 PM',
-      bookmaker: 'BetKing',
-      week: 'Week 49 Aussie'
+  const [postedGames, setPostedGames] = useState(() => {
+    try {
+      const stored = localStorage.getItem('fastpool_posted_games_list');
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (e) {
+      console.warn('LocalStorage read omitted in this frame context:', e);
     }
-  ]);
+    return [
+      {
+        id: 'g-1',
+        poolNo: 1,
+        betCode: '2531',
+        home: 'Marconi S.',
+        away: 'Sydney FC',
+        homeWin: '1.40',
+        draw: '4.35',
+        awayWin: '6.40',
+        betTips: 'Ov 2.5',
+        status: 'Friday',
+        kickOff: '11:00 AM',
+        bookmaker: 'Bet9ja',
+        week: 'Week 49 Aussie'
+      },
+      {
+        id: 'g-2',
+        poolNo: 2,
+        betCode: '4922',
+        home: 'Apia L. Tigers',
+        away: 'Rockdale City',
+        homeWin: '2.10',
+        draw: '3.85',
+        awayWin: '3.10',
+        betTips: 'Draw (X)',
+        status: 'Saturday',
+        kickOff: '03:15 PM',
+        bookmaker: 'Bet9ja',
+        week: 'Week 49 Aussie'
+      },
+      {
+        id: 'g-3',
+        poolNo: 3,
+        betCode: '1853',
+        home: 'Wollongong Wolves',
+        away: 'Manly United',
+        homeWin: '1.85',
+        draw: '4.00',
+        awayWin: '4.50',
+        betTips: 'Un 2.5',
+        status: 'Saturday',
+        kickOff: '04:30 PM',
+        bookmaker: 'Bet9ja',
+        week: 'Week 49 Aussie'
+      },
+      {
+        id: 'g-4',
+        poolNo: 4,
+        betCode: '7721',
+        home: 'Melbourne Knights',
+        away: 'Oakleigh Cannons',
+        homeWin: '2.45',
+        draw: '3.60',
+        awayWin: '2.20',
+        betTips: 'Home Draw',
+        status: 'Sunday',
+        kickOff: '05:00 PM',
+        bookmaker: 'BetKing',
+        week: 'Week 49 Aussie'
+      },
+      {
+        id: 'g-5',
+        poolNo: 5,
+        betCode: '8824',
+        home: 'Hume City',
+        away: 'South Melbourne',
+        homeWin: '3.10',
+        draw: '3.40',
+        awayWin: '1.95',
+        betTips: 'Away Win',
+        status: 'Sunday',
+        kickOff: '07:30 PM',
+        bookmaker: 'SportyBet',
+        week: 'Week 49 Aussie'
+      },
+      {
+        id: 'g-6',
+        poolNo: 6,
+        betCode: '9012',
+        home: 'St George FC',
+        away: 'Sutherland Sharks',
+        homeWin: '1.70',
+        draw: '4.20',
+        awayWin: '5.10',
+        betTips: 'Ov 1.5',
+        status: 'Friday',
+        kickOff: '12:45 PM',
+        bookmaker: 'MSport',
+        week: 'Week 49 Aussie'
+      },
+      {
+        id: 'g-7',
+        poolNo: 7,
+        betCode: '3104',
+        home: 'Sydney Olympic',
+        away: 'Western Sydney',
+        homeWin: '2.05',
+        draw: '3.70',
+        awayWin: '2.85',
+        betTips: 'Home To Win',
+        status: 'Saturday',
+        kickOff: '06:00 PM',
+        bookmaker: 'Bet9ja',
+        week: 'Week 49 Aussie'
+      },
+      {
+        id: 'g-8',
+        poolNo: 8,
+        betCode: '1540',
+        home: 'St George City',
+        away: 'NWS Spirit',
+        homeWin: '1.90',
+        draw: '3.90',
+        awayWin: '3.40',
+        betTips: 'Draw (X)',
+        status: 'Saturday',
+        kickOff: '04:15 PM',
+        bookmaker: 'BetKing',
+        week: 'Week 49 Aussie'
+      }
+    ];
+  });
+
+  // Persist modifications immediately and dispatch reactive real-time custom notification events
+  useEffect(() => {
+    try {
+      localStorage.setItem('fastpool_posted_games_list', JSON.stringify(postedGames));
+      // Dispatch a client-wide update event for internal component routing
+      window.dispatchEvent(new CustomEvent('fastpool_arena_games_synced', { detail: postedGames }));
+    } catch (err) {
+      console.warn('LocalStorage persistence error on active sandbox state:', err);
+    }
+  }, [postedGames]);
+
+  // Listen to storage synchronization triggers and custom broadcast events for zero-delay cross-context reactivity
+  useEffect(() => {
+    const handleStorageEvent = (e: StorageEvent) => {
+      if (e.key === 'fastpool_posted_games_list' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          setPostedGames(parsed);
+        } catch (err) {
+          console.error('Real-time sync parsed conversion exception:', err);
+        }
+      }
+    };
+
+    const handleCustomEvent = (e: Event) => {
+      const customEvt = e as CustomEvent;
+      if (customEvt.detail && Array.isArray(customEvt.detail)) {
+        setPostedGames(customEvt.detail);
+      }
+    };
+
+    window.addEventListener('storage', handleStorageEvent);
+    window.addEventListener('fastpool_arena_games_synced', handleCustomEvent);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageEvent);
+      window.removeEventListener('fastpool_arena_games_synced', handleCustomEvent);
+    };
+  }, []);
+
+  // Dynamic pool results championship sheets states
+  const [poolResults, setPoolResults] = useState(() => {
+    try {
+      const stored = localStorage.getItem('fastpool_pool_results_list');
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (e) {
+      console.warn('LocalStorage read omitted for pool results:', e);
+    }
+    return db.pool_results;
+  });
+
+  // Persist results immediately and dispatch reactive real-time custom notification events
+  useEffect(() => {
+    try {
+      localStorage.setItem('fastpool_pool_results_list', JSON.stringify(poolResults));
+      // Dispatch a client-wide update event for zero-delay cross-tab rendering
+      window.dispatchEvent(new CustomEvent('fastpool_results_synced', { detail: poolResults }));
+    } catch (err) {
+      console.warn('LocalStorage write error for pool results:', err);
+    }
+  }, [poolResults]);
+
+  // Listen to storage synchronization triggers and custom broadcast events for results sheets
+  useEffect(() => {
+    const handleStorageEvent = (e: StorageEvent) => {
+      if (e.key === 'fastpool_pool_results_list' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          setPoolResults(parsed);
+        } catch (err) {
+          console.error('Real-time sync parsed conversion exception for results:', err);
+        }
+      }
+    };
+
+    const handleCustomEvent = (e: Event) => {
+      const customEvt = e as CustomEvent;
+      if (customEvt.detail && Array.isArray(customEvt.detail)) {
+        setPoolResults(customEvt.detail);
+      }
+    };
+
+    window.addEventListener('storage', handleStorageEvent);
+    window.addEventListener('fastpool_results_synced', handleCustomEvent);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageEvent);
+      window.removeEventListener('fastpool_results_synced', handleCustomEvent);
+    };
+  }, []);
+
+  // Admin result row inputs state
+  const [adminResMatchNo, setAdminResMatchNo] = useState('');
+  const [adminResHome, setAdminResHome] = useState('');
+  const [adminResAway, setAdminResAway] = useState('');
+  const [adminResScore, setAdminResScore] = useState('');
+  const [adminResOutcome, setAdminResOutcome] = useState('DRAW');
+  const [adminResPayStatus, setAdminResPayStatus] = useState('CLEARED');
+
+  // Admin custom sheet attributes
+  const [adminSheetWeek, setAdminSheetWeek] = useState('44');
+  const [adminSheetYear, setAdminSheetYear] = useState('2026');
+  const [adminSheetType, setAdminSheetType] = useState('uk');
+  const [adminSheetDate, setAdminSheetDate] = useState('2026-05-02');
+  const [adminSheetTitle, setAdminSheetTitle] = useState('');
+
   const [dashboardGameSearch, setDashboardGameSearch] = useState('');
   const [dashboardBookmakerFilter, setDashboardBookmakerFilter] = useState('All');
   const [dashboardTheme, setDashboardTheme] = useState<'paper' | 'dark'>('dark');
@@ -560,6 +770,133 @@ export default function CustomerPortal({
   ]);
   const [selectedIntlId, setSelectedIntlId] = useState<string>('intl-w29');
 
+  // --- LIVESCORES DASHBOARD ENGINE STATES & ACTIONS ---
+  const [liveScoresData, setLiveScoresData] = useState<any[]>([]);
+  const [liveLogData, setLiveLogData] = useState<string[]>([]);
+  const [isCheckingLive, setIsCheckingLive] = useState(false);
+  const [homeTeam, setHomeTeam] = useState("");
+  const [awayTeam, setAwayTeam] = useState("");
+  const [homeScore, setHomeScore] = useState(0);
+  const [awayScore, setAwayScore] = useState(0);
+  const [newMatchStatus, setNewMatchStatus] = useState("not_started");
+  const [isSubmittingMatch, setIsSubmittingMatch] = useState(false);
+  const [isRefreshingLiveScores, setIsRefreshingLiveScores] = useState(false);
+
+  useEffect(() => {
+    if (activeSubTab !== 'streaming' && activeSubTab !== 'dashboard') return;
+
+    const fetchLiveScores = async () => {
+      try {
+        const response = await fetch("/api/livescores");
+        const json = await response.json();
+        if (json.success) {
+          setLiveScoresData(json.matches || []);
+          setLiveLogData(json.logs || []);
+          setIsCheckingLive(json.isChecking || false);
+        }
+      } catch (err) {
+        console.error("Error loading live scores:", err);
+      }
+    };
+
+    fetchLiveScores();
+    const interval = setInterval(fetchLiveScores, 10000); // UI poll fast every 10 seconds
+    return () => clearInterval(interval);
+  }, [activeSubTab]);
+
+  const handleAddMatch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!homeTeam.trim() || !awayTeam.trim()) {
+      triggerToast("Please enter both Home Team and Away Team names.", "error");
+      return;
+    }
+    setIsSubmittingMatch(true);
+    try {
+      const response = await fetch("/api/livescores", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          home_team: homeTeam.trim(), 
+          away_team: awayTeam.trim(), 
+          home_score: Number(homeScore) || 0,
+          away_score: Number(awayScore) || 0,
+          status: newMatchStatus 
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        triggerToast(`Added "${homeTeam} vs ${awayTeam}" to live score tracking board!`, "success");
+        setHomeTeam("");
+        setAwayTeam("");
+        setHomeScore(0);
+        setAwayScore(0);
+        setNewMatchStatus("not_started");
+        // Reload immediately
+        const scoreRes = await fetch("/api/livescores");
+        const scoreJson = await scoreRes.json();
+        if (scoreJson.success) {
+          setLiveScoresData(scoreJson.matches || []);
+          setLiveLogData(scoreJson.logs || []);
+        }
+      } else {
+        triggerToast(data.error || "Failed to add match.", "error");
+      }
+    } catch (err: any) {
+      triggerToast(err?.message || "Failed to add match.", "error");
+    } finally {
+      setIsSubmittingMatch(false);
+    }
+  };
+
+  const handleDeleteMatch = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this match from the tracker?")) return;
+    try {
+      const response = await fetch("/api/livescores/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id })
+      });
+      const data = await response.json();
+      if (data.success) {
+        triggerToast("Match deleted successfully from database list.", "success");
+        // Reload immediately
+        const scoreRes = await fetch("/api/livescores");
+        const scoreJson = await scoreRes.json();
+        if (scoreJson.success) {
+          setLiveScoresData(scoreJson.matches || []);
+          setLiveLogData(scoreJson.logs || []);
+        }
+      } else {
+        triggerToast(data.error || "Failed to delete match.", "error");
+      }
+    } catch (err: any) {
+      triggerToast(err?.message || "Error deleting match.", "error");
+    }
+  };
+
+  const handleForceUpdateScores = async () => {
+    setIsRefreshingLiveScores(true);
+    // Trigger toast
+    triggerToast("Initiating real-time AI web search check for all matches...", "info");
+    try {
+      const response = await fetch("/api/livescores/trigger-update", {
+        method: "POST"
+      });
+      const data = await response.json();
+      if (data.success) {
+        setLiveScoresData(data.matches || []);
+        setLiveLogData(data.logs || []);
+        triggerToast("Live scores verified & synced with web channels!", "success");
+      } else {
+        triggerToast(data.error || "Failed to run current matches check.", "error");
+      }
+    } catch (err: any) {
+      triggerToast(err?.message || "Error during match updates check.", "error");
+    } finally {
+      setIsRefreshingLiveScores(false);
+    }
+  };
+
   const handleLikeIntlCode = (id: string) => {
     setIntlCodes(prev => prev.map(code => {
       if (code.id === id) {
@@ -698,17 +1035,49 @@ export default function CustomerPortal({
                 <nav className="flex flex-col gap-2">
                   <button
                     onClick={() => {
-                      setActiveSubTab('dashboard');
+                      if (activePlan?.id === 'plan-free') {
+                        triggerToast('Arena Dashboard is restricted to VIP Premium plans. Please upgrade to unlock!', 'info');
+                        setActiveSubTab('subscription');
+                      } else {
+                        setActiveSubTab('dashboard');
+                      }
                       setIsMobileMenuOpen(false);
                     }}
-                    className={`flex items-center gap-3 px-3.5 py-3 rounded-lg text-xs font-bold tracking-wide transition duration-150 ${
-                      activeSubTab === 'dashboard'
+                    className={`flex items-center justify-between px-3.5 py-3 rounded-lg text-xs font-bold tracking-wide transition duration-150 ${
+                      activePlan?.id === 'plan-free'
+                        ? 'hover:bg-slate-800/40 text-slate-500 hover:text-slate-400'
+                        : activeSubTab === 'dashboard'
                         ? 'bg-gradient-to-r from-emerald-555/15 to-emerald-500/5 text-emerald-400 border-l-4 border-emerald-500 pl-2.5'
                         : 'hover:bg-slate-800/60 text-slate-400 hover:text-slate-150'
                     }`}
                   >
-                    <Home className="w-4 h-4" />
-                    <span>DASHBOARD ARENA</span>
+                    <span className="flex items-center gap-3">
+                      <Home className="w-4 h-4" />
+                      <span>DASHBOARD ARENA</span>
+                    </span>
+                    {activePlan?.id === 'plan-free' && (
+                      <Lock className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
+                    )}
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setActiveSubTab('streaming');
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className={`flex items-center justify-between px-3.5 py-3 rounded-lg text-xs font-bold tracking-wide transition duration-150 ${
+                      activeSubTab === 'streaming'
+                        ? 'bg-gradient-to-r from-emerald-555/15 to-emerald-500/5 text-emerald-400 border-l-4 border-emerald-500 pl-2.5'
+                        : 'hover:bg-slate-800/60 text-slate-400 hover:text-slate-150'
+                    }`}
+                  >
+                    <span className="flex items-center gap-3">
+                      <Tv className="w-4 h-4 text-[#FA3E65]" />
+                      <span className="flex items-center gap-2">
+                        <span>LIVE MATCH CAST</span>
+                        <span className="text-[7.5px] bg-[#FA3E65]/15 text-[#FA3E65] px-1.5 py-0.2 rounded font-black tracking-widest leading-none">COMING SOON</span>
+                      </span>
+                    </span>
                   </button>
 
                   <button
@@ -757,6 +1126,19 @@ export default function CustomerPortal({
                     <UserIcon className="w-4 h-4" />
                     <span>USER PROFILE</span>
                   </button>
+
+                  {onSignOut && (
+                    <button
+                      onClick={() => {
+                        setIsMobileMenuOpen(false);
+                        onSignOut();
+                      }}
+                      className="flex items-center gap-3 px-3.5 py-3 rounded-lg text-xs font-bold tracking-wide text-rose-455 hover:text-rose-400 hover:bg-rose-500/10 transition duration-150 mt-4 border border-rose-500/20 w-full justify-center"
+                    >
+                      <LogOut className="w-4 h-4 text-rose-500" />
+                      <span>LOG OUT SESSION</span>
+                    </button>
+                  )}
                 </nav>
               </div>
 
@@ -811,15 +1193,44 @@ export default function CustomerPortal({
           {/* Primary Navigation */}
           <nav className="flex flex-col gap-2">
             <button
-              onClick={() => setActiveSubTab('dashboard')}
-              className={`flex items-center gap-3 px-3.5 py-3 rounded-lg text-xs font-bold tracking-wide transition duration-150 ${
-                activeSubTab === 'dashboard'
+              onClick={() => {
+                if (activePlan?.id === 'plan-free') {
+                  triggerToast('Arena Dashboard is restricted to VIP Premium plans. Please upgrade to unlock!', 'info');
+                  setActiveSubTab('subscription');
+                } else {
+                  setActiveSubTab('dashboard');
+                }
+              }}
+              className={`flex items-center justify-between px-3.5 py-3 rounded-lg text-xs font-bold tracking-wide transition duration-150 ${
+                activePlan?.id === 'plan-free'
+                  ? 'hover:bg-slate-800/40 text-slate-500 hover:text-slate-400'
+                  : activeSubTab === 'dashboard'
                   ? 'bg-gradient-to-r from-emerald-550/15 to-emerald-500/5 text-emerald-400 border-l-4 border-emerald-500 pl-2.5'
                   : 'hover:bg-slate-800/60 text-slate-400 hover:text-slate-150'
               }`}
             >
-              <Home className="w-4 h-4" />
-              <span>DASHBOARD ARENA</span>
+              <span className="flex items-center gap-3">
+                <Home className="w-4 h-4" />
+                <span>DASHBOARD ARENA</span>
+              </span>
+              {activePlan?.id === 'plan-free' && (
+                <Lock className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
+              )}
+            </button>
+
+            <button
+              onClick={() => setActiveSubTab('streaming')}
+              className={`flex items-center justify-between px-3.5 py-3 rounded-lg text-xs font-bold tracking-wide transition duration-150 ${
+                activeSubTab === 'streaming'
+                  ? 'bg-gradient-to-r from-emerald-550/15 to-emerald-500/5 text-emerald-400 border-l-4 border-emerald-500 pl-2.5'
+                  : 'hover:bg-slate-800/60 text-slate-400 hover:text-slate-150'
+              }`}
+            >
+              <span className="flex items-center gap-3">
+                <Tv className="w-4 h-4 text-[#FA3E65]" />
+                <span>LIVE MATCH CAST</span>
+              </span>
+              <span className="text-[7.5px] bg-[#FA3E65]/15 text-[#FA3E65] px-1.5 py-0.5 rounded font-black tracking-widest leading-none">COMING SOON</span>
             </button>
 
             <button
@@ -860,6 +1271,16 @@ export default function CustomerPortal({
               <span>USER PROFILE</span>
             </button>
           </nav>
+
+          {onSignOut && (
+            <button
+              onClick={onSignOut}
+              className="w-full flex items-center justify-center gap-2.5 px-3.5 py-3 rounded-lg text-xs font-bold tracking-wide text-rose-455 hover:text-rose-400 hover:bg-rose-500/10 transition duration-150 border border-rose-500/20 cursor-pointer text-center"
+            >
+              <LogOut className="w-4 h-4 text-rose-500" />
+              <span>LOG OUT SESSION</span>
+            </button>
+          )}
         </div>
 
         {/* Security Encryption Badge Footer */}
@@ -922,45 +1343,64 @@ export default function CustomerPortal({
                       onTouchEnd={handleTouchEnd}
                       className="flex items-center gap-3 overflow-x-auto scrollbar-none py-1 whitespace-nowrap"
                     >
-                      {[
-                        { type: 'Aussie • LIVE', team1: 'MELB KNIGHTS', score1: '2', team2: 'OAKLEIGH', score2: '2', status: 'Q4 8:44' },
-                        { type: 'Aussie • LIVE', team1: 'HUME CITY', score1: '1', team2: 'S MELBOURNE', score2: '0', status: 'Q2 12:15' },
-                        { type: 'UK • FT', team1: 'APIA TIGERS', score1: '1', team2: 'ROCKDALE', score2: '1', status: 'Completed' },
-                        { type: 'Aussie • FT', team1: 'ST GEORGE', score1: '2', team2: 'NWS SPIRIT', score2: '3', status: 'Completed' },
-                        { type: 'UK • LIVE', team1: 'WOLLONGONG', score1: '0', team2: 'MANLY UTID', score2: '0', status: 'TODAY' },
-                        { type: 'PBA • LIVE', team1: 'SMB GIANTS', score1: '95', team2: 'BG SAN MIG', score2: '93', status: 'Ended' }
-                      ].concat([
-                        { type: 'Aussie • LIVE', team1: 'MELB KNIGHTS', score1: '2', team2: 'OAKLEIGH', score2: '2', status: 'Q4 8:44' },
-                        { type: 'Aussie • LIVE', team1: 'HUME CITY', score1: '1', team2: 'S MELBOURNE', score2: '0', status: 'Q2 12:15' },
-                        { type: 'UK • FT', team1: 'APIA TIGERS', score1: '1', team2: 'ROCKDALE', score2: '1', status: 'Completed' },
-                        { type: 'Aussie • FT', team1: 'ST GEORGE', score1: '2', team2: 'NWS SPIRIT', score2: '3', status: 'Completed' },
-                        { type: 'UK • LIVE', team1: 'WOLLONGONG', score1: '0', team2: 'MANLY UTID', score2: '0', status: 'TODAY' },
-                        { type: 'PBA • LIVE', team1: 'SMB GIANTS', score1: '95', team2: 'BG SAN MIG', score2: '93', status: 'Ended' }
-                      ]).map((game, idx) => (
-                        <div 
-                          key={idx}
-                          onClick={() => triggerToast(`Match Details: ${game.team1} vs ${game.team2} (${game.status})`, 'info')}
-                          className="flex items-center bg-[#070B14] border border-slate-800 hover:border-slate-700 rounded-xl px-4 py-2.5 transition cursor-pointer gap-4 text-left shadow-md select-none shrink-0"
-                        >
-                          <div className="flex flex-col justify-center">
-                            <span className={`text-[9px] font-mono font-black tracking-widest ${game.type.includes('LIVE') ? 'text-amber-400' : 'text-emerald-400'}`}>
-                              {game.type.toUpperCase()}
-                            </span>
-                            <div className="flex items-center gap-2 mt-1 font-black">
-                              <span className="text-neutral-250 text-xs tracking-wide">{game.team1}</span> 
-                              <span className="text-amber-400 font-black text-xs">{game.score1}</span>
-                              <span className="text-slate-600 text-[10px]">-</span>
-                              <span className="text-neutral-250 text-xs tracking-wide">{game.team2}</span> 
-                              <span className="text-amber-400 font-black text-xs">{game.score2}</span>
-                            </div>
-                          </div>
-                          {game.type.includes('LIVE') && (
-                            <span className="bg-rose-500/15 border border-rose-500/20 text-[#FA3E65] text-[8.5px] font-black px-1.5 py-0.5 rounded shadow animate-pulse uppercase tracking-wider font-mono">
-                              {game.status}
-                            </span>
-                          )}
+                      {liveScoresData.length === 0 ? (
+                        <div className="flex items-center justify-center py-4 px-6 text-slate-500 text-xs font-mono w-full">
+                          <span>No live tracked games active in database. Manage games via the Live Match Cast tab.</span>
                         </div>
-                      ))}
+                      ) : (
+                        liveScoresData.map((match: any, idx: number) => {
+                          const parts = (match.fixture || "").split(" vs ");
+                          const team1 = parts[0]?.trim() || "Home";
+                          const team2 = parts[1]?.trim() || "Away";
+                          
+                          const scoreParts = (match.score || "0 - 0").split(" - ");
+                          const score1 = scoreParts[0]?.trim() || "0";
+                          const score2 = scoreParts[1]?.trim() || "0";
+
+                          const isLiveStatus = match.status === 'live';
+                          const isFinished = match.status === 'finished';
+                          const isPostponed = match.status === 'postponed';
+
+                          let typeStr = 'NOT STARTED';
+                          let typeColor = 'text-slate-500';
+                          if (isLiveStatus) {
+                            typeStr = 'LIVE';
+                            typeColor = 'text-[#FA3E65]';
+                          } else if (isFinished) {
+                            typeStr = 'FT';
+                            typeColor = 'text-emerald-400';
+                          } else if (isPostponed) {
+                            typeStr = 'PPD';
+                            typeColor = 'text-amber-500';
+                          }
+
+                          return (
+                            <div 
+                              key={match.id || idx}
+                              onClick={() => triggerToast(`Match Details: ${team1} vs ${team2} (${typeStr})`, 'info')}
+                              className="flex items-center bg-[#070B14] border border-slate-800 hover:border-slate-700 rounded-xl px-4 py-2.5 transition cursor-pointer gap-4 text-left shadow-md select-none shrink-0"
+                            >
+                              <div className="flex flex-col justify-center">
+                                <span className={`text-[9px] font-mono font-black tracking-widest ${typeColor}`}>
+                                  {typeStr}
+                                </span>
+                                <div className="flex items-center gap-2 mt-1 font-black">
+                                  <span className="text-neutral-250 text-xs tracking-wide">{team1}</span> 
+                                  <span className="text-amber-400 font-black text-xs">{score1}</span>
+                                  <span className="text-slate-600 text-[10px]">-</span>
+                                  <span className="text-neutral-250 text-xs tracking-wide">{team2}</span> 
+                                  <span className="text-amber-400 font-black text-xs">{score2}</span>
+                                </div>
+                              </div>
+                              {isLiveStatus && (
+                                <span className="bg-[#FA3E65]/15 border border-[#FA3E65]/20 text-[#FA3E65] text-[8.5px] font-black px-1.5 py-0.5 rounded shadow animate-pulse uppercase tracking-wider font-mono">
+                                  LIVE
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })
+                      )}
                     </div>
                   </div>
 
@@ -2727,68 +3167,626 @@ export default function CustomerPortal({
                 );
               })()}
 
+              {/* SUBTAB: LIVE MATCH CAST */}
+              {activeSubTab === 'streaming' && (
+                <div className="flex flex-col gap-6" id="live-matchcast-arena">
+                  {/* Header title */}
+                  <div className="border-b border-slate-800 pb-4 mb-2 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                      <h2 className="text-xl font-extrabold tracking-wider text-slate-100 font-mono uppercase">
+                        AI LIVE REAL-TIME SCORES
+                      </h2>
+                      <p className="text-xs text-slate-400 mt-1">
+                        Web-grounded live updates synced via Gemini Search Engine every 60 seconds.
+                      </p>
+                    </div>
+
+                    {/* Quick Trigger Force Refresh */}
+                    <button
+                      onClick={handleForceUpdateScores}
+                      disabled={isRefreshingLiveScores}
+                      className="flex items-center gap-2 bg-[#10B981] hover:bg-emerald-600 disabled:bg-emerald-950 disabled:text-slate-500 text-slate-950 font-bold px-4 py-2 rounded-lg text-xs tracking-wider transition-all cursor-pointer shadow-md uppercase font-mono"
+                    >
+                      <Activity className={`w-3.5 h-3.5 ${isRefreshingLiveScores ? 'animate-spin' : ''}`} />
+                      {isRefreshingLiveScores ? 'Searching Web...' : 'FORCE AI REFRESH NOW'}
+                    </button>
+                  </div>
+
+                  {/* ADMIN CONTROL TOWER PANEL */}
+                  {currentUser.role === 'admin' && (
+                    <div className="w-full bg-[#0F172A] border border-slate-800 rounded-xl p-5 shadow-xl flex flex-col gap-4">
+                      <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                          <h3 className="text-xs font-mono font-black uppercase text-emerald-400 tracking-widest">
+                            ADMIN LIVE TRACKER CONTROL TOWER
+                          </h3>
+                        </div>
+                        <span className="text-[10px] bg-slate-800 text-slate-350 px-2.5 py-0.5 rounded font-mono font-bold">
+                          Total: {liveScoresData.length} games tracked
+                        </span>
+                      </div>
+
+                      {/* Add Match Form */}
+                      <form onSubmit={handleAddMatch} className="flex flex-col gap-4 bg-slate-900/40 p-4 rounded-xl border border-slate-800/80">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                          <div className="flex flex-col gap-1.5 col-span-1 text-left">
+                            <label className="text-[10px] font-mono font-bold text-slate-350 uppercase tracking-wider">
+                              Home Team Name
+                            </label>
+                            <input
+                              type="text"
+                              value={homeTeam}
+                              onChange={(e) => setHomeTeam(e.target.value)}
+                              placeholder="e.g. Manchester City"
+                              className="bg-slate-950 border border-slate-850 focus:border-emerald-500 outline-none rounded-lg px-3 py-2 text-xs text-white"
+                              required
+                            />
+                          </div>
+
+                          <div className="flex flex-col gap-1.5 col-span-1 text-left">
+                            <label className="text-[10px] font-mono font-bold text-slate-350 uppercase tracking-wider">
+                              Away Team Name
+                            </label>
+                            <input
+                              type="text"
+                              value={awayTeam}
+                              onChange={(e) => setAwayTeam(e.target.value)}
+                              placeholder="e.g. Chelsea"
+                              className="bg-slate-950 border border-slate-850 focus:border-emerald-500 outline-none rounded-lg px-3 py-2 text-xs text-white"
+                              required
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2 col-span-1 text-left">
+                            <div className="flex flex-col gap-1.5">
+                              <label className="text-[10px] font-mono font-bold text-slate-350 uppercase tracking-wider">
+                                Home Score
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                value={homeScore}
+                                onChange={(e) => setHomeScore(Number(e.target.value) || 0)}
+                                className="bg-slate-950 border border-slate-850 focus:border-emerald-500 outline-none rounded-lg px-3 py-2 text-xs text-white text-center font-mono font-bold"
+                              />
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                              <label className="text-[10px] font-mono font-bold text-slate-350 uppercase tracking-wider">
+                                Away Score
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                value={awayScore}
+                                onChange={(e) => setAwayScore(Number(e.target.value) || 0)}
+                                className="bg-slate-950 border border-slate-850 focus:border-emerald-500 outline-none rounded-lg px-3 py-2 text-xs text-white text-center font-mono font-bold"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="flex flex-col gap-1.5 col-span-1 text-left">
+                            <label className="text-[10px] font-mono font-bold text-slate-350 uppercase tracking-wider">
+                              Initial Status
+                            </label>
+                            <div className="flex gap-2">
+                              <select
+                                value={newMatchStatus}
+                                onChange={(e) => setNewMatchStatus(e.target.value)}
+                                className="bg-slate-950 border border-slate-850 focus:border-emerald-500 outline-none rounded-lg px-3 py-2 text-xs text-white flex-1"
+                              >
+                                <option value="not_started">Not Started</option>
+                                <option value="live">Live Now</option>
+                                <option value="finished">Finished</option>
+                                <option value="postponed">Postponed</option>
+                              </select>
+                              <button
+                                type="submit"
+                                disabled={isSubmittingMatch}
+                                className="bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-slate-950 text-xs font-black uppercase px-4 py-2 rounded-lg transition font-mono cursor-pointer disabled:bg-slate-800 shadow"
+                              >
+                                ADD
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </form>
+
+                      {/* Display live server-side task logs */}
+                      <div className="w-full bg-slate-950 rounded-lg p-3 border border-slate-850">
+                        <span className="text-[10px] font-mono font-bold text-[#FA3E65] uppercase block mb-1">
+                          SYSTEM POLLING LOGS (60s cron interval)
+                        </span>
+                        <div className="max-h-24 overflow-y-auto text-[10px] font-mono text-slate-400 space-y-1 pr-2 scrollbar-thin">
+                          {liveLogData.length === 0 ? (
+                            <div className="text-slate-500 italic">No logs recorded yet. Polling starting in 1 minute...</div>
+                          ) : (
+                            liveLogData.map((log, idx) => (
+                              <div key={idx} className="flex gap-2 border-b border-slate-900 pb-0.5 whitespace-pre-wrap text-left">
+                                <span className="text-[#10B981] min-w-[70px] select-none">↳ [SYSTEM]</span>
+                                <span className="text-slate-300">{log}</span>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* REALSCORES BOARD TABLE */}
+                  <div className="w-full bg-[#111827] rounded-xl border border-slate-800 p-5 shadow-xl flex flex-col gap-4 text-left">
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                      <div className="flex items-center gap-2">
+                        <Activity className="w-4 h-4 text-emerald-400" />
+                        <h3 className="text-xs font-mono font-black uppercase text-slate-200 tracking-widest">
+                          TRACKED MATCHES SCOREBOARD
+                        </h3>
+                      </div>
+                      {isCheckingLive && (
+                        <div className="flex items-center gap-1.5 text-[10px] font-mono text-amber-400">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping"></span>
+                          <span>AI Grounding Deep Search Active...</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {liveScoresData.length === 0 ? (
+                      <div className="py-12 text-center rounded-lg border border-dashed border-slate-800 bg-slate-900/10">
+                        <Tv className="w-10 h-10 text-slate-600 mx-auto mb-3 opacity-60" />
+                        <h4 className="text-sm font-bold text-slate-350">No games currently tracked</h4>
+                        <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1 leading-snug">
+                          {currentUser.role === 'admin' 
+                            ? 'Use the Control Tower above to enter names of matches you want to live-track.' 
+                            : 'An admin has not initiated any live trackers yet. Check back during fixture weekends!'}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto min-w-full">
+                        <table className="min-w-full text-left border-collapse">
+                          <thead>
+                            <tr className="border-b border-slate-850 text-[10px] font-mono text-slate-400 uppercase tracking-wider">
+                              <th className="py-3 px-4 font-bold">Game / Fixture Professional</th>
+                              <th className="py-3 px-4 font-bold text-center">Score</th>
+                              <th className="py-3 px-4 font-bold text-center">Status</th>
+                              <th className="py-3 px-4 font-bold">AI Web-verification Notes / Grounding</th>
+                              {currentUser.role === 'admin' && <th className="py-3 px-4 font-bold text-right">Action</th>}
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-850 text-xs text-slate-300">
+                            {liveScoresData.map((match: any) => {
+                              const isLiveStatus = match.status === 'live';
+                              const isFinished = match.status === 'finished';
+                              const isPostponed = match.status === 'postponed';
+
+                              return (
+                                <tr key={match.id} className="hover:bg-slate-900/40 transition">
+                                  <td className="py-3.5 px-4 font-semibold font-sans text-slate-100">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-slate-400">🥅</span>
+                                      <span>{match.fixture}</span>
+                                    </div>
+                                  </td>
+                                  <td className="py-3.5 px-4 text-center font-mono font-bold">
+                                    <span className={`px-2.5 py-1 rounded text-sm ${
+                                      isLiveStatus 
+                                        ? 'bg-[#FA3E65]/15 text-[#FA3E65] border border-[#FA3E65]/30 shadow-sm animate-pulse' 
+                                        : isFinished 
+                                          ? 'bg-slate-850 text-slate-400 border border-slate-800' 
+                                          : 'bg-slate-950 text-slate-500 border border-slate-900'
+                                    }`}>
+                                      {match.score}
+                                    </span>
+                                  </td>
+                                  <td className="py-3.5 px-4 text-center">
+                                    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono uppercase font-black tracking-widest ${
+                                      isLiveStatus 
+                                        ? 'bg-emerald-950/70 text-emerald-400 border border-emerald-900/40' 
+                                        : isFinished 
+                                          ? 'bg-slate-850 text-slate-400' 
+                                          : isPostponed
+                                            ? 'bg-amber-950/60 text-amber-500 border border-amber-900/30'
+                                            : 'bg-slate-900/40 text-slate-500'
+                                    }`}>
+                                      {isLiveStatus ? (
+                                        <>
+                                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                                          <span>LIVE</span>
+                                        </>
+                                      ) : isFinished ? (
+                                        <>
+                                          <Check className="w-3 h-3 text-emerald-400" />
+                                          <span>FT</span>
+                                        </>
+                                      ) : isPostponed ? (
+                                        <span>PPD</span>
+                                      ) : (
+                                        <span>NOT STARTED</span>
+                                      )}
+                                    </span>
+                                  </td>
+                                  <td className="py-3.5 px-4">
+                                    <div className="flex flex-col gap-0.5 max-w-sm md:max-w-md">
+                                      <span className="text-slate-350 text-xs italic font-sans leading-snug">
+                                        {match.log || 'Checked live status. Standing by.'}
+                                      </span>
+                                      <span className="text-[9px] font-mono text-slate-500">
+                                        Checked: {new Date(match.lastChecked).toLocaleTimeString()}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  {currentUser.role === 'admin' && (
+                                    <td className="py-3.5 px-4 text-right">
+                                      <button
+                                        onClick={() => handleDeleteMatch(match.id)}
+                                        className="text-[#FA3E65] hover:text-[#E11D48] hover:bg-[#FA3E65]/10 p-1.5 rounded border border-transparent hover:border-[#FA3E65]/20 cursor-pointer inline-flex items-center justify-center transition-all"
+                                        title="Delete live tracker"
+                                      >
+                                        <X className="w-4 h-4" />
+                                      </button>
+                                    </td>
+                                  )}
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Left: Interactive Broadcast Player Mockup */}
+                  <div className="max-w-4xl mx-auto w-full">
+                    <div className="w-full bg-[#111827] rounded-2xl border border-slate-800 p-6 shadow-xl flex flex-col gap-5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-[#FA3E65] animate-ping shrink-0"></span>
+                          <h3 className="text-xs font-black font-sans uppercase tracking-widest text-[#FA3E65] flex items-center gap-1.5">
+                            LIVE STREAM BROADCAST PIPELINE
+                          </h3>
+                        </div>
+                        <span className="text-[9px] font-mono text-emerald-400 bg-emerald-950/50 px-2 py-0.5 rounded border border-emerald-900/30 uppercase font-bold">Secure Feed</span>
+                      </div>
+
+                      {/* Mock Player Screen */}
+                      <div className="relative aspect-video rounded-xl bg-slate-950 border border-slate-800 overflow-hidden flex flex-col items-center justify-center p-6 text-center group shadow-inner">
+                        {/* Static/interference grid animation effect */}
+                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(250,62,101,0.05)_0%,transparent_100%)] pointer-events-none"></div>
+                        <div className="absolute inset-0 bg-linear-to-b from-transparent via-[#fa3e65]/[0.01] to-transparent bg-[length:100%_4px] pointer-events-none opacity-40"></div>
+                        
+                        {/* Animated signal graphic */}
+                        <div className="w-16 h-16 rounded-full bg-[#FA3E65]/10 border border-[#FA3E65]/30 flex items-center justify-center mb-4 transition-transform duration-300 group-hover:scale-105 animate-pulse">
+                          <Tv className="w-8 h-8 text-[#FA3E65]" />
+                        </div>
+
+                        <span className="bg-[#FA3E65]/15 text-[#FA3E65] text-[10px] font-black tracking-widest uppercase px-3 py-1 rounded-full mb-2.5 border border-[#FA3E65]/25">
+                          🔴 PIPELINE IN ASSEMBLY
+                        </span>
+
+                        <h4 className="text-white font-extrabold text-sm md:text-base max-w-md uppercase tracking-wide leading-tight">
+                          Premium Matchcast Stream Server Coming Soon
+                        </h4>
+
+                        <p className="text-slate-400 text-xs mt-2 max-w-md leading-relaxed">
+                          We are currently securing high-speed satellite feeds to stream UK and Aussie pool matches directly to active subscribers. Real-time draw verification will sync with your decrypter keys automatically.
+                        </p>
+
+                        {/* Interactive subscriber container inside player */}
+                        <div className="mt-5 w-full max-w-sm bg-slate-900/90 border border-slate-800 p-4 rounded-xl shadow-md">
+                          {streamSubscribed ? (
+                            <div className="flex flex-col items-center gap-1.5 py-1 text-emerald-400">
+                              <span className="text-xs font-black uppercase tracking-wider">✓ Registered in Queue</span>
+                              <span className="text-[10px] text-slate-400 font-medium font-sans">We will notify {streamAlertEmail} once the video stream server fires up.</span>
+                            </div>
+                          ) : (
+                            <form 
+                              onSubmit={(e) => {
+                                e.preventDefault();
+                                if (!streamAlertEmail) {
+                                  triggerToast('Please provide a valid email structure.', 'error');
+                                  return;
+                                }
+                                setStreamSubscribed(true);
+                                triggerToast(`Success! Enrolled "${streamAlertEmail}" in the Live Stream private beta queue.`, 'success');
+                              }}
+                              className="flex flex-col gap-2"
+                            >
+                              <label className="text-[10px] font-mono font-black text-slate-400 text-left uppercase pl-0.5">
+                                Notify me on deployment
+                              </label>
+                              <div className="flex items-center gap-2">
+                                <input 
+                                  value={streamAlertEmail}
+                                  onChange={(e) => setStreamAlertEmail(e.target.value)}
+                                  placeholder="Forecasting email address..."
+                                  type="email"
+                                  className="bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded px-2.5 py-1.5 text-xs text-white placeholder-slate-600 outline-hidden flex-1 font-sans"
+                                />
+                                <button 
+                                  type="submit"
+                                  className="bg-[#FA3E65] hover:bg-[#E11D48] active:scale-95 text-white text-xs font-black uppercase px-4 py-1.5 rounded transition font-sans cursor-pointer shadow"
+                                >
+                                  SUBSCRIBE
+                                </button>
+                              </div>
+                            </form>
+                          )}
+                        </div>
+
+                        {/* Technical telemetry metrics footer */}
+                        <div className="absolute bottom-2.5 left-3.5 right-3.5 flex items-center justify-between text-[8px] font-mono text-slate-500">
+                          <span>SATELLITE: GE-23 / APSTAR-6</span>
+                          <span>BANDWIDTH: PENDING ALLOCATION</span>
+                          <span>ENCRYPTION: SHIELD-E8782</span>
+                        </div>
+                      </div>
+
+                      {/* Info alerts list */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+                        <div className="p-3.5 rounded-xl border border-slate-800 bg-slate-900/40 font-sans">
+                          <span className="text-[10px] uppercase font-mono font-black text-emerald-400 tracking-wider">01. IN-PLAYER CALCULATION MATRICES</span>
+                          <p className="text-slate-400 text-xs mt-1 leading-snug">
+                            Once live, players can trigger automated double-chance and perm layout forecasts directly from active match timelines.
+                          </p>
+                        </div>
+                        <div className="p-3.5 rounded-xl border border-slate-800 bg-slate-900/40 font-sans">
+                          <span className="text-[10px] uppercase font-mono font-black text-[#FA3E65] tracking-wider">02. SATELLITE CONCURRENT STREAMS</span>
+                          <p className="text-slate-400 text-xs mt-1 leading-snug">
+                            No buffered feeds or delay penalization. Stream key sequences simultaneously with zero regional geolocation lock restrictions.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* SUBTAB 3: RESULTS CENTER OF GAME PAYOUTS */}
               {activeSubTab === 'results' && (() => {
-                const activeResult = db.pool_results.find(r => r.id === selectedResultId) || db.pool_results[0];
-                const selectedWeek = db.pool_weeks.find(w => w.id === activeResult?.pool_week_id);
+                const uniqueSeasons = Array.from(new Set(poolResults.map((r: any) => String(r.season_year || 2026)))).sort();
+                const uniqueWeeks = Array.from(new Set(poolResults.map((r: any) => Number(r.week_number || 43)))).sort((a: any, b: any) => Number(a) - Number(b));
+
+                const filteredResults = poolResults.filter((sheet: any) => {
+                  if (filterSeason !== 'all') {
+                    if (String(sheet.season_year || 2026) !== filterSeason) return false;
+                  }
+                  if (filterWeek !== 'all') {
+                    if (String(sheet.week_number || 43) !== filterWeek) return false;
+                  }
+                  if (filterFixtureDate !== '') {
+                    if (sheet.fixture_date !== filterFixtureDate) return false;
+                  }
+                  return true;
+                });
+
+                let activeResult = filteredResults.find((r: any) => r.id === selectedResultId);
+                if (!activeResult && filteredResults.length > 0) {
+                  activeResult = filteredResults[0];
+                }
+                const selectedWeek = activeResult ? db.pool_weeks.find(w => w.id === activeResult.pool_week_id) : undefined;
+
+                const handleAddResultRowLocal = (e: React.FormEvent) => {
+                  e.preventDefault();
+                  if (!activeResult) {
+                    triggerToast('No active results sheet selected. Please adjust your filters or create a sheet.', 'error');
+                    return;
+                  }
+                  if (!adminResHome || !adminResAway || !adminResScore) {
+                    triggerToast('Please fill in home selection, away selection, and full-time score.', 'error');
+                    return;
+                  }
+                  const matchNumber = Number(adminResMatchNo) || (activeResult?.results_table || []).length + 1;
+                  const newRow = {
+                    matchNo: matchNumber,
+                    homeTeam: adminResHome,
+                    awayTeam: adminResAway,
+                    fullTimeScore: adminResScore,
+                    outcome: adminResOutcome || 'DRAW',
+                    payoutStatus: adminResPayStatus || 'CLEARED'
+                  };
+
+                  const updatedResults = poolResults.map(sheet => {
+                    if (activeResult && sheet.id === activeResult.id) {
+                      return {
+                        ...sheet,
+                        results_table: [...(sheet.results_table || []), newRow]
+                      };
+                    }
+                    return sheet;
+                  });
+
+                  setPoolResults(updatedResults);
+                  triggerToast(`Success! Appended Match No. ${matchNumber} [${adminResHome} vs ${adminResAway}] to current sheet!`, 'success');
+
+                  // Clear inputs / auto-increment
+                  setAdminResMatchNo(String(matchNumber + 1));
+                  setAdminResHome('');
+                  setAdminResAway('');
+                  setAdminResScore('');
+                };
+
+                const handleCreateNewSheetLocal = (e: React.FormEvent) => {
+                  e.preventDefault();
+                  const wkNum = Number(adminSheetWeek) || 44;
+                  const yrNum = Number(adminSheetYear) || 2026;
+                  const newId = `pr-w${wkNum}-${adminSheetType}`;
+
+                  if (poolResults.some(r => r.id === newId)) {
+                    triggerToast(`Championship Sheet for Week ${wkNum} (${adminSheetType.toUpperCase()}) already exists!`, 'error');
+                    return;
+                  }
+
+                  const titleText = adminSheetTitle || `Week ${wkNum} ${adminSheetType.toUpperCase()} Pool results: Pool results for the week - ${adminSheetDate}`;
+
+                  const newSheet = {
+                    id: newId,
+                    pool_week_id: `pw-week-${wkNum}`,
+                    bookmaker_id: 'bm-bet9ja',
+                    uploaded_by: 'usr-admin-777',
+                    results_content: `--- WEEK ${wkNum} OFFICIAL RESULTS ---`,
+                    file_url: `https://storage.poolcodes.com/results/w${wkNum}-results.pdf`,
+                    created_at: new Date().toISOString(),
+                    title: titleText,
+                    week_number: wkNum,
+                    season_year: yrNum,
+                    pool_type: adminSheetType,
+                    fixture_date: adminSheetDate,
+                    comments_count: 0,
+                    results_table: []
+                  };
+
+                  setPoolResults([newSheet, ...poolResults]);
+                  setSelectedResultId(newId);
+                  triggerToast(`Created new empty Championship Sheet for Week ${wkNum} (${adminSheetType.toUpperCase()})!`, 'success');
+                  setAdminSheetTitle('');
+                };
+
+                const handleResetResultsLocal = () => {
+                  if (confirm('Are you sure you want to reset all championship sheets to default professional seeds?')) {
+                    setPoolResults(db.pool_results);
+                    setSelectedResultId('pr-w43');
+                    triggerToast('Resetted Championship sheets database in local storage!', 'info');
+                  }
+                };
 
                 return (
                   <div className="flex flex-col gap-6" id="pool-results-arena">
                     {/* Header Banner */}
-                    <div className="border-b border-slate-800 pb-4 mb-2">
+                    <div className="border-b border-slate-800 pb-4 mb-2 flex items-center justify-between">
                       <h2 className="text-xl font-extrabold tracking-wider text-slate-100 font-mono uppercase">
                         POOL RESULTS
                       </h2>
+                      {currentUser.role === 'admin' && (
+                        <button
+                          onClick={handleResetResultsLocal}
+                          className="bg-slate-950 text-slate-400 hover:text-white border border-slate-800 hover:border-slate-700 text-[10px] font-mono font-bold tracking-wider px-3 py-1.5 rounded-lg uppercase"
+                        >
+                          Reset Database
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Sheet Selection Selector with Filters */}
+                    <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 flex flex-col gap-4">
+                      {/* Section Title */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
+                        <div>
+                          <span className="text-[10px] font-mono font-black text-emerald-400 uppercase tracking-widest block">CHAMPIONSHIP SHEET DIRECTORY</span>
+                          <h4 className="text-sm font-bold text-slate-100 font-sans mt-0.5">Filter & Select Active Results Sheet</h4>
+                        </div>
+                        {(filterSeason !== 'all' || filterWeek !== 'all' || filterFixtureDate !== '') && (
+                          <button
+                            onClick={() => {
+                              setFilterSeason('all');
+                              setFilterWeek('all');
+                              setFilterFixtureDate('');
+                              triggerToast('All directory filters cleared.', 'info');
+                            }}
+                            className="text-[10px] font-mono font-bold text-red-400 hover:text-red-300 bg-red-950/20 hover:bg-red-950/40 border border-red-900/40 px-2.5 py-1 rounded transition flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
+                          >
+                            <span>✕ Clear All Filters</span>
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Filters Grid */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                        {/* 1. Season Filter */}
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider">Season</label>
+                          <select
+                            value={filterSeason}
+                            onChange={(e) => {
+                              setFilterSeason(e.target.value);
+                            }}
+                            className="bg-slate-950 border border-slate-800 text-slate-100 font-mono text-xs px-3 py-2 rounded-lg focus:border-emerald-500 cursor-pointer focus:ring-1 focus:ring-emerald-500/20 font-bold"
+                          >
+                            <option value="all">ALL SEASONS</option>
+                            {uniqueSeasons.map((yr: string) => (
+                              <option key={yr} value={yr}>{yr} season</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* 2. Active Week Filter */}
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider">Active Week</label>
+                          <select
+                            value={filterWeek}
+                            onChange={(e) => {
+                              setFilterWeek(e.target.value);
+                            }}
+                            className="bg-slate-950 border border-slate-800 text-slate-100 font-mono text-xs px-3 py-2 rounded-lg focus:border-emerald-500 cursor-pointer focus:ring-1 focus:ring-emerald-500/20 font-bold"
+                          >
+                            <option value="all">ALL WEEKS</option>
+                            {uniqueWeeks.map((wk: number) => (
+                              <option key={wk} value={String(wk)}>WEEK #{wk}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* 3. Fixture Date (Date Type) Filter */}
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider">Fixture Date</label>
+                          <input
+                            type="date"
+                            value={filterFixtureDate}
+                            onChange={(e) => {
+                              setFilterFixtureDate(e.target.value);
+                            }}
+                            className="bg-slate-950 border border-slate-800 text-slate-100 font-mono text-xs px-3 py-1.5 rounded-lg focus:border-emerald-500 cursor-pointer focus:ring-1 focus:ring-emerald-500/20 [color-scheme:dark] font-bold"
+                          />
+                        </div>
+
+                        {/* 4. Active Sheet Selector */}
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider">Select Results Drawing Sheet</label>
+                          <select
+                            value={activeResult ? activeResult.id : ''}
+                            onChange={(e) => {
+                              if (e.target.value) setSelectedResultId(e.target.value);
+                            }}
+                            disabled={filteredResults.length === 0}
+                            className="bg-slate-950 border border-slate-800 text-slate-100 font-mono text-xs px-3 py-2 rounded-lg focus:border-emerald-500 cursor-pointer font-black tracking-wide disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {filteredResults.length === 0 ? (
+                              <option value="">No sheets match</option>
+                            ) : (
+                              filteredResults.map((sheet: any) => (
+                                <option key={sheet.id} value={sheet.id}>
+                                  Week {sheet.week_number} ({(sheet.pool_type || 'uk').toUpperCase()}) - {sheet.fixture_date}
+                                </option>
+                              ))
+                            )}
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Filter stats helper */}
+                      <div className="flex items-center gap-1.5 text-[10px] font-mono text-slate-400">
+                        <span>Directory count:</span>
+                        <span className="font-extrabold text-emerald-400 bg-slate-950 border border-slate-800 px-1.5 py-0.5 rounded">
+                          {filteredResults.length} of {poolResults.length} Sheets Matching
+                        </span>
+                      </div>
                     </div>
 
                     {/* Interactive Excel/Spreadsheet Sheet Component */}
                     {activeResult && (
-                      <div className="flex flex-col mt-6">
-                        {/* Interactive Spreadsheet Controller & Exporter Banner */}
-                        <div className="bg-[#0B1528]/80 border border-slate-800/80 rounded-xl p-3 px-4 flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4 shadow-lg select-none backdrop-blur-sm relative overflow-hidden">
-                          {/* Ambient background accent */}
-                          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_left,rgba(16,185,129,0.06)_0%,transparent_70%)] pointer-events-none"></div>
-                          
-                          <div className="flex items-center gap-3 z-10">
-                            <div className="flex items-center gap-2 shrink-0">
-                              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                              <span className="font-mono font-black text-[10px] text-emerald-400 uppercase tracking-widest">Active Sheet</span>
-                            </div>
-                            <div className="w-px h-3.5 bg-slate-800 hidden sm:block shrink-0"></div>
-                            <p className="text-slate-300 text-xs font-medium">
-                              <span className="md:hidden">Swipe grid left/right ↔ to explore full columns A to F</span>
-                              <span className="hidden md:inline">Use hover scroll or mouse click-drag to explore all columns A to F</span>
-                            </p>
-                          </div>
-
-                          <div className="flex items-center justify-end gap-2.5 z-10 shrink-0">
-                            <span className="text-[10px] font-mono text-slate-400 bg-slate-950/40 border border-slate-800 px-2 py-1 rounded font-bold">
-                              6 COL × {(activeResult.results_table || []).length} ROW
-                            </span>
-                            <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-0.5 rounded font-mono font-black tracking-wider uppercase">
-                              XLS
-                            </span>
-                            <button
-                              onClick={() => exportResultToCSV(activeResult)}
-                              className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold font-mono px-3 py-1.5 rounded-lg transition-all duration-150 active:scale-95 shadow-md cursor-pointer border border-emerald-500 hover:shadow-emerald-500/20"
-                            >
-                              <Download className="w-3.5 h-3.5 shrink-0" />
-                              <span>EXPORT CSV</span>
-                            </button>
-                          </div>
-                        </div>
-
+                      <div className="flex flex-col mt-2">
                         <div className="w-full overflow-x-auto custom-scrollbar rounded-xl border border-slate-800/80 shadow-2xl">
-                          <div className="flex flex-col bg-[#0B0F19] min-w-[715px]">
-                        {/* Fake spreadsheet browser column index labels row: A B C D E F G H I j */}
+                          <div className="flex flex-col bg-[#0B0F19] min-w-[1000px]">
+                        {/* Fake spreadsheet browser column index labels row: A B C D E F G H I */}
                         <div className="flex bg-[#1E293B]/70 border-b border-slate-800 text-[10.5px] font-mono text-slate-400 select-none text-center">
                           <div className="w-[45px] shrink-0 border-r border-slate-800 py-1.5 bg-slate-900/40"></div>
-                          <div className="flex-1 min-w-[70px] border-r border-slate-800 py-1.5">A</div>
-                          <div className="flex-[3] min-w-[150px] border-r border-slate-800 py-1.5">B</div>
-                          <div className="flex-[3] min-w-[150px] border-r border-slate-800 py-1.5">C</div>
-                          <div className="flex-1.5 min-w-[80px] border-r border-slate-800 py-1.5">D</div>
-                          <div className="flex-2 min-w-[110px] border-r border-slate-800 py-1.5">E</div>
-                          <div className="flex-2 min-w-[110px] py-1.5">F</div>
+                          <div className="w-[80px] shrink-0 border-r border-slate-800 py-1.5">A</div>
+                          <div className="w-[85px] shrink-0 border-r border-slate-800 py-1.5">B</div>
+                          <div className="w-[105px] shrink-0 border-r border-slate-800 py-1.5">C</div>
+                          <div className="w-[70px] shrink-0 border-r border-slate-800 py-1.5">D</div>
+                          <div className="flex-1 min-w-[150px] border-r border-slate-800 py-1.5">E</div>
+                          <div className="flex-1 min-w-[150px] border-r border-slate-800 py-1.5">F</div>
+                          <div className="w-[80px] shrink-0 border-r border-slate-800 py-1.5">G</div>
+                          <div className="w-[110px] shrink-0 border-r border-slate-800 py-1.5">H</div>
+                          <div className="w-[140px] shrink-0 py-1.5">I</div>
                         </div>
 
                         {/* Spreadsheet Grid Container */}
@@ -2814,52 +3812,31 @@ export default function CustomerPortal({
                             </div>
                           </div>
 
-                          {/* Row 2: Metadata labels sheet */}
-                          <div className="flex border-b border-slate-800">
-                            <div className="w-[45px] shrink-0 bg-[#0F172A] border-r border-slate-800 flex items-center justify-center font-mono text-[10px] text-slate-500 select-none">
-                              2
-                            </div>
-                            
-                            {/* Spreadsheet cell fields replica */}
-                            <div className="flex-grow grid grid-cols-2 md:grid-cols-4 bg-[#111827] text-xs divide-x divide-slate-800 font-mono">
-                              <div className="p-3.5 flex flex-col gap-1">
-                                <span className="text-[10px] text-slate-400 uppercase">Season Year:</span>
-                                <span className="font-extrabold text-[#FFF]">{activeResult.season_year || 2026} season</span>
-                              </div>
-                              <div className="p-3.5 flex flex-col gap-1">
-                                <span className="text-[10px] text-slate-400 uppercase">ACTIVE Week:</span>
-                                <span className="font-extrabold text-[#10B981]">WEEK #{activeResult.week_number || 43}</span>
-                              </div>
-                              <div className="p-3.5 flex flex-col gap-1">
-                                <span className="text-[10px] text-slate-450 text-slate-400 uppercase">Fixture Date:</span>
-                                <span className="font-bold text-slate-200">{activeResult.fixture_date || selectedWeek?.fixture_date || 'N/A'}</span>
-                              </div>
-                              <div className="p-3.5 flex flex-col gap-1">
-                                <span className="text-[10px] text-slate-400 uppercase">DECLARED STATE:</span>
-                                <span className="font-black px-2 py-0.5 rounded bg-amber-950/20 text-amber-400 border border-amber-900/40 text-center w-fit">
-                                  VERIFIED OK
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Row 3: Column header tags */}
+                          {/* Row 2: Column header tags */}
                           <div className="flex border-b border-slate-800 bg-slate-900/60 font-mono text-[11px] font-extrabold text-slate-300">
                             <div className="w-[45px] shrink-0 bg-[#0F172A] border-r border-slate-800 flex items-center justify-center text-[10px] text-slate-500 select-none">
-                              3
+                              2
                             </div>
-                            <div className="flex-1 min-w-[70px] border-r border-slate-800 p-2 text-center uppercase tracking-wider bg-slate-950/25">Match No</div>
-                            <div className="flex-[3] min-w-[150px] border-r border-slate-800 p-2 text-left pl-4 uppercase tracking-wider">Home Team Selection</div>
-                            <div className="flex-[3] min-w-[150px] border-r border-slate-800 p-2 text-left pl-4 uppercase tracking-wider">Away Team Companion</div>
-                            <div className="flex-1.5 min-w-[80px] border-r border-slate-800 p-2 text-center uppercase tracking-wider">Score FT</div>
-                            <div className="flex-2 min-w-[110px] border-r border-slate-800 p-2 text-center uppercase tracking-wider bg-slate-950/25">POOL Outcome</div>
-                            <div className="flex-2 min-w-[110px] p-2 text-center uppercase tracking-wider">PAY Status</div>
+                            <div className="w-[80px] shrink-0 border-r border-slate-800 p-2 text-center uppercase tracking-wider">Season</div>
+                            <div className="w-[85px] shrink-0 border-r border-slate-800 p-2 text-center uppercase tracking-wider">Active Week</div>
+                            <div className="w-[105px] shrink-0 border-r border-slate-800 p-2 text-center uppercase tracking-wider">Fixture Date</div>
+                            <div className="w-[70px] shrink-0 border-r border-slate-800 p-2 text-center uppercase tracking-wider bg-slate-950/25">Match No</div>
+                            <div className="flex-1 min-w-[150px] border-r border-slate-800 p-2 text-left pl-4 uppercase tracking-wider">Home Team Selection</div>
+                            <div className="flex-1 min-w-[150px] border-r border-slate-800 p-2 text-left pl-4 uppercase tracking-wider">Away Team Companion</div>
+                            <div className="w-[80px] shrink-0 border-r border-slate-800 p-2 text-center uppercase tracking-wider">Score FT</div>
+                            <div className="w-[110px] shrink-0 border-r border-slate-800 p-2 text-center uppercase tracking-wider bg-slate-950/25">POOL Outcome</div>
+                            <div className="w-[140px] shrink-0 p-2 text-center uppercase tracking-wider">PAY Status</div>
                           </div>
 
                           {/* Rows: Results rows representing the actual football matches */}
-                          {(activeResult.results_table || []).map((row, idx) => {
+                          {(activeResult.results_table || []).length === 0 ? (
+                            <div className="flex border-b border-slate-800 font-mono text-xs text-center py-10 justify-center text-slate-500 italic">
+                              <div className="w-[45px] shrink-0 bg-[#0F172A] border-r border-slate-800 select-none">3</div>
+                              <div className="flex-1">No match records added to this Championship Sheet yet. Use the admin panel below to fill outcomes.</div>
+                            </div>
+                          ) : (activeResult.results_table || []).map((row, idx) => {
                             const isDraw = row.outcome === 'DRAW';
-                            const rowId = idx + 4; // Excel row numbering starts at row 4 now!
+                            const rowId = idx + 3; // Excel row numbering starts at row 3 now!
                             
                             return (
                               <div 
@@ -2873,41 +3850,56 @@ export default function CustomerPortal({
                                   {rowId}
                                 </div>
                                 
-                                {/* A: Match No */}
-                                <div className="flex-1 min-w-[70px] border-r border-slate-800 p-3 text-center text-slate-400 font-black flex items-center justify-center bg-slate-950/15">
+                                {/* A: Season */}
+                                <div className="w-[80px] shrink-0 border-r border-slate-800 p-3 text-center text-slate-300 font-medium flex items-center justify-center">
+                                  {activeResult.season_year || 2026}
+                                </div>
+
+                                {/* B: Active Week */}
+                                <div className="w-[85px] shrink-0 border-r border-slate-800 p-3 text-center text-emerald-400 font-bold flex items-center justify-center">
+                                  WEEK #{activeResult.week_number || 43}
+                                </div>
+
+                                {/* C: Fixture Date */}
+                                <div className="w-[105px] shrink-0 border-r border-slate-800 p-3 text-center text-slate-300 font-mono text-[10.5px] flex items-center justify-center">
+                                  {activeResult.fixture_date || '2026-04-25'}
+                                </div>
+
+                                {/* D: Match No */}
+                                <div className="w-[70px] shrink-0 border-r border-slate-800 p-3 text-center text-slate-400 font-black flex items-center justify-center bg-slate-950/15">
                                   {row.matchNo}
                                 </div>
                                 
-                                {/* B: Home Team */}
-                                <div className="flex-[3] min-w-[150px] border-r border-slate-800 p-3 text-left pl-4 font-bold text-slate-100 flex items-center">
+                                {/* E: Home Team */}
+                                <div className="flex-1 min-w-[150px] border-r border-slate-800 p-3 text-left pl-4 font-bold text-slate-100 flex items-center">
                                   {row.homeTeam}
                                 </div>
 
-                                {/* C: Away Team */}
-                                <div className="flex-[3] min-w-[150px] border-r border-slate-800 p-3 text-left pl-4 font-bold text-slate-100 flex items-center">
+                                {/* F: Away Team */}
+                                <div className="flex-1 min-w-[150px] border-r border-slate-800 p-3 text-left pl-4 font-bold text-slate-100 flex items-center">
                                   {row.awayTeam}
                                 </div>
 
-                                {/* D: Score FT */}
-                                <div className="flex-1.5 min-w-[80px] border-r border-slate-800 p-3 text-center text-[#10B981] font-extrabold flex items-center justify-center">
+                                {/* G: Score FT */}
+                                <div className="w-[80px] shrink-0 border-r border-slate-800 p-3 text-center text-[#10B981] font-extrabold flex items-center justify-center">
                                   {row.fullTimeScore}
                                 </div>
 
-                                {/* E: Outcome Badge */}
-                                <div className="flex-2 min-w-[110px] border-r border-slate-800 p-3 text-center flex items-center justify-center bg-slate-950/15">
+                                {/* H: Outcome Badge */}
+                                <div className="w-[110px] shrink-0 border-r border-slate-800 p-3 text-center flex items-center justify-center bg-slate-950/15">
                                   {isDraw ? (
-                                    <span className="w-full bg-[#E11D48] text-[#FFF] font-black tracking-widest text-[9.5px] px-2.5 py-1 rounded-sm shadow-sm select-none uppercase">
+                                    <span className="w-full bg-[#E11D48] text-[#FFF] font-black tracking-widest text-[9.5px] py-1 rounded-sm shadow-sm select-none uppercase text-center">
                                       {row.outcome}
                                     </span>
                                   ) : (
-                                    <span className="w-full bg-slate-800 text-slate-400 font-bold tracking-tight text-[9.5px] px-2.5 py-1 rounded-sm select-none">
+                                    <span className="w-full bg-slate-800 text-slate-400 font-bold tracking-tight text-[9.5px] px-2.5 py-1 rounded-sm select-none text-center">
                                       {row.outcome}
                                     </span>
                                   )}
                                 </div>
 
-                                {/* F: Pay status */}
-                                <div className="flex-2 min-w-[110px] p-3 text-center flex items-center justify-center font-bold text-[10px]">
+                                {/* I: Pay status */}
+                                <div className="w-[140px] shrink-0 p-3 text-center flex items-center justify-between font-bold text-[10px]">
                                   {row.payoutStatus === 'CLEARED' ? (
                                     <span className="text-emerald-400 flex items-center gap-1">
                                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -2916,14 +3908,240 @@ export default function CustomerPortal({
                                   ) : (
                                     <span className="text-slate-500 uppercase">{row.payoutStatus}</span>
                                   )}
+
+                                  {currentUser.role === 'admin' && (
+                                    <button
+                                      onClick={() => {
+                                        const updatedTable = (activeResult.results_table || []).filter(r => r.matchNo !== row.matchNo);
+                                        setPoolResults(prev => prev.map(sheet => {
+                                          if (sheet.id === activeResult.id) return { ...sheet, results_table: updatedTable };
+                                          return sheet;
+                                        }));
+                                        triggerToast(`Removed Match #${row.matchNo} from results.`, 'info');
+                                      }}
+                                      className="text-red-500 hover:text-red-400 font-bold font-mono px-2 py-1 hover:bg-slate-950/60 rounded"
+                                      title="Delete Row"
+                                    >
+                                      ✕
+                                    </button>
+                                  )}
                                 </div>
                               </div>
                             );
                           })}
                         </div>
 
+                        </div>
+                        </div>
+
+                        {/* ADMIN PANEL FOR RESULT SHEETS */}
+                        {currentUser.role === 'admin' && (
+                          <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6 animate-fadeIn">
+                            {/* Column 1: Fill outcome record to active sheet */}
+                            <div className="bg-slate-900/95 border-2 border-amber-500/20 p-5 rounded-2xl flex flex-col gap-4 font-mono text-xs">
+                              <div className="border-b border-slate-800 pb-2">
+                                <h4 className="text-sm font-black text-amber-400 uppercase tracking-wider">
+                                  🛡️ ADMIN: APPEND ROW TO ACTIVE SHEET
+                                </h4>
+                                <p className="text-[10px] text-slate-400 mt-1">
+                                  Insert or overwrite match scoreline results in active drawing sheet: <span className="text-emerald-400">Week {activeResult.week_number} ({(activeResult.pool_type || 'UK').toUpperCase()})</span>.
+                                </p>
+                              </div>
+
+                              <form onSubmit={handleAddResultRowLocal} className="space-y-3">
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div>
+                                    <label className="block text-slate-400 mb-1">MATCH NO.</label>
+                                    <input 
+                                      type="number"
+                                      value={adminResMatchNo}
+                                      onChange={e => setAdminResMatchNo(e.target.value)}
+                                      placeholder={`Default: ${(activeResult.results_table?.length || 0) + 1}`}
+                                      className="w-full bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-white"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-slate-400 mb-1 text-emerald-400 font-bold">SCORE FT (FT)</label>
+                                    <input 
+                                      type="text"
+                                      value={adminResScore}
+                                      onChange={e => setAdminResScore(e.target.value)}
+                                      placeholder="e.g. 1-1 or 2-0"
+                                      className="w-full bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-white"
+                                      required
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div>
+                                    <label className="block text-slate-400 mb-1 text-emerald-400 font-bold">HOME TEAM SELECTION</label>
+                                    <input 
+                                      type="text"
+                                      value={adminResHome}
+                                      onChange={e => setAdminResHome(e.target.value)}
+                                      className="w-full bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-white"
+                                      placeholder="e.g. Arsenal"
+                                      required
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-slate-400 mb-1 text-emerald-400 font-bold">AWAY TEAM COMPANION</label>
+                                    <input 
+                                      type="text"
+                                      value={adminResAway}
+                                      onChange={e => setAdminResAway(e.target.value)}
+                                      className="w-full bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-white"
+                                      placeholder="e.g. Chelsea"
+                                      required
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3 pb-2">
+                                  <div>
+                                    <label className="block text-slate-400 mb-1">POOL OUTCOME</label>
+                                    <select
+                                      value={adminResOutcome}
+                                      onChange={e => setAdminResOutcome(e.target.value)}
+                                      className="w-full bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-white"
+                                    >
+                                      <option value="DRAW">DRAW (X)</option>
+                                      <option value="HOME WIN">HOME WIN (1)</option>
+                                      <option value="AWAY WIN">AWAY WIN (2)</option>
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <label className="block text-slate-400 mb-1">PAYOUT STATUS</label>
+                                    <select
+                                      value={adminResPayStatus}
+                                      onChange={e => setAdminResPayStatus(e.target.value)}
+                                      className="w-full bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-white"
+                                    >
+                                      <option value="CLEARED">CLEARED (GREEN)</option>
+                                      <option value="PENDING">PENDING</option>
+                                    </select>
+                                  </div>
+                                </div>
+
+                                <button
+                                  type="submit"
+                                  className="w-full bg-emerald-600 hover:bg-emerald-505 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded-lg cursor-pointer transition active:scale-[0.99] uppercase tracking-wider text-[11px]"
+                                >
+                                  Append Match Outcomes Row
+                                </button>
+                              </form>
+                            </div>
+
+                            {/* Column 2: Build new empty Championship drawing sheet */}
+                            <div className="bg-slate-900/95 border-2 border-indigo-500/20 p-5 rounded-2xl flex flex-col gap-4 font-mono text-xs">
+                              <div className="border-b border-slate-800 pb-2">
+                                <h4 className="text-sm font-black text-indigo-400 uppercase tracking-wider">
+                                  🛡️ ADMIN: BUILD NEW DRAWING SHEET
+                                </h4>
+                                <p className="text-[10px] text-slate-400 mt-1">
+                                  Generate a brand new empty Week Results Sheet for any season type calendar.
+                                </p>
+                              </div>
+
+                              <form onSubmit={handleCreateNewSheetLocal} className="space-y-3">
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div>
+                                    <label className="block text-slate-400 mb-1">WEEK NUMBER</label>
+                                    <input 
+                                      type="number"
+                                      value={adminSheetWeek}
+                                      onChange={e => setAdminSheetWeek(e.target.value)}
+                                      className="w-full bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-white"
+                                      required
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-slate-400 mb-1">SEASON YEAR</label>
+                                    <input 
+                                      type="number"
+                                      value={adminSheetYear}
+                                      onChange={e => setAdminSheetYear(e.target.value)}
+                                      className="w-full bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-white"
+                                      required
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div>
+                                    <label className="block text-slate-400 mb-1">POOL TYPE</label>
+                                    <select
+                                      value={adminSheetType}
+                                      onChange={e => setAdminSheetType(e.target.value)}
+                                      className="w-full bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-white"
+                                    >
+                                      <option value="uk">UK POOL</option>
+                                      <option value="aussie">AUSSIE POOL</option>
+                                      <option value="international">INTERNATIONAL</option>
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <label className="block text-slate-400 mb-1">FIXTURE DATE</label>
+                                    <input 
+                                      type="date"
+                                      value={adminSheetDate}
+                                      onChange={e => setAdminSheetDate(e.target.value)}
+                                      className="w-full bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-white"
+                                      required
+                                    />
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <label className="block text-slate-400 mb-1">CUSTOM SHEET TITLE (OPTIONAL)</label>
+                                  <input 
+                                    type="text"
+                                    value={adminSheetTitle}
+                                    onChange={e => setAdminSheetTitle(e.target.value)}
+                                    placeholder="e.g. Week 44 UK Pool results..."
+                                    className="w-full bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-white"
+                                  />
+                                </div>
+
+                                <button
+                                  type="submit"
+                                  className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-4 rounded-lg cursor-pointer transition active:scale-[0.99] uppercase tracking-wider text-[11px]"
+                                >
+                                  Deploy New Results Sheet
+                                </button>
+                              </form>
+                            </div>
+                          </div>
+                        )}
+
                       </div>
-                      </div>
+                    )}
+
+                    {!activeResult && (
+                      <div className="flex flex-col items-center justify-center text-center p-12 bg-slate-900/40 border border-slate-800 rounded-2xl gap-3 animate-fadeIn mt-2">
+                        <div className="w-12 h-12 rounded-full bg-slate-950 flex items-center justify-center border border-slate-800 text-slate-500 font-mono text-xl font-bold select-none">
+                          ?
+                        </div>
+                        <div className="max-w-md">
+                          <h4 className="text-sm font-bold text-slate-200 font-sans">No Matching Results Sheets</h4>
+                          <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+                            We couldn't find any Championship Results Sheets matching your select filters:
+                            {filterSeason !== 'all' && <span className="text-emerald-400 font-bold ml-1">Season {filterSeason}</span>}
+                            {filterWeek !== 'all' && <span className="text-emerald-400 font-bold ml-1">Week #{filterWeek}</span>}
+                            {filterFixtureDate !== '' && <span className="text-emerald-400 font-bold ml-1">Fixture Date: {filterFixtureDate}</span>}
+                          </p>
+                          <button
+                            onClick={() => {
+                              setFilterSeason('all');
+                              setFilterWeek('all');
+                              setFilterFixtureDate('');
+                            }}
+                            className="mt-4 px-4 py-1.5 text-xs font-mono font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-950/20 hover:bg-emerald-950/40 border border-emerald-900/40 rounded transition cursor-pointer"
+                          >
+                            Reset Directory Filters
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -3032,52 +4250,151 @@ export default function CustomerPortal({
                {/* SUBTAB 7: USER PROFILE INFORMATION */}
               {activeSubTab === 'profile' && (
                 <div className="flex flex-col gap-6">
-                  <div className="bg-[#111827] border border-slate-800 rounded-2xl p-6 shadow-lg grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <h3 className="font-extrabold text-[#10B981] text-xs uppercase tracking-wider font-mono border-b border-slate-820 mb-4 pb-2.5 flex items-center gap-2">
-                        👤 USER PROFILE DETAILS
-                      </h3>
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    
+                    {/* Column 1: Read-Only System Metadata Panel */}
+                    <div className="bg-[#111827] border border-slate-800 rounded-2xl p-6 shadow-lg flex flex-col justify-between">
+                      <div>
+                        <h3 className="font-extrabold text-[#10B981] text-xs uppercase tracking-wider font-mono border-b border-slate-800 mb-5 pb-2.5 flex items-center gap-2 select-none">
+                          👤 READ-ONLY ACCOUNT SPECS
+                        </h3>
 
-                      <div className="flex flex-col gap-4 font-mono text-xs">
-                        <div>
-                          <span className="text-slate-500 select-none text-[10px] block uppercase">Simulated UUID Handle Code</span>
-                          <p className="font-bold text-slate-200 mt-1">{currentUser.id}</p>
+                        <div className="flex flex-col gap-5 font-mono text-xs">
+                          <div>
+                            <span className="text-slate-500 select-none text-[9.5px] block uppercase">Simulated UUID Handle Code</span>
+                            <p className="font-bold text-slate-300 mt-1 select-all">{currentUser.id}</p>
+                          </div>
+                          <div>
+                            <span className="text-slate-500 select-none text-[9.5px] block uppercase">Privilege Level ENUM</span>
+                            <p className="text-emerald-400 font-extrabold mt-1 text-xs uppercase">{currentUser.role.toUpperCase()}</p>
+                          </div>
+                          <div>
+                            <span className="text-slate-500 select-none text-[9.5px] block uppercase">Client Link Status</span>
+                            <span className="inline-block mt-1 uppercase font-mono text-[9px] font-black text-emerald-450 bg-emerald-950/80 px-2.5 py-1 rounded border border-emerald-900">
+                              {currentUser.status.toUpperCase()}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-slate-500 select-none text-[9.5px] block uppercase">License Email Handshake Time</span>
+                            <p className="text-slate-400 mt-1 leading-relaxed">
+                              {currentUser.email_verified_at ? new Date(currentUser.email_verified_at).toUTCString() : 'N/A Verification handshake bypassed'}
+                            </p>
+                          </div>
+                          <div>
+                            <span className="text-slate-500 select-none text-[9.5px] block uppercase">Creation Date Node</span>
+                            <p className="text-slate-400 mt-1">
+                              {currentUser.created_at ? new Date(currentUser.created_at).toUTCString() : 'Active Simulated Node'}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <span className="text-slate-500 select-none text-[10px] block uppercase">Registrar Email ID</span>
-                          <p className="font-bold text-slate-200 mt-1">{currentUser.email}</p>
-                        </div>
-                        <div>
-                          <span className="text-slate-500 select-none text-[10px] block uppercase">Emergency Phone Line</span>
-                          <p className="font-bold text-slate-200 mt-1">{currentUser.phone || 'NO SECURE PHONE SPECIFIED'}</p>
-                        </div>
+                      </div>
+
+                      <div className="mt-8 border-t border-slate-800/60 pt-4 text-[10px] text-slate-500 leading-normal font-mono select-none">
+                        ⚠️ Simulated credentials sync with your browser memory stream database engine instantly.
                       </div>
                     </div>
 
-                    <div>
-                      <h3 className="font-extrabold text-[#10B981] text-xs uppercase tracking-wider font-mono border-b border-slate-820 mb-4 pb-2.5 flex items-center gap-2">
-                        🔐 PLATFORM SESSION SECURITY ENUM
+                    {/* Column 2: Edit Personal Information */}
+                    <div className="bg-[#111827] border border-slate-800 rounded-2xl p-6 shadow-lg">
+                      <h3 className="font-extrabold text-[#10B981] text-xs uppercase tracking-wider font-mono border-b border-slate-800 mb-5 pb-2.5 flex items-center gap-2">
+                        ✍️ EDIT PERSONAL INFORMATION
                       </h3>
 
-                      <div className="flex flex-col gap-4 font-mono text-xs">
-                        <div>
-                          <span className="text-slate-500 select-none text-[10px] block uppercase">Privilege Level ENUM</span>
-                          <p className="text-emerald-400 font-extrabold mt-1 text-xs uppercase">{currentUser.role}</p>
+                      <form onSubmit={handleSavePersonalInfo} className="flex flex-col gap-4">
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-[10px] font-mono font-black text-slate-400 uppercase pl-0.5">
+                            Username / Nickname
+                          </label>
+                          <input
+                            value={profileUsername}
+                            onChange={(e) => setProfileUsername(e.target.value)}
+                            placeholder="Unique nickname..."
+                            type="text"
+                            className="bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-600 outline-hidden font-mono"
+                          />
                         </div>
-                        <div>
-                          <span className="text-slate-500 select-none text-[10px] block uppercase">Client Link Status</span>
-                          <span className="inline-block mt-1 uppercase font-mono text-[10px] font-black text-emerald-450 bg-emerald-950/80 px-2.5 py-1 rounded border border-emerald-900">
-                            {currentUser.status}
-                          </span>
+
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-[10px] font-mono font-black text-slate-400 uppercase pl-0.5">
+                            Email Address ID
+                          </label>
+                          <input
+                            value={profileEmail}
+                            onChange={(e) => setProfileEmail(e.target.value)}
+                            placeholder="Primary email ID..."
+                            type="email"
+                            className="bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-600 outline-hidden font-mono"
+                          />
                         </div>
-                        <div>
-                          <span className="text-slate-500 select-none text-[10px] block uppercase">License Email Handshake time</span>
-                          <p className="text-slate-400 mt-1">
-                            {currentUser.email_verified_at ? new Date(currentUser.email_verified_at).toUTCString() : 'Pending handshakes verify'}
-                          </p>
+
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-[10px] font-mono font-black text-slate-400 uppercase pl-0.5">
+                            Secure Phone Number
+                          </label>
+                          <input
+                            value={profilePhone}
+                            onChange={(e) => setProfilePhone(e.target.value)}
+                            placeholder="e.g. +234 801 234 5678"
+                            type="text"
+                            className="bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-600 outline-hidden font-mono"
+                          />
                         </div>
-                      </div>
+
+                        <button
+                          type="submit"
+                          className="bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-955 font-black text-xs uppercase py-3 rounded-xl transition duration-150 cursor-pointer shadow-lg shadow-emerald-950/20 text-center mt-3 font-mono"
+                        >
+                          SAVE PERSONAL DETAILS
+                        </button>
+                      </form>
                     </div>
+
+                    {/* Column 3: Change Protection Password */}
+                    <div className="bg-[#111827] border border-slate-800 rounded-2xl p-6 shadow-lg">
+                      <h3 className="font-extrabold text-[#FA3E65] text-xs uppercase tracking-wider font-mono border-b border-slate-800 mb-5 pb-2.5 flex items-center gap-2">
+                        🔐 CHANGE PROTECTION PASSWORD
+                      </h3>
+
+                      <form onSubmit={handleSavePassword} className="flex flex-col gap-4">
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-[10px] font-mono font-black text-slate-400 uppercase pl-0.5">
+                            New Encryption Password
+                          </label>
+                          <input
+                            value={profilePassword}
+                            onChange={(e) => setProfilePassword(e.target.value)}
+                            placeholder="At least 5 characters..."
+                            type="password"
+                            className="bg-slate-950 border border-slate-800 focus:border-rose-500 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-600 outline-hidden font-mono"
+                          />
+                        </div>
+
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-[10px] font-mono font-black text-slate-400 uppercase pl-0.5">
+                            Confirm New Password
+                          </label>
+                          <input
+                            value={profileConfirmPassword}
+                            onChange={(e) => setProfileConfirmPassword(e.target.value)}
+                            placeholder="Must match exactly..."
+                            type="password"
+                            className="bg-slate-950 border border-slate-800 focus:border-rose-500 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-600 outline-hidden font-mono"
+                          />
+                        </div>
+
+                        <div className="text-[10px] text-slate-400 leading-normal font-mono select-none my-1">
+                          🔒 Updating password commits your credentials across both the active login session and the relational memory state.
+                        </div>
+
+                        <button
+                          type="submit"
+                          className="bg-rose-500 hover:bg-rose-450 active:scale-95 text-slate-950 font-black text-xs uppercase py-3 rounded-xl transition duration-150 cursor-pointer shadow-lg shadow-rose-950/20 text-center mt-1 font-mono"
+                        >
+                          SYNCHRONIZE NEW PASSWORD
+                        </button>
+                      </form>
+                    </div>
+
                   </div>
                 </div>
               )}
