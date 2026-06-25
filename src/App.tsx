@@ -149,15 +149,16 @@ export default function App() {
             const expiry = new Date();
             expiry.setMonth(now.getMonth() + 3);
 
+            const hasPaid = cached.plan_id && cached.plan_id !== 'plan-free';
             const newSub = {
               id: subId,
               user_id: cached.id,
-              plan_id: 'plan-premium',
+              plan_id: cached.plan_id || 'plan-free',
               status: 'active',
               starts_at: now.toISOString(),
               expires_at: expiry.toISOString(),
-              payment_ref: cached.payment_ref || `REF-SUPA-${Math.floor(Math.random() * 9000000 + 1000000)}`,
-              payment_provider: 'Supabase Auth Credentials Verified',
+              payment_ref: hasPaid ? (cached.payment_ref || `REF-SUPA-${Math.floor(Math.random() * 9000000 + 1000000)}`) : null,
+              payment_provider: hasPaid ? 'Supabase Auth Credentials Verified' : null,
               created_at: now.toISOString()
             };
 
@@ -253,6 +254,19 @@ export default function App() {
       ...prev,
       user_subscriptions: [...sanitizedSubs, newSub]
     }));
+
+    // Cache updated plan state securely in localStorage
+    try {
+      const cachedStr = localStorage.getItem('fastpool_cached_user');
+      if (cachedStr) {
+        const cached = JSON.parse(cachedStr);
+        localStorage.setItem('fastpool_cached_user', JSON.stringify({
+          ...cached,
+          plan_id: planId,
+          payment_ref: newSub.payment_ref
+        }));
+      }
+    } catch (_) {}
 
     logSQL(
       `-- Expire existing active subscriptions\nUPDATE user_subscriptions SET status = 'cancelled' WHERE user_id = '${currentUser.id}' AND status = 'active';\n\n-- Register new checkouts checkout reference\nINSERT INTO user_subscriptions (id, user_id, plan_id, status, starts_at, expires_at, payment_ref, payment_provider, created_at)\nVALUES ('${subId}', '${currentUser.id}', '${planId}', 'active', '${now.toISOString().slice(0,19)}Z', '${expiry.toISOString().slice(0,19)}Z', '${newSub.payment_ref}', 'Paystack API Gateway', NOW());`,
@@ -477,15 +491,16 @@ export default function App() {
             const expiry = new Date();
             expiry.setMonth(now.getMonth() + 3);
 
+            const hasPaid = planId && planId !== 'plan-free';
             const newSub = {
               id: subId,
               user_id: su.id,
-              plan_id: planId,
+              plan_id: planId || 'plan-free',
               status: 'active',
               starts_at: now.toISOString(),
               expires_at: expiry.toISOString(),
-              payment_ref: `REF-SUPA-${Math.floor(Math.random() * 9000000 + 1000000)}`,
-              payment_provider: 'Supabase Authenticated Session',
+              payment_ref: hasPaid ? `REF-SUPA-${Math.floor(Math.random() * 9000000 + 1000000)}` : null,
+              payment_provider: hasPaid ? 'Supabase Authenticated Session' : null,
               created_at: now.toISOString()
             };
 
@@ -495,6 +510,7 @@ export default function App() {
               username: cleanUsername,
               email: cleanEmail,
               role: 'user',
+              plan_id: planId || 'plan-free',
               payment_ref: newSub.payment_ref,
               created_at: newUser.created_at
             }));
@@ -540,15 +556,16 @@ export default function App() {
     const now = new Date();
     const expiry = new Date();
     expiry.setMonth(now.getMonth() + 3);
+    const hasPaid = planId && planId !== 'plan-free';
     const newSub = {
       id: subId,
       user_id: newId,
-      plan_id: planId,
+      plan_id: planId || 'plan-free',
       status: 'active',
       starts_at: now.toISOString(),
       expires_at: expiry.toISOString(),
-      payment_ref: `REF-LOCAL-${Math.floor(Math.random() * 9000000 + 1000000)}`,
-      payment_provider: 'Local Sandbox Checkout',
+      payment_ref: hasPaid ? `REF-LOCAL-${Math.floor(Math.random() * 9000000 + 1000000)}` : null,
+      payment_provider: hasPaid ? 'Local Sandbox Checkout' : null,
       created_at: now.toISOString()
     };
 
@@ -557,6 +574,7 @@ export default function App() {
       username: cleanUsername,
       email: cleanEmail,
       role: 'user',
+      plan_id: planId || 'plan-free',
       payment_ref: newSub.payment_ref,
       created_at: newUser.created_at
     }));
@@ -621,15 +639,29 @@ export default function App() {
               const expiry = new Date();
               expiry.setMonth(now.getMonth() + 3);
 
+              // Standard login defaults to free tier unless they purchased, checked from cache
+              const cachedStr = localStorage.getItem('fastpool_cached_user');
+              let restoredPlan = 'plan-free';
+              let restoredRef = null;
+              try {
+                if (cachedStr) {
+                  const cached = JSON.parse(cachedStr);
+                  if (cached.id === su.id && cached.plan_id) {
+                    restoredPlan = cached.plan_id;
+                    restoredRef = cached.payment_ref;
+                  }
+                }
+              } catch (_) {}
+
               const newSub = {
                 id: subId,
                 user_id: su.id,
-                plan_id: 'plan-premium',
+                plan_id: restoredPlan,
                 status: 'active',
                 starts_at: now.toISOString(),
                 expires_at: expiry.toISOString(),
-                payment_ref: `REF-SUPA-${Math.floor(Math.random() * 9000000 + 1000000)}`,
-                payment_provider: 'Supabase Auth Credentials Verified',
+                payment_ref: restoredRef,
+                payment_provider: restoredRef ? 'Supabase Auth Verified' : null,
                 created_at: now.toISOString()
               };
 
@@ -646,7 +678,8 @@ export default function App() {
               username: username.toLowerCase().replace(/\s+/g, '_'),
               email: email.toLowerCase(),
               role: 'user',
-              payment_ref: `REF-SUPA-${Math.floor(Math.random() * 9000000 + 1000000)}`,
+              plan_id: 'plan-free', // Standard login starts free unless they checkout
+              payment_ref: null,
               created_at: su.created_at || new Date().toISOString()
             }));
 
@@ -694,7 +727,7 @@ export default function App() {
 
     // Auto-create local user session if not found in local sandbox
     const newId = `usr-auto-${Math.floor(Math.random() * 90000 + 10000)}`;
-    const isVIP = !cleanUName.includes('free');
+    const isVIP = cleanUName.includes('premium') || cleanUName.includes('vip');
     
     const newUser: User = {
       id: newId,
@@ -719,8 +752,8 @@ export default function App() {
       status: 'active',
       starts_at: now.toISOString(),
       expires_at: expiry.toISOString(),
-      payment_ref: `REF-AUTO-${Math.floor(Math.random() * 9000000 + 1000000)}`,
-      payment_provider: 'Auto-Bypass Secure Simulator',
+      payment_ref: isVIP ? `REF-AUTO-${Math.floor(Math.random() * 9000000 + 1000000)}` : null,
+      payment_provider: isVIP ? 'Auto-Bypass Secure Simulator' : null,
       created_at: now.toISOString()
     };
 
@@ -729,6 +762,7 @@ export default function App() {
       username: newUser.username,
       email: newUser.email,
       role: newUser.role,
+      plan_id: isVIP ? 'plan-premium' : 'plan-free',
       payment_ref: newSub.payment_ref,
       created_at: newUser.created_at
     }));

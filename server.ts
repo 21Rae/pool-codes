@@ -239,39 +239,131 @@ async function startServer() {
     }
   };
 
-  async function updateLiveScoresInternal() {
-    if (isCheckingLiveScores) return;
-    isCheckingLiveScores = true;
+  async function searchWebForMatch(query: string): Promise<string> {
+    try {
+      // Search DuckDuckGo HTML for soccer match live score
+      const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query + " soccer live score status")}`;
+      const response = await fetch(searchUrl, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8"
+        }
+      });
+      if (!response.ok) {
+        return `Web search failed with status ${response.status}. Proceeding with general knowledge.`;
+      }
+      const html = await response.text();
+      
+      // Extract snippet values inside class result__snippet
+      const snippets: string[] = [];
+      const regex = /<a class="result__snippet"[^>]*>([\s\S]*?)<\/a>/gi;
+      let match;
+      while ((match = regex.exec(html)) !== null && snippets.length < 10) {
+        let snippetText = match[1].replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+        if (snippetText) {
+          snippets.push(snippetText);
+        }
+      }
 
-    // Load fresh updates from Supabase of only what makes it to database
+      if (snippets.length === 0) {
+        // Fallback: strip html script and styling, extract clean text
+        const cleanText = html
+          .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+          .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "")
+          .replace(/<[^>]*>/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+        return cleanText.substring(0, 3000);
+      }
+
+      return snippets.join("\n\n");
+    } catch (err: any) {
+      return `Web search error: ${err?.message || String(err)}`;
+    }
+  }
+
+  async function ensureLiveScoresLoaded() {
     const supabase = await getSupabase();
     if (supabase) {
       try {
         const { data, error } = await supabase.from('live_scores').select('*');
         if (!error && data) {
-          liveScores = data.map((r: any) => ({
-            id: String(r.id),
-            fixture: `${r.home_team} vs ${r.away_team}`,
-            score: `${r.home_score} - ${r.away_score}`,
-            status: r.status,
-            lastChecked: r.last_checked || new Date().toISOString(),
-            log: r.log
-          }));
-        } else {
-          liveScores = [];
+          const updatedMatches: LiveScoreMatch[] = [];
+          for (const r of data) {
+            const hTeam = r.home_team || "";
+            const aTeam = r.away_team || "";
+            const fixture = `${hTeam} vs ${aTeam}`;
+
+            // Check if this row was edited in the database (e.g. teams changed but log/score is from old teams)
+            const logText = r.log || "";
+            const logLower = logText.toLowerCase();
+            const hWord = hTeam.toLowerCase().split(" ")[0] || "___";
+            const aWord = aTeam.toLowerCase().split(" ")[0] || "___";
+
+            // If log has team names from a completely different fixture, mark it stale
+            const isStaleLog = logText &&
+                               logText !== "Added to real-time tracker board." &&
+                               !logText.includes("Teams updated") &&
+                               (!logLower.includes(hWord) || !logLower.includes(aWord));
+
+            if (isStaleLog) {
+              console.log(`[DB SYNC] Detected modified team names for row ${r.id}: "${fixture}". Resetting stale data.`);
+              
+              // 1. Reset stale data in database
+              await supabase.from('live_scores').update({
+                home_score: 0,
+                away_score: 0,
+                status: 'not_started',
+                log: 'Teams updated in database. Syncing live web score...',
+                last_checked: new Date().toISOString()
+              }).eq('id', r.id);
+
+              // 2. Add as fresh entry in our local list
+              updatedMatches.push({
+                id: String(r.id),
+                fixture,
+                score: "0 - 0",
+                status: "not_started",
+                lastChecked: new Date().toISOString(),
+                log: 'Teams updated in database. Syncing live web score...'
+              });
+
+              // 3. Immediately trigger non-blocking real-time score verification check
+              setTimeout(() => {
+                updateLiveScoresInternal(true).catch(e => console.error("Immediate check error:", e));
+              }, 500);
+            } else {
+              updatedMatches.push({
+                id: String(r.id),
+                fixture,
+                score: `${r.home_score} - ${r.away_score}`,
+                status: r.status,
+                lastChecked: r.last_checked || new Date().toISOString(),
+                log: r.log
+              });
+            }
+          }
+          liveScores = updatedMatches;
         }
       } catch (err) {
-        liveScores = [];
+        console.warn("DB init error:", err);
       }
-    } else {
-      liveScores = [];
     }
+  }
+
+  async function updateLiveScoresInternal(forceAll: boolean = false) {
+    if (isCheckingLiveScores) return;
+    isCheckingLiveScores = true;
+
+    await ensureLiveScoresLoaded();
 
     const timestamp = new Date().toLocaleTimeString();
     globalLog.unshift(`[${timestamp}] Initiated auto-checking loop for ${liveScores.length} matches...`);
     globalLog = globalLog.slice(0, 40);
 
-    const key = process.env.GEMINI_API_KEY;
+    const openaiKey = process.env.OPENAI_API_KEY || process.env.OPEN_API_KEY;
+
+    const hasOpenAI = openaiKey && openaiKey !== "MY_OPENAI_API_KEY" && openaiKey !== "OPENAI_API_KEY" && openaiKey !== "";
 
     // Unified Simulation Update Helper
     const runSimulatedMatchUpdate = (match: LiveScoreMatch, reason: string) => {
@@ -304,54 +396,78 @@ async function startServer() {
       }
     };
 
-    if (!key || key === "MY_GEMINI_API_KEY") {
-      // Simulated live updates if key is missing
+    if (!hasOpenAI) {
+      // Simulated live updates if OpenAI key is missing
       for (const match of liveScores) {
         runSimulatedMatchUpdate(match, "Simulation Engine");
       }
       isCheckingLiveScores = false;
-      globalLog.unshift(`[${timestamp}] Live poll cycle complete (Simulated / GEMINI_API_KEY missing).`);
+      globalLog.unshift(`[${timestamp}] Live poll cycle complete (Simulated / OpenAI API key missing).`);
       return;
     }
 
     try {
-      const { GoogleGenAI } = await import("@google/genai");
-      const ai = new GoogleGenAI({
-        apiKey: key,
-        httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
-      });
-
       for (let i = 0; i < liveScores.length; i++) {
         const match = liveScores[i];
-        if (match.status === "finished" || match.status === "postponed") continue;
+        if (!forceAll && (match.status === "finished" || match.status === "postponed")) continue;
 
-        // Rate limiting guard delay: insert a 2-second sleep between requests to avoid burst rate limits (429)
+        // Rate limiting guard delay: insert a 1.5-second sleep between requests
         if (i > 0) {
-          await new Promise((resolve) => setTimeout(resolve, 2000));
+          await new Promise((resolve) => setTimeout(resolve, 1500));
         }
 
         try {
-          const prompt = `Search the web for the current live status and actual score of the professional football/soccer match: "${match.fixture}".
+          // Perform live web search first to get grounding context for OpenAI
+          const searchContext = await searchWebForMatch(match.fixture);
+
+          const currentDateTimeStr = new Date().toLocaleString("en-US", { timeZone: "UTC" }) + " UTC";
+          const prompt = `You are an agentic sports live score assistant.
+Today's current date and time is: ${currentDateTimeStr}.
+We searched the live web for the match: "${match.fixture}". Here are the top raw text search snippets retrieved:
+
+=== LIVE WEB SEARCH RESULTS ===
+${searchContext}
+===============================
+
+Your task is to analyze these search snippets, find the actual current live score or final score, and status for "${match.fixture}".
+- If the match is not started yet or postponed, set the score to "0 - 0" or match existing DB score, and status to "not_started" or "postponed".
+- If the match is active/live, extract the actual current score (e.g. "2 - 1", "0 - 1", "1 - 3") and set status to "live".
+- If the match is finished/completed, extract the final full-time score and set status to "finished".
+
 You must return your response inside a valid JSON object.
 Format exactly as this JSON schema (NO markdown blocks, NO \`\`\`json):
 {
-  "score": "Current score in format 'H - A' (e.g. '0 - 1', '3 - 2') or 'Not Started' or 'Postponed'",
-  "status": "not_started" or "live" or "finished" or "postponed",
+  "score": "Current score in format 'H - A' (e.g. '1 - 0', '2 - 2') or '0 - 0'",
+  "status": "not_started" | "live" | "finished" | "postponed",
   "explanation": "A clean 1-sentence description detailing game minute, current scoreline, or scorer info."
 }`;
 
-          const response = await ai.models.generateContent({
-            model: "gemini-3.5-flash",
-            contents: prompt,
-            config: {
-              tools: [{ googleSearch: {} }],
-              responseMimeType: "application/json",
+          let parsed: any = null;
+
+          const openAiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${openaiKey}`
             },
+            body: JSON.stringify({
+              model: "gpt-4o-mini",
+              messages: [
+                { role: "system", content: "You are an agentic sports live score assistant. You analyze raw web search context to extract actual, accurate, and current real-time live scores or completed match scorelines." },
+                { role: "user", content: prompt }
+              ],
+              response_format: { type: "json_object" }
+            })
           });
 
-          const textOutput = response.text || "";
-          const cleanText = textOutput.replace(/```json/g, "").replace(/```/g, "").trim();
-          const parsed = JSON.parse(cleanText);
+          if (!openAiResponse.ok) {
+            throw new Error(`OpenAI responded with status ${openAiResponse.status}`);
+          }
+
+          const parsedData = await openAiResponse.json();
+          const choiceContent = parsedData.choices?.[0]?.message?.content || "";
+          const cleanText = choiceContent.replace(/```json/g, "").replace(/```/g, "").trim();
+          parsed = JSON.parse(cleanText);
 
           if (parsed && (parsed.score || parsed.status)) {
             const oldScore = match.score;
@@ -360,16 +476,15 @@ Format exactly as this JSON schema (NO markdown blocks, NO \`\`\`json):
             match.score = parsed.score || match.score;
             match.status = parsed.status || match.status;
             match.lastChecked = new Date().toISOString();
-            match.log = `Refreshed: ${parsed.explanation || 'No details provided.'} (${timestamp})`;
+            match.log = `AI Verified: ${parsed.explanation || 'No details provided.'} (${timestamp})`;
 
             if (oldScore !== match.score || oldStatus !== match.status) {
               globalLog.unshift(`[${timestamp}] Match Update: "${match.fixture}" is now ${match.score} (${match.status})`);
             }
           }
         } catch (matchErr: any) {
-          // Gracefully and silently fall back to simulation mode upon quota limit or any other API error.
-          // This avoids printing large JSON trace errors to console, keeping output clean.
-          runSimulatedMatchUpdate(match, "Live Match Engine Updates");
+          // Gracefully fall back to simulation mode upon quota limit or any other API error.
+          runSimulatedMatchUpdate(match, `AI Fallback: ${matchErr?.message || 'Check error'}`);
         }
       }
       // Save updates back to Supabase if table exists
@@ -384,8 +499,8 @@ Format exactly as this JSON schema (NO markdown blocks, NO \`\`\`json):
             const hName = homeAway[0]?.trim() || "Home";
             const aName = homeAway[1]?.trim() || "Away";
 
-            const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(match.id);
-            if (isUuid) {
+            const hasId = match.id && !match.id.startsWith("mock-") && !match.id.startsWith("sim-");
+            if (hasId) {
               await supabase.from('live_scores').update({
                 home_score: hScore,
                 away_score: aScore,
@@ -408,11 +523,11 @@ Format exactly as this JSON schema (NO markdown blocks, NO \`\`\`json):
         }
       }
 
-      globalLog.unshift(`[${timestamp}] Live scores updated.`);
+      globalLog.unshift(`[${timestamp}] Live scores updated successfully.`);
     } catch (err: any) {
       // Quietly rescue the main tracker loop if initialization has an issue
       for (const match of liveScores) {
-        runSimulatedMatchUpdate(match, "Live Match Engine Updates");
+        runSimulatedMatchUpdate(match, "Live Match Engine Updates Fallback");
       }
       globalLog.unshift(`[${timestamp}] Live scores fallback engaged.`);
     } finally {
@@ -420,35 +535,117 @@ Format exactly as this JSON schema (NO markdown blocks, NO \`\`\`json):
     }
   }
 
-  // Auto poll every 60 seconds
+  // Auto poll every 30 seconds for agentic real-time updates
   const pollingInterval = setInterval(() => {
     updateLiveScoresInternal().catch(e => console.error("Auto polling crash:", e));
-  }, 60000);
+  }, 30000);
 
   // Expose Live Score Rest APIs
-  app.get("/api/livescores", async (req, res) => {
-    const supabase = await getSupabase();
-    if (supabase) {
-      try {
-        const { data, error } = await supabase.from('live_scores').select('*');
-        if (!error && data) {
-          liveScores = data.map((r: any) => ({
-            id: String(r.id),
-            fixture: `${r.home_team} vs ${r.away_team}`,
-            score: `${r.home_score} - ${r.away_score}`,
-            status: r.status,
-            lastChecked: r.last_checked || new Date().toISOString(),
-            log: r.log
-          }));
-        } else {
-          liveScores = [];
+  app.get("/api/livescores/test-debug", async (req, res) => {
+    const fixture = req.query.fixture as string || "Manchester United vs Chelsea";
+    const openaiKey = process.env.OPENAI_API_KEY || process.env.OPEN_API_KEY;
+    const hasOpenAI = openaiKey && openaiKey !== "MY_OPENAI_API_KEY" && openaiKey !== "OPENAI_API_KEY" && openaiKey !== "";
+
+    let searchStatus = 0;
+    let searchResponseText = "";
+    let searchError = "";
+    let snippets: string[] = [];
+    let openAiPrompt = "";
+    let openAiResponseText = "";
+    let openAiError = "";
+
+    try {
+      const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(fixture + " soccer live score status")}`;
+      const searchRes = await fetch(searchUrl, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8"
         }
-      } catch (err) {
-        liveScores = [];
+      });
+      searchStatus = searchRes.status;
+      const html = await searchRes.text();
+      searchResponseText = html.substring(0, 500);
+
+      const regex = /<a class="result__snippet"[^>]*>([\s\S]*?)<\/a>/gi;
+      let match;
+      while ((match = regex.exec(html)) !== null && snippets.length < 10) {
+        let snippetText = match[1].replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+        if (snippetText) {
+          snippets.push(snippetText);
+        }
+      }
+    } catch (err: any) {
+      searchError = err?.message || String(err);
+    }
+
+    const searchContext = snippets.length > 0 ? snippets.join("\n\n") : searchResponseText;
+
+    if (hasOpenAI && openaiKey) {
+      try {
+        openAiPrompt = `You are an agentic sports live score assistant.
+We searched the live web for the match: "${fixture}". Here are the top raw text search snippets retrieved:
+
+=== LIVE WEB SEARCH RESULTS ===
+${searchContext}
+===============================
+
+Your task is to analyze these search snippets, find the actual current live score or final score, and status for "${fixture}".
+- If the match is not started yet or postponed, set the score to "0 - 0" or match existing DB score, and status to "not_started" or "postponed".
+- If the match is active/live, extract the actual current score (e.g. "2 - 1", "0 - 1", "1 - 3") and set status to "live".
+- If the match is finished/completed, extract the final full-time score and set status to "finished".
+
+You must return your response inside a valid JSON object.
+Format exactly as this JSON schema (NO markdown blocks, NO \`\`\`json):
+{
+  "score": "Current score in format 'H - A' (e.g. '1 - 0', '2 - 2') or '0 - 0'",
+  "status": "not_started" | "live" | "finished" | "postponed",
+  "explanation": "A clean 1-sentence description detailing game minute, current scoreline, or scorer info."
+}`;
+
+        const openAiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${openaiKey}`
+          },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [
+              { role: "system", content: "You are an agentic sports live score assistant. You analyze raw web search context to extract actual, accurate, and current real-time live scores or completed match scorelines." },
+              { role: "user", content: openAiPrompt }
+            ],
+            response_format: { type: "json_object" }
+          })
+        });
+
+        if (!openAiResponse.ok) {
+          throw new Error(`OpenAI responded with status ${openAiResponse.status}`);
+        }
+
+        const parsedData = await openAiResponse.json();
+        openAiResponseText = parsedData.choices?.[0]?.message?.content || "";
+      } catch (err: any) {
+        openAiError = err?.message || String(err);
       }
     } else {
-      liveScores = [];
+      openAiError = "No OpenAI API key found in process.env. Ensure OPENAI_API_KEY is configured in AI Studio Settings.";
     }
+
+    res.json({
+      success: true,
+      hasOpenAI,
+      searchStatus,
+      searchError,
+      snippetsExtracted: snippets.length,
+      snippets,
+      openAiPrompt,
+      openAiResponseText,
+      openAiError
+    });
+  });
+
+  app.get("/api/livescores", async (req, res) => {
+    await ensureLiveScoresLoaded();
 
     res.json({
       success: true,

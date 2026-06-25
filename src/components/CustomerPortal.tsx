@@ -69,16 +69,7 @@ export default function CustomerPortal({
   onSignOut,
   onUpdateProfile
 }: CustomerPortalProps) {
-  const [activeSubTab, setActiveSubTab] = useState<'dashboard' | 'streaming' | 'results' | 'subscription' | 'profile'>(() => {
-    return activePlan?.id === 'plan-free' ? 'streaming' : 'dashboard';
-  });
-
-  useEffect(() => {
-    if (activeSubTab === 'dashboard' && activePlan?.id === 'plan-free') {
-      setActiveSubTab('streaming');
-      triggerToast('Arena Dashboard is restricted on standard Free Plan list. Please select a premium plan to unlock!', 'info');
-    }
-  }, [activeSubTab, activePlan]);
+  const [activeSubTab, setActiveSubTab] = useState<'dashboard' | 'streaming' | 'results' | 'subscription' | 'profile'>('dashboard');
 
   const [codeTypeFilter, setCodeTypeFilter] = useState<'all' | 'uk' | 'aussie' | 'international'>('all');
   const [bookmakerFilter, setBookmakerFilter] = useState<string>('all');
@@ -1035,18 +1026,11 @@ export default function CustomerPortal({
                 <nav className="flex flex-col gap-2">
                   <button
                     onClick={() => {
-                      if (activePlan?.id === 'plan-free') {
-                        triggerToast('Arena Dashboard is restricted to VIP Premium plans. Please upgrade to unlock!', 'info');
-                        setActiveSubTab('subscription');
-                      } else {
-                        setActiveSubTab('dashboard');
-                      }
+                      setActiveSubTab('dashboard');
                       setIsMobileMenuOpen(false);
                     }}
                     className={`flex items-center justify-between px-3.5 py-3 rounded-lg text-xs font-bold tracking-wide transition duration-150 ${
-                      activePlan?.id === 'plan-free'
-                        ? 'hover:bg-slate-800/40 text-slate-500 hover:text-slate-400'
-                        : activeSubTab === 'dashboard'
+                      activeSubTab === 'dashboard'
                         ? 'bg-gradient-to-r from-emerald-555/15 to-emerald-500/5 text-emerald-400 border-l-4 border-emerald-500 pl-2.5'
                         : 'hover:bg-slate-800/60 text-slate-400 hover:text-slate-150'
                     }`}
@@ -1193,18 +1177,9 @@ export default function CustomerPortal({
           {/* Primary Navigation */}
           <nav className="flex flex-col gap-2">
             <button
-              onClick={() => {
-                if (activePlan?.id === 'plan-free') {
-                  triggerToast('Arena Dashboard is restricted to VIP Premium plans. Please upgrade to unlock!', 'info');
-                  setActiveSubTab('subscription');
-                } else {
-                  setActiveSubTab('dashboard');
-                }
-              }}
+              onClick={() => setActiveSubTab('dashboard')}
               className={`flex items-center justify-between px-3.5 py-3 rounded-lg text-xs font-bold tracking-wide transition duration-150 ${
-                activePlan?.id === 'plan-free'
-                  ? 'hover:bg-slate-800/40 text-slate-500 hover:text-slate-400'
-                  : activeSubTab === 'dashboard'
+                activeSubTab === 'dashboard'
                   ? 'bg-gradient-to-r from-emerald-550/15 to-emerald-500/5 text-emerald-400 border-l-4 border-emerald-500 pl-2.5'
                   : 'hover:bg-slate-800/60 text-slate-400 hover:text-slate-150'
               }`}
@@ -1321,7 +1296,91 @@ export default function CustomerPortal({
               
               {/* SUBTAB 1: SPORT CODES DASHBOARD CONTAINER */}
               {activeSubTab === 'dashboard' && (
-                <div className="flex flex-col gap-6">
+                activePlan?.id === 'plan-free' ? (
+                  <div className="flex flex-col gap-6 pb-6">
+                    {/* VIP ARENA LOCK SCREEN */}
+                    <div className="bg-[#111827] rounded-3xl border border-slate-800 p-8 shadow-2xl flex flex-col items-center justify-center text-center py-16 relative overflow-hidden">
+                      {/* background pattern */}
+                      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-rose-500/5 via-transparent to-transparent opacity-50 blur-xl"></div>
+                      
+                      <div className="relative z-10 max-w-2xl flex flex-col items-center">
+                        <div className="w-20 h-20 rounded-full bg-rose-500/10 border-2 border-rose-500 flex items-center justify-center shadow-lg shadow-rose-950/20 mb-6 animate-pulse">
+                          <Lock className="w-9 h-9 text-rose-500" />
+                        </div>
+
+                        <h2 className="font-sans font-black text-2xl md:text-3xl text-white tracking-tight uppercase">
+                          VIP ARENA DASHBOARD LOCKED
+                        </h2>
+                        <span className="mt-2.5 px-3 py-1 bg-rose-500/10 border border-rose-500/25 text-rose-400 font-mono text-[10px] font-black uppercase tracking-widest rounded-full">
+                          STANDARD FREE TRIAL LIMITATION
+                        </span>
+
+                        <p className="text-sm text-slate-400 mt-5 leading-relaxed max-w-lg">
+                          The **Championship Arena Dashboard** features real-time weekly coupon draws, professional forecast matches, and verified codesheets. Unlock VIP entry by upgrading to a successful subscription now.
+                        </p>
+
+                        <div className="mt-8 p-5 bg-[#070B14]/80 border border-slate-800/85 rounded-2xl w-full flex flex-col md:flex-row items-center justify-between gap-4 text-left font-mono">
+                          <div>
+                            <div className="text-[10px] text-slate-500 uppercase tracking-widest">Active Plan Type</div>
+                            <div className="text-sm font-black text-slate-300 mt-0.5">Free Sandbox Test Account</div>
+                          </div>
+                          <div className="h-px md:h-8 w-full md:w-px bg-slate-800"></div>
+                          <div>
+                            <span className="text-[10px] text-slate-500 uppercase tracking-widest">Successful Payment Status</span>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className="inline-block w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse shrink-0" />
+                              <span className="text-xs font-bold text-rose-450 uppercase">NO ACTIVE PAYMENT RECORD</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="mt-10 border-t border-slate-800/60 pt-8 w-full">
+                          <h3 className="text-xs font-black uppercase tracking-wider text-[#10B981] font-sans mb-6 select-none">
+                            ★ CHOOSE A PLAN TO UNLOCK INSTANTLY
+                          </h3>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            {db.subscription_plans.filter(p => p.id !== 'plan-free').map((p) => (
+                              <div 
+                                key={p.id}
+                                className="border border-slate-800 bg-slate-950/60 hover:bg-slate-950 rounded-2xl p-5 flex flex-col transition-all hover:border-emerald-550/60 group text-left"
+                              >
+                                <span className="text-[9px] font-bold uppercase text-slate-500 font-mono tracking-widest">{p.billing_cycle} PERMISSION</span>
+                                <h4 className="text-sm font-black text-white mt-1 uppercase leading-tight">{p.name}</h4>
+                                <div className="my-3 text-lg font-mono font-black text-[#10B981]">
+                                  ₦{p.price.toLocaleString()}
+                                </div>
+                                <p className="text-[10.5px] text-slate-400 leading-normal mb-5 flex-1 min-h-[44px]">
+                                  {p.description}
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    buySubscription(p.id);
+                                    triggerToast(`Establishing Paystack billing redirection for ${p.name}...`, 'info');
+                                  }}
+                                  className="w-full bg-[#10B981] hover:bg-emerald-400 text-slate-955 font-black text-[11px] uppercase py-2.5 rounded-xl transition duration-150 cursor-pointer shadow-lg shadow-emerald-950/10 text-center"
+                                >
+                                  Authorize ₦{p.price.toLocaleString()}
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => setActiveSubTab('subscription')}
+                          className="mt-8 text-xs text-slate-500 hover:text-[#10B981] transition underline cursor-pointer font-black uppercase font-mono tracking-wide"
+                        >
+                          View Full License Portal & Terms ➔
+                        </button>
+
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-6">
 
                   {/* LIVE ARENA SPORTS SCORE TICKER (FULLY RESPONSIVE & MOBILE SWEET SWIPER) */}
                   <div className="bg-[#111827] rounded-2xl border border-slate-800 p-4 shadow-xl flex flex-col gap-3">
@@ -1844,7 +1903,8 @@ export default function CustomerPortal({
 
 
                 </div>
-              )}
+              )
+            )}
 
               {/* SUBTAB 2: POOL CODES BROWSER (IMMERSIBLE LIVE SCOREBOARD AND DECRYPTOR SYSTEM) */}
               {false && (() => {
@@ -3177,7 +3237,7 @@ export default function CustomerPortal({
                         AI LIVE REAL-TIME SCORES
                       </h2>
                       <p className="text-xs text-slate-400 mt-1">
-                        Web-grounded live updates synced via Gemini Search Engine every 60 seconds.
+                        Web-grounded live updates synced via OpenAI and Real-time Web Search every 30 seconds.
                       </p>
                     </div>
 
