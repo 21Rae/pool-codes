@@ -2,6 +2,7 @@ import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
+import { GoogleGenAI, Type } from "@google/genai";
 
 dotenv.config();
 
@@ -282,68 +283,83 @@ async function startServer() {
     }
   }
 
+  async function saveLiveScoresToDatabase() {
+    const supabase = await getSupabase();
+    if (supabase) {
+      try {
+        for (const match of liveScores) {
+          const scoreParts = match.score.split(" - ");
+          const hScore = Number(scoreParts[0]) || 0;
+          const aScore = Number(scoreParts[1]) || 0;
+          const homeAway = match.fixture.split(" vs ");
+          const hName = homeAway[0]?.trim() || "Home";
+          const aName = homeAway[1]?.trim() || "Away";
+
+          const hasId = match.id && !match.id.startsWith("mock-") && !match.id.startsWith("sim-");
+          if (hasId) {
+            await supabase.from('live_scores').update({
+              home_score: hScore,
+              away_score: aScore,
+              status: match.status,
+              log: match.log,
+              last_checked: match.lastChecked
+            }).eq('id', match.id);
+          } else {
+            await supabase.from('live_scores').update({
+              home_score: hScore,
+              away_score: aScore,
+              status: match.status,
+              log: match.log,
+              last_checked: match.lastChecked
+            }).eq('home_team', hName).eq('away_team', aName);
+          }
+        }
+      } catch (dbErr) {
+        console.warn("DB save error:", dbErr);
+      }
+    }
+  }
+
   async function ensureLiveScoresLoaded() {
     const supabase = await getSupabase();
     if (supabase) {
       try {
         const { data, error } = await supabase.from('live_scores').select('*');
         if (!error && data) {
-          const updatedMatches: LiveScoreMatch[] = [];
-          for (const r of data) {
-            const hTeam = r.home_team || "";
-            const aTeam = r.away_team || "";
-            const fixture = `${hTeam} vs ${aTeam}`;
+          const dbMatches = data.map((r: any) => {
+            const hTeam = (r.home_team || "").trim();
+            const aTeam = (r.away_team || "").trim();
+            const normalizedStatus = r.status === "on going" ? "live" : r.status;
+            return {
+              id: String(r.id),
+              fixture: `${hTeam} vs ${aTeam}`,
+              score: `${r.home_score} - ${r.away_score}`,
+              status: normalizedStatus,
+              lastChecked: r.last_checked || new Date().toISOString(),
+              log: r.log
+            };
+          });
 
-            // Check if this row was edited in the database (e.g. teams changed but log/score is from old teams)
-            const logText = r.log || "";
-            const logLower = logText.toLowerCase();
-            const hWord = hTeam.toLowerCase().split(" ")[0] || "___";
-            const aWord = aTeam.toLowerCase().split(" ")[0] || "___";
+          // 1. Remove matches in memory that are no longer in the database
+          const dbIds = new Set(dbMatches.map(m => m.id));
+          liveScores = liveScores.filter(m => dbIds.has(m.id));
 
-            // If log has team names from a completely different fixture, mark it stale
-            const isStaleLog = logText &&
-                               logText !== "Added to real-time tracker board." &&
-                               !logText.includes("Teams updated") &&
-                               (!logLower.includes(hWord) || !logLower.includes(aWord));
-
-            if (isStaleLog) {
-              console.log(`[DB SYNC] Detected modified team names for row ${r.id}: "${fixture}". Resetting stale data.`);
-              
-              // 1. Reset stale data in database
-              await supabase.from('live_scores').update({
-                home_score: 0,
-                away_score: 0,
-                status: 'not_started',
-                log: 'Teams updated in database. Syncing live web score...',
-                last_checked: new Date().toISOString()
-              }).eq('id', r.id);
-
-              // 2. Add as fresh entry in our local list
-              updatedMatches.push({
-                id: String(r.id),
-                fixture,
-                score: "0 - 0",
-                status: "not_started",
-                lastChecked: new Date().toISOString(),
-                log: 'Teams updated in database. Syncing live web score...'
-              });
-
-              // 3. Immediately trigger non-blocking real-time score verification check
-              setTimeout(() => {
-                updateLiveScoresInternal(true).catch(e => console.error("Immediate check error:", e));
-              }, 500);
+          // 2. Add or update matches
+          for (const dbMatch of dbMatches) {
+            const existing = liveScores.find(m => m.id === dbMatch.id);
+            if (!existing) {
+              // New match from DB
+              liveScores.push(dbMatch);
             } else {
-              updatedMatches.push({
-                id: String(r.id),
-                fixture,
-                score: `${r.home_score} - ${r.away_score}`,
-                status: r.status,
-                lastChecked: r.last_checked || new Date().toISOString(),
-                log: r.log
-              });
+              // Match exists, update only if database status or score changed (e.g. manual admin override)
+              if (existing.status !== dbMatch.status || existing.score !== dbMatch.score) {
+                existing.status = dbMatch.status;
+                existing.score = dbMatch.score;
+                existing.log = dbMatch.log;
+                existing.lastChecked = dbMatch.lastChecked;
+              }
             }
           }
-          liveScores = updatedMatches;
         }
       } catch (err) {
         console.warn("DB init error:", err);
@@ -362,77 +378,230 @@ async function startServer() {
     globalLog = globalLog.slice(0, 40);
 
     const openaiKey = process.env.OPENAI_API_KEY || process.env.OPEN_API_KEY;
+    const geminiKey = process.env.GEMINI_API_KEY;
 
     const hasOpenAI = openaiKey && openaiKey !== "MY_OPENAI_API_KEY" && openaiKey !== "OPENAI_API_KEY" && openaiKey !== "";
+    const hasGemini = geminiKey && geminiKey !== "MY_GEMINI_API_KEY" && geminiKey !== "GEMINI_API_KEY" && geminiKey !== "";
 
-    // Unified Simulation Update Helper
+    // Unified Simulation Update Helper with accelerated real-time game minute tracking
     const runSimulatedMatchUpdate = (match: LiveScoreMatch, reason: string) => {
       if (match.status === "finished" || match.status === "postponed") return;
       const prevScore = match.score;
+      
+      // Try to parse or initialize started timestamp from match log
+      let startedTime: Date;
+      const startMatch = match.log ? match.log.match(/\[Started:\s*([^\]]+)\]/) : null;
+      if (startMatch) {
+        startedTime = new Date(startMatch[1]);
+        if (isNaN(startedTime.getTime())) {
+          startedTime = new Date();
+        }
+      } else {
+        startedTime = new Date();
+      }
+
+      const logStartedToken = ` [Started: ${startedTime.toISOString()}]`;
+
       if (match.status === "not_started") {
         match.status = "live";
         match.score = "0 - 0";
         match.lastChecked = new Date().toISOString();
-        match.log = `Match started! Score: ${match.score}. (${reason})`;
+        match.log = `Match started! Score: 0 - 0. Minute: 1'.${logStartedToken} (${reason})`;
       } else if (match.status === "live") {
-        const rand = Math.random();
-        if (rand < 0.15) {
+        // Real-time elapsed minutes with 15x acceleration (6 minutes real-world time = 90 minutes simulated match time)
+        const ACCELERATION_FACTOR = 15;
+        const elapsedMs = Date.now() - startedTime.getTime();
+        const elapsedMins = Math.floor((elapsedMs * ACCELERATION_FACTOR) / 60000) + 1;
+
+        if (elapsedMins >= 90) {
           match.status = "finished";
           match.lastChecked = new Date().toISOString();
-          match.log = `Full-time whistle. FT: ${match.score}. (${reason})`;
-        } else if (rand < 0.5) {
-          const parts = match.score.split(" - ");
-          const h = Number(parts[0]) || 0;
-          const a = Number(parts[1]) || 0;
-          const newH = h + (Math.random() > 0.5 ? 1 : 0);
-          const newA = a + (Math.random() > 0.5 && newH === h ? 1 : 0);
-          match.score = `${newH} - ${newA}`;
-          match.lastChecked = new Date().toISOString();
-          match.log = `Goal! Score changed from ${prevScore} to ${match.score}. (${reason})`;
+          match.log = `Full-time whistle. FT: ${match.score}. (Simulation Complete)${logStartedToken}`;
         } else {
-          match.lastChecked = new Date().toISOString();
-          match.log = `Latest: ${match.score}. Game ongoing. (${reason})`;
+          // Goal probability (~15% chance per 30s poll tick, yielding a realistic ~2.5 goals per accelerated game)
+          const rand = Math.random();
+          if (rand < 0.15) {
+            const parts = match.score.split(" - ");
+            const h = Number(parts[0]) || 0;
+            const a = Number(parts[1]) || 0;
+            let newH = h;
+            let newA = a;
+            if (Math.random() < 0.5) {
+              newH += 1;
+            } else {
+              newA += 1;
+            }
+            match.score = `${newH} - ${newA}`;
+            match.lastChecked = new Date().toISOString();
+            match.log = `Goal! Score changed from ${prevScore} to ${match.score}. Minute: ${elapsedMins}'. (${reason})${logStartedToken}`;
+          } else {
+            match.lastChecked = new Date().toISOString();
+            match.log = `Latest: ${match.score}. Game ongoing. Minute: ${elapsedMins}'. (${reason})${logStartedToken}`;
+          }
         }
       }
     };
 
-    if (!hasOpenAI) {
-      // Simulated live updates if OpenAI key is missing
-      for (const match of liveScores) {
-        runSimulatedMatchUpdate(match, "Simulation Engine");
-      }
-      isCheckingLiveScores = false;
-      globalLog.unshift(`[${timestamp}] Live poll cycle complete (Simulated / OpenAI API key missing).`);
-      return;
-    }
+    if (hasGemini) {
+      try {
+        const ai = new GoogleGenAI({
+          apiKey: geminiKey,
+          httpOptions: {
+            headers: {
+              'User-Agent': 'aistudio-build',
+            }
+          }
+        });
 
-    try {
-      for (let i = 0; i < liveScores.length; i++) {
-        const match = liveScores[i];
-        if (!forceAll && (match.status === "finished" || match.status === "postponed")) continue;
+        for (let i = 0; i < liveScores.length; i++) {
+          const match = liveScores[i];
 
-        // Rate limiting guard delay: insert a 1.5-second sleep between requests
-        if (i > 0) {
-          await new Promise((resolve) => setTimeout(resolve, 1500));
+          // Self-healing check for stale/modified team names (log doesn't mention new teams)
+          const logText = match.log || "";
+          const logLower = logText.toLowerCase();
+          const homeAway = match.fixture.split(" vs ");
+          const hTeam = homeAway[0]?.trim() || "";
+          const aTeam = homeAway[1]?.trim() || "";
+          const hWord = hTeam.toLowerCase().split(" ")[0] || "___";
+          const aWord = aTeam.toLowerCase().split(" ")[0] || "___";
+
+          const isStaleLog = logText &&
+                             logText !== "Added to real-time tracker board." &&
+                             !logText.includes("Teams updated") &&
+                             (!logLower.includes(hWord) || !logLower.includes(aWord));
+
+          if (!forceAll && !isStaleLog && (match.status === "finished" || match.status === "postponed")) continue;
+
+          // Rate limiting guard
+          if (i > 0) {
+            await new Promise((resolve) => setTimeout(resolve, 1500));
+          }
+
+          try {
+            const currentDateTimeStr = new Date().toLocaleString("en-US", { timeZone: "UTC" }) + " UTC";
+
+            // Step 1: Use Gemini with Google Search Grounding (WITHOUT responseMimeType: "application/json")
+            const step1Response = await ai.models.generateContent({
+              model: "gemini-2.5-flash",
+              contents: `Search the web for the soccer score of "${match.fixture}" today (${currentDateTimeStr}) and describe the current score, status, and latest match events in detail.`,
+              config: {
+                tools: [{ googleSearch: {} }]
+              }
+            });
+            const groundedText = step1Response.text || "";
+
+            // Step 2: Use Gemini (without tools) to extract and format structured JSON
+            const prompt = `Based on this search result context, extract the score and status for the match "${match.fixture}".
+
+Search result context:
+${groundedText}
+
+CRITICAL MAP INSTRUCTIONS:
+1. Extract the score in "H - A" format (e.g., "1 - 0" or "0 - 0").
+2. Map the status of the match to EXACTLY one of: "not_started", "live", "finished", "postponed".
+   - Map active matches (halftime, ongoing, playing) to "live".
+   - Map matches that have completely finished to "finished".
+3. Provide a clean 1-sentence summary explanation of the current state.`;
+
+            const geminiResponse = await ai.models.generateContent({
+              model: "gemini-2.5-flash",
+              contents: prompt,
+              config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                  type: Type.OBJECT,
+                  properties: {
+                    score: { type: Type.STRING },
+                    status: { type: Type.STRING },
+                    explanation: { type: Type.STRING }
+                  },
+                  required: ["score", "status", "explanation"]
+                }
+              }
+            });
+
+            const resText = geminiResponse.text;
+            if (resText) {
+              const parsed = JSON.parse(resText.trim());
+              if (parsed && (parsed.score || parsed.status)) {
+                const oldScore = match.score;
+                const oldStatus = match.status;
+
+                match.score = parsed.score || match.score;
+                match.status = parsed.status || match.status;
+                match.lastChecked = new Date().toISOString();
+                match.log = `AI Verified: ${parsed.explanation || 'No details provided.'} (${timestamp})`;
+
+                if (oldScore !== match.score || oldStatus !== match.status) {
+                  globalLog.unshift(`[${timestamp}] Match Update: "${match.fixture}" is now ${match.score} (${match.status}) via Gemini Search`);
+                }
+              }
+            }
+          } catch (matchErr: any) {
+            runSimulatedMatchUpdate(match, `AI Fallback: ${matchErr?.message || 'Check error'}`);
+          }
         }
 
-        try {
-          // Perform live web search first to get grounding context for OpenAI
-          const searchContext = await searchWebForMatch(match.fixture);
+        await saveLiveScoresToDatabase();
+        isCheckingLiveScores = false;
+        globalLog.unshift(`[${timestamp}] Live poll cycle complete (Gemini AI Search).`);
+        return;
+      } catch (geminiInitErr: any) {
+        console.warn("Gemini Live check failed, falling back to OpenAI or Simulation.", geminiInitErr);
+      }
+    }
 
-          const currentDateTimeStr = new Date().toLocaleString("en-US", { timeZone: "UTC" }) + " UTC";
-          const prompt = `You are an agentic sports live score assistant.
+    if (hasOpenAI) {
+      try {
+        for (let i = 0; i < liveScores.length; i++) {
+          const match = liveScores[i];
+
+          // Self-healing check for stale/modified team names (log doesn't mention new teams)
+          const logText = match.log || "";
+          const logLower = logText.toLowerCase();
+          const homeAway = match.fixture.split(" vs ");
+          const hTeam = homeAway[0]?.trim() || "";
+          const aTeam = homeAway[1]?.trim() || "";
+          const hWord = hTeam.toLowerCase().split(" ")[0] || "___";
+          const aWord = aTeam.toLowerCase().split(" ")[0] || "___";
+
+          const isStaleLog = logText &&
+                             logText !== "Added to real-time tracker board." &&
+                             !logText.includes("Teams updated") &&
+                             (!logLower.includes(hWord) || !logLower.includes(aWord));
+
+          if (!forceAll && !isStaleLog && (match.status === "finished" || match.status === "postponed")) continue;
+
+          // Rate limiting guard
+          if (i > 0) {
+            await new Promise((resolve) => setTimeout(resolve, 1500));
+          }
+
+          try {
+            const searchContext = await searchWebForMatch(match.fixture);
+            const currentDateTimeStr = new Date().toLocaleString("en-US", { timeZone: "UTC" }) + " UTC";
+            const prompt = `You are an agentic sports live score assistant.
 Today's current date and time is: ${currentDateTimeStr}.
-We searched the live web for the match: "${match.fixture}". Here are the top raw text search snippets retrieved:
+
+We are tracking the match: "${match.fixture}"
+- Existing state in our database: Status is currently "${match.status}", Score is currently "${match.score}".
+
+We searched the live web for this match today. Here are the top raw text search snippets retrieved:
 
 === LIVE WEB SEARCH RESULTS ===
 ${searchContext}
 ===============================
 
 Your task is to analyze these search snippets, find the actual current live score or final score, and status for "${match.fixture}".
-- If the match is not started yet or postponed, set the score to "0 - 0" or match existing DB score, and status to "not_started" or "postponed".
-- If the match is active/live, extract the actual current score (e.g. "2 - 1", "0 - 1", "1 - 3") and set status to "live".
-- If the match is finished/completed, extract the final full-time score and set status to "finished".
+
+CRITICAL SAFETY INSTRUCTIONS:
+1. HISTORICAL GUARD: DuckDuckGo search snippets often contain finished matches from years ago (e.g. 2021, 2023, 2024, or 2025). If the only completed/finished match records you see in the snippets are from past years or previous months, you MUST NOT mark today's match as "finished". A match scheduled or active today (${currentDateTimeStr}) must remain "live" or "not_started" instead of being downgraded to "finished" using historical scores.
+2. LIVE MATCH DETECTION: If the search results indicate a match is scheduled for today or is active today, set the status to "live". Look for indicators like "live stream", "playing", "minutes", "injury time", "HT", "live score". If the search results do not show any match played today, but the existing status is "live", retain "live" and preserve the existing score.
+3. MATCH STATUS VALUES:
+   - "not_started": If the match is scheduled for today but hasn't kicked off yet (or if there is no info). Score should be "0 - 0" or match the existing score.
+   - "live": If the match is currently active/playing today. Extract the actual current live score (e.g. "1 - 1", "0 - 0").
+   - "finished": ONLY if there is explicit, undeniable search snippet evidence that a match played TODAY (or within the last 24 hours of ${currentDateTimeStr}) has officially completed (full-time whistle blown).
+   - "postponed": If explicitly postponed.
 
 You must return your response inside a valid JSON object.
 Format exactly as this JSON schema (NO markdown blocks, NO \`\`\`json):
@@ -442,97 +611,84 @@ Format exactly as this JSON schema (NO markdown blocks, NO \`\`\`json):
   "explanation": "A clean 1-sentence description detailing game minute, current scoreline, or scorer info."
 }`;
 
-          let parsed: any = null;
+            const openAiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${openaiKey}`
+              },
+              body: JSON.stringify({
+                model: "gpt-4o-mini",
+                messages: [
+                  { role: "system", content: "You are an agentic sports live score assistant." },
+                  { role: "user", content: prompt }
+                ],
+                response_format: { type: "json_object" }
+              })
+            });
 
-          const openAiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${openaiKey}`
-            },
-            body: JSON.stringify({
-              model: "gpt-4o-mini",
-              messages: [
-                { role: "system", content: "You are an agentic sports live score assistant. You analyze raw web search context to extract actual, accurate, and current real-time live scores or completed match scorelines." },
-                { role: "user", content: prompt }
-              ],
-              response_format: { type: "json_object" }
-            })
-          });
-
-          if (!openAiResponse.ok) {
-            throw new Error(`OpenAI responded with status ${openAiResponse.status}`);
-          }
-
-          const parsedData = await openAiResponse.json();
-          const choiceContent = parsedData.choices?.[0]?.message?.content || "";
-          const cleanText = choiceContent.replace(/```json/g, "").replace(/```/g, "").trim();
-          parsed = JSON.parse(cleanText);
-
-          if (parsed && (parsed.score || parsed.status)) {
-            const oldScore = match.score;
-            const oldStatus = match.status;
-
-            match.score = parsed.score || match.score;
-            match.status = parsed.status || match.status;
-            match.lastChecked = new Date().toISOString();
-            match.log = `AI Verified: ${parsed.explanation || 'No details provided.'} (${timestamp})`;
-
-            if (oldScore !== match.score || oldStatus !== match.status) {
-              globalLog.unshift(`[${timestamp}] Match Update: "${match.fixture}" is now ${match.score} (${match.status})`);
+            if (!openAiResponse.ok) {
+              throw new Error(`OpenAI responded with status ${openAiResponse.status}`);
             }
-          }
-        } catch (matchErr: any) {
-          // Gracefully fall back to simulation mode upon quota limit or any other API error.
-          runSimulatedMatchUpdate(match, `AI Fallback: ${matchErr?.message || 'Check error'}`);
-        }
-      }
-      // Save updates back to Supabase if table exists
-      const supabase = await getSupabase();
-      if (supabase) {
-        try {
-          for (const match of liveScores) {
-            const scoreParts = match.score.split(" - ");
-            const hScore = Number(scoreParts[0]) || 0;
-            const aScore = Number(scoreParts[1]) || 0;
-            const homeAway = match.fixture.split(" vs ");
-            const hName = homeAway[0]?.trim() || "Home";
-            const aName = homeAway[1]?.trim() || "Away";
 
-            const hasId = match.id && !match.id.startsWith("mock-") && !match.id.startsWith("sim-");
-            if (hasId) {
-              await supabase.from('live_scores').update({
-                home_score: hScore,
-                away_score: aScore,
-                status: match.status,
-                log: match.log,
-                last_checked: match.lastChecked
-              }).eq('id', match.id);
-            } else {
-              await supabase.from('live_scores').update({
-                home_score: hScore,
-                away_score: aScore,
-                status: match.status,
-                log: match.log,
-                last_checked: match.lastChecked
-              }).eq('home_team', hName).eq('away_team', aName);
+            const parsedData = await openAiResponse.json();
+            const choiceContent = parsedData.choices?.[0]?.message?.content || "";
+            const cleanText = choiceContent.replace(/```json/g, "").replace(/```/g, "").trim();
+            const parsed = JSON.parse(cleanText);
+
+            if (parsed && (parsed.score || parsed.status)) {
+              const oldScore = match.score;
+              const oldStatus = match.status;
+
+              match.score = parsed.score || match.score;
+              match.status = parsed.status || match.status;
+              match.lastChecked = new Date().toISOString();
+              match.log = `AI Verified: ${parsed.explanation || 'No details provided.'} (${timestamp})`;
+
+              if (oldScore !== match.score || oldStatus !== match.status) {
+                globalLog.unshift(`[${timestamp}] Match Update: "${match.fixture}" is now ${match.score} (${match.status}) via OpenAI`);
+              }
             }
+          } catch (matchErr: any) {
+            runSimulatedMatchUpdate(match, `AI Fallback: ${matchErr?.message || 'Check error'}`);
           }
-        } catch (dbErr) {
-          // Fallback silencer
         }
-      }
 
-      globalLog.unshift(`[${timestamp}] Live scores updated successfully.`);
-    } catch (err: any) {
-      // Quietly rescue the main tracker loop if initialization has an issue
-      for (const match of liveScores) {
-        runSimulatedMatchUpdate(match, "Live Match Engine Updates Fallback");
+        await saveLiveScoresToDatabase();
+        isCheckingLiveScores = false;
+        globalLog.unshift(`[${timestamp}] Live scores updated successfully (OpenAI).`);
+        return;
+      } catch (err: any) {
+        console.warn("OpenAI Live check failed, falling back to Simulation.", err);
       }
-      globalLog.unshift(`[${timestamp}] Live scores fallback engaged.`);
-    } finally {
-      isCheckingLiveScores = false;
     }
+
+    // Default simulation fallback
+    for (const match of liveScores) {
+      // Detect stale logs during simulation
+      const logText = match.log || "";
+      const logLower = logText.toLowerCase();
+      const homeAway = match.fixture.split(" vs ");
+      const hTeam = homeAway[0]?.trim() || "";
+      const aTeam = homeAway[1]?.trim() || "";
+      const hWord = hTeam.toLowerCase().split(" ")[0] || "___";
+      const aWord = aTeam.toLowerCase().split(" ")[0] || "___";
+      const isStaleLog = logText &&
+                         logText !== "Added to real-time tracker board." &&
+                         !logText.includes("Teams updated") &&
+                         (!logLower.includes(hWord) || !logLower.includes(aWord));
+
+      if (isStaleLog) {
+        match.status = "not_started";
+        match.score = "0 - 0";
+        match.log = "Teams updated. Starting simulation stream...";
+      }
+      runSimulatedMatchUpdate(match, "Simulation Engine");
+    }
+
+    await saveLiveScoresToDatabase();
+    isCheckingLiveScores = false;
+    globalLog.unshift(`[${timestamp}] Live poll cycle complete (Simulation Engine).`);
   }
 
   // Auto poll every 30 seconds for agentic real-time updates
@@ -590,9 +746,15 @@ ${searchContext}
 ===============================
 
 Your task is to analyze these search snippets, find the actual current live score or final score, and status for "${fixture}".
-- If the match is not started yet or postponed, set the score to "0 - 0" or match existing DB score, and status to "not_started" or "postponed".
-- If the match is active/live, extract the actual current score (e.g. "2 - 1", "0 - 1", "1 - 3") and set status to "live".
-- If the match is finished/completed, extract the final full-time score and set status to "finished".
+
+CRITICAL SAFETY INSTRUCTIONS:
+1. HISTORICAL GUARD: DuckDuckGo search snippets often contain finished matches from years ago (e.g. 2021, 2023, 2024, or 2025). If the only completed/finished match records you see in the snippets are from past years or previous months, you MUST NOT mark today's match as "finished". A match scheduled or active today must remain "live" or "not_started" instead of being downgraded to "finished" using historical scores.
+2. LIVE MATCH DETECTION: If the search results indicate a match is scheduled for today or is active today, set the status to "live". Look for indicators like "live stream", "playing", "minutes", "injury time", "HT", "live score".
+3. MATCH STATUS VALUES:
+   - "not_started": If the match is scheduled for today but hasn't kicked off yet (or if there is no info). Score should be "0 - 0".
+   - "live": If the match is currently active/playing today. Extract the actual current live score (e.g. "1 - 1", "0 - 0").
+   - "finished": ONLY if there is explicit, undeniable search snippet evidence that a match played TODAY has officially completed (full-time whistle blown).
+   - "postponed": If explicitly postponed.
 
 You must return your response inside a valid JSON object.
 Format exactly as this JSON schema (NO markdown blocks, NO \`\`\`json):
@@ -739,9 +901,63 @@ Format exactly as this JSON schema (NO markdown blocks, NO \`\`\`json):
     res.json({ success: true, message: "Match deleted from database." });
   });
 
+  app.post("/api/livescores/update-status", async (req, res) => {
+    const { id, status, score } = req.body;
+    if (!id || !status) {
+      return res.status(400).json({ success: false, error: "id and status are required." });
+    }
+
+    const supabase = await getSupabase();
+    if (!supabase) {
+      return res.status(503).json({ success: false, error: "Database connection parameters are missing or not configured." });
+    }
+
+    try {
+      const nowStr = new Date().toISOString();
+      let logText = `Status manually updated to ${status}.`;
+      if (status === 'live' || status === 'not_started') {
+        logText = `Teams updated. Starting simulation stream... [Started: ${nowStr}]`;
+      }
+
+      const updateData: any = {
+        status,
+        log: logText,
+        last_checked: nowStr
+      };
+
+      if (score !== undefined) {
+        const parts = score.split(" - ");
+        updateData.home_score = Number(parts[0]) || 0;
+        updateData.away_score = Number(parts[1]) || 0;
+      }
+
+      const { error } = await supabase.from('live_scores').update(updateData).eq('id', id);
+
+      if (error) {
+        return res.status(500).json({ success: false, error: `Failed to update database: ${error.message}` });
+      }
+
+      // Update in-memory liveScores array
+      const match = liveScores.find(m => m.id === id);
+      if (match) {
+        match.status = status;
+        match.log = logText;
+        match.lastChecked = nowStr;
+        if (score !== undefined) {
+          match.score = score;
+        }
+      }
+
+      globalLog.unshift(`[${new Date().toLocaleTimeString()}] Admin manually set match ID ${id} to ${status.toUpperCase()} (${score || match?.score})`);
+      res.json({ success: true, message: "Match status updated successfully." });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: `Database error: ${err?.message || String(err)}` });
+    }
+  });
+
   app.post("/api/livescores/trigger-update", async (req, res) => {
     try {
-      await updateLiveScoresInternal();
+      await updateLiveScoresInternal(true);
       res.json({ success: true, matches: liveScores, logs: globalLog });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err?.message || String(err) });

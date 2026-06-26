@@ -865,6 +865,31 @@ export default function CustomerPortal({
     }
   };
 
+  const handleUpdateMatchStatus = async (id: string, status: string, score?: string) => {
+    try {
+      const response = await fetch("/api/livescores/update-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status, score })
+      });
+      const data = await response.json();
+      if (data.success) {
+        triggerToast(`Match status updated successfully to ${status.toUpperCase()}!`, "success");
+        // Reload immediately
+        const scoreRes = await fetch("/api/livescores");
+        const scoreJson = await scoreRes.json();
+        if (scoreJson.success) {
+          setLiveScoresData(scoreJson.matches || []);
+          setLiveLogData(scoreJson.logs || []);
+        }
+      } else {
+        triggerToast(data.error || "Failed to update match.", "error");
+      }
+    } catch (err: any) {
+      triggerToast(err?.message || "Error updating match status.", "error");
+    }
+  };
+
   const handleForceUpdateScores = async () => {
     setIsRefreshingLiveScores(true);
     // Trigger toast
@@ -3237,7 +3262,7 @@ export default function CustomerPortal({
                         AI LIVE REAL-TIME SCORES
                       </h2>
                       <p className="text-xs text-slate-400 mt-1">
-                        Web-grounded live updates synced via OpenAI and Real-time Web Search every 30 seconds.
+                        Web-grounded live updates synced via Gemini AI and Real-time Web Search every 30 seconds.
                       </p>
                     </div>
 
@@ -3476,13 +3501,42 @@ export default function CustomerPortal({
                                   </td>
                                   {currentUser.role === 'admin' && (
                                     <td className="py-3.5 px-4 text-right">
-                                      <button
-                                        onClick={() => handleDeleteMatch(match.id)}
-                                        className="text-[#FA3E65] hover:text-[#E11D48] hover:bg-[#FA3E65]/10 p-1.5 rounded border border-transparent hover:border-[#FA3E65]/20 cursor-pointer inline-flex items-center justify-center transition-all"
-                                        title="Delete live tracker"
-                                      >
-                                        <X className="w-4 h-4" />
-                                      </button>
+                                      <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                                        {!isLiveStatus && (
+                                          <button
+                                            onClick={() => handleUpdateMatchStatus(match.id, 'live', '0 - 0')}
+                                            className="text-[10px] font-black uppercase tracking-wider text-emerald-400 hover:text-emerald-300 bg-emerald-950/40 hover:bg-emerald-900/50 px-2 py-1 rounded-md border border-emerald-500/20 cursor-pointer transition-all"
+                                            title="Restart match simulation as live"
+                                          >
+                                            Start Live
+                                          </button>
+                                        )}
+                                        {isLiveStatus && (
+                                          <>
+                                            <button
+                                              onClick={() => handleUpdateMatchStatus(match.id, 'finished')}
+                                              className="text-[10px] font-black uppercase tracking-wider text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded-md border border-slate-700 cursor-pointer transition-all"
+                                              title="End match to FT"
+                                            >
+                                              End (FT)
+                                            </button>
+                                            <button
+                                              onClick={() => handleUpdateMatchStatus(match.id, 'postponed')}
+                                              className="text-[10px] font-black uppercase tracking-wider text-amber-400 hover:text-amber-300 bg-amber-950/40 hover:bg-amber-900/50 px-2 py-1 rounded-md border border-amber-500/20 cursor-pointer transition-all"
+                                              title="Postpone match"
+                                            >
+                                              Postpone
+                                            </button>
+                                          </>
+                                        )}
+                                        <button
+                                          onClick={() => handleDeleteMatch(match.id)}
+                                          className="text-[#FA3E65] hover:text-[#E11D48] hover:bg-[#FA3E65]/10 p-1.5 rounded-md border border-transparent hover:border-[#FA3E65]/20 cursor-pointer inline-flex items-center justify-center transition-all"
+                                          title="Delete live tracker"
+                                        >
+                                          <X className="w-3.5 h-3.5" />
+                                        </button>
+                                      </div>
                                     </td>
                                   )}
                                 </tr>
