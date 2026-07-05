@@ -1311,82 +1311,7 @@ export default function CustomerPortal({
               
               {/* SUBTAB 1: SPORT CODES DASHBOARD CONTAINER */}
               {activeSubTab === 'dashboard' && (
-                activePlan?.id === 'plan-free' ? (
-                  <div className="flex flex-col gap-6 pb-6">
-                    {/* VIP ARENA LOCK SCREEN */}
-                    <div className="bg-[#111827] rounded-3xl border border-slate-800 p-8 shadow-2xl flex flex-col items-center justify-center text-center py-16 relative overflow-hidden">
-                      {/* background pattern */}
-                      
-                      <div className="relative z-10 max-w-2xl flex flex-col items-center">
-                        <div className="w-20 h-20 rounded-full bg-rose-500/10 border-2 border-rose-500 flex items-center justify-center shadow-lg shadow-rose-950/20 mb-6 animate-pulse">
-                          <Lock className="w-9 h-9 text-rose-500" />
-                        </div>
-
-                        <h2 className="font-sans font-black text-2xl md:text-3xl text-white tracking-tight uppercase">
-                          VIP DASHBOARD LOCKED
-                        </h2>
-                        <span className="mt-2.5 px-3 py-1 bg-rose-500/10 border border-rose-500/25 text-rose-400 font-mono text-[10px] font-black uppercase tracking-widest rounded-full">
-                          FREE ACCOUNT
-                        </span>
-
-                        <p className="text-sm text-slate-400 mt-5 leading-relaxed max-w-lg">
-                          The **VIP Dashboard** includes weekly coupon draws, match fixtures, and code lists. Upgrade to a plan to unlock access.
-                        </p>
-
-                        <div className="mt-8 p-5 bg-[#070B14]/80 border border-slate-800/85 rounded-2xl w-full flex flex-col md:flex-row items-center justify-between gap-4 text-left font-mono">
-                          <div>
-                            <div className="text-[10px] text-slate-500 uppercase tracking-widest">Active Plan Type</div>
-                            <div className="text-sm font-black text-slate-300 mt-0.5">Free Sandbox Test Account</div>
-                          </div>
-                          <div className="h-px md:h-8 w-full md:w-px bg-slate-800"></div>
-                          <div>
-                            <span className="text-[10px] text-slate-500 uppercase tracking-widest">Successful Payment Status</span>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                              <span className="inline-block w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse shrink-0" />
-                              <span className="text-xs font-bold text-rose-450 uppercase">NO ACTIVE PAYMENT RECORD</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="mt-10 border-t border-slate-800/60 pt-8 w-full">
-                          <h3 className="text-xs font-black uppercase tracking-wider text-[#10B981] font-sans mb-6 select-none">
-                            ★ CHOOSE A PLAN TO UNLOCK INSTANTLY
-                          </h3>
-
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            {db.subscription_plans.filter(p => p.id !== 'plan-free').map((p) => (
-                              <div 
-                                key={p.id}
-                                className="border border-slate-800 bg-slate-950/60 hover:bg-slate-950 rounded-2xl p-5 flex flex-col transition-all hover:border-emerald-550/60 group text-left"
-                              >
-                                <span className="text-[9px] font-bold uppercase text-slate-500 font-mono tracking-widest">{p.billing_cycle} PERMISSION</span>
-                                <h4 className="text-sm font-black text-white mt-1 uppercase leading-tight">{p.name}</h4>
-                                <div className="my-3 text-lg font-mono font-black text-[#10B981]">
-                                  ₦{p.price.toLocaleString()}
-                                </div>
-                                <p className="text-[10.5px] text-slate-400 leading-normal mb-5 flex-1 min-h-[44px]">
-                                  {p.description}
-                                </p>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    buySubscription(p.id);
-                                    triggerToast(`Establishing Paystack billing redirection for ${p.name}...`, 'info');
-                                  }}
-                                  className="w-full bg-[#10B981] hover:bg-emerald-400 text-slate-955 font-black text-[11px] uppercase py-2.5 rounded-xl transition duration-150 cursor-pointer shadow-lg shadow-emerald-950/10 text-center"
-                                >
-                                  Authorize ₦{p.price.toLocaleString()}
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-6">
+                <div className="flex flex-col gap-6">
 
                   {/* LIVE ARENA SPORTS SCORE TICKER (FULLY RESPONSIVE & MOBILE SWEET SWIPER) */}
                   <div className="bg-[#111827] rounded-2xl border border-slate-800 p-4 shadow-xl flex flex-col gap-3">
@@ -1909,8 +1834,7 @@ export default function CustomerPortal({
 
 
                 </div>
-              )
-            )}
+              )}
 
               {/* SUBTAB 2: POOL CODES BROWSER (IMMERSIBLE LIVE SCOREBOARD AND DECRYPTOR SYSTEM) */}
               {false && (() => {
@@ -4321,50 +4245,8 @@ export default function CustomerPortal({
                {/* SUBTAB 7: USER PROFILE INFORMATION */}
               {activeSubTab === 'profile' && (
                 <div className="flex flex-col gap-6">
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     
-                    {/* Column 1: Read-Only System Metadata Panel */}
-                    <div className="bg-[#111827] border border-slate-800 rounded-2xl p-6 shadow-lg flex flex-col justify-between">
-                      <div>
-                        <h3 className="font-extrabold text-[#10B981] text-xs uppercase tracking-wider font-mono border-b border-slate-800 mb-5 pb-2.5 flex items-center gap-2 select-none">
-                          👤 READ-ONLY ACCOUNT SPECS
-                        </h3>
-
-                        <div className="flex flex-col gap-5 font-mono text-xs">
-                          <div>
-                            <span className="text-slate-500 select-none text-[9.5px] block uppercase">Simulated UUID Handle Code</span>
-                            <p className="font-bold text-slate-300 mt-1 select-all">{currentUser.id}</p>
-                          </div>
-                          <div>
-                            <span className="text-slate-500 select-none text-[9.5px] block uppercase">Privilege Level ENUM</span>
-                            <p className="text-emerald-400 font-extrabold mt-1 text-xs uppercase">{currentUser.role.toUpperCase()}</p>
-                          </div>
-                          <div>
-                            <span className="text-slate-500 select-none text-[9.5px] block uppercase">Client Link Status</span>
-                            <span className="inline-block mt-1 uppercase font-mono text-[9px] font-black text-emerald-450 bg-emerald-950/80 px-2.5 py-1 rounded border border-emerald-900">
-                              {currentUser.status.toUpperCase()}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-slate-500 select-none text-[9.5px] block uppercase">License Email Handshake Time</span>
-                            <p className="text-slate-400 mt-1 leading-relaxed">
-                              {currentUser.email_verified_at ? new Date(currentUser.email_verified_at).toUTCString() : 'N/A Verification handshake bypassed'}
-                            </p>
-                          </div>
-                          <div>
-                            <span className="text-slate-500 select-none text-[9.5px] block uppercase">Creation Date Node</span>
-                            <p className="text-slate-400 mt-1">
-                              {currentUser.created_at ? new Date(currentUser.created_at).toUTCString() : 'Active Simulated Node'}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="mt-8 border-t border-slate-800/60 pt-4 text-[10px] text-slate-500 leading-normal font-mono select-none">
-                        ⚠️ Simulated credentials sync with your browser memory stream database engine instantly.
-                      </div>
-                    </div>
-
                     {/* Column 2: Edit Personal Information */}
                     <div className="bg-[#111827] border border-slate-800 rounded-2xl p-6 shadow-lg">
                       <h3 className="font-extrabold text-[#10B981] text-xs uppercase tracking-wider font-mono border-b border-slate-800 mb-5 pb-2.5 flex items-center gap-2">
