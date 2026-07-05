@@ -3430,10 +3430,9 @@ export default function CustomerPortal({
                         <table className="min-w-full text-left border-collapse">
                           <thead>
                             <tr className="border-b border-slate-850 text-[10px] font-mono text-slate-400 uppercase tracking-wider">
-                              <th className="py-3 px-4 font-bold">Game / Fixture Professional</th>
+                              <th className="py-3 px-4 font-bold">Game / Fixture</th>
                               <th className="py-3 px-4 font-bold text-center">Score</th>
                               <th className="py-3 px-4 font-bold text-center">Status</th>
-                              <th className="py-3 px-4 font-bold">AI Web-verification Notes / Grounding</th>
                               {currentUser.role === 'admin' && <th className="py-3 px-4 font-bold text-right">Action</th>}
                             </tr>
                           </thead>
@@ -3488,16 +3487,6 @@ export default function CustomerPortal({
                                         <span>NOT STARTED</span>
                                       )}
                                     </span>
-                                  </td>
-                                  <td className="py-3.5 px-4">
-                                    <div className="flex flex-col gap-0.5 max-w-sm md:max-w-md">
-                                      <span className="text-slate-350 text-xs italic font-sans leading-snug">
-                                        {match.log || 'Checked live status. Standing by.'}
-                                      </span>
-                                      <span className="text-[9px] font-mono text-slate-500">
-                                        Checked: {new Date(match.lastChecked).toLocaleTimeString()}
-                                      </span>
-                                    </div>
                                   </td>
                                   {currentUser.role === 'admin' && (
                                     <td className="py-3.5 px-4 text-right">
