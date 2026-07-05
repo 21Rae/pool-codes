@@ -55,6 +55,7 @@ interface CustomerPortalProps {
   markAllNotificationsRead: () => void;
   onSignOut?: () => void;
   onUpdateProfile?: (updated: { username: string; email: string; phone?: string; password?: string }) => void;
+  renderFooter?: () => React.ReactNode;
 }
 
 export default function CustomerPortal({
@@ -67,7 +68,8 @@ export default function CustomerPortal({
   triggerToast,
   markAllNotificationsRead,
   onSignOut,
-  onUpdateProfile
+  onUpdateProfile,
+  renderFooter
 }: CustomerPortalProps) {
   const [activeSubTab, setActiveSubTab] = useState<'dashboard' | 'streaming' | 'results' | 'subscription' | 'profile'>('dashboard');
 
@@ -1022,11 +1024,11 @@ export default function CustomerPortal({
                   </div>
                   <div>
                     <span className="font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-300 tracking-tight block text-sm">
-                      POOLCODES ARENA
+                      POOL CODES PORTAL
                     </span>
                     <span className="text-[10px] text-slate-400 font-mono flex items-center gap-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
-                      stadium-client v4.9
+                      portal v4.9
                     </span>
                   </div>
                 </div>
@@ -1041,7 +1043,7 @@ export default function CustomerPortal({
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <span className="inline-block w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></span>
                       <span className="text-[9.5px] font-mono text-emerald-350 tracking-wider uppercase font-semibold">
-                        {activePlan?.id !== 'plan-free' ? '★ VIP Arena Member' : 'Free Trial Tier'}
+                        {activePlan?.id !== 'plan-free' ? '★ VIP Member' : 'Free Trial Tier'}
                       </span>
                     </div>
                   </div>
@@ -1062,7 +1064,7 @@ export default function CustomerPortal({
                   >
                     <span className="flex items-center gap-3">
                       <Home className="w-4 h-4" />
-                      <span>DASHBOARD ARENA</span>
+                      <span>DASHBOARD</span>
                     </span>
                     {activePlan?.id === 'plan-free' && (
                       <Lock className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
@@ -1151,14 +1153,7 @@ export default function CustomerPortal({
                 </nav>
               </div>
 
-              {/* Security Encryption Badge Footer */}
-              <div className="pt-4 border-t border-slate-800/60 text-[10px] text-slate-500 font-mono space-y-1">
-                <div className="flex items-center gap-1.5 text-[#10B981]">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                  <span>SECURE STADIUM ENCRYPTED</span>
-                </div>
-                <p className="text-slate-600">RSA 2048-Bit Draw Verifications Active</p>
-              </div>
+
             </motion.div>
           </div>
         )}
@@ -1174,11 +1169,11 @@ export default function CustomerPortal({
             </div>
             <div>
               <span className="font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-300 tracking-tight block text-sm">
-                POOLCODES ARENA
+                POOL CODES PORTAL
               </span>
               <span className="text-[10px] text-slate-400 font-mono flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
-                stadium-client v4.9
+                portal v4.9
               </span>
             </div>
           </div>
@@ -1193,7 +1188,7 @@ export default function CustomerPortal({
               <div className="flex items-center gap-1.5 mt-0.5">
                 <span className="inline-block w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></span>
                 <span className="text-[9.5px] font-mono text-emerald-350 tracking-wider uppercase font-semibold">
-                  {activePlan?.id !== 'plan-free' ? '★ VIP Arena Member' : 'Free Trial Tier'}
+                  {activePlan?.id !== 'plan-free' ? '★ VIP Member' : 'Free Trial Tier'}
                 </span>
               </div>
             </div>
@@ -1211,7 +1206,7 @@ export default function CustomerPortal({
             >
               <span className="flex items-center gap-3">
                 <Home className="w-4 h-4" />
-                <span>DASHBOARD ARENA</span>
+                <span>DASHBOARD</span>
               </span>
               {activePlan?.id === 'plan-free' && (
                 <Lock className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
@@ -1270,6 +1265,8 @@ export default function CustomerPortal({
               <UserIcon className="w-4 h-4" />
               <span>USER PROFILE</span>
             </button>
+
+
           </nav>
 
           {onSignOut && (
@@ -1283,14 +1280,7 @@ export default function CustomerPortal({
           )}
         </div>
 
-        {/* Security Encryption Badge Footer */}
-        <div className="pt-4 border-t border-slate-800/60 text-[10px] text-slate-500 font-mono space-y-1">
-          <div className="flex items-center gap-1.5 text-[#10B981]">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-            <span>SECURE STADIUM ENCRYPTED</span>
-          </div>
-          <p className="text-slate-600">RSA 2048-Bit Draw Verifications Active</p>
-        </div>
+
       </aside>
 
       {/* Main Panel View Area */}
@@ -1308,7 +1298,7 @@ export default function CustomerPortal({
         )}
 
         {/* Active Sub Tabs Presentation Screen */}
-        <div className="flex-1 min-h-0">
+        <div className="w-full">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeSubTab}
@@ -1326,7 +1316,6 @@ export default function CustomerPortal({
                     {/* VIP ARENA LOCK SCREEN */}
                     <div className="bg-[#111827] rounded-3xl border border-slate-800 p-8 shadow-2xl flex flex-col items-center justify-center text-center py-16 relative overflow-hidden">
                       {/* background pattern */}
-                      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-rose-500/5 via-transparent to-transparent opacity-50 blur-xl"></div>
                       
                       <div className="relative z-10 max-w-2xl flex flex-col items-center">
                         <div className="w-20 h-20 rounded-full bg-rose-500/10 border-2 border-rose-500 flex items-center justify-center shadow-lg shadow-rose-950/20 mb-6 animate-pulse">
@@ -1334,14 +1323,14 @@ export default function CustomerPortal({
                         </div>
 
                         <h2 className="font-sans font-black text-2xl md:text-3xl text-white tracking-tight uppercase">
-                          VIP ARENA DASHBOARD LOCKED
+                          VIP DASHBOARD LOCKED
                         </h2>
                         <span className="mt-2.5 px-3 py-1 bg-rose-500/10 border border-rose-500/25 text-rose-400 font-mono text-[10px] font-black uppercase tracking-widest rounded-full">
-                          STANDARD FREE TRIAL LIMITATION
+                          FREE ACCOUNT
                         </span>
 
                         <p className="text-sm text-slate-400 mt-5 leading-relaxed max-w-lg">
-                          The **Championship Arena Dashboard** features real-time weekly coupon draws, professional forecast matches, and verified codesheets. Unlock VIP entry by upgrading to a successful subscription now.
+                          The **VIP Dashboard** includes weekly coupon draws, match fixtures, and code lists. Upgrade to a plan to unlock access.
                         </p>
 
                         <div className="mt-8 p-5 bg-[#070B14]/80 border border-slate-800/85 rounded-2xl w-full flex flex-col md:flex-row items-center justify-between gap-4 text-left font-mono">
@@ -1392,14 +1381,6 @@ export default function CustomerPortal({
                             ))}
                           </div>
                         </div>
-
-                        <button
-                          type="button"
-                          onClick={() => setActiveSubTab('subscription')}
-                          className="mt-8 text-xs text-slate-500 hover:text-[#10B981] transition underline cursor-pointer font-black uppercase font-mono tracking-wide"
-                        >
-                          View Full License Portal & Terms ➔
-                        </button>
 
                       </div>
                     </div>
@@ -3878,19 +3859,6 @@ export default function CustomerPortal({
                       <div className="flex flex-col mt-2">
                         <div className="w-full overflow-x-auto custom-scrollbar rounded-xl border border-slate-800/80 shadow-2xl">
                           <div className="flex flex-col bg-[#0B0F19] min-w-[1000px]">
-                        {/* Fake spreadsheet browser column index labels row: A B C D E F G H I */}
-                        <div className="flex bg-[#1E293B]/70 border-b border-slate-800 text-[10.5px] font-mono text-slate-400 select-none text-center">
-                          <div className="w-[45px] shrink-0 border-r border-slate-800 py-1.5 bg-slate-900/40"></div>
-                          <div className="w-[80px] shrink-0 border-r border-slate-800 py-1.5">A</div>
-                          <div className="w-[85px] shrink-0 border-r border-slate-800 py-1.5">B</div>
-                          <div className="w-[105px] shrink-0 border-r border-slate-800 py-1.5">C</div>
-                          <div className="w-[70px] shrink-0 border-r border-slate-800 py-1.5">D</div>
-                          <div className="flex-1 min-w-[150px] border-r border-slate-800 py-1.5">E</div>
-                          <div className="flex-1 min-w-[150px] border-r border-slate-800 py-1.5">F</div>
-                          <div className="w-[80px] shrink-0 border-r border-slate-800 py-1.5">G</div>
-                          <div className="w-[110px] shrink-0 border-r border-slate-800 py-1.5">H</div>
-                          <div className="w-[140px] shrink-0 py-1.5">I</div>
-                        </div>
 
                         {/* Spreadsheet Grid Container */}
                         <div className="flex flex-col">
@@ -4258,19 +4226,19 @@ export default function CustomerPortal({
                   {/* Subscriber license identity display card */}
                   <div className="bg-[#111827] border border-slate-800 rounded-xl p-5 shadow-lg flex flex-wrap gap-4 items-center justify-between">
                     <div>
-                      <span className="text-[9.5px] font-mono text-emerald-400 block uppercase tracking-wide font-extrabold">USER BILLING VERIFICATIONS</span>
+                      <span className="text-[9.5px] font-mono text-emerald-400 block uppercase tracking-wide font-extrabold">ACCOUNT STATUS</span>
                       <h4 className="text-base font-black text-white mt-1 uppercase tracking-wide">
-                        Licensee: {currentUser.username} ({currentUser.email})
+                        Username: {currentUser.username} ({currentUser.email})
                       </h4>
                       <p className="text-xs text-slate-400 mt-1">
-                        Role Group: <span className="text-[#10B981] font-mono font-bold uppercase">{currentUser.role}</span> • Verification Link Status: <span className="text-amber-400 font-mono uppercase font-black">{currentUser.status}</span>
+                        Role: <span className="text-[#10B981] font-mono font-bold uppercase">{currentUser.role}</span> • Status: <span className="text-amber-400 font-mono uppercase font-black">{currentUser.status}</span>
                       </p>
                     </div>
 
                     <div className="p-4 bg-slate-950/90 text-white rounded-xl border border-[#334155]/20 text-xs font-mono flex flex-col items-end">
-                      <div>PERMITTED LEVEL: <span className="text-amber-400 font-extrabold uppercase">{activePlan?.name}</span></div>
+                      <div>CURRENT PLAN: <span className="text-amber-400 font-extrabold uppercase">{activePlan?.name}</span></div>
                       {activeSubscription && (
-                        <span className="text-[10px] text-slate-400 mt-1 text-right">Receipt Ref: {activeSubscription.payment_ref}</span>
+                        <span className="text-[10px] text-slate-400 mt-1 text-right">Receipt ID: {activeSubscription.payment_ref}</span>
                       )}
                     </div>
                   </div>
@@ -4278,7 +4246,7 @@ export default function CustomerPortal({
                   {/* High fidelity pricing layout */}
                   <div className="border border-slate-800/80 p-5 rounded-xl bg-[#111827] shadow-lg">
                     <h3 className="font-extrabold text-[#10B981] text-xs uppercase tracking-wider font-mono mb-5 flex items-center gap-1.5">
-                      ★ UPGRADE LICENSE: UNLOCK STADIUM VIP MEMBERSHIPS
+                      ★ UPGRADE SUBSCRIPTION
                     </h3>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -4504,6 +4472,10 @@ export default function CustomerPortal({
 
             </motion.div>
           </AnimatePresence>
+        </div>
+        {/* Render footer inline at the bottom of content scroller */}
+        <div className="-mx-3 sm:-mx-5 md:-mx-8 mt-12 shrink-0">
+          {renderFooter && renderFooter()}
         </div>
       </main>
     </div>

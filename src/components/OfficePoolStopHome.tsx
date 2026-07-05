@@ -127,15 +127,25 @@ export default function OfficePoolStopHome({
   const [fetchCount, setFetchCount] = useState(0);
   const [blogModalArticle, setBlogModalArticle] = useState<any | null>(null);
 
-  // Scoreboard horizontal ticker list
-  const scoreboardGames = [
-    { type: 'Aussie • FT', team1: 'MELB', score1: '2', team2: 'SYD', score2: '1', status: 'COMPLETED' },
-    { type: 'UK • FT', team1: 'CHE', score1: '1', team2: 'ARS', score2: '1', status: 'COMPLETED' },
-    { type: 'Aussie • FT', team1: 'BRIS', score1: '1', team2: 'ADEL', score2: '1', status: 'COMPLETED' },
-    { type: 'UK • FT', team1: 'TOT', score1: '0', team2: 'MUN', score2: '2', status: 'COMPLETED' },
-    { type: 'Gilas • LIVE', team1: 'NGR', score1: '84', team2: 'GHA', score2: '79', status: 'Q4 2:15' },
-    { type: 'PBA • LIVE', team1: 'SMB', score1: '95', team2: 'BGSM', score2: '93', status: 'Q4 0:42' },
-  ];
+  // Scoreboard horizontal ticker state
+  const [liveScoresData, setLiveScoresData] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchLiveScores = async () => {
+      try {
+        const response = await fetch("/api/livescores");
+        const json = await response.json();
+        if (json.success) {
+          setLiveScoresData(json.matches || []);
+        }
+      } catch (err) {
+        console.error("Error loading live scores on home:", err);
+      }
+    };
+    fetchLiveScores();
+    const interval = setInterval(fetchLiveScores, 15000);
+    return () => clearInterval(interval);
+  }, []);
 
   const scoreboardRef = useRef<HTMLDivElement>(null);
   const [isScoreboardHovered, setIsScoreboardHovered] = useState(false);
@@ -371,33 +381,67 @@ export default function OfficePoolStopHome({
           onMouseLeave={() => setIsScoreboardHovered(false)}
           className="flex flex-1 mx-2 md:mx-8 text-[11px] md:text-sm h-11 md:h-12 items-center select-none text-white border-l border-emerald-800/60 px-2 md:px-6 overflow-x-auto scrollbar-none"
         >
-          <div className="flex items-center gap-3 h-full whitespace-nowrap">
-            {[...scoreboardGames, ...scoreboardGames].map((game, idx) => (
-              <div 
-                key={idx}
-                onClick={() => triggerToast(`Match details: ${game.team1} vs ${game.team2}`, 'info')}
-                className="flex items-center border-r border-emerald-950/60 pr-5 pl-2 hover:bg-emerald-950/40 transition cursor-pointer h-full gap-4 text-left"
-              >
-                <div className="flex flex-col justify-center">
-                  <span className={`text-[9.5px] font-black tracking-widest ${game.type.includes('LIVE') ? 'text-amber-400' : 'text-emerald-400'}`}>
-                    {game.type.toUpperCase()}
-                  </span>
-                  <div className="flex items-center gap-1.5 mt-0.5 font-extrabold">
-                    <span className="text-neutral-100 text-[12.5px] tracking-wide">{game.team1}</span> 
-                    <span className="text-amber-300 font-black text-[11.5px]">{game.score1}</span>
-                    <span className="text-emerald-500 text-[10px]">-</span>
-                    <span className="text-neutral-100 text-[12.5px] tracking-wide">{game.team2}</span> 
-                    <span className="text-amber-300 font-black text-[11.5px]">{game.score2}</span>
+          {liveScoresData.length === 0 ? (
+            <div className="flex items-center gap-2 text-emerald-500/80 font-mono text-[10px] uppercase tracking-widest pl-4">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500/50 animate-pulse"></span>
+              <span>No active live match trackers in database</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 h-full whitespace-nowrap">
+              {(liveScoresData.length < 4 ? [...liveScoresData, ...liveScoresData, ...liveScoresData, ...liveScoresData] : [...liveScoresData, ...liveScoresData]).map((match: any, idx: number) => {
+                const parts = (match.fixture || "").split(" vs ");
+                const team1 = parts[0]?.trim() || "Home";
+                const team2 = parts[1]?.trim() || "Away";
+
+                const scoreParts = (match.score || "0 - 0").split(" - ");
+                const score1 = scoreParts[0]?.trim() || "0";
+                const score2 = scoreParts[1]?.trim() || "0";
+
+                const isLiveStatus = match.status === 'live';
+                const isFinished = match.status === 'finished';
+                const isPostponed = match.status === 'postponed';
+
+                let typeStr = 'NOT STARTED';
+                let typeColor = 'text-slate-400';
+                if (isLiveStatus) {
+                  typeStr = 'LIVE';
+                  typeColor = 'text-[#FA3E65]';
+                } else if (isFinished) {
+                  typeStr = 'FT';
+                  typeColor = 'text-emerald-400';
+                } else if (isPostponed) {
+                  typeStr = 'PPD';
+                  typeColor = 'text-amber-500';
+                }
+
+                return (
+                  <div 
+                    key={idx}
+                    onClick={() => triggerToast(`Match details: ${team1} vs ${team2} (${typeStr})`, 'info')}
+                    className="flex items-center border-r border-emerald-950/60 pr-5 pl-2 hover:bg-emerald-950/40 transition cursor-pointer h-full gap-4 text-left shrink-0"
+                  >
+                    <div className="flex flex-col justify-center">
+                      <span className={`text-[9.5px] font-black tracking-widest ${typeColor}`}>
+                        {typeStr}
+                      </span>
+                      <div className="flex items-center gap-1.5 mt-0.5 font-extrabold">
+                        <span className="text-neutral-100 text-[12.5px] tracking-wide">{team1}</span> 
+                        <span className="text-amber-300 font-black text-[11.5px]">{score1}</span>
+                        <span className="text-emerald-500 text-[10px]">-</span>
+                        <span className="text-neutral-100 text-[12.5px] tracking-wide">{team2}</span> 
+                        <span className="text-amber-300 font-black text-[11.5px]">{score2}</span>
+                      </div>
+                    </div>
+                    {isLiveStatus && (
+                      <span className="bg-[#FA3E65]/15 border border-[#FA3E65]/20 text-[#FA3E65] text-[9px] font-black px-2 py-0.5 rounded shadow animate-pulse font-mono">
+                        LIVE
+                      </span>
+                    )}
                   </div>
-                </div>
-                {game.type.includes('LIVE') && (
-                  <span className="bg-amber-500 text-slate-950 text-[9px] font-black px-2 py-0.5 rounded shadow animate-pulse">
-                    {game.status}
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Action Button */}
@@ -411,37 +455,7 @@ export default function OfficePoolStopHome({
         </div>
       </header>
 
-      {/* 2. TAB CONTROLS */}
-      <div className="bg-[#051310] border-b border-emerald-950/50 flex justify-center sticky top-20 z-30">
-        <div className="flex items-center gap-2 py-3">
-          <button
-            onClick={() => {
-              setCurrentView('blog');
-              triggerToast('Switched to live blog view', 'info');
-            }}
-            className={`px-6 py-2 rounded-full text-xs font-bold transition-all ${
-              currentView === 'blog'
-                ? 'bg-emerald-500 text-slate-950 shadow-lg'
-                : 'text-emerald-300 hover:text-white hover:bg-emerald-950/50'
-            }`}
-          >
-            📋 Expert Analysis Blog
-          </button>
-          <button
-            onClick={() => {
-              setCurrentView('marketing');
-              triggerToast('Switched to premium marketing feature showcase', 'info');
-            }}
-            className={`px-6 py-2 rounded-full text-xs font-bold transition-all ${
-              currentView === 'marketing'
-                ? 'bg-emerald-500 text-slate-950 shadow-lg'
-                : 'text-emerald-300 hover:text-white hover:bg-emerald-950/50'
-            }`}
-          >
-            💎 Promo Showcase & Features
-          </button>
-        </div>
-      </div>
+
 
       {/* 3. CORE VIEWS GENERATOR */}
       {currentView === 'blog' ? (

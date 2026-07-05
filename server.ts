@@ -964,6 +964,70 @@ Format exactly as this JSON schema (NO markdown blocks, NO \`\`\`json):
     }
   });
 
+  // API Route - Chatbot Webhook forwarder (n8n Integration)
+  app.post("/api/chatbot", async (req, res) => {
+    const { message, date, user } = req.body;
+    const webhookUrl = process.env.N8N_WEBHOOK_URL;
+
+    if (!webhookUrl) {
+      return res.json({
+        success: true,
+        reply: "Message failed to send.",
+        isFallback: true
+      });
+    }
+
+    try {
+      const response = await fetch(webhookUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          message: message || "",
+          date: date || "",
+          timestamp: new Date().toISOString(),
+          user: user || { username: "anonymous", role: "user" }
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Webhook returned HTTP Status ${response.status}`);
+      }
+
+      const contentType = response.headers.get("content-type") || "";
+      let reply = "";
+
+      if (contentType.includes("application/json")) {
+        const json = await response.json();
+        if (typeof json === "string") {
+          reply = json;
+        } else if (Array.isArray(json) && json.length > 0) {
+          const first = json[0];
+          reply = first.reply || first.response || first.message || first.output || first.text || JSON.stringify(first, null, 2);
+        } else if (json) {
+          reply = json.reply || json.response || json.message || json.output || json.text || json.data || JSON.stringify(json, null, 2);
+        } else {
+          reply = JSON.stringify(json);
+        }
+      } else {
+        reply = await response.text();
+      }
+
+      res.json({
+        success: true,
+        reply: reply || "The n8n webhook executed successfully but returned an empty response."
+      });
+    } catch (err: any) {
+      console.error("Chatbot n8n webhook delivery failure:", err);
+      res.json({
+        success: true,
+        reply: "Message failed to send.",
+        isFallback: true
+      });
+    }
+  });
+
   // Vite integration middleware
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({

@@ -45,6 +45,8 @@ import {
 // Modular imports
 import CustomerPortal from './components/CustomerPortal';
 import OfficePoolStopHome from './components/OfficePoolStopHome';
+import ChatbotSection from './components/ChatbotSection';
+import Footer from './components/Footer';
 import { getSupabaseClient } from './lib/supabase';
 
 export default function App() {
@@ -792,6 +794,10 @@ export default function App() {
     }
   };
 
+  const renderFooter = () => (
+    <Footer triggerToast={triggerToast} />
+  );
+
   return (
     <div className="h-screen bg-[#FCFDFE] flex flex-col font-sans select-none text-slate-800 overflow-hidden">
       {/* Dynamic Toast banner bubble element */}
@@ -822,30 +828,33 @@ export default function App() {
       </AnimatePresence>
 
       {viewMode === 'homepage' ? (
-        <div className="flex-1 overflow-y-auto">
-          <OfficePoolStopHome
-            db={db}
-            onSignIn={() => {
-              setViewMode('portal');
-              triggerToast('Authenticated secure session to system dashboard.', 'success');
-            }}
-            onEnterManagerPanel={() => {
-              setViewMode('portal');
-              // Automatically switch to admin persona
-              const adminUsr = db.users.find(u => u.role === 'admin');
-              if (adminUsr) {
-                setSelectedPersonaId(adminUsr.id);
-              }
-              triggerToast('Entered administrative manager dashboard.', 'success');
-            }}
-            onNavigateToCodes={() => {
-              setViewMode('portal');
-              triggerToast('Redirected to pool codes list.', 'info');
-            }}
-            triggerToast={triggerToast}
-            onRegisterUser={handleRegisterUser}
-            onLoginUser={handleLoginUserWithCreds}
-          />
+        <div className="flex-1 overflow-y-auto flex flex-col">
+          <div className="flex-1">
+            <OfficePoolStopHome
+              db={db}
+              onSignIn={() => {
+                setViewMode('portal');
+                triggerToast('Authenticated secure session to system dashboard.', 'success');
+              }}
+              onEnterManagerPanel={() => {
+                setViewMode('portal');
+                // Automatically switch to admin persona
+                const adminUsr = db.users.find(u => u.role === 'admin');
+                if (adminUsr) {
+                  setSelectedPersonaId(adminUsr.id);
+                }
+                triggerToast('Entered administrative manager dashboard.', 'success');
+              }}
+              onNavigateToCodes={() => {
+                setViewMode('portal');
+                triggerToast('Redirected to pool codes list.', 'info');
+              }}
+              triggerToast={triggerToast}
+              onRegisterUser={handleRegisterUser}
+              onLoginUser={handleLoginUserWithCreds}
+            />
+          </div>
+          {renderFooter()}
         </div>
       ) : (
         <div className="h-screen bg-[#090D1A] flex flex-col overflow-hidden text-slate-100">
@@ -971,22 +980,14 @@ export default function App() {
 
                   logSQL(logMsg, `Customer @${updated.username} synchronized profile details`);
                 }}
+                renderFooter={renderFooter}
               />
             </div>
           </main>
-
-          {/* Footer metadata tracker */}
-          <footer className="bg-[#070B14] border-t border-[#1E293B] p-4 text-[10px] text-slate-500 font-mono">
-            <div className="w-full px-4 md:px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="flex gap-2 items-center">
-                <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span>Relational Application State Engine Active</span>
-              </div>
-              <span>Active Persona Status: {currentUser.status.toUpperCase()} • Local Time: 2026-06-06 UTC</span>
-            </div>
-          </footer>
         </div>
       )}
+      {/* Global Floating Soccer AI Assistant */}
+      <ChatbotSection currentUser={currentUser} triggerToast={triggerToast} />
     </div>
   );
 }
