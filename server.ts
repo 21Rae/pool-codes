@@ -6,6 +6,14 @@ import { createClient } from "@supabase/supabase-js";
 
 dotenv.config();
 
+// Diagnose configured environment variables for easy verification in Vercel or local logs
+console.log("[Fast Pool Codes Gateway] Checking configured environment variables on load:");
+console.log(`- N8N_WEBHOOK_URL: ${process.env.N8N_WEBHOOK_URL ? "CONFIGURED" : "MISSING"}`);
+console.log(`- GEMINI_API_KEY: ${process.env.GEMINI_API_KEY ? "CONFIGURED" : "MISSING"}`);
+console.log(`- OPENAI_API_KEY: ${process.env.OPENAI_API_KEY || process.env.OPEN_API_KEY ? "CONFIGURED" : "MISSING"}`);
+console.log(`- SUPABASE_URL: ${process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL ? "CONFIGURED" : "MISSING"}`);
+console.log(`- SUPABASE_ANON_KEY: ${process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY ? "CONFIGURED" : "MISSING"}`);
+
 const app = express();
 
 // Middleware to normalize req.url and handle body parsing compatibility for Vercel
@@ -56,6 +64,16 @@ app.use((req, res, next) => {
   // API Route - Health Check
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
+  });
+
+  // API Route - Dynamic public configuration retrieval for client-side SPA
+  app.get("/api/config", (req, res) => {
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+    const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+    res.json({
+      supabaseUrl,
+      supabaseAnonKey
+    });
   });
 
   // API Route - Securely Query blogs from Supabase (bypassing Client SSL & Mixed Content blocks)

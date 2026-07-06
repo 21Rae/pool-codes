@@ -55,6 +55,35 @@ if (OriginalWebSocket) {
 }
 
 let supabaseClient: SupabaseClient | null = null;
+let fetchedUrl = '';
+let fetchedAnonKey = '';
+let isConfigFetched = false;
+
+/**
+ * Dynamically loads Supabase configuration from the server-side proxy endpoint.
+ * This ensures that on Vercel or production hosting, the client gets the correct environment variables
+ * regardless of whether they were baked in during static compile-time build.
+ */
+export async function initSupabaseConfig(): Promise<boolean> {
+  if (isConfigFetched) return true;
+  try {
+    const res = await fetch('/api/config');
+    if (res.ok) {
+      const data = await res.json();
+      if (data.supabaseUrl && data.supabaseAnonKey) {
+        fetchedUrl = data.supabaseUrl;
+        fetchedAnonKey = data.supabaseAnonKey;
+        isConfigFetched = true;
+        // Pre-initialize client so it's ready synchronously
+        getSupabaseClient();
+        return true;
+      }
+    }
+  } catch (err) {
+    console.error('[Supabase Client Config] Error fetching runtime config:', err);
+  }
+  return false;
+}
 
 export function getSupabaseClient(): SupabaseClient | null {
   if (supabaseClient) {
@@ -83,6 +112,14 @@ export function getSupabaseClient(): SupabaseClient | null {
     try {
       supabaseAnonKey = (process as any).env?.VITE_SUPABASE_ANON_KEY || (process as any).env?.SUPABASE_ANON_KEY || (window as any)._env_?.VITE_SUPABASE_ANON_KEY || (window as any)._env_?.SUPABASE_ANON_KEY || '';
     } catch (_) {}
+  }
+
+  // If statically compiled variables are empty, fall back to dynamically fetched runtime variables
+  if (!supabaseUrl) {
+    supabaseUrl = fetchedUrl;
+  }
+  if (!supabaseAnonKey) {
+    supabaseAnonKey = fetchedAnonKey;
   }
 
   if (!supabaseUrl || !supabaseAnonKey) {
