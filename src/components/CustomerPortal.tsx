@@ -4356,7 +4356,7 @@ export default function CustomerPortal({
           </AnimatePresence>
         </div>
         {/* Render footer inline at the bottom of content scroller */}
-        <div className="-mx-3 sm:-mx-5 md:-mx-8 mt-12 shrink-0">
+        <div className="-mx-3 sm:-mx-5 md:-mx-8 mt-auto pt-12 shrink-0">
           {renderFooter && renderFooter()}
         </div>
       </main>

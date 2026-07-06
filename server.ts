@@ -41,7 +41,7 @@ app.use((req, res, next) => {
 
 // Safe body-parsing middleware that avoids hanging in serverless/Vercel environments
 app.use((req, res, next) => {
-  if ((req as any)._body || (req.body !== undefined && typeof req.body === "object" && req.body !== null && Object.keys(req.body).length > 0)) {
+  if ((req as any)._body || (req.body !== undefined && typeof req.body === "object" && req.body !== null)) {
     (req as any)._body = true;
     return next();
   }
