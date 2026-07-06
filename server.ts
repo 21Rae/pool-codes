@@ -7,13 +7,26 @@ import { createClient } from "@supabase/supabase-js";
 dotenv.config();
 
 const app = express();
-app.use(express.json());
 
-// Middleware to normalize req.url in Vercel serverless environment (fixes Express routing for Vercel rewrites)
+// Middleware to normalize req.url and handle body parsing compatibility for Vercel
 app.use((req, res, next) => {
+  // 1. Normalize request URL for Vercel rewrites
   if (req.originalUrl && req.url !== req.originalUrl) {
     req.url = req.originalUrl;
   }
+  
+  // 2. Vercel pre-parsed body handling: if req.body is already parsed, skip express.json() stream consumption
+  if (req.body !== undefined && typeof req.body === "object" && req.body !== null) {
+    (req as any)._body = true;
+  }
+  next();
+});
+
+app.use(express.json());
+
+// Fallback to guarantee req.body is never undefined to prevent destructuring crashes
+app.use((req, res, next) => {
+  req.body = req.body || {};
   next();
 });
 
@@ -966,111 +979,117 @@ Format exactly as this JSON schema (NO markdown blocks, NO \`\`\`json):
 
   // API Route - Chatbot Webhook forwarder (n8n Integration) with intelligent Gemini + Local Fallback
   app.post("/api/chatbot", async (req, res) => {
-    const { message, date, user } = req.body;
-    const webhookUrl = process.env.N8N_WEBHOOK_URL;
-
     let webhookResponseOk = false;
     let reply = "";
+    
+    // Safely extract input parameters
+    const body = req.body || {};
+    const message = body.message || "";
+    const date = body.date || "";
+    const user = body.user || { username: "anonymous", role: "user" };
 
-    if (webhookUrl) {
-      const executeWebhook = async (url: string): Promise<boolean> => {
-        try {
-          console.log(`Forwarding chatbot query to webhook: ${url}`);
-          const response = await fetch(url, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-              message: message || "",
-              chatInput: message || "",
-              input: message || "",
-              text: message || "",
-              content: message || "",
-              date: date || "",
-              timestamp: new Date().toISOString(),
-              user: user || { username: "anonymous", role: "user" }
-            }),
-            signal: AbortSignal.timeout(8000)
-          });
+    try {
+      const webhookUrl = process.env.N8N_WEBHOOK_URL;
 
-          if (response.ok) {
-            const contentType = response.headers.get("content-type") || "";
-            if (contentType.includes("application/json")) {
-              const json = await response.json();
-              console.log("Webhook returned JSON response:", JSON.stringify(json));
-              
-              if (typeof json === "string") {
-                reply = json;
-              } else if (Array.isArray(json)) {
-                if (json.length > 0) {
-                  const first = json[0];
-                  if (typeof first === "string") {
-                    reply = first;
-                  } else if (first && typeof first === "object") {
-                    reply = first.reply || first.response || first.message || first.output || first.text || first.content || JSON.stringify(first, null, 2);
+      if (webhookUrl) {
+        const executeWebhook = async (url: string): Promise<boolean> => {
+          try {
+            console.log(`Forwarding chatbot query to webhook: ${url}`);
+            const response = await fetch(url, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({
+                message: message || "",
+                chatInput: message || "",
+                input: message || "",
+                text: message || "",
+                content: message || "",
+                date: date || "",
+                timestamp: new Date().toISOString(),
+                user: user
+              }),
+              signal: AbortSignal.timeout(8000)
+            });
+
+            if (response.ok) {
+              const contentType = response.headers.get("content-type") || "";
+              if (contentType.includes("application/json")) {
+                const json = await response.json();
+                console.log("Webhook returned JSON response:", JSON.stringify(json));
+                
+                if (typeof json === "string") {
+                  reply = json;
+                } else if (Array.isArray(json)) {
+                  if (json.length > 0) {
+                    const first = json[0];
+                    if (typeof first === "string") {
+                      reply = first;
+                    } else if (first && typeof first === "object") {
+                      reply = first.reply || first.response || first.message || first.output || first.text || first.content || JSON.stringify(first, null, 2);
+                    } else {
+                      reply = JSON.stringify(json, null, 2);
+                    }
                   } else {
-                    reply = JSON.stringify(json, null, 2);
+                    reply = "Received an empty array from the webhook.";
                   }
+                } else if (json && typeof json === "object") {
+                  reply = json.reply || json.response || json.message || json.output || json.text || json.content || json.data || JSON.stringify(json, null, 2);
                 } else {
-                  reply = "Received an empty array from the webhook.";
+                  reply = String(json);
                 }
-              } else if (json && typeof json === "object") {
-                reply = json.reply || json.response || json.message || json.output || json.text || json.content || json.data || JSON.stringify(json, null, 2);
               } else {
-                reply = String(json);
+                reply = await response.text();
               }
+              console.log(`Successfully received response from webhook: "${reply.substring(0, 100)}..."`);
+              return true;
             } else {
-              reply = await response.text();
+              console.error(`Chatbot n8n webhook ${url} returned status: ${response.status}`);
+              return false;
             }
-            console.log(`Successfully received response from webhook: "${reply.substring(0, 100)}..."`);
-            return true;
-          } else {
-            console.error(`Chatbot n8n webhook ${url} returned status: ${response.status}`);
+          } catch (err: any) {
+            console.error(`Chatbot n8n webhook ${url} connection error:`, err);
             return false;
           }
-        } catch (err: any) {
-          console.error(`Chatbot n8n webhook ${url} connection error:`, err);
-          return false;
+        };
+
+        // 1. Try original webhook URL
+        webhookResponseOk = await executeWebhook(webhookUrl);
+        
+        // 2. If it failed and contains /webhook-test/, try production version fallback
+        if (!webhookResponseOk && webhookUrl.includes("/webhook-test/")) {
+          const prodUrl = webhookUrl.replace("/webhook-test/", "/webhook/");
+          console.log(`Attempting production fallback webhook: ${prodUrl}`);
+          webhookResponseOk = await executeWebhook(prodUrl);
         }
-      };
-
-      // 1. Try original webhook URL
-      webhookResponseOk = await executeWebhook(webhookUrl);
-      
-      // 2. If it failed and contains /webhook-test/, try production version fallback
-      if (!webhookResponseOk && webhookUrl.includes("/webhook-test/")) {
-        const prodUrl = webhookUrl.replace("/webhook-test/", "/webhook/");
-        console.log(`Attempting production fallback webhook: ${prodUrl}`);
-        webhookResponseOk = await executeWebhook(prodUrl);
+        // 3. Or if it failed and contains /webhook/, try test version fallback
+        else if (!webhookResponseOk && webhookUrl.includes("/webhook/") && !webhookUrl.includes("/webhook-test/")) {
+          const testUrl = webhookUrl.replace("/webhook/", "/webhook-test/");
+          console.log(`Attempting test fallback webhook: ${testUrl}`);
+          webhookResponseOk = await executeWebhook(testUrl);
+        }
+      } else {
+        console.log("No n8n webhook configured (N8N_WEBHOOK_URL is empty). Using smart AI/Local fallback directly.");
       }
-      // 3. Or if it failed and contains /webhook/, try test version fallback
-      else if (!webhookResponseOk && webhookUrl.includes("/webhook/") && !webhookUrl.includes("/webhook-test/")) {
-        const testUrl = webhookUrl.replace("/webhook/", "/webhook-test/");
-        console.log(`Attempting test fallback webhook: ${testUrl}`);
-        webhookResponseOk = await executeWebhook(testUrl);
-      }
-    } else {
-      console.log("No n8n webhook configured (N8N_WEBHOOK_URL is empty). Using smart AI/Local fallback directly.");
-    }
 
-    // If webhook failed or was not configured, we fall back to our high-quality Gemini AI generator!
-    if (!webhookResponseOk) {
-      const geminiKey = process.env.GEMINI_API_KEY;
-      const hasGemini = geminiKey && geminiKey !== "MY_GEMINI_API_KEY" && geminiKey !== "GEMINI_API_KEY" && geminiKey !== "";
+      // If webhook failed or was not configured, we fall back to our high-quality Gemini AI generator!
+      if (!webhookResponseOk) {
+        const geminiKey = process.env.GEMINI_API_KEY;
+        const hasGemini = geminiKey && geminiKey !== "MY_GEMINI_API_KEY" && geminiKey !== "GEMINI_API_KEY" && geminiKey !== "";
 
-      if (hasGemini) {
-        try {
-          const ai = new GoogleGenAI({
-            apiKey: geminiKey,
-            httpOptions: {
-              headers: {
-                'User-Agent': 'aistudio-build',
+        if (hasGemini) {
+          try {
+            const ai = new GoogleGenAI({
+              apiKey: geminiKey,
+              httpOptions: {
+                headers: {
+                  'User-Agent': 'aistudio-build',
+                }
               }
-            }
-          });
+            });
 
-          const systemPrompt = `You are "PoolCodes Assistant", a helpful, professional AI chatbot for the "Fast Pool Codes" application.
+            const systemPrompt = `You are "PoolCodes Assistant", a helpful, professional AI chatbot for the "Fast Pool Codes" application.
 The application handles:
 1. UK Football Pools (Aussie Season & UK Season). Weekly coupon draws, fixtures, draw predictions (finding 3 draws, banker draws).
 2. Live sports scores ticker (live matches, goals, minutes, game states, updates).
@@ -1082,38 +1101,41 @@ Guidelines:
 - Answer user queries about pool codes, soccer draws, predictions, or how to use the app.
 - Keep the response professional, clear, and focused on helping the user.`;
 
-          const userPrompt = `User Message: "${message || ""}"
+            const userPrompt = `User Message: "${message || ""}"
 Selected Context Date: "${date || "None selected"}"
 User Metadata: ${JSON.stringify(user || { username: "guest" })}
 
 Please formulate a helpful response based on this information.`;
 
-          const aiResponse = await ai.models.generateContent({
-            model: "gemini-3.5-flash",
-            contents: userPrompt,
-            config: {
-              systemInstruction: systemPrompt,
-            }
-          });
+            const aiResponse = await ai.models.generateContent({
+              model: "gemini-3.5-flash",
+              contents: userPrompt,
+              config: {
+                systemInstruction: systemPrompt,
+              }
+            });
 
-          reply = aiResponse.text || "";
-        } catch (geminiErr: any) {
-          console.error("Chatbot Gemini fallback failed:", geminiErr);
+            reply = aiResponse.text || "";
+          } catch (geminiErr: any) {
+            console.error("Chatbot Gemini fallback failed:", geminiErr);
+          }
         }
       }
+    } catch (routeErr: any) {
+      console.error("Critical error in chatbot route handler:", routeErr);
+    }
 
-      // If both Webhook AND Gemini fail, or if no key exists, provide an excellent rule-based local helper!
-      if (!reply) {
-        const lowerMsg = (message || "").toLowerCase();
-        if (lowerMsg.includes("predict") || lowerMsg.includes("draw") || lowerMsg.includes("banker")) {
-          reply = `🔮 **Fast Pool Codes Draw Prediction System**\n\nI couldn't reach the live AI endpoint right now, but here are our default draw insights for this week:\n- **Match Highlight**: Liverpool vs Chelsea (Strong draw index of **84%**)\n- **Banker Prediction**: Arsenal vs Man City (Expected low scoring, high draw likelihood)\n- **Secondary Draw Picks**: Match 14 & Match 27 on this week's official coupon.\n\nPlease check the Live Scores board and weekly coupon draws on your dashboard for more real-time predictions!`;
-        } else if (lowerMsg.includes("code") || lowerMsg.includes("coupon") || lowerMsg.includes("aussie") || lowerMsg.includes("week")) {
-          reply = `📋 **Football Pool Coupon & Weekly Codes Guide**\n\nI am currently operating in offline mode, but I can guide you on weekly pool codes:\n- **Aussie Season Week 49**: Codes are fully synchronized and available for premium plans.\n- **Weekly Coupon Draws**: Check the Dashboard tab to search coupon sheets, bookmaker forecast ratios, and register your free weekly draw ticket entries.\n- **Match Fixtures**: Go to the Matches sub-tab to see the current lineup of 49 pool matches.`;
-        } else if (lowerMsg.includes("hello") || lowerMsg.includes("hi") || lowerMsg.includes("welcome")) {
-          reply = `👋 Hello! Welcome to the **PoolCodes Assistant**.\n\nI am running in local backup mode to assist you. You can ask me about:\n- Weekly pool draw predictions\n- Searching coupon codes & fixtures\n- Accessing premium match logs and goal stats\n\nHow can I support you today?`;
-        } else {
-          reply = `👋 Hello! I am the **PoolCodes Assistant** running in local offline backup mode.\n\nIt seems our primary webhook is currently undergoing system maintenance, but you can explore the dashboard for:\n- 📊 **Live Scores**: Real-time match fixtures and goals.\n- 🏆 **Weekly Coupons**: UK/Aussie pool sheets & draws.\n- ✍️ **Admin Blog**: Football analysis articles.\n\nIf you have any specific feature question, let me know and I will do my absolute best to help!`;
-        }
+    // Guarantees high-quality offline rule-based response if both Webhook AND Gemini fail or raise an error
+    if (!reply) {
+      const lowerMsg = (message || "").toLowerCase();
+      if (lowerMsg.includes("predict") || lowerMsg.includes("draw") || lowerMsg.includes("banker")) {
+        reply = `🔮 **Fast Pool Codes Draw Prediction System**\n\nI couldn't reach the live AI endpoint right now, but here are our default draw insights for this week:\n- **Match Highlight**: Liverpool vs Chelsea (Strong draw index of **84%**)\n- **Banker Prediction**: Arsenal vs Man City (Expected low scoring, high draw likelihood)\n- **Secondary Draw Picks**: Match 14 & Match 27 on this week's official coupon.\n\nPlease check the Live Scores board and weekly coupon draws on your dashboard for more real-time predictions!`;
+      } else if (lowerMsg.includes("code") || lowerMsg.includes("coupon") || lowerMsg.includes("aussie") || lowerMsg.includes("week")) {
+        reply = `📋 **Football Pool Coupon & Weekly Codes Guide**\n\nI am currently operating in offline mode, but I can guide you on weekly pool codes:\n- **Aussie Season Week 49**: Codes are fully synchronized and available for premium plans.\n- **Weekly Coupon Draws**: Check the Dashboard tab to search coupon sheets, bookmaker forecast ratios, and register your free weekly draw ticket entries.\n- **Match Fixtures**: Go to the Matches sub-tab to see the current lineup of 49 pool matches.`;
+      } else if (lowerMsg.includes("hello") || lowerMsg.includes("hi") || lowerMsg.includes("welcome")) {
+        reply = `👋 Hello! Welcome to the **PoolCodes Assistant**.\n\nI am running in local backup mode to assist you. You can ask me about:\n- Weekly pool draw predictions\n- Searching coupon codes & fixtures\n- Accessing premium match logs and goal stats\n\nHow can I support you today?`;
+      } else {
+        reply = `👋 Hello! I am the **PoolCodes Assistant** running in local offline backup mode.\n\nIt seems our primary webhook is currently undergoing system maintenance, but you can explore the dashboard for:\n- 📊 **Live Scores**: Real-time match fixtures and goals.\n- 🏆 **Weekly Coupons**: UK/Aussie pool sheets & draws.\n- ✍️ **Admin Blog**: Football analysis articles.\n\nIf you have any specific feature question, let me know and I will do my absolute best to help!`;
       }
     }
 
