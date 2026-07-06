@@ -991,7 +991,7 @@ Format exactly as this JSON schema (NO markdown blocks, NO \`\`\`json):
               timestamp: new Date().toISOString(),
               user: user || { username: "anonymous", role: "user" }
             }),
-            signal: AbortSignal.timeout(10000)
+            signal: AbortSignal.timeout(8000)
           });
 
           if (response.ok) {
