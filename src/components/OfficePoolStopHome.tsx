@@ -107,7 +107,7 @@ export default function OfficePoolStopHome({
 
   // Paywall states
   const [showPaywall, setShowPaywall] = useState(false);
-  const [paywallPlan, setPaywallPlan] = useState<'weekly' | 'monthly' | 'quarterly' | 'biannual' | 'yearly'>('monthly');
+  const [paywallPlan, setPaywallPlan] = useState<string>('plan-monthly');
   const [paywallForm, setPaywallForm] = useState({
     cardholder: '',
     cardNumber: '',
@@ -331,7 +331,7 @@ export default function OfficePoolStopHome({
 
     setTimeout(() => {
       if (onRegisterUser) {
-        onRegisterUser(username, email, password)
+        onRegisterUser(username, email, password, paywallPlan)
           .then((res) => {
             setIsProcessingPayment(false);
             if (res.success) {
@@ -703,24 +703,22 @@ export default function OfficePoolStopHome({
 
               {/* Plans selector inside Paywall Checkout */}
               <div className="grid grid-cols-2 gap-2.5 mb-5 select-none text-xs">
-                {[
-                  { key: 'weekly', val: '$15 / wk', label: 'Starter Weekly' },
-                  { key: 'monthly', val: '$35 / mo', label: 'Popular Monthly (70% Off)' },
-                  { key: 'yearly', val: '$199 / yr', label: 'Maximum Annual (85% Off)' }
-                ].map((plan) => {
-                  const isActive = paywallPlan === plan.key;
+                {(db.subscription_plans || []).filter((p: any) => p.id !== 'plan-free').map((p: any) => {
+                  const isActive = paywallPlan === p.id;
+                  const cycleAbbr = p.billing_cycle === 'biannual' ? '6mo' : p.billing_cycle === 'quarterly' ? '3mo' : p.billing_cycle === 'weekly' ? 'wk' : p.billing_cycle === 'monthly' ? 'mo' : 'yr';
                   return (
                     <button
-                      key={plan.key}
-                      onClick={() => setPaywallPlan(plan.key as any)}
+                      key={p.id}
+                      type="button"
+                      onClick={() => setPaywallPlan(p.id)}
                       className={`p-2.5 rounded-xl border text-left flex flex-col justify-between transition ${
                         isActive
                           ? 'border-amber-400 bg-amber-400/10 text-white'
                           : 'border-emerald-950 hover:bg-emerald-950/20 text-slate-400'
                       }`}
                     >
-                      <span className="font-black font-mono block text-xs tracking-tight text-amber-300">{plan.val}</span>
-                      <span className="text-[9.5px] mt-1 font-bold block leading-none">{plan.label}</span>
+                      <span className="font-black font-mono block text-xs tracking-tight text-amber-300">₦{p.price.toLocaleString()} / {cycleAbbr}</span>
+                      <span className="text-[9.5px] mt-1 font-bold block leading-none">{p.name}</span>
                     </button>
                   );
                 })}
