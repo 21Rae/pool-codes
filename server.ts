@@ -16,13 +16,36 @@ app.use((req, res, next) => {
   }
   
   // 2. Vercel pre-parsed body handling: if req.body is already parsed, skip express.json() stream consumption
-  if (req.body !== undefined && typeof req.body === "object" && req.body !== null) {
-    (req as any)._body = true;
+  if (req.body !== undefined && req.body !== null) {
+    if (typeof req.body === "object") {
+      (req as any)._body = true;
+    } else if (typeof req.body === "string" && req.body.trim().length > 0) {
+      try {
+        req.body = JSON.parse(req.body);
+        (req as any)._body = true;
+      } catch (_) {
+        // Leave to be parsed by express.json
+      }
+    }
   }
   next();
 });
 
-app.use(express.json());
+// Safe body-parsing middleware that avoids hanging in serverless/Vercel environments
+app.use((req, res, next) => {
+  if ((req as any)._body || (req.body !== undefined && typeof req.body === "object" && req.body !== null && Object.keys(req.body).length > 0)) {
+    (req as any)._body = true;
+    return next();
+  }
+
+  express.json({ limit: "10mb" })(req, res, (err) => {
+    if (err) {
+      console.warn("Express JSON body-parser warning:", err.message);
+      req.body = {};
+    }
+    next();
+  });
+});
 
 // Fallback to guarantee req.body is never undefined to prevent destructuring crashes
 app.use((req, res, next) => {
@@ -988,6 +1011,8 @@ Format exactly as this JSON schema (NO markdown blocks, NO \`\`\`json):
     const date = body.date || "";
     const user = body.user || { username: "anonymous", role: "user" };
 
+    console.log(`[Chatbot API] Received message: "${message}", date: "${date}", user: ${JSON.stringify(user)}`);
+
     try {
       const webhookUrl = process.env.N8N_WEBHOOK_URL;
 
@@ -1010,7 +1035,7 @@ Format exactly as this JSON schema (NO markdown blocks, NO \`\`\`json):
                 timestamp: new Date().toISOString(),
                 user: user
               }),
-              signal: AbortSignal.timeout(8000)
+              signal: AbortSignal.timeout(3000)
             });
 
             if (response.ok) {
