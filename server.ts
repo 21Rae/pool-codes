@@ -1011,13 +1011,11 @@ Format exactly as this JSON schema (NO markdown blocks, NO \`\`\`json):
     const message = body.message || "";
     const date = body.date || "";
     const user = body.user || { username: "anonymous", role: "user" };
-    const strictMode = !!body.strictMode; // When true, completely skip Gemini/Local offline fallbacks to let the dev see real n8n errors!
+    const webhookUrl = process.env.N8N_WEBHOOK_URL;
 
-    console.log(`[Chatbot API] Received message: "${message}", date: "${date}", strictMode: ${strictMode}, user: ${JSON.stringify(user)}`);
+    console.log(`[Chatbot API] Received message: "${message}", date: "${date}", user: ${JSON.stringify(user)}`);
 
     try {
-      const webhookUrl = process.env.N8N_WEBHOOK_URL;
-
       if (webhookUrl) {
         const executeWebhook = async (url: string): Promise<boolean> => {
           try {
@@ -1087,20 +1085,23 @@ Format exactly as this JSON schema (NO markdown blocks, NO \`\`\`json):
           }
         };
 
-        // Call the EXACT URL specified by the user. No automatic swaps, so test runs work perfectly!
+        // Call the EXACT URL specified by the user
         webhookResponseOk = await executeWebhook(webhookUrl);
       } else {
         webhookErrorDetail = "No n8n webhook URL configured (N8N_WEBHOOK_URL is empty).";
         console.log(webhookErrorDetail);
       }
 
-      // If webhook failed or was not configured, we fall back to our high-quality Gemini AI generator (if not in developer strictMode)
+      // If a webhook URL is configured but it fails, we strictly SKIP fallback.
+      // This prevents confusing the user when their n8n webhook fails but they still receive fallback AI responses!
+      const hasWebhookConfigured = !!webhookUrl;
+
       if (!webhookResponseOk) {
-        if (strictMode) {
-          console.log("[Chatbot API] Strict Webhook Mode is enabled. Skipping AI/Local fallback to report original webhook error.");
+        if (hasWebhookConfigured) {
+          console.log("[Chatbot API] n8n Webhook is configured but failed. Skipping AI/Local fallback to report original error.");
           res.json({
             success: false,
-            reply: `❌ **n8n Webhook Connection Error**\n\n${webhookErrorDetail || "An unknown error occurred while calling the n8n webhook."}\n\n*(AI/Local fallback was skipped because "Strict Webhook Mode" is enabled in settings.)*`,
+            reply: `❌ **n8n Webhook Connection Error**\n\n${webhookErrorDetail || "An unknown error occurred while calling the n8n webhook."}\n\n*If you are using a test webhook (/webhook-test/), ensure you clicked **"Listen for test event"** or **"Execute workflow"** in n8n first. If using a production webhook (/webhook/), make sure the workflow is active.*`,
             isFallback: false,
             webhookError: webhookErrorDetail || "Unknown webhook error.",
             isError: true
@@ -1108,6 +1109,7 @@ Format exactly as this JSON schema (NO markdown blocks, NO \`\`\`json):
           return;
         }
 
+        // Only fall back to Gemini if no n8n webhook URL is configured at all
         const geminiKey = process.env.GEMINI_API_KEY;
         const hasGemini = geminiKey && geminiKey !== "MY_GEMINI_API_KEY" && geminiKey !== "GEMINI_API_KEY" && geminiKey !== "";
 
@@ -1158,8 +1160,8 @@ Please formulate a helpful response based on this information.`;
       console.error("Critical error in chatbot route handler:", routeErr);
     }
 
-    // Guarantees high-quality offline rule-based response if both Webhook AND Gemini fail or raise an error (unless strictMode)
-    if (!reply && !strictMode) {
+    // Guarantees high-quality offline rule-based response if no webhook is configured and Gemini fails
+    if (!reply && !webhookUrl) {
       const lowerMsg = (message || "").toLowerCase();
       if (lowerMsg.includes("predict") || lowerMsg.includes("draw") || lowerMsg.includes("banker")) {
         reply = `🔮 **Fast Pool Codes Draw Prediction System**\n\nI couldn't reach the live AI endpoint right now, but here are our default draw insights for this week:\n- **Match Highlight**: Liverpool vs Chelsea (Strong draw index of **84%**)\n- **Banker Prediction**: Arsenal vs Man City (Expected low scoring, high draw likelihood)\n- **Secondary Draw Picks**: Match 14 & Match 27 on this week's official coupon.\n\nPlease check the Live Scores board and weekly coupon draws on your dashboard for more real-time predictions!`;
