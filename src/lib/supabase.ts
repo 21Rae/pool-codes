@@ -66,9 +66,9 @@ export function getSupabaseClient(): SupabaseClient | null {
 
   try {
     // @ts-ignore
-    supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+    supabaseUrl = import.meta.env.VITE_SUPABASE_URL || import.meta.env.SUPABASE_URL || '';
     // @ts-ignore
-    supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+    supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.SUPABASE_ANON_KEY || '';
   } catch (e) {
     // Fail-safe fallback if import.meta.env is not defined or locked
   }
@@ -76,12 +76,12 @@ export function getSupabaseClient(): SupabaseClient | null {
   // Backup fallback to process.env or window values for robust configuration loading
   if (!supabaseUrl) {
     try {
-      supabaseUrl = (process as any).env?.VITE_SUPABASE_URL || (window as any)._env_?.VITE_SUPABASE_URL || '';
+      supabaseUrl = (process as any).env?.VITE_SUPABASE_URL || (process as any).env?.SUPABASE_URL || (window as any)._env_?.VITE_SUPABASE_URL || (window as any)._env_?.SUPABASE_URL || '';
     } catch (_) {}
   }
   if (!supabaseAnonKey) {
     try {
-      supabaseAnonKey = (process as any).env?.VITE_SUPABASE_ANON_KEY || (window as any)._env_?.VITE_SUPABASE_ANON_KEY || '';
+      supabaseAnonKey = (process as any).env?.VITE_SUPABASE_ANON_KEY || (process as any).env?.SUPABASE_ANON_KEY || (window as any)._env_?.VITE_SUPABASE_ANON_KEY || (window as any)._env_?.SUPABASE_ANON_KEY || '';
     } catch (_) {}
   }
 

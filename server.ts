@@ -2,6 +2,7 @@ import express from "express";
 import path from "path";
 import dotenv from "dotenv";
 import { GoogleGenAI, Type } from "@google/genai";
+import { createClient } from "@supabase/supabase-js";
 
 dotenv.config();
 
@@ -23,8 +24,8 @@ app.use((req, res, next) => {
 
   // API Route - Securely Query blogs from Supabase (bypassing Client SSL & Mixed Content blocks)
   app.get("/api/blogs", async (req, res) => {
-    const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
-    const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || '';
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+    const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
 
     if (!supabaseUrl || !supabaseAnonKey) {
       return res.status(500).json({ 
@@ -33,7 +34,6 @@ app.use((req, res, next) => {
     }
 
     try {
-      const { createClient } = await import('@supabase/supabase-js');
       const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
       // Fast-path: Query the standard 'blogs' table
@@ -89,15 +89,14 @@ app.use((req, res, next) => {
       return res.status(400).json({ success: false, error: "Table name is required." });
     }
 
-    const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
-    const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || '';
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+    const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
 
     if (!supabaseUrl || !supabaseAnonKey) {
       return res.status(500).json({ success: false, error: "Supabase secrets not configured." });
     }
 
     try {
-      const { createClient } = await import('@supabase/supabase-js');
       const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
       const { data, error } = await supabase.from(tableName).select('*').limit(3);
@@ -118,15 +117,14 @@ app.use((req, res, next) => {
       return res.status(400).json({ error: "Missing required fields (email, password, username)" });
     }
 
-    const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
-    const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || '';
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+    const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
 
     if (!supabaseUrl || !supabaseAnonKey) {
       return res.status(500).json({ error: "Supabase secrets are not configured in settings." });
     }
 
     try {
-      const { createClient } = await import('@supabase/supabase-js');
       const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
       const { data, error } = await supabase.auth.signUp({
@@ -171,15 +169,14 @@ app.use((req, res, next) => {
       return res.status(400).json({ error: "Name/email and password parameters required." });
     }
 
-    const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
-    const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || '';
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+    const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
 
     if (!supabaseUrl || !supabaseAnonKey) {
       return res.status(500).json({ error: "Supabase secrets are not configured in settings." });
     }
 
     try {
-      const { createClient } = await import('@supabase/supabase-js');
       const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
       let targetEmail = emailOrUsername.trim();
@@ -233,11 +230,10 @@ app.use((req, res, next) => {
   let isCheckingLiveScores = false;
 
   const getSupabase = async () => {
-    const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
-    const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || '';
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+    const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
     if (!supabaseUrl || !supabaseAnonKey) return null;
     try {
-      const { createClient } = await import('@supabase/supabase-js');
       return createClient(supabaseUrl, supabaseAnonKey);
     } catch {
       return null;
@@ -835,7 +831,7 @@ Format exactly as this JSON schema (NO markdown blocks, NO \`\`\`json):
 
     const supabase = await getSupabase();
     if (!supabase) {
-      return res.status(503).json({ success: false, error: "Database not connected. Please configure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in settings first." });
+      return res.status(503).json({ success: false, error: "Database not connected. Please configure VITE_SUPABASE_URL (or SUPABASE_URL) and VITE_SUPABASE_ANON_KEY (or SUPABASE_ANON_KEY) in settings first." });
     }
 
     let dbMatchId = "";
@@ -887,7 +883,7 @@ Format exactly as this JSON schema (NO markdown blocks, NO \`\`\`json):
 
     const supabase = await getSupabase();
     if (!supabase) {
-      return res.status(503).json({ success: false, error: "Database not connected. Please configure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in settings first." });
+      return res.status(503).json({ success: false, error: "Database not connected. Please configure VITE_SUPABASE_URL (or SUPABASE_URL) and VITE_SUPABASE_ANON_KEY (or SUPABASE_ANON_KEY) in settings first." });
     }
 
     try {
