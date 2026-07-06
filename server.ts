@@ -8,6 +8,14 @@ dotenv.config();
 const app = express();
 app.use(express.json());
 
+// Middleware to normalize req.url in Vercel serverless environment (fixes Express routing for Vercel rewrites)
+app.use((req, res, next) => {
+  if (req.originalUrl && req.url !== req.originalUrl) {
+    req.url = req.originalUrl;
+  }
+  next();
+});
+
   // API Route - Health Check
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
