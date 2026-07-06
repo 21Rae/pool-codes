@@ -1110,24 +1110,12 @@ Format exactly as this JSON schema (NO markdown blocks, NO \`\`\`json):
         console.log(webhookErrorDetail);
       }
 
-      // If a webhook URL is configured but it fails, we strictly SKIP fallback.
-      // This prevents confusing the user when their n8n webhook fails but they still receive fallback AI responses!
-      const hasWebhookConfigured = !!webhookUrl;
-
       if (!webhookResponseOk) {
-        if (hasWebhookConfigured) {
-          console.log("[Chatbot API] n8n Webhook is configured but failed. Skipping AI/Local fallback to report original error.");
-          res.json({
-            success: false,
-            reply: `❌ **n8n Webhook Connection Error**\n\n${webhookErrorDetail || "An unknown error occurred while calling the n8n webhook."}\n\n*If you are using a test webhook (/webhook-test/), ensure you clicked **"Listen for test event"** or **"Execute workflow"** in n8n first. If using a production webhook (/webhook/), make sure the workflow is active.*`,
-            isFallback: false,
-            webhookError: webhookErrorDetail || "Unknown webhook error.",
-            isError: true
-          });
-          return;
-        }
+        // If a webhook URL is configured but fails, we log it and proceed to the robust AI/Local fallback.
+        // This ensures the application stays fully functional and robust even during webhook downtimes or setups,
+        // while clearly marking the response with isFallback and the original webhook error detail so the user is informed!
+        console.log(`[Chatbot API] Webhook failed or was not configured. Reason: ${webhookErrorDetail}. Falling back to AI/Local backup...`);
 
-        // Only fall back to Gemini if no n8n webhook URL is configured at all
         const geminiKey = process.env.GEMINI_API_KEY;
         const hasGemini = geminiKey && geminiKey !== "MY_GEMINI_API_KEY" && geminiKey !== "GEMINI_API_KEY" && geminiKey !== "";
 
@@ -1178,8 +1166,8 @@ Please formulate a helpful response based on this information.`;
       console.error("Critical error in chatbot route handler:", routeErr);
     }
 
-    // Guarantees high-quality offline rule-based response if no webhook is configured and Gemini fails
-    if (!reply && !webhookUrl) {
+    // Guarantees high-quality offline rule-based response if webhook fails/not configured and Gemini also fails
+    if (!reply) {
       const lowerMsg = (message || "").toLowerCase();
       if (lowerMsg.includes("predict") || lowerMsg.includes("draw") || lowerMsg.includes("banker")) {
         reply = `🔮 **Fast Pool Codes Draw Prediction System**\n\nI couldn't reach the live AI endpoint right now, but here are our default draw insights for this week:\n- **Match Highlight**: Liverpool vs Chelsea (Strong draw index of **84%**)\n- **Banker Prediction**: Arsenal vs Man City (Expected low scoring, high draw likelihood)\n- **Secondary Draw Picks**: Match 14 & Match 27 on this week's official coupon.\n\nPlease check the Live Scores board and weekly coupon draws on your dashboard for more real-time predictions!`;
@@ -1193,11 +1181,11 @@ Please formulate a helpful response based on this information.`;
     }
 
     res.json({
-      success: webhookResponseOk,
+      success: !!reply,
       reply: reply,
       isFallback: !webhookResponseOk,
       fallbackSource: webhookResponseOk ? null : (process.env.GEMINI_API_KEY ? "gemini" : "local"),
-      webhookError: webhookErrorDetail || null
+      webhookError: webhookResponseOk ? null : (webhookErrorDetail || "Unknown webhook error.")
     });
   });
 
