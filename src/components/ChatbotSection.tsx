@@ -25,6 +25,9 @@ interface Message {
   date?: string;
   timestamp: Date;
   isError?: boolean;
+  isFallback?: boolean;
+  fallbackSource?: 'gemini' | 'local' | null;
+  webhookError?: string | null;
 }
 
 interface ChatbotSectionProps {
@@ -46,6 +49,15 @@ export default function ChatbotSection({ currentUser, triggerToast }: ChatbotSec
   const [inputText, setInputText] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Developer strict webhook mode (skip fallbacks to debug actual n8n issues)
+  const [strictMode, setStrictMode] = useState<boolean>(() => {
+    return localStorage.getItem('chatbot_strict_mode') === 'true';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('chatbot_strict_mode', String(strictMode));
+  }, [strictMode]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -89,6 +101,7 @@ export default function ChatbotSection({ currentUser, triggerToast }: ChatbotSec
         body: JSON.stringify({
           message: messageText,
           date: dateToSend || '',
+          strictMode: strictMode,
           user: currentUser ? {
             username: currentUser.username,
             email: currentUser.email,
@@ -116,7 +129,10 @@ export default function ChatbotSection({ currentUser, triggerToast }: ChatbotSec
         sender: 'bot',
         text: textToDisplay,
         timestamp: new Date(),
-        isError: isError
+        isError: isError,
+        isFallback: data.isFallback,
+        fallbackSource: data.fallbackSource,
+        webhookError: data.webhookError
       };
 
       setMessages(prev => [...prev, newBotMessage]);
@@ -255,6 +271,25 @@ export default function ChatbotSection({ currentUser, triggerToast }: ChatbotSec
               </div>
             </div>
 
+            {/* Strict Webhook Developer Settings Bar */}
+            <div className="px-4 py-2 bg-slate-900/90 border-b border-slate-850 flex items-center justify-between text-[11px] text-slate-300 shrink-0 select-none">
+              <div className="flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                <span className="font-sans font-semibold">Strict Webhook Mode (For Testing)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-slate-500 font-mono">Skip Fallbacks</span>
+                <button
+                  type="button"
+                  onClick={() => setStrictMode(!strictMode)}
+                  className={`w-8 h-4 rounded-full transition-colors relative focus:outline-none ${strictMode ? 'bg-emerald-500' : 'bg-slate-800'}`}
+                  title={strictMode ? "Strict mode on: Will fail and show connection errors instead of falling back to Gemini" : "Strict mode off: Gemini AI handles failures silently"}
+                >
+                  <span className={`absolute top-[2px] left-[2px] w-3 h-3 rounded-full bg-slate-950 transition-transform ${strictMode ? 'translate-x-4 bg-white' : 'translate-x-0'}`}></span>
+                </button>
+              </div>
+            </div>
+
             {/* Chat Body Area */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4 flex flex-col min-h-0 bg-slate-950/40">
               <div className="space-y-4 flex-1 font-sans">
@@ -280,6 +315,20 @@ export default function ChatbotSection({ currentUser, triggerToast }: ChatbotSec
                           <div className="mt-2 pt-2 border-t border-slate-800/40 flex items-center gap-1.5 text-[9.5px] text-slate-400">
                             <Calendar className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                             <span>Target Date: <strong className="text-white font-medium">{msg.date}</strong></span>
+                          </div>
+                        )}
+
+                        {msg.isFallback && (
+                          <div className="mt-2 pt-2 border-t border-slate-800/40 text-[10px] text-amber-400 flex flex-col gap-1 select-none">
+                            <span className="flex items-center gap-1 font-semibold">
+                              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                              Fell back to {msg.fallbackSource === 'gemini' ? 'Gemini AI Assistant' : 'Offline Mode'}
+                            </span>
+                            {msg.webhookError && (
+                              <p className="text-[9.5px] text-slate-400 font-sans leading-snug bg-slate-950/60 p-2 rounded border border-slate-850/80">
+                                <strong>Reason:</strong> {msg.webhookError}
+                              </p>
+                            )}
                           </div>
                         )}
                       </div>

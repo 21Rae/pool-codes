@@ -1004,14 +1004,16 @@ Format exactly as this JSON schema (NO markdown blocks, NO \`\`\`json):
   app.post("/api/chatbot", async (req, res) => {
     let webhookResponseOk = false;
     let reply = "";
+    let webhookErrorDetail = "";
     
     // Safely extract input parameters
     const body = req.body || {};
     const message = body.message || "";
     const date = body.date || "";
     const user = body.user || { username: "anonymous", role: "user" };
+    const strictMode = !!body.strictMode; // When true, completely skip Gemini/Local offline fallbacks to let the dev see real n8n errors!
 
-    console.log(`[Chatbot API] Received message: "${message}", date: "${date}", user: ${JSON.stringify(user)}`);
+    console.log(`[Chatbot API] Received message: "${message}", date: "${date}", strictMode: ${strictMode}, user: ${JSON.stringify(user)}`);
 
     try {
       const webhookUrl = process.env.N8N_WEBHOOK_URL;
@@ -1035,7 +1037,7 @@ Format exactly as this JSON schema (NO markdown blocks, NO \`\`\`json):
                 timestamp: new Date().toISOString(),
                 user: user
               }),
-              signal: AbortSignal.timeout(3000)
+              signal: AbortSignal.timeout(8000) // 8-second timeout to give n8n plenty of time to warm up/execute
             });
 
             if (response.ok) {
@@ -1070,36 +1072,42 @@ Format exactly as this JSON schema (NO markdown blocks, NO \`\`\`json):
               console.log(`Successfully received response from webhook: "${reply.substring(0, 100)}..."`);
               return true;
             } else {
-              console.error(`Chatbot n8n webhook ${url} returned status: ${response.status}`);
+              const statusText = response.statusText || "";
+              webhookErrorDetail = `Webhook at ${url} returned status ${response.status} (${statusText})`;
+              console.error(webhookErrorDetail);
+              if (response.status === 404 && url.includes("/webhook-test/")) {
+                webhookErrorDetail += ". Since this is an n8n test webhook, this usually means n8n is not currently listening. Ensure you clicked 'Listen for test event' or 'Execute workflow' inside the n8n canvas before sending your chat message.";
+              }
               return false;
             }
           } catch (err: any) {
+            webhookErrorDetail = `Webhook connection failure: ${err.message}`;
             console.error(`Chatbot n8n webhook ${url} connection error:`, err);
             return false;
           }
         };
 
-        // 1. Try original webhook URL
+        // Call the EXACT URL specified by the user. No automatic swaps, so test runs work perfectly!
         webhookResponseOk = await executeWebhook(webhookUrl);
-        
-        // 2. If it failed and contains /webhook-test/, try production version fallback
-        if (!webhookResponseOk && webhookUrl.includes("/webhook-test/")) {
-          const prodUrl = webhookUrl.replace("/webhook-test/", "/webhook/");
-          console.log(`Attempting production fallback webhook: ${prodUrl}`);
-          webhookResponseOk = await executeWebhook(prodUrl);
-        }
-        // 3. Or if it failed and contains /webhook/, try test version fallback
-        else if (!webhookResponseOk && webhookUrl.includes("/webhook/") && !webhookUrl.includes("/webhook-test/")) {
-          const testUrl = webhookUrl.replace("/webhook/", "/webhook-test/");
-          console.log(`Attempting test fallback webhook: ${testUrl}`);
-          webhookResponseOk = await executeWebhook(testUrl);
-        }
       } else {
-        console.log("No n8n webhook configured (N8N_WEBHOOK_URL is empty). Using smart AI/Local fallback directly.");
+        webhookErrorDetail = "No n8n webhook URL configured (N8N_WEBHOOK_URL is empty).";
+        console.log(webhookErrorDetail);
       }
 
-      // If webhook failed or was not configured, we fall back to our high-quality Gemini AI generator!
+      // If webhook failed or was not configured, we fall back to our high-quality Gemini AI generator (if not in developer strictMode)
       if (!webhookResponseOk) {
+        if (strictMode) {
+          console.log("[Chatbot API] Strict Webhook Mode is enabled. Skipping AI/Local fallback to report original webhook error.");
+          res.json({
+            success: false,
+            reply: `❌ **n8n Webhook Connection Error**\n\n${webhookErrorDetail || "An unknown error occurred while calling the n8n webhook."}\n\n*(AI/Local fallback was skipped because "Strict Webhook Mode" is enabled in settings.)*`,
+            isFallback: false,
+            webhookError: webhookErrorDetail || "Unknown webhook error.",
+            isError: true
+          });
+          return;
+        }
+
         const geminiKey = process.env.GEMINI_API_KEY;
         const hasGemini = geminiKey && geminiKey !== "MY_GEMINI_API_KEY" && geminiKey !== "GEMINI_API_KEY" && geminiKey !== "";
 
@@ -1150,8 +1158,8 @@ Please formulate a helpful response based on this information.`;
       console.error("Critical error in chatbot route handler:", routeErr);
     }
 
-    // Guarantees high-quality offline rule-based response if both Webhook AND Gemini fail or raise an error
-    if (!reply) {
+    // Guarantees high-quality offline rule-based response if both Webhook AND Gemini fail or raise an error (unless strictMode)
+    if (!reply && !strictMode) {
       const lowerMsg = (message || "").toLowerCase();
       if (lowerMsg.includes("predict") || lowerMsg.includes("draw") || lowerMsg.includes("banker")) {
         reply = `🔮 **Fast Pool Codes Draw Prediction System**\n\nI couldn't reach the live AI endpoint right now, but here are our default draw insights for this week:\n- **Match Highlight**: Liverpool vs Chelsea (Strong draw index of **84%**)\n- **Banker Prediction**: Arsenal vs Man City (Expected low scoring, high draw likelihood)\n- **Secondary Draw Picks**: Match 14 & Match 27 on this week's official coupon.\n\nPlease check the Live Scores board and weekly coupon draws on your dashboard for more real-time predictions!`;
@@ -1165,9 +1173,11 @@ Please formulate a helpful response based on this information.`;
     }
 
     res.json({
-      success: true,
+      success: webhookResponseOk,
       reply: reply,
-      isFallback: !webhookResponseOk
+      isFallback: !webhookResponseOk,
+      fallbackSource: webhookResponseOk ? null : (process.env.GEMINI_API_KEY ? "gemini" : "local"),
+      webhookError: webhookErrorDetail || null
     });
   });
 
