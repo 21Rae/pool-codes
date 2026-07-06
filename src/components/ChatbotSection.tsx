@@ -108,19 +108,22 @@ export default function ChatbotSection({ currentUser, triggerToast }: ChatbotSec
       const data = await response.json();
 
       const botMessageId = `msg-bot-${Date.now()}`;
+      const isError = !data.success || data.isError || false;
+      const textToDisplay = data.reply || (isError ? 'Message failed to send.' : 'No response payload received from webhook.');
+
       const newBotMessage: Message = {
         id: botMessageId,
         sender: 'bot',
-        text: data.isFallback ? 'Message failed to send.' : (data.reply || 'No response payload received from AI engine.'),
+        text: textToDisplay,
         timestamp: new Date(),
-        isError: data.isFallback || false
+        isError: isError
       };
 
       setMessages(prev => [...prev, newBotMessage]);
-      if (data.isFallback) {
-        triggerToast('Message failed to send.', 'error');
+      if (isError) {
+        triggerToast(textToDisplay, 'error');
       } else {
-        triggerToast('AI response synchronized successfully!', 'success');
+        triggerToast('Response received successfully!', 'success');
       }
     } catch (err: any) {
       console.error('Chatbot endpoint request failure:', err);

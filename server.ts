@@ -973,47 +973,85 @@ Format exactly as this JSON schema (NO markdown blocks, NO \`\`\`json):
     let reply = "";
 
     if (webhookUrl) {
-      try {
-        const response = await fetch(webhookUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            message: message || "",
-            date: date || "",
-            timestamp: new Date().toISOString(),
-            user: user || { username: "anonymous", role: "user" }
-          }),
-          signal: AbortSignal.timeout(8000)
-        });
+      const executeWebhook = async (url: string): Promise<boolean> => {
+        try {
+          console.log(`Forwarding chatbot query to webhook: ${url}`);
+          const response = await fetch(url, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              message: message || "",
+              chatInput: message || "",
+              input: message || "",
+              text: message || "",
+              content: message || "",
+              date: date || "",
+              timestamp: new Date().toISOString(),
+              user: user || { username: "anonymous", role: "user" }
+            }),
+            signal: AbortSignal.timeout(10000)
+          });
 
-        if (response.ok) {
-          webhookResponseOk = true;
-          const contentType = response.headers.get("content-type") || "";
-          if (contentType.includes("application/json")) {
-            const json = await response.json();
-            if (typeof json === "string") {
-              reply = json;
-            } else if (Array.isArray(json) && json.length > 0) {
-              const first = json[0];
-              reply = first.reply || first.response || first.message || first.output || first.text || JSON.stringify(first, null, 2);
-            } else if (json) {
-              reply = json.reply || json.response || json.message || json.output || json.text || json.data || JSON.stringify(json, null, 2);
+          if (response.ok) {
+            const contentType = response.headers.get("content-type") || "";
+            if (contentType.includes("application/json")) {
+              const json = await response.json();
+              console.log("Webhook returned JSON response:", JSON.stringify(json));
+              
+              if (typeof json === "string") {
+                reply = json;
+              } else if (Array.isArray(json)) {
+                if (json.length > 0) {
+                  const first = json[0];
+                  if (typeof first === "string") {
+                    reply = first;
+                  } else if (first && typeof first === "object") {
+                    reply = first.reply || first.response || first.message || first.output || first.text || first.content || JSON.stringify(first, null, 2);
+                  } else {
+                    reply = JSON.stringify(json, null, 2);
+                  }
+                } else {
+                  reply = "Received an empty array from the webhook.";
+                }
+              } else if (json && typeof json === "object") {
+                reply = json.reply || json.response || json.message || json.output || json.text || json.content || json.data || JSON.stringify(json, null, 2);
+              } else {
+                reply = String(json);
+              }
             } else {
-              reply = JSON.stringify(json);
+              reply = await response.text();
             }
+            console.log(`Successfully received response from webhook: "${reply.substring(0, 100)}..."`);
+            return true;
           } else {
-            reply = await response.text();
+            console.error(`Chatbot n8n webhook ${url} returned status: ${response.status}`);
+            return false;
           }
-        } else {
-          console.error(`Chatbot n8n webhook returned status: ${response.status}. Triggering smart fallback...`);
+        } catch (err: any) {
+          console.error(`Chatbot n8n webhook ${url} connection error:`, err);
+          return false;
         }
-      } catch (err: any) {
-        console.error("Chatbot n8n webhook connection error. Triggering smart fallback...", err);
+      };
+
+      // 1. Try original webhook URL
+      webhookResponseOk = await executeWebhook(webhookUrl);
+      
+      // 2. If it failed and contains /webhook-test/, try production version fallback
+      if (!webhookResponseOk && webhookUrl.includes("/webhook-test/")) {
+        const prodUrl = webhookUrl.replace("/webhook-test/", "/webhook/");
+        console.log(`Attempting production fallback webhook: ${prodUrl}`);
+        webhookResponseOk = await executeWebhook(prodUrl);
+      }
+      // 3. Or if it failed and contains /webhook/, try test version fallback
+      else if (!webhookResponseOk && webhookUrl.includes("/webhook/") && !webhookUrl.includes("/webhook-test/")) {
+        const testUrl = webhookUrl.replace("/webhook/", "/webhook-test/");
+        console.log(`Attempting test fallback webhook: ${testUrl}`);
+        webhookResponseOk = await executeWebhook(testUrl);
       }
     } else {
-      console.log("No n8n webhook configured. Using smart AI/Local fallback directly.");
+      console.log("No n8n webhook configured (N8N_WEBHOOK_URL is empty). Using smart AI/Local fallback directly.");
     }
 
     // If webhook failed or was not configured, we fall back to our high-quality Gemini AI generator!
@@ -1082,7 +1120,7 @@ Please formulate a helpful response based on this information.`;
     res.json({
       success: true,
       reply: reply,
-      isFallback: false
+      isFallback: !webhookResponseOk
     });
   });
 
