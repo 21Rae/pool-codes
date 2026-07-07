@@ -36,14 +36,17 @@ export default function Footer({ triggerToast, className = '' }: FooterProps) {
 
         <div className="md:col-span-4">
           <h4 className="font-extrabold text-zinc-800 tracking-widest uppercase mb-3.5 text-[10.5px]">
-            SUPPORT
+            SUPPORT & ENQUIRIES
           </h4>
-          <div className="space-y-2 font-bold text-zinc-600">
-            <a href="mailto:info@fastpoolcodes.com" className="hover:text-[#fa3e65] transition block">
-              info@fastpoolcodes.com
+          <div className="space-y-2.5 font-bold text-zinc-650">
+            <a href="mailto:Fastpoolcodes@gmail.com" className="hover:text-[#fa3e65] text-zinc-800 text-sm transition block">
+              📧 Fastpoolcodes@gmail.com
             </a>
-            <p className="text-zinc-400 font-medium select-none">
-              Support is available via email during active pool weeks.
+            <a href="https://wa.me/2348030587933" target="_blank" rel="noopener noreferrer" className="hover:text-emerald-600 text-zinc-800 text-sm transition block">
+              💬 WhatsApp: 0803 058 7933
+            </a>
+            <p className="text-zinc-400 font-medium text-[11px] select-none leading-relaxed">
+              Our direct forecasting helpdesk is available 24/7 to clear doubts about sequence keysets.
             </p>
           </div>
         </div>

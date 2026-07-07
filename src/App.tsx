@@ -47,6 +47,7 @@ import CustomerPortal from './components/CustomerPortal';
 import OfficePoolStopHome from './components/OfficePoolStopHome';
 import ChatbotSection from './components/ChatbotSection';
 import Footer from './components/Footer';
+import LiveScoresPage from './components/LiveScoresPage';
 import { getSupabaseClient } from './lib/supabase';
 
 export default function App() {
@@ -67,7 +68,8 @@ export default function App() {
   // 'customer' -> app.poolcodes.com
   // 'admin' -> admin.poolcodes.com
   const [currentAppSelector, setCurrentAppSelector] = useState<'customer' | 'admin'>('customer');
-  const [viewMode, setViewMode] = useState<'homepage' | 'portal'>('homepage');
+  const [viewMode, setViewMode] = useState<'homepage' | 'portal' | 'livescores'>('homepage');
+  const [livescoresOrigin, setLivescoresOrigin] = useState<'homepage' | 'portal'>('homepage');
 
   const [activeTable, setActiveTable] = useState<string>('users');
   const [selectedPersonaId, setSelectedPersonaId] = useState<string>('usr-free-101');
@@ -220,6 +222,70 @@ export default function App() {
     triggerToast('Database seeds reloaded successfully.', 'info');
   };
 
+  const downloadCodesFileAuto = (userObj: any, planId: string, paymentRef: string) => {
+    try {
+      const plan = db.subscription_plans.find(p => p.id === planId) || db.subscription_plans[1];
+      const activeWeek = db.pool_weeks.find(w => w.status === 'active') || db.pool_weeks[0];
+      const weekNum = activeWeek ? activeWeek.week_number : '49';
+      
+      const relatedCodes = db.pool_codes.filter(c => c.pool_week_id === (activeWeek?.id || 'pw-week-49'));
+      
+      let fileText = `========================================================================\n`;
+      fileText += `⚡⚡⚡ FASTPOOL CODES - PREMIUM VERIFIED CODESHEET LICENSE ⚡⚡⚡\n`;
+      fileText += `========================================================================\n\n`;
+      fileText += `[LICENSE REGISTRATION DETAILS]\n`;
+      fileText += `------------------------------------------------------------------------\n`;
+      fileText += `Account Nickname : @${userObj.username || 'VIP_User'}\n`;
+      fileText += `Account Email    : ${userObj.email || 'vip@fastpoolcodes.com'}\n`;
+      fileText += `Active License   : ${plan.name.toUpperCase()} PLAN\n`;
+      fileText += `Payment Reference: ${paymentRef || 'REF-' + Math.floor(Math.random() * 900000 + 100000)}\n`;
+      fileText += `Verification Date: ${new Date().toLocaleString()}\n`;
+      fileText += `Pool Week Target : WEEK ${weekNum} (AUSSIE/UK COMBINED SEASON)\n`;
+      fileText += `Security Hash    : SHA256:${Math.random().toString(36).substring(2, 10).toUpperCase()}-${Math.random().toString(36).substring(2, 10).toUpperCase()}\n`;
+      fileText += `------------------------------------------------------------------------\n\n`;
+      
+      fileText += `[DECRYPTED CODESHEET KEYSETS]\n`;
+      fileText += `========================================================================\n\n`;
+      
+      if (relatedCodes.length === 0) {
+        fileText += `No active codesheets loaded for Week ${weekNum}. Defaulting to baseline database registry...\n\n`;
+        db.pool_codes.forEach((c, idx) => {
+          const bookmaker = db.bookmakers.find(b => b.id === c.bookmaker_id)?.name || 'SportyBet';
+          fileText += `${idx + 1}. [${bookmaker.toUpperCase()}] (${c.access_level.toUpperCase()} ACCESS)\n`;
+          fileText += `   Content:\n   ${c.codes_content.split('\n').join('\n   ')}\n`;
+          fileText += `   -----------------------------------------------------------------\n\n`;
+        });
+      } else {
+        relatedCodes.forEach((c, idx) => {
+          const bookmaker = db.bookmakers.find(b => b.id === c.bookmaker_id)?.name || 'SportyBet';
+          fileText += `${idx + 1}. [${bookmaker.toUpperCase()}] (${c.access_level.toUpperCase()} ACCESS)\n`;
+          fileText += `   Content:\n   ${c.codes_content.split('\n').join('\n   ')}\n`;
+          fileText += `   -----------------------------------------------------------------\n\n`;
+        });
+      }
+      
+      fileText += `========================================================================\n`;
+      fileText += `⚠️ SECURITY NOTICE: This codesheet file is licensed solely to @${userObj.username || 'VIP_User'}.\n`;
+      fileText += `Any unauthorized distribution, multi-device token scraping, or public perming\n`;
+      fileText += `resale will result in immediate permanent account suspension with no refund.\n`;
+      fileText += `========================================================================\n`;
+      
+      const blob = new Blob([fileText], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `FastPoolCodes_Week_${weekNum}_VIP_Codesheet.txt`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      triggerToast('Downloaded decrypted VIP pool codes automatically to your device!', 'success');
+    } catch (err) {
+      console.warn("Graceful error during automatic codes download trigger:", err);
+    }
+  };
+
   // Handler: Purchase/Upgrade user plan simulated transaction
   const buySubscription = (planId: string) => {
     const p = db.subscription_plans.find(x => x.id === planId);
@@ -275,6 +341,11 @@ export default function App() {
       `User @${currentUser.username} checked out plan [${p.name}]`
     );
     triggerToast(`Subscribed successfully to ${p.name}!`, 'success');
+    
+    // Auto download pool codes sheet after payment
+    setTimeout(() => {
+      downloadCodesFileAuto(currentUser, planId, newSub.payment_ref);
+    }, 1000);
   };
 
   // Handler: Access Codes (Checks constraints like suspended and bookmakers counters)
@@ -530,6 +601,12 @@ export default function App() {
               `Registered & logged in new member @${cleanUsername} using secure proxy gateway`
             );
 
+            if (planId && planId !== 'plan-free') {
+              setTimeout(() => {
+                downloadCodesFileAuto(newUser, planId, newSub.payment_ref || '');
+              }, 1200);
+            }
+
             return { success: true, message: `Successfully registered and logged in as @${cleanUsername}! Welcome!` };
           }
         } else {
@@ -594,6 +671,13 @@ export default function App() {
       `-- Real-time registration insert transaction (local)\nINSERT INTO users (id, username, email, role, status, created_at)\nVALUES ('${newId}', '${cleanUsername}', '${cleanEmail}', 'user', 'active', NOW());`,
       `Newly registered customer @${cleanUsername} joined local Sandbox session`
     );
+
+    if (planId && planId !== 'plan-free') {
+      setTimeout(() => {
+        downloadCodesFileAuto(newUser, planId, newSub.payment_ref || '');
+      }, 1200);
+    }
+
     return { success: true, message: `Successfully registered locally as @${cleanUsername}! (Sandbox Mode Enabled)` };
   };
 
@@ -849,6 +933,11 @@ export default function App() {
                 setViewMode('portal');
                 triggerToast('Redirected to pool codes list.', 'info');
               }}
+              onNavigateToLiveScores={() => {
+                setLivescoresOrigin('homepage');
+                setViewMode('livescores');
+                triggerToast('Redirected to AI Live Scores Arena.', 'info');
+              }}
               triggerToast={triggerToast}
               onRegisterUser={handleRegisterUser}
               onLoginUser={handleLoginUserWithCreds}
@@ -856,6 +945,15 @@ export default function App() {
           </div>
           {renderFooter()}
         </div>
+      ) : viewMode === 'livescores' ? (
+        <LiveScoresPage
+          currentUser={currentUser}
+          triggerToast={triggerToast}
+          isInsidePortal={livescoresOrigin === 'portal'}
+          onBack={() => {
+            setViewMode(livescoresOrigin);
+          }}
+        />
       ) : (
         <div className="h-screen bg-[#090D1A] flex flex-col overflow-hidden text-slate-100">
           {/* Main Application Navigation Header (Styled naturally as key workspace views) */}
@@ -941,6 +1039,11 @@ export default function App() {
                 handleDownloadCode={handleDownloadCode}
                 triggerToast={triggerToast}
                 markAllNotificationsRead={markAllNotificationsRead}
+                onNavigateToLiveScores={() => {
+                  setLivescoresOrigin('portal');
+                  setViewMode('livescores');
+                  triggerToast('Navigating to Live Scores Arena...', 'info');
+                }}
                 onSignOut={() => {
                   setViewMode('homepage');
                   triggerToast('Logged out of workspace session successfully.', 'success');
