@@ -1138,6 +1138,25 @@ export default function CustomerPortal({
                     <span>USER PROFILE</span>
                   </button>
 
+                  {/* Mobile WhatsApp Shortcut Card */}
+                  <div className="mt-4 p-3 bg-emerald-950/30 border border-emerald-500/20 rounded-xl flex flex-col gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-[#25D366] animate-pulse"></span>
+                      <span className="text-[9px] font-mono font-bold text-emerald-400 tracking-wider">WHATSAPP CHANNEL</span>
+                    </div>
+                    <p className="text-[10px] text-slate-400 leading-normal">
+                      Get instant verified pool codes, draws, and predictions directly on your phone.
+                    </p>
+                    <a
+                      href="https://whatsapp.com/channel/0029VanbsS4EawdxbTTkgc3D"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg text-[10px] font-black bg-[#25D366] hover:bg-[#20BA56] text-white transition shadow-sm cursor-pointer"
+                    >
+                      <span>✆ JOIN CHANNEL</span>
+                    </a>
+                  </div>
+
                   {onSignOut && (
                     <button
                       onClick={() => {
@@ -1268,6 +1287,26 @@ export default function CustomerPortal({
 
 
           </nav>
+
+          {/* Desktop WhatsApp Shortcut Card */}
+          <div className="mt-4 p-3.5 bg-emerald-950/30 border border-emerald-500/20 rounded-xl flex flex-col gap-2.5">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 bg-[#25D366] rounded-full animate-pulse"></span>
+              <span className="text-[10px] font-mono font-bold text-emerald-400 tracking-wider">WHATSAPP CHANNEL</span>
+            </div>
+            <p className="text-[10px] text-slate-400 leading-normal">
+              Join our official channel for verified weekly pool codes, draws, and predictions directly in WhatsApp.
+            </p>
+            <a
+              href="https://whatsapp.com/channel/0029VanbsS4EawdxbTTkgc3D"
+              target="_blank"
+              rel="noreferrer"
+              className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-bold bg-[#25D366] hover:bg-[#20BA56] text-[#070B14] hover:text-[#070B14] transition cursor-pointer text-center"
+            >
+              <span className="font-sans">✆</span>
+              <span>JOIN CHANNEL</span>
+            </a>
+          </div>
 
           {onSignOut && (
             <button
