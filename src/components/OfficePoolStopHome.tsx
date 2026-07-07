@@ -41,6 +41,7 @@ interface OfficePoolStopHomeProps {
   db: any;
   onRegisterUser?: (username: string, email: string, password?: string, planId?: string) => Promise<{ success: boolean; error?: string; message?: string }>;
   onLoginUser?: (usernameOrEmail: string, password?: string) => Promise<{ success: boolean; error?: string; message?: string }>;
+  onOpenTerms?: () => void;
 }
 
 const staticBlogPosts = [
@@ -98,7 +99,8 @@ export default function OfficePoolStopHome({
   triggerToast,
   db,
   onRegisterUser,
-  onLoginUser
+  onLoginUser,
+  onOpenTerms
 }: OfficePoolStopHomeProps) {
   // Navigation & interaction states
   const [currentView, setCurrentView] = useState<'blog' | 'livescores' | 'results' | 'about' | 'contact'>('blog');
@@ -565,6 +567,7 @@ export default function OfficePoolStopHome({
                   supabaseError={supabaseError}
                   candidateErrors={candidateErrors}
                   onRefreshBlogs={fetchBlogs}
+                  onOpenTerms={onOpenTerms}
                 />
               );
 
@@ -1520,6 +1523,31 @@ export default function OfficePoolStopHome({
                     </label>
                   </div>
                 </div>
+
+                {authMode === 'signup' && (
+                  <div className="flex items-start gap-2 text-[10px] text-slate-400 font-sans leading-relaxed select-none bg-emerald-950/20 border border-emerald-950/40 p-2.5 rounded-lg">
+                    <input 
+                      type="checkbox" 
+                      required
+                      id="agreeTerms" 
+                      className="rounded border-emerald-900 bg-[#020b08] text-emerald-500 focus:ring-0 mt-0.5 h-3.5 w-3.5 cursor-pointer" 
+                    />
+                    <label htmlFor="agreeTerms" className="cursor-pointer">
+                      I accept the{' '}
+                      <span 
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (onOpenTerms) onOpenTerms();
+                        }}
+                        className="text-emerald-400 font-black underline hover:text-emerald-300 transition"
+                      >
+                        Terms of Service
+                      </span>{' '}
+                      of FastPoolCodes
+                    </label>
+                  </div>
+                )}
 
                 <button
                   type="submit"

@@ -3,9 +3,11 @@ import React from 'react';
 interface FooterProps {
   triggerToast: (msg: string, type?: 'success' | 'info' | 'error') => void;
   className?: string;
+  onOpenTerms?: () => void;
 }
 
-export default function Footer({ triggerToast, className = '' }: FooterProps) {
+export default function Footer({ triggerToast, className = '', onOpenTerms }: FooterProps) {
+
   return (
     <footer className={`bg-white border-t border-zinc-200 text-zinc-500 py-12 px-6 select-none font-sans mt-auto shrink-0 ${className}`} id="global-site-footer">
       <div className="max-w-[1360px] mx-auto grid grid-cols-1 md:grid-cols-12 gap-8 items-start text-left text-xs">
@@ -58,7 +60,7 @@ export default function Footer({ triggerToast, className = '' }: FooterProps) {
         <div className="flex gap-4">
           <span onClick={() => triggerToast('Opening Privacy Policy contract...', 'info')} className="hover:text-zinc-700 cursor-pointer transition">Privacy Policy</span>
           <span>•</span>
-          <span onClick={() => triggerToast('Opening Terms of Service...', 'info')} className="hover:text-zinc-700 cursor-pointer transition">Terms of Use</span>
+          <span onClick={() => onOpenTerms ? onOpenTerms() : triggerToast('Opening Terms of Service...', 'info')} className="hover:text-zinc-700 cursor-pointer transition">Terms of Use</span>
         </div>
       </div>
     </footer>

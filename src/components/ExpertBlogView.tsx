@@ -42,6 +42,7 @@ interface ExpertBlogViewProps {
   supabaseError?: string | null;
   candidateErrors?: Record<string, string>;
   onRefreshBlogs?: () => void;
+  onOpenTerms?: () => void;
 }
 
 export default function ExpertBlogView({
@@ -53,7 +54,8 @@ export default function ExpertBlogView({
   supabaseConfigured = true,
   supabaseError = null,
   candidateErrors = {},
-  onRefreshBlogs
+  onRefreshBlogs,
+  onOpenTerms
 }: ExpertBlogViewProps) {
 
   const [probeTableName, setProbeTableName] = useState('');
@@ -947,7 +949,7 @@ INSERT INTO public.championship_results (
                 <div className="flex flex-wrap gap-x-2 gap-y-0.5">
                   <span onClick={() => triggerToast('Opening Privacy Policy contract...', 'info')} className="hover:underline cursor-pointer">Privacy Policy</span>
                   <span>•</span>
-                  <span onClick={() => triggerToast('Opening Terms of Service...', 'info')} className="hover:underline cursor-pointer">Terms of Use</span>
+                  <span onClick={() => onOpenTerms ? onOpenTerms() : triggerToast('Opening Terms of Service...', 'info')} className="hover:underline cursor-pointer">Terms of Use</span>
                   <span>•</span>
                   <span onClick={() => triggerToast('Loading Ad guideline information...', 'info')} className="hover:underline cursor-pointer">Interest-Based Ads</span>
                 </div>

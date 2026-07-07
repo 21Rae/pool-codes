@@ -48,6 +48,7 @@ import OfficePoolStopHome from './components/OfficePoolStopHome';
 import ChatbotSection from './components/ChatbotSection';
 import Footer from './components/Footer';
 import LiveScoresPage from './components/LiveScoresPage';
+import TermsOfServicePage from './components/TermsOfServicePage';
 import { getSupabaseClient } from './lib/supabase';
 
 export default function App() {
@@ -68,8 +69,9 @@ export default function App() {
   // 'customer' -> app.poolcodes.com
   // 'admin' -> admin.poolcodes.com
   const [currentAppSelector, setCurrentAppSelector] = useState<'customer' | 'admin'>('customer');
-  const [viewMode, setViewMode] = useState<'homepage' | 'portal' | 'livescores'>('homepage');
+  const [viewMode, setViewMode] = useState<'homepage' | 'portal' | 'livescores' | 'terms'>('homepage');
   const [livescoresOrigin, setLivescoresOrigin] = useState<'homepage' | 'portal'>('homepage');
+  const [termsOrigin, setTermsOrigin] = useState<'homepage' | 'portal'>('homepage');
 
   const [activeTable, setActiveTable] = useState<string>('users');
   const [selectedPersonaId, setSelectedPersonaId] = useState<string>('usr-free-101');
@@ -83,6 +85,7 @@ export default function App() {
   ]);
 
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
+  const [showTermsModal, setShowTermsModal] = useState(false);
 
   // Administrative form state overrides for pool publication
   const [formWeekId, setFormWeekId] = useState<string>('pw-week-49');
@@ -879,7 +882,10 @@ export default function App() {
   };
 
   const renderFooter = () => (
-    <Footer triggerToast={triggerToast} />
+    <Footer triggerToast={triggerToast} onOpenTerms={() => {
+      setTermsOrigin(viewMode === 'portal' ? 'portal' : 'homepage');
+      setViewMode('terms');
+    }} />
   );
 
   return (
@@ -941,6 +947,10 @@ export default function App() {
               triggerToast={triggerToast}
               onRegisterUser={handleRegisterUser}
               onLoginUser={handleLoginUserWithCreds}
+              onOpenTerms={() => {
+                setTermsOrigin('homepage');
+                setViewMode('terms');
+              }}
             />
           </div>
           {renderFooter()}
@@ -953,6 +963,13 @@ export default function App() {
           onBack={() => {
             setViewMode(livescoresOrigin);
           }}
+        />
+      ) : viewMode === 'terms' ? (
+        <TermsOfServicePage
+          onBack={() => {
+            setViewMode(termsOrigin);
+          }}
+          triggerToast={triggerToast}
         />
       ) : (
         <div className="h-screen bg-[#090D1A] flex flex-col overflow-hidden text-slate-100">
@@ -1091,6 +1108,160 @@ export default function App() {
       )}
       {/* Global Floating Soccer AI Assistant */}
       <ChatbotSection currentUser={currentUser} triggerToast={triggerToast} />
+
+      {/* Terms of Service Modal */}
+      <AnimatePresence>
+        {showTermsModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 z-[999] flex items-center justify-center p-4 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 15 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 15 }}
+              className="bg-zinc-950 border border-zinc-800 rounded-2xl max-w-2xl w-full p-6 md:p-8 flex flex-col max-h-[85vh] text-left shadow-2xl relative"
+            >
+              <button
+                onClick={() => setShowTermsModal(false)}
+                className="absolute top-4 right-4 text-zinc-400 hover:text-white transition p-1 hover:bg-zinc-900 rounded-lg"
+              >
+                <span className="sr-only">Close</span>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+
+              <div className="flex items-center gap-3 border-b border-zinc-800 pb-4 mb-6 shrink-0">
+                <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-400">
+                  <Shield className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-sans font-black text-xl text-white tracking-tight uppercase">
+                    Terms of Service
+                  </h3>
+                  <p className="text-xs text-zinc-400 font-mono">
+                    Last updated: July 2026
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto pr-2 space-y-5 text-sm text-zinc-300 leading-relaxed font-sans scrollbar-thin scrollbar-thumb-zinc-800">
+                <p className="font-semibold text-white">
+                  Welcome to FastPoolCodes! Before you begin using our services, we require that you carefully read and agree to the following terms of service:
+                </p>
+
+                <div className="space-y-1.5">
+                  <h4 className="font-bold text-white text-xs font-mono uppercase tracking-wider text-emerald-400">
+                    Acceptance of Terms
+                  </h4>
+                  <p>
+                    By accessing or using our website, you agree to be bound by these terms of service, our privacy policy, and any other rules, policies, or guidelines posted on our website.
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <h4 className="font-bold text-white text-xs font-mono uppercase tracking-wider text-emerald-400">
+                    Eligibility
+                  </h4>
+                  <p>
+                    Our services are intended for users who are 18 years of age or older. By using our website, you represent and warrant that you are at least 18 years old.
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <h4 className="font-bold text-white text-xs font-mono uppercase tracking-wider text-emerald-400">
+                    Use of Our Services
+                  </h4>
+                  <p>
+                    Our website provides a platform for users to find pool codes, results, fixtures and predictions. You may not use FastPoolCodes for any illegal or unauthorized purpose, and you must comply with all applicable laws and regulations.
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <h4 className="font-bold text-white text-xs font-mono uppercase tracking-wider text-emerald-400">
+                    User Content
+                  </h4>
+                  <p>
+                    You are solely responsible for any content that you upload or submit to our website. By uploading or submitting content, you grant us a non-exclusive, transferable, sublicensable, royalty-free, worldwide license to use, copy, modify, distribute, publish, and process your content.
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <h4 className="font-bold text-white text-xs font-mono uppercase tracking-wider text-emerald-400">
+                    Prohibited Conduct
+                  </h4>
+                  <p>
+                    You may not use FastPoolCodes to harass, intimidate, threaten, impersonate, or deceive any person or entity. You may not use our website to upload or distribute any viruses, malware, or other harmful software. You may not use our website to engage in any activity that interferes with or disrupts our services.
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <h4 className="font-bold text-white text-xs font-mono uppercase tracking-wider text-emerald-400">
+                    Intellectual Property
+                  </h4>
+                  <p>
+                    FastPoolCodes and its contents are protected by intellectual property laws, including copyright and trademark laws. You may not use our website or its contents for any commercial purpose without our prior written consent.
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <h4 className="font-bold text-white text-xs font-mono uppercase tracking-wider text-emerald-400">
+                    Disclaimer of Warranties
+                  </h4>
+                  <p>
+                    We do not warrant that our website will be uninterrupted or error-free. We do not warrant that the results obtained from the use of our website will be accurate or reliable.
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <h4 className="font-bold text-white text-xs font-mono uppercase tracking-wider text-emerald-400">
+                    Limitation of Liability
+                  </h4>
+                  <p>
+                    We will not be liable for any indirect, incidental, special, or consequential damages arising out of or in connection with your use of our website. Our maximum liability to you shall be the amount you paid us to use our website.
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <h4 className="font-bold text-white text-xs font-mono uppercase tracking-wider text-emerald-400">
+                    Indemnification
+                  </h4>
+                  <p>
+                    You agree to indemnify, defend, and hold us harmless from any claims, damages, or losses arising out of or in connection with your use of our website.
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <h4 className="font-bold text-white text-xs font-mono uppercase tracking-wider text-emerald-400">
+                    Changes to Terms of Service
+                  </h4>
+                  <p>
+                    We reserve the right to modify these terms of service at any time, with or without notice. Your continued use of our website following any changes to these terms of service constitutes your acceptance of those changes.
+                  </p>
+                </div>
+
+                <div className="border-t border-zinc-800 pt-4 mt-2">
+                  <p className="text-xs text-zinc-400 font-mono">
+                    If you have any questions or concerns about these terms of service, please contact us by sending an email to <a href="mailto:admin@Fastpoolcodes.com" className="text-emerald-400 hover:underline">admin@Fastpoolcodes.com</a>
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 pt-4 border-t border-zinc-800 flex justify-end shrink-0">
+                <button
+                  onClick={() => setShowTermsModal(false)}
+                  className="bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-slate-950 font-black text-xs uppercase tracking-wider px-6 py-2.5 rounded-xl cursor-pointer transition font-mono"
+                >
+                  Close & Accept
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
