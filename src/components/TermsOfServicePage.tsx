@@ -1,300 +1,289 @@
 import React, { useState } from 'react';
-import { 
-  ArrowLeft, 
-  Printer, 
-  Mail, 
-  Shield, 
-  Search, 
-  FileText, 
-  CheckCircle, 
-  Calendar, 
-  BookOpen, 
-  Info,
-  Scale
-} from 'lucide-react';
 import { motion } from 'motion/react';
+import { Shield, ArrowLeft, Printer, FileText, CheckCircle2, Search } from 'lucide-react';
 
 interface TermsOfServicePageProps {
   onBack: () => void;
-  triggerToast: (msg: string, type?: 'success' | 'info' | 'error') => void;
-}
-
-interface TermSection {
-  id: string;
-  title: string;
-  content: string;
-  category: 'General' | 'Conduct' | 'Legal' | 'Privacy';
+  triggerToast: (msg: string, type: 'success' | 'info' | 'error') => void;
 }
 
 export default function TermsOfServicePage({ onBack, triggerToast }: TermsOfServicePageProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<'All' | 'General' | 'Conduct' | 'Legal'>('All');
 
-  const termsSections: TermSection[] = [
+  const termsSections = [
     {
       id: 'acceptance',
       title: '1. Acceptance of Terms',
-      category: 'General',
-      content: 'By accessing or using our website, you agree to be bound by these terms of service, our privacy policy, and any other rules, policies, or guidelines posted on our website. If you do not agree to these terms, please do not use our services.'
+      content: 'By accessing or using our website, you agree to be bound by these terms of service, our privacy policy, and any other rules, policies, or guidelines posted on our website.'
     },
     {
       id: 'eligibility',
       title: '2. Eligibility',
-      category: 'General',
-      content: 'Our services are intended for users who are 18 years of age or older. By using our website, you represent and warrant that you are at least 18 years old. If you are under 18, you are strictly prohibited from using our services.'
+      content: 'Our services are intended for users who are 18 years of age or older. By using our website, you represent and warrant that you are at least 18 years old.'
     },
     {
-      id: 'use-of-services',
+      id: 'services',
       title: '3. Use of Our Services',
-      category: 'General',
-      content: 'Our website provides a platform for users to find pool codes, results, fixtures and predictions. You may not use FastPoolCodes for any illegal or unauthorized purpose, and you must comply with all applicable laws and regulations in your jurisdiction.'
+      content: 'Our website provides a platform for users to find pool codes, results, fixtures and predictions. You may not use FastPoolCodes for any illegal or unauthorized purpose, and you must comply with all applicable laws and regulations.'
     },
     {
-      id: 'user-content',
+      id: 'content',
       title: '4. User Content',
-      category: 'Conduct',
       content: 'You are solely responsible for any content that you upload or submit to our website. By uploading or submitting content, you grant us a non-exclusive, transferable, sublicensable, royalty-free, worldwide license to use, copy, modify, distribute, publish, and process your content.'
     },
     {
-      id: 'prohibited-conduct',
+      id: 'prohibited',
       title: '5. Prohibited Conduct',
-      category: 'Conduct',
       content: 'You may not use FastPoolCodes to harass, intimidate, threaten, impersonate, or deceive any person or entity. You may not use our website to upload or distribute any viruses, malware, or other harmful software. You may not use our website to engage in any activity that interferes with or disrupts our services.'
     },
     {
-      id: 'intellectual-property',
+      id: 'property',
       title: '6. Intellectual Property',
-      category: 'Legal',
       content: 'FastPoolCodes and its contents are protected by intellectual property laws, including copyright and trademark laws. You may not use our website or its contents for any commercial purpose without our prior written consent.'
     },
     {
-      id: 'disclaimer-warranties',
+      id: 'disclaimer',
       title: '7. Disclaimer of Warranties',
-      category: 'Legal',
-      content: 'We do not warrant that our website will be uninterrupted or error-free. We do not warrant that the results obtained from the use of our website will be accurate or reliable. All content is provided "as is" and "as available".'
+      content: 'We do not warrant that our website will be uninterrupted or error-free. We do not warrant that the results obtained from the use of our website will be accurate or reliable.'
     },
     {
-      id: 'limitation-liability',
+      id: 'liability',
       title: '8. Limitation of Liability',
-      category: 'Legal',
       content: 'We will not be liable for any indirect, incidental, special, or consequential damages arising out of or in connection with your use of our website. Our maximum liability to you shall be the amount you paid us to use our website.'
     },
     {
       id: 'indemnification',
       title: '9. Indemnification',
-      category: 'Legal',
-      content: 'You agree to indemnify, defend, and hold us harmless from any claims, damages, or losses arising out of or in connection with your use of our website or breach of these terms.'
+      content: 'You agree to indemnify, defend, and hold us harmless from any claims, damages, or losses arising out of or in connection with your use of our website.'
     },
     {
       id: 'changes',
       title: '10. Changes to Terms of Service',
-      category: 'General',
       content: 'We reserve the right to modify these terms of service at any time, with or without notice. Your continued use of our website following any changes to these terms of service constitutes your acceptance of those changes.'
     }
   ];
 
-  const filteredSections = termsSections.filter(section => {
-    const matchesCategory = selectedCategory === 'All' || section.category === selectedCategory;
-    const matchesSearch = section.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          section.content.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
+  const filteredSections = termsSections.filter(
+    section => 
+      section.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      section.content.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const handlePrint = () => {
-    window.print();
-    triggerToast('Preparing terms for printing...', 'info');
-  };
+    const printDiv = document.createElement('div');
+    printDiv.id = 'printable-terms-pdf';
+    printDiv.style.position = 'fixed';
+    printDiv.style.left = '0';
+    printDiv.style.top = '0';
+    printDiv.style.width = '100%';
+    printDiv.style.backgroundColor = 'white';
+    printDiv.style.color = 'black';
+    printDiv.style.zIndex = '9999999';
+    printDiv.style.padding = '40px';
+    printDiv.style.fontFamily = 'sans-serif';
 
-  const handleDownloadText = () => {
-    const textContent = `FASTPOOLCODES TERMS OF SERVICE\nLast Updated: July 2026\n\n` + 
-      termsSections.map(s => `${s.title}\n${s.content}\n`).join('\n') +
-      `\nContact: admin@Fastpoolcodes.com`;
-    const blob = new Blob([textContent], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'FastPoolCodes_Terms_Of_Service.txt';
-    a.click();
-    URL.revokeObjectURL(url);
-    triggerToast('Terms of Service downloaded as .txt file.', 'success');
+    printDiv.innerHTML = `
+      <div style="border-bottom: 3px solid #10b981; padding-bottom: 15px; margin-bottom: 25px; text-align: left;">
+        <h1 style="margin: 0; font-size: 22px; text-transform: uppercase; color: #0f172a; letter-spacing: -0.5px;">⚽ FASTPOOLCODES // LEGAL SERVICES</h1>
+        <h2 style="margin: 5px 0 0 0; text-transform: uppercase; font-size: 14px; color: #10b981;">OFFICIAL TERMS OF SERVICE AND COMPLIANCE CONTRACT</h2>
+        <p style="margin: 8px 0 0 0; font-size: 11px; color: #475569;">Document Classification: Public Secure / Verified for All Users | Date: ${new Date().toLocaleDateString()}</p>
+      </div>
+      <div style="font-size: 12px; line-height: 1.6; color: #1e293b; margin-bottom: 30px;">
+        <p style="font-weight: bold; margin-bottom: 15px;">Please read these terms carefully before registering your forecasting account on FastPoolCodes.</p>
+        ${termsSections.map(s => `
+          <div style="margin-bottom: 20px;">
+            <h3 style="font-size: 13px; font-weight: bold; color: #0f172a; margin-bottom: 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 3px;">${s.title}</h3>
+            <p style="margin: 0;">${s.content}</p>
+          </div>
+        `).join('')}
+      </div>
+      <div style="margin-top: 40px; border-top: 1px solid #cbd5e1; padding-top: 15px; font-size: 9px; color: #64748b; text-align: center;">
+        © 2026 FastPoolCodes. All rights reserved. Secure legal terms valid worldwide.
+      </div>
+    `;
+
+    document.body.appendChild(printDiv);
+
+    const printStyle = document.createElement('style');
+    printStyle.id = 'print-terms-override';
+    printStyle.innerHTML = `
+      @media print {
+        body * {
+          visibility: hidden !important;
+        }
+        #printable-terms-pdf, #printable-terms-pdf * {
+          visibility: visible !important;
+        }
+      }
+    `;
+    document.head.appendChild(printStyle);
+
+    setTimeout(() => {
+      window.print();
+      setTimeout(() => {
+        printDiv.remove();
+        printStyle.remove();
+        triggerToast('Terms of Service document print dialog opened successfully.', 'success');
+      }, 500);
+    }, 100);
   };
 
   return (
-    <div className="min-h-screen bg-[#070b14] text-slate-100 flex flex-col font-sans selection:bg-emerald-500 selection:text-slate-950">
-      {/* Header section with branding */}
-      <header className="border-b border-slate-850 bg-slate-950/80 backdrop-blur sticky top-0 z-10 px-4 py-4 sm:px-8">
-        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div id="terms-of-service-view" className="h-full overflow-y-auto flex-1 bg-[#060c0a] text-slate-100 flex flex-col font-sans selection:bg-emerald-500 selection:text-slate-950">
+      
+      {/* 1. Header Area */}
+      <header className="sticky top-0 z-50 bg-[#040907]/90 backdrop-blur-md border-b border-emerald-950 px-4 py-4 md:py-5 shrink-0">
+        <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+          
           <div className="flex items-center gap-3">
             <button
               onClick={onBack}
-              className="p-2 bg-slate-900 hover:bg-slate-850 text-slate-300 hover:text-white rounded-lg border border-slate-800 transition flex items-center justify-center cursor-pointer"
+              className="p-2 bg-emerald-950/40 hover:bg-emerald-900/50 text-emerald-400 hover:text-emerald-300 rounded-lg transition-colors border border-emerald-900/30 flex items-center justify-center cursor-pointer"
               title="Go Back"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="w-5 h-5" />
             </button>
             <div className="flex items-center gap-2">
-              <div className="p-1.5 bg-emerald-500/15 rounded-lg text-emerald-400">
+              <div className="p-1.5 bg-emerald-500/10 rounded-lg text-emerald-400 border border-emerald-500/20">
                 <Shield className="w-5 h-5" />
               </div>
               <div>
-                <h1 className="text-sm font-mono font-black text-emerald-400 tracking-widest uppercase">
-                  FastPoolCodes
-                </h1>
-                <span className="text-[10px] text-slate-400 uppercase font-mono tracking-wider block">
-                  Legal Compliance Office
-                </span>
+                <h1 className="text-sm font-black font-mono tracking-tight uppercase text-white leading-none">FastPoolCodes</h1>
+                <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider mt-0.5 font-mono">Terms of Service</p>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             <button
               onClick={handlePrint}
-              className="bg-slate-900 hover:bg-slate-850 text-slate-300 font-bold font-mono text-[10px] uppercase tracking-wider px-3 py-2 rounded-lg border border-slate-800 transition flex items-center gap-1.5 cursor-pointer"
+              className="w-full sm:w-auto bg-emerald-900/40 hover:bg-emerald-900/70 border border-emerald-800/50 text-emerald-400 hover:text-emerald-300 font-bold text-xs uppercase tracking-wider px-4 py-2 rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5"
             >
-              <Printer className="w-3.5 h-3.5" />
-              <span>Print</span>
+              <Printer className="w-4 h-4" />
+              <span>Print / Save PDF</span>
             </button>
             <button
-              onClick={handleDownloadText}
-              className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black font-mono text-[10px] uppercase tracking-wider px-4 py-2 rounded-lg transition flex items-center gap-1.5 cursor-pointer shadow-lg shadow-emerald-500/10"
+              onClick={onBack}
+              className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs uppercase tracking-wider px-5 py-2 rounded-xl transition cursor-pointer flex items-center justify-center gap-1 shadow shadow-emerald-500/10"
             >
-              <FileText className="w-3.5 h-3.5" />
-              <span>Download (.TXT)</span>
+              <CheckCircle2 className="w-4 h-4" />
+              <span>Accept & Return</span>
             </button>
           </div>
+
         </div>
       </header>
 
-      {/* Main Container */}
-      <main className="flex-1 w-full max-w-5xl mx-auto px-4 py-8 sm:px-8 flex flex-col gap-8">
+      {/* 2. Main Content */}
+      <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-8 md:py-12 flex flex-col gap-6">
         
-        {/* Banner */}
-        <div className="bg-gradient-to-r from-emerald-950/20 via-slate-900/10 to-transparent border border-emerald-900/20 p-6 rounded-2xl flex flex-col md:flex-row items-start md:items-center gap-4 shadow-xl">
-          <div className="p-3 bg-emerald-500/10 rounded-xl text-emerald-400 shrink-0">
-            <Scale className="w-8 h-8" />
-          </div>
-          <div>
-            <h2 className="text-lg font-mono font-black uppercase text-slate-200 tracking-wider">
-              Terms of Service Agreement
+        {/* Intro Hero Banner */}
+        <div className="bg-gradient-to-br from-emerald-950/20 via-emerald-950/10 to-transparent border border-emerald-900/40 rounded-2xl p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden shrink-0">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl -z-10 pointer-events-none" />
+          <div className="space-y-3 max-w-xl">
+            <span className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full font-mono">
+              Legal Compliance Document
+            </span>
+            <h2 className="text-2xl font-black text-white uppercase tracking-tight font-sans">
+              Terms of Use & Member Rules Agreement
             </h2>
-            <p className="text-xs text-slate-400 mt-1 leading-relaxed max-w-3xl">
-              Please read these terms carefully before utilizing our match fixtures, results center, fast pool codes, and premium predictions. By using our website, you agree to be bound by these legal policies.
+            <p className="text-xs text-slate-400 leading-relaxed font-sans">
+              Welcome to FastPoolCodes! Before you begin using our services, we require that you carefully read and agree to the following terms of service:
             </p>
           </div>
-        </div>
-
-        {/* Filter Bar */}
-        <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between bg-slate-950 border border-slate-850 p-4 rounded-xl">
-          {/* Tabs */}
-          <div className="flex flex-wrap gap-1.5">
-            {(['All', 'General', 'Conduct', 'Legal'] as const).map(category => (
-              <button
-                key={category}
-                onClick={() => setSelectedCategory(category)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-mono font-extrabold uppercase transition cursor-pointer ${
-                  selectedCategory === category
-                    ? 'bg-emerald-500 text-slate-950'
-                    : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
-                }`}
-              >
-                {category}
-              </button>
-            ))}
-          </div>
-
-          {/* Search Input */}
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
-            <input
-              type="text"
-              placeholder="Search terms or clauses..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-slate-900 border border-slate-800 rounded-lg pl-9 pr-8 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 transition font-mono w-full"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-2.5 text-xs text-slate-400 hover:text-white font-mono uppercase"
-              >
-                Clear
-              </button>
-            )}
+          <div className="bg-emerald-950/30 border border-emerald-900/50 rounded-xl p-4 shrink-0 flex flex-col justify-center items-center gap-1 text-center min-w-[140px]">
+            <FileText className="w-8 h-8 text-emerald-400 mb-1" />
+            <span className="text-[10px] font-mono text-emerald-400 uppercase font-black">Document Status</span>
+            <span className="text-xs font-bold text-white uppercase">Active & Secure</span>
+            <span className="text-[9px] text-slate-500 font-mono">Ver: 2026.07.08</span>
           </div>
         </div>
 
-        {/* Content list */}
-        <div className="grid grid-cols-1 gap-6">
-          {filteredSections.length === 0 ? (
-            <div className="py-16 text-center border border-dashed border-slate-800 rounded-xl bg-slate-950">
-              <Info className="w-10 h-10 text-slate-600 mx-auto mb-3" />
-              <p className="text-sm font-mono text-slate-400">
-                No articles matching your filters: "{searchQuery || selectedCategory}"
-              </p>
-              <button 
-                onClick={() => { setSearchQuery(''); setSelectedCategory('All'); }}
-                className="mt-3 text-emerald-400 font-mono text-xs hover:underline uppercase"
-              >
-                Reset Filters
-              </button>
-            </div>
-          ) : (
-            filteredSections.map((section, idx) => (
+        {/* Search Bar for Quick Navigation */}
+        <div className="relative shrink-0">
+          <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-emerald-600">
+            <Search className="w-4 h-4" />
+          </div>
+          <input
+            type="text"
+            placeholder="Search terms, keyword, or section numbers (e.g. 'Subscription', 'Eligibility', 'Liability')..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-[#030907] border border-emerald-900/50 rounded-xl py-3 pl-10 pr-4 text-xs text-emerald-100 placeholder:text-emerald-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-mono"
+          />
+          {searchQuery && (
+            <button 
+              onClick={() => setSearchQuery('')}
+              className="absolute inset-y-0 right-3 text-[10px] text-emerald-555 hover:text-emerald-400 font-bold uppercase transition"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+
+        {/* Terms Sections Scroll List */}
+        <div className="space-y-4">
+          {filteredSections.length > 0 ? (
+            filteredSections.map((section) => (
               <motion.div
                 key={section.id}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.05 }}
-                className="bg-slate-950/80 border border-slate-850 p-6 rounded-xl hover:border-slate-800 transition flex gap-4 items-start"
+                transition={{ duration: 0.2 }}
+                className="bg-[#030907]/60 border border-emerald-950 rounded-xl p-5 md:p-6 hover:border-emerald-900/50 transition duration-250 flex flex-col gap-3 text-left"
               >
-                <div className="p-2 bg-slate-900 rounded-lg text-emerald-500 shrink-0 font-mono text-xs font-black select-none">
-                  #{idx + 1}
-                </div>
-                <div className="space-y-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="font-sans font-extrabold text-sm text-slate-200">
-                      {section.title}
-                    </h3>
-                    <span className="text-[9px] font-mono font-extrabold uppercase bg-slate-900 text-emerald-400 px-1.5 py-0.5 rounded border border-slate-800/60">
-                      {section.category}
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-350 leading-relaxed font-sans">
-                    {section.content}
-                  </p>
-                </div>
+                <h3 className="font-sans font-black text-sm text-white uppercase tracking-tight flex items-center gap-2 border-b border-emerald-950 pb-2 text-emerald-400">
+                  <span>{section.title}</span>
+                </h3>
+                <p className="text-xs text-slate-300 leading-relaxed font-sans font-medium">
+                  {section.content}
+                </p>
               </motion.div>
             ))
+          ) : (
+            <div className="text-center py-12 border border-dashed border-emerald-950 rounded-2xl bg-[#030907]/20">
+              <p className="text-xs text-slate-500 font-mono">No matching Terms of Service sections found for "{searchQuery}".</p>
+              <button 
+                onClick={() => setSearchQuery('')}
+                className="mt-3 text-xs text-emerald-400 hover:underline font-bold"
+              >
+                Reset Search Filters
+              </button>
+            </div>
           )}
         </div>
 
-        {/* Support Section Footer card */}
-        <div className="bg-[#0b1329] border border-emerald-950 p-6 md:p-8 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="space-y-1 text-center md:text-left">
-            <h3 className="text-sm font-mono font-black uppercase text-white tracking-wider flex items-center justify-center md:justify-start gap-1.5">
-              <Mail className="w-4 h-4 text-emerald-400" />
-              <span>Questions or Concerns?</span>
-            </h3>
-            <p className="text-xs text-slate-400 max-w-xl leading-relaxed">
-              Our compliance managers are ready to assist you. Drop an email to receive quick feedback regarding user accounts, subscriptions, or refund guidelines.
+        {/* Secure Disclaimer Box */}
+        <div className="bg-amber-500/5 border border-amber-500/15 rounded-xl p-4 flex gap-3 text-left shrink-0">
+          <span className="text-sm">⚠️</span>
+          <div className="space-y-1">
+            <h4 className="text-[10px] font-mono font-black text-amber-500 uppercase tracking-wider">Crucial Legal Disclaimer</h4>
+            <p className="text-[10.5px] text-slate-400 leading-normal font-sans">
+              Our codes and draw predictions are mathematically simulated outputs of historical data trends. We do not provide assurance of payout, and pool coupon forecasting contains inherent risk. Under no circumstances should users utilize information provided for unauthorized real-money gaming activities in prohibited regions.
             </p>
           </div>
+        </div>
 
-          <a
-            href="mailto:admin@Fastpoolcodes.com"
-            className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-black font-mono text-xs uppercase tracking-wider px-5 py-3 rounded-xl transition flex items-center gap-2"
+        {/* Contact Support block */}
+        <div className="border-t border-emerald-950 pt-6 mt-4 flex flex-col sm:flex-row items-center justify-between gap-4 shrink-0">
+          <p className="text-[10px] text-slate-500 font-mono text-center sm:text-left">
+            Have questions about our legal protocols? Contact: <a href="mailto:admin@Fastpoolcodes.com" className="text-emerald-400 hover:underline">admin@Fastpoolcodes.com</a>
+          </p>
+          <button
+            onClick={onBack}
+            className="w-full sm:w-auto px-6 py-2.5 bg-emerald-950/40 hover:bg-emerald-950/80 text-emerald-400 hover:text-emerald-300 text-xs font-mono font-black border border-emerald-900 rounded-xl transition cursor-pointer uppercase tracking-wider"
           >
-            <span>admin@Fastpoolcodes.com</span>
-          </a>
+            Back to Application
+          </button>
         </div>
 
       </main>
 
-      {/* Page Footer */}
-      <footer className="border-t border-slate-850 bg-slate-950 py-6 px-4 text-center text-xs text-slate-500 font-mono">
-        <p>© 2026 FastPoolCodes Compliance Office. All legal protections apply.</p>
+      {/* Footer copyright segment */}
+      <footer className="bg-[#030705] border-t border-emerald-950 py-5 px-4 text-center text-[10px] text-slate-600 font-mono mt-auto shrink-0">
+        © 2026 FastPoolCodes Legal Compliance Division. All rights reserved. Registered trademark.
       </footer>
+
     </div>
   );
 }

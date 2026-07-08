@@ -568,6 +568,7 @@ export default function OfficePoolStopHome({
                   candidateErrors={candidateErrors}
                   onRefreshBlogs={fetchBlogs}
                   onOpenTerms={onOpenTerms}
+                  db={db}
                 />
               );
 
@@ -704,10 +705,10 @@ export default function OfficePoolStopHome({
                 r.week_number?.toString().includes(resultsSearchQuery)
               );
 
-              // CSV Exporter Helper
-              const handleExportCSV = (result: any) => {
+              // PDF Exporter Helper
+              const handleExportPDF = (result: any) => {
                 try {
-                  const headers = 'Match No,Home Team,Away Team,Full Time Score,Outcome,Payout Status\n';
+                  const headers = ['Match No', 'Home Team', 'Away Team', 'FT Score', 'Outcome', 'Payout Status'];
                   const baseRows = result.results_table || [];
                   const filtered = baseRows.filter((row: any) => {
                     if (!resultsTableSearch) return true;
@@ -721,19 +722,80 @@ export default function OfficePoolStopHome({
                       row.fullTimeScore?.toString().includes(s)
                     );
                   });
-                  const rows = filtered.map((row: any) => 
-                    `"${row.matchNo}","${row.homeTeam}","${row.awayTeam}","${row.fullTimeScore}","${row.outcome}","${row.payoutStatus}"`
-                  ).join('\n');
-                  
-                  const blob = new Blob([headers + rows], { type: 'text/csv' });
-                  const url = window.URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.setAttribute('href', url);
-                  a.setAttribute('download', `FastPoolCodes_Week_${result.week_number}_Results.csv`);
-                  a.click();
-                  triggerToast(`Week ${result.week_number} results spreadsheet (.csv) downloaded successfully (${filtered.length} rows)!`, 'success');
+
+                  const rows = filtered.map((row: any) => [
+                    String(row.matchNo),
+                    row.homeTeam || '',
+                    row.awayTeam || '',
+                    row.fullTimeScore || '',
+                    row.outcome || '',
+                    row.payoutStatus || ''
+                  ]);
+
+                  const printDiv = document.createElement('div');
+                  printDiv.id = 'printable-coupon-pdf';
+                  printDiv.style.position = 'fixed';
+                  printDiv.style.left = '0';
+                  printDiv.style.top = '0';
+                  printDiv.style.width = '100%';
+                  printDiv.style.backgroundColor = 'white';
+                  printDiv.style.color = 'black';
+                  printDiv.style.zIndex = '9999999';
+                  printDiv.style.padding = '30px';
+                  printDiv.style.fontFamily = 'monospace';
+
+                  printDiv.innerHTML = `
+                    <div style="border-bottom: 2px solid black; padding-bottom: 15px; margin-bottom: 20px; font-family: sans-serif; text-align: left;">
+                      <h2 style="margin: 0; text-transform: uppercase; font-size: 16px; letter-spacing: -0.5px;">⚽ FASTPOOLCODES // PRINT SERVICE</h2>
+                      <h3 style="margin: 5px 0 0 0; text-transform: uppercase; font-size: 12px; color: #10b981;">WEEK ${result.week_number} POOL RESULTS - ${result.title}</h3>
+                      <p style="margin: 5px 0 0 0; font-size: 10px; color: #555;">Generated on ${new Date().toLocaleDateString()}</p>
+                    </div>
+                    <table style="width: 100%; border-collapse: collapse; font-size: 10px; text-align: left; font-family: monospace;">
+                      <thead>
+                        <tr style="background-color: #0f172a; color: white;">
+                          ${headers.map(h => `<th style="border: 1px solid #cbd5e1; padding: 6px; text-transform: uppercase;">${h}</th>`).join('')}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${rows.map((row, rIdx) => `
+                          <tr style="background-color: ${rIdx % 2 === 0 ? '#f8fafc' : '#ffffff'};">
+                            ${row.map(cell => `<td style="border: 1px solid #cbd5e1; padding: 6px; color: #0f172a;">${cell}</td>`).join('')}
+                          </tr>
+                        `).join('')}
+                      </tbody>
+                    </table>
+                    <div style="margin-top: 30px; border-top: 1px solid #cbd5e1; padding-top: 10px; font-size: 8px; color: #64748b; text-align: center; font-family: sans-serif;">
+                      © 2026 FastPoolCodes. Secure printable document license.
+                    </div>
+                  `;
+
+                  document.body.appendChild(printDiv);
+
+                  const printStyle = document.createElement('style');
+                  printStyle.id = 'print-coupon-override';
+                  printStyle.innerHTML = `
+                    @media print {
+                      body * {
+                        visibility: hidden !important;
+                      }
+                      #printable-coupon-pdf, #printable-coupon-pdf * {
+                        visibility: visible !important;
+                      }
+                    }
+                  `;
+                  document.head.appendChild(printStyle);
+
+                  setTimeout(() => {
+                    window.print();
+                    setTimeout(() => {
+                      printDiv.remove();
+                      printStyle.remove();
+                      triggerToast(`Week ${result.week_number} results PDF document opened successfully (${filtered.length} rows)!`, 'success');
+                    }, 500);
+                  }, 100);
+
                 } catch (e) {
-                  triggerToast('Export failed. Please try again.', 'error');
+                  triggerToast('Export to PDF failed. Please try again.', 'error');
                 }
               };
 
@@ -845,10 +907,10 @@ export default function OfficePoolStopHome({
                                 </h3>
                               </div>
                               <button
-                                onClick={() => handleExportCSV(activeResult)}
+                                onClick={() => handleExportPDF(activeResult)}
                                 className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-[10px] uppercase tracking-wider px-3.5 py-2 rounded-lg flex items-center gap-1.5 cursor-pointer transition shadow shadow-emerald-500/10"
                               >
-                                <span>📥 Export Excel</span>
+                                <span>📄 Download PDF</span>
                               </button>
                             </div>
 
@@ -1533,7 +1595,7 @@ export default function OfficePoolStopHome({
                       className="rounded border-emerald-900 bg-[#020b08] text-emerald-500 focus:ring-0 mt-0.5 h-3.5 w-3.5 cursor-pointer" 
                     />
                     <label htmlFor="agreeTerms" className="cursor-pointer">
-                      I accept the{' '}
+                      I have read and agree to the{' '}
                       <span 
                         onClick={(e) => {
                           e.preventDefault();
@@ -1544,7 +1606,7 @@ export default function OfficePoolStopHome({
                       >
                         Terms of Service
                       </span>{' '}
-                      of FastPoolCodes
+                      of FastPoolCodes before sign up
                     </label>
                   </div>
                 )}

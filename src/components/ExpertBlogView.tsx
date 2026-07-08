@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ChevronDown,
   ChevronRight,
@@ -20,7 +20,8 @@ import {
   Award,
   Volume2,
   TrendingUp,
-  Check
+  Check,
+  FileText
 } from 'lucide-react';
 import { getSupabaseClient } from '../lib/supabase';
 
@@ -43,6 +44,7 @@ interface ExpertBlogViewProps {
   candidateErrors?: Record<string, string>;
   onRefreshBlogs?: () => void;
   onOpenTerms?: () => void;
+  db?: any;
 }
 
 export default function ExpertBlogView({
@@ -55,12 +57,50 @@ export default function ExpertBlogView({
   supabaseError = null,
   candidateErrors = {},
   onRefreshBlogs,
-  onOpenTerms
+  onOpenTerms,
+  db
 }: ExpertBlogViewProps) {
 
   const [probeTableName, setProbeTableName] = useState('');
   const [probeResult, setProbeResult] = useState<string | null>(null);
   const [probeLoading, setProbeLoading] = useState(false);
+
+  const [resultsList, setResultsList] = useState<any[]>(() => {
+    const stored = localStorage.getItem('fastpool_pool_results_list');
+    if (stored) {
+      try {
+        return JSON.parse(stored);
+      } catch (_) {}
+    }
+    return db?.pool_results || [];
+  });
+
+  const [selectedResultId, setSelectedResultId] = useState<string>('');
+  const [resultsSearchQuery, setResultsSearchQuery] = useState('');
+  const [resultsTableSearch, setResultsTableSearch] = useState('');
+
+  useEffect(() => {
+    const handleSync = (e: any) => {
+      if (e.detail) {
+        setResultsList(e.detail);
+      }
+    };
+    window.addEventListener('fastpool_results_synced', handleSync);
+    
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'fastpool_pool_results_list' && e.newValue) {
+        try {
+          setResultsList(JSON.parse(e.newValue));
+        } catch (_) {}
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    
+    return () => {
+      window.removeEventListener('fastpool_results_synced', handleSync);
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
 
   const handleProbeTable = async () => {
     if (!probeTableName.trim()) {
@@ -90,6 +130,32 @@ export default function ExpertBlogView({
       setProbeResult(`❌ Error scanning table: ${err?.message || String(err)}`);
     }
     setProbeLoading(false);
+  };
+
+  const filteredResults = resultsList.filter(r => 
+    r.title?.toLowerCase().includes(resultsSearchQuery.toLowerCase()) || 
+    r.week_number?.toString().includes(resultsSearchQuery)
+  );
+
+  const activeResult = resultsList.find(x => x.id === (selectedResultId || (filteredResults[0] && filteredResults[0].id)));
+
+  const activeResultRows = activeResult ? (activeResult.results_table || []).filter((row: any) => {
+    if (!resultsTableSearch) return true;
+    const s = resultsTableSearch.toLowerCase();
+    return (
+      row.homeTeam?.toLowerCase().includes(s) ||
+      row.awayTeam?.toLowerCase().includes(s) ||
+      row.outcome?.toLowerCase().includes(s) ||
+      row.payoutStatus?.toLowerCase().includes(s) ||
+      row.matchNo?.toString().includes(s) ||
+      row.fullTimeScore?.toString().includes(s)
+    );
+  }) : [];
+
+  const handlePdfClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    triggerToast('To download the official PDF result sheets, please sign in or register.', 'info');
+    onOpenAuth('login');
   };
 
   return (
@@ -887,6 +953,185 @@ INSERT INTO public.championship_results (
                 </div>
               )}
 
+              {/* COPY OF THE POOL RESULTS ON THE BLOG PAGE */}
+              <div className="bg-white border border-zinc-200 rounded-lg p-6 space-y-6 text-left mt-8 shadow-sm">
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-zinc-100 pb-4">
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-mono font-black text-[#fa3e65] uppercase tracking-widest bg-rose-50 border border-rose-100 px-2.5 py-1 rounded-full">
+                      🏆 Public Pool Results Board
+                    </span>
+                    <h3 className="text-xl font-black text-zinc-900 tracking-tight uppercase">
+                      Official Weekly Pool Results
+                    </h3>
+                    <p className="text-zinc-500 text-xs leading-relaxed font-semibold">
+                      Verify draw outcomes and verify payouts from completed fixtures. Choose any week below to explore full results listings.
+                    </p>
+                  </div>
+
+                  {/* Search bar inside blog results */}
+                  <div className="w-full md:w-64 shrink-0 relative">
+                    <input
+                      type="text"
+                      placeholder="Search by week number..."
+                      value={resultsSearchQuery}
+                      onChange={(e) => setResultsSearchQuery(e.target.value)}
+                      className="w-full bg-zinc-50 border border-zinc-200 rounded-lg pl-8.5 pr-4 py-2 text-xs text-zinc-800 placeholder-zinc-400 focus:outline-none focus:border-zinc-500 transition font-mono font-bold"
+                    />
+                    <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-2.5" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                  {/* Left Column: Weeks Directory Selector */}
+                  <div className="md:col-span-5 space-y-2 max-h-[380px] overflow-y-auto pr-1">
+                    <span className="text-[9px] font-mono font-black text-zinc-400 uppercase tracking-widest block pb-1">
+                      Available Result Sheets ({filteredResults.length})
+                    </span>
+                    {filteredResults.length === 0 ? (
+                      <div className="p-6 text-center bg-zinc-50 border border-zinc-150 rounded-lg text-zinc-400 text-xs font-bold">
+                        No sheets found matching search criteria.
+                      </div>
+                    ) : (
+                      filteredResults.map((result: any) => {
+                        const isSelected = selectedResultId === result.id || (!selectedResultId && filteredResults[0].id === result.id);
+                        const totalDraws = (result.results_table || []).filter((x: any) => x.outcome === 'DRAW').length;
+                        return (
+                          <div
+                            key={result.id}
+                            onClick={() => setSelectedResultId(result.id)}
+                            className={`p-3.5 rounded-lg border transition cursor-pointer text-left flex flex-col gap-2 relative overflow-hidden ${
+                              isSelected
+                                ? 'bg-[#1a1a1c] border-[#1a1a1c] text-white'
+                                : 'bg-zinc-50/50 border-zinc-200 text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className={`text-[9px] font-mono font-black uppercase tracking-wider ${isSelected ? 'text-rose-400' : 'text-[#fa3e65]'}`}>
+                                Week {result.week_number} • {result.season_year}
+                              </span>
+                              <span className={`text-[8.5px] font-mono font-black px-1.5 py-0.5 rounded border ${
+                                isSelected 
+                                  ? 'bg-zinc-800 text-rose-300 border-zinc-700' 
+                                  : 'bg-rose-50 text-rose-750 border-rose-100'
+                              }`}>
+                                {totalDraws} DRAWS
+                              </span>
+                            </div>
+                            <h4 className="font-extrabold text-xs uppercase leading-tight font-sans tracking-wide truncate">
+                              {result.title}
+                            </h4>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  {/* Right Column: Sheet Table Details */}
+                  <div className="md:col-span-7">
+                    {(() => {
+                      if (!activeResult) {
+                        return (
+                          <div className="p-12 text-center bg-zinc-50 border border-zinc-200 rounded-lg text-zinc-400 text-xs font-bold">
+                            Please select a week result sheet from the left directory list.
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="border border-zinc-200 rounded-lg overflow-hidden flex flex-col bg-white">
+                          {/* Active Sheet Header info */}
+                          <div className="p-4 bg-zinc-50 border-b border-zinc-200 flex items-center justify-between">
+                            <div className="text-left min-w-0 pr-2">
+                              <span className="text-[8.5px] font-mono font-black text-rose-600 uppercase tracking-widest block">
+                                Verified Results Sheet
+                              </span>
+                              <h4 className="text-zinc-800 font-extrabold text-xs uppercase tracking-wide truncate mt-0.5">
+                                {activeResult.title}
+                              </h4>
+                            </div>
+                            <button
+                              onClick={handlePdfClick}
+                              className="bg-rose-600 hover:bg-rose-700 text-white font-black text-[9.5px] uppercase tracking-wider px-3 py-1.5 rounded flex items-center gap-1 cursor-pointer transition shrink-0 shadow-sm"
+                            >
+                              <FileText className="w-3 h-3" />
+                              <span>Download PDF</span>
+                            </button>
+                          </div>
+
+                          {/* Fixtures Table Filter */}
+                          <div className="px-4 py-2.5 border-b border-zinc-150 bg-zinc-50/40 flex items-center justify-between gap-3">
+                            <input
+                              type="text"
+                              placeholder="Filter matches (e.g. Arsenal, DRAW)..."
+                              value={resultsTableSearch}
+                              onChange={(e) => setResultsTableSearch(e.target.value)}
+                              className="w-full bg-white border border-zinc-200 rounded px-2.5 py-1 text-[11px] text-zinc-750 placeholder-zinc-400 focus:outline-none focus:border-zinc-400 transition font-mono"
+                            />
+                            {resultsTableSearch && (
+                              <button
+                                onClick={() => setResultsTableSearch('')}
+                                className="text-[10px] text-zinc-500 hover:text-zinc-850 uppercase font-mono font-bold shrink-0"
+                              >
+                                Clear
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Matches List Table */}
+                          <div className="overflow-x-auto max-h-[250px] overflow-y-auto">
+                            <table className="w-full text-left border-collapse text-xs">
+                              <thead>
+                                <tr className="bg-zinc-50 text-zinc-500 font-mono text-[8.5px] font-bold uppercase tracking-widest border-b border-zinc-200 select-none">
+                                  <th className="py-2.5 px-3 text-center w-12">No</th>
+                                  <th className="py-2.5 px-3">Fixture Match</th>
+                                  <th className="py-2.5 px-3 text-center w-16">Score</th>
+                                  <th className="py-2.5 px-3 text-center w-20">Outcome</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-zinc-100 font-bold text-zinc-700">
+                                {activeResultRows.length === 0 ? (
+                                  <tr>
+                                    <td colSpan={4} className="py-8 px-4 text-center text-zinc-450 font-bold">
+                                      No matches match your criteria.
+                                    </td>
+                                  </tr>
+                                ) : (
+                                  activeResultRows.map((row: any, rIdx: number) => {
+                                    const isDraw = row.outcome === 'DRAW';
+                                    return (
+                                      <tr key={rIdx} className={`hover:bg-zinc-50/50 transition ${isDraw ? 'bg-amber-500/5' : ''}`}>
+                                        <td className="py-2 px-3 text-center text-rose-600 font-mono text-[11px]">
+                                          {row.matchNo}
+                                        </td>
+                                        <td className="py-2 px-3 text-zinc-800 text-[11px]">
+                                          {row.homeTeam} <span className="text-zinc-400 font-medium">vs</span> {row.awayTeam}
+                                        </td>
+                                        <td className="py-2 px-3 text-center font-mono text-zinc-900 text-[11px]">
+                                          {row.fullTimeScore}
+                                        </td>
+                                        <td className="py-2 px-3 text-center">
+                                          <span className={`text-[8.5px] font-mono font-black px-1.5 py-0.5 rounded border ${
+                                            isDraw
+                                              ? 'bg-amber-50 text-amber-700 border-amber-200/50'
+                                              : 'bg-zinc-50 text-zinc-550 border-zinc-150'
+                                          }`}>
+                                            {row.outcome}
+                                          </span>
+                                        </td>
+                                      </tr>
+                                    );
+                                  })
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </div>
+
             </div>
 
             {/* ================== RIGHT SIDEBAR (Width ~21%) ================== */}
@@ -948,8 +1193,12 @@ INSERT INTO public.championship_results (
               <div className="text-left select-none text-[10px] space-y-1 text-zinc-400 font-medium px-1 leading-normal">
                 <div className="flex flex-wrap gap-x-2 gap-y-0.5">
                   <span onClick={() => triggerToast('Opening Privacy Policy contract...', 'info')} className="hover:underline cursor-pointer">Privacy Policy</span>
-                  <span>•</span>
-                  <span onClick={() => onOpenTerms ? onOpenTerms() : triggerToast('Opening Terms of Service...', 'info')} className="hover:underline cursor-pointer">Terms of Use</span>
+                  {onOpenTerms && (
+                    <>
+                      <span>•</span>
+                      <span onClick={onOpenTerms} className="hover:underline cursor-pointer">Terms of Use</span>
+                    </>
+                  )}
                   <span>•</span>
                   <span onClick={() => triggerToast('Loading Ad guideline information...', 'info')} className="hover:underline cursor-pointer">Interest-Based Ads</span>
                 </div>

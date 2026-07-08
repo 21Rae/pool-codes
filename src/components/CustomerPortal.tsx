@@ -39,7 +39,11 @@ import {
   Play,
   Menu,
   Tv,
-  LogOut
+  LogOut,
+  Printer,
+  Mail,
+  FileText,
+  CheckCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DatabaseState, User, SubscriptionPlan, UserSubscription, PoolCode } from '../types';
@@ -88,6 +92,21 @@ export default function CustomerPortal({
   const [streamSubscribed, setStreamSubscribed] = useState(false);
   const [streamReminders, setStreamReminders] = useState<Record<string, boolean>>({});
 
+  // PDF Customization & Printing states
+  const [showPdfPrintModal, setShowPdfPrintModal] = useState(false);
+  const [showSimulatedEmailModal, setShowSimulatedEmailModal] = useState(false);
+  const [pdfConfig, setPdfConfig] = useState({
+    title: 'FASTPOOLCODES PREMIUM EXCLUSIVE COUPON',
+    subtitle: 'Official Decrypted Classified Fixtures & Key Codes',
+    showBookmaker: true,
+    showTips: true,
+    showOdds: true,
+    showVerificationStamp: true,
+    theme: 'classic', // 'classic' | 'emerald' | 'compact'
+    customNote: 'Decrypted with Premium VIP Authorization. FastPoolCodes All rights reserved.'
+  });
+  const activeWeekNumber = 43;
+
   // Personal Info & Password edit states
   const [profileUsername, setProfileUsername] = useState(currentUser.username);
   const [profileEmail, setProfileEmail] = useState(currentUser.email);
@@ -128,6 +147,70 @@ export default function CustomerPortal({
     } else {
       triggerToast('Simulated profile database update successful!', 'success');
     }
+  };
+
+  // Reusable lightweight PDF/Print generation engine for data tables
+  const printTable = (title: string, headers: string[], rows: any[][]) => {
+    const printDiv = document.createElement('div');
+    printDiv.id = 'printable-coupon-pdf';
+    printDiv.style.position = 'fixed';
+    printDiv.style.left = '0';
+    printDiv.style.top = '0';
+    printDiv.style.width = '100%';
+    printDiv.style.backgroundColor = 'white';
+    printDiv.style.color = 'black';
+    printDiv.style.zIndex = '9999999';
+    printDiv.style.padding = '30px';
+    printDiv.style.fontFamily = 'monospace';
+
+    printDiv.innerHTML = `
+      <div style="border-bottom: 2px solid black; padding-bottom: 15px; margin-bottom: 20px; font-family: sans-serif; text-align: left;">
+        <h2 style="margin: 0; text-transform: uppercase; font-size: 16px; letter-spacing: -0.5px;">⚽ FASTPOOLCODES // PRINT SERVICE</h2>
+        <h3 style="margin: 5px 0 0 0; text-transform: uppercase; font-size: 12px; color: #10b981;">${title}</h3>
+        <p style="margin: 5px 0 0 0; font-size: 10px; color: #555;">Generated for: @${currentUser.username} (${currentUser.email}) on ${new Date().toLocaleDateString()}</p>
+      </div>
+      <table style="width: 100%; border-collapse: collapse; font-size: 10px; text-align: left; font-family: monospace;">
+        <thead>
+          <tr style="background-color: #0f172a; color: white;">
+            ${headers.map(h => `<th style="border: 1px solid #cbd5e1; padding: 6px; text-transform: uppercase;">${h}</th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map((row, rIdx) => `
+            <tr style="background-color: ${rIdx % 2 === 0 ? '#f8fafc' : '#ffffff'};">
+              ${row.map(cell => `<td style="border: 1px solid #cbd5e1; padding: 6px; color: #0f172a;">${cell}</td>`).join('')}
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+      <div style="margin-top: 30px; border-top: 1px solid #cbd5e1; padding-top: 10px; font-size: 8px; color: #64748b; text-align: center; font-family: sans-serif;">
+        © 2026 FastPoolCodes. Secure printable document license for @${currentUser.username}.
+      </div>
+    `;
+
+    document.body.appendChild(printDiv);
+
+    const printStyle = document.createElement('style');
+    printStyle.id = 'print-coupon-override';
+    printStyle.innerHTML = `
+      @media print {
+        body * {
+          visibility: hidden !important;
+        }
+        #printable-coupon-pdf, #printable-coupon-pdf * {
+          visibility: visible !important;
+        }
+      }
+    `;
+    document.head.appendChild(printStyle);
+
+    setTimeout(() => {
+      window.print();
+      setTimeout(() => {
+        printDiv.remove();
+        printStyle.remove();
+      }, 500);
+    }, 100);
   };
 
   const handleSavePassword = (e: React.FormEvent) => {
@@ -1016,7 +1099,7 @@ export default function CustomerPortal({
           
           <div>
             <span className="text-xs font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-300 uppercase tracking-wider block">
-              {activeSubTab === 'dashboard' ? 'Arena Dashboard' : activeSubTab === 'results' ? 'Result Sheets' : activeSubTab === 'subscription' ? 'VIP Premium' : 'User Profile'}
+              {activeSubTab === 'dashboard' ? 'Arena Dashboard' : activeSubTab === 'results' ? 'Pool Results' : activeSubTab === 'subscription' ? 'VIP Premium' : 'User Profile'}
             </span>
           </div>
         </div>
@@ -1146,7 +1229,7 @@ export default function CustomerPortal({
                   >
                     <span className="flex items-center gap-3">
                       <Trophy className="w-4 h-4" />
-                      <span>CHAMPIONS RESULT SHEETS</span>
+                      <span>POOL RESULTS</span>
                     </span>
                   </button>
 
@@ -1301,7 +1384,7 @@ export default function CustomerPortal({
             >
               <span className="flex items-center gap-3">
                 <Trophy className="w-4 h-4" />
-                <span>CHAMPIONS RESULT SHEETS</span>
+                <span>POOL RESULTS</span>
               </span>
             </button>
 
@@ -1523,39 +1606,14 @@ export default function CustomerPortal({
                           )}
                         </div>
 
-                        {/* Export to Excel */}
+                        {/* Download PDF Customizer Button */}
                         <button
                           onClick={() => {
-                            const currentFiltered = postedGames.filter(game => {
-                              const matchesBookmaker = dashboardBookmakerFilter === 'All' || game.bookmaker === dashboardBookmakerFilter;
-                              const matchesSearch = dashboardGameSearch === '' ||
-                                game.home.toLowerCase().includes(dashboardGameSearch.toLowerCase()) ||
-                                game.away.toLowerCase().includes(dashboardGameSearch.toLowerCase()) ||
-                                game.betCode.includes(dashboardGameSearch) ||
-                                game.betTips.toLowerCase().includes(dashboardGameSearch.toLowerCase()) ||
-                                game.status.toLowerCase().includes(dashboardGameSearch.toLowerCase());
-                              return matchesBookmaker && matchesSearch;
-                            });
-
-                            const headers = ['Pool No', 'Bet Code', 'Home', 'Away', 'Home Win (1)', 'Draw (X)', 'Away Win (2)', 'Bet Tips', 'Status', 'Kick Off', 'Bookmaker'];
-                            const rows = currentFiltered.map(game => [
-                              game.poolNo,
-                              game.betCode,
-                              game.home,
-                              game.away,
-                              game.homeWin,
-                              game.draw,
-                              game.awayWin,
-                              game.betTips,
-                              game.status,
-                              game.kickOff,
-                              game.bookmaker
-                            ]);
-                            downloadTableAsExcel('FastPoolCodes_Classified_Fixtures.csv', headers, rows);
+                            setShowPdfPrintModal(true);
                           }}
-                          className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 shadow shadow-emerald-500/10 shrink-0 font-mono"
+                          className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 shadow shadow-emerald-500/10 shrink-0 font-mono animate-pulse"
                         >
-                          <span>📥 Export Excel</span>
+                          <span>📄 Download PDF</span>
                         </button>
                       </div>
                     </div>
@@ -2912,20 +2970,20 @@ export default function CustomerPortal({
                                       onClick={() => {
                                         const headers = ['Pos', 'Team', 'MP', 'Wins', 'Draws', 'Loss', 'Dr% Ratio', 'PTS'];
                                         const rows = filteredStandings.map(row => [
-                                          row.pos,
+                                          String(row.pos),
                                           row.team,
-                                          row.mp,
-                                          row.w,
-                                          row.d,
-                                          row.l,
+                                          String(row.mp),
+                                          String(row.w),
+                                          String(row.d),
+                                          String(row.l),
                                           row.dr,
-                                          row.pts
+                                          String(row.pts)
                                         ]);
-                                        downloadTableAsExcel('Standings_and_Draw_Ratio_Stats.csv', headers, rows);
+                                        printTable('Standings and Draw Ratio Statistics', headers, rows);
                                       }}
                                       className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-[10px] uppercase tracking-wider px-2.5 py-1 rounded cursor-pointer transition font-mono shrink-0 flex items-center gap-1 shadow shadow-emerald-500/10"
                                     >
-                                      <span>📥 Export Excel</span>
+                                      <span>📄 Download PDF</span>
                                     </button>
                                   </div>
                                 </div>
@@ -3196,19 +3254,19 @@ export default function CustomerPortal({
 
                                     const headers = ['Match No', 'Fixture Teams', 'Bet9ja', 'BetKing', 'SportyBet', 'MSport', '1xBet'];
                                     const rows = filtered.map((m: any) => [
-                                      m.matchNo,
+                                      String(m.matchNo),
                                       m.teams,
-                                      m.bet9ja,
-                                      m.betking,
-                                      m.sportybet,
-                                      m.msport,
-                                      m.oneXbet
+                                      String(m.bet9ja),
+                                      String(m.betking),
+                                      String(m.sportybet),
+                                      String(m.msport),
+                                      String(m.oneXbet)
                                     ]);
-                                    downloadTableAsExcel(`Odds_Comparison_Week_${activeIntl.week_number}.csv`, headers, rows);
+                                    printTable(`Odds Comparison Week ${activeIntl.week_number}`, headers, rows);
                                   }}
                                   className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs uppercase tracking-wider px-4 py-2 rounded-xl cursor-pointer transition font-mono shrink-0 flex items-center justify-center gap-1.5 shadow shadow-emerald-500/10"
                                 >
-                                  <span>📥 Export Excel</span>
+                                  <span>📄 Download PDF</span>
                                 </button>
                               </div>
 
@@ -3602,11 +3660,11 @@ export default function CustomerPortal({
                               match.score,
                               match.status
                             ]);
-                            downloadTableAsExcel('Tracked_Matches_Scoreboard.csv', headers, rows);
+                            printTable('Tracked Matches Scoreboard', headers, rows);
                           }}
                           className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs uppercase tracking-wider px-4 py-2 rounded-xl cursor-pointer transition font-mono shrink-0 flex items-center justify-center gap-1.5 shadow shadow-emerald-500/10"
                         >
-                          <span>📥 Export Excel</span>
+                          <span>📄 Download PDF</span>
                         </button>
                       </div>
                     )}
@@ -3922,7 +3980,7 @@ export default function CustomerPortal({
                   const newId = `pr-w${wkNum}-${adminSheetType}`;
 
                   if (poolResults.some(r => r.id === newId)) {
-                    triggerToast(`Championship Sheet for Week ${wkNum} (${adminSheetType.toUpperCase()}) already exists!`, 'error');
+                    triggerToast(`Pool Results Sheet for Week ${wkNum} (${adminSheetType.toUpperCase()}) already exists!`, 'error');
                     return;
                   }
 
@@ -3947,15 +4005,15 @@ export default function CustomerPortal({
 
                   setPoolResults([newSheet, ...poolResults]);
                   setSelectedResultId(newId);
-                  triggerToast(`Created new empty Championship Sheet for Week ${wkNum} (${adminSheetType.toUpperCase()})!`, 'success');
+                  triggerToast(`Created new empty Pool Results Sheet for Week ${wkNum} (${adminSheetType.toUpperCase()})!`, 'success');
                   setAdminSheetTitle('');
                 };
 
                 const handleResetResultsLocal = () => {
-                  if (confirm('Are you sure you want to reset all championship sheets to default professional seeds?')) {
+                  if (confirm('Are you sure you want to reset all pool results sheets to default professional seeds?')) {
                     setPoolResults(db.pool_results);
                     setSelectedResultId('pr-w43');
-                    triggerToast('Resetted Championship sheets database in local storage!', 'info');
+                    triggerToast('Resetted Pool Results database in local storage!', 'info');
                   }
                 };
 
@@ -3981,7 +4039,7 @@ export default function CustomerPortal({
                       {/* Section Title */}
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
                         <div>
-                          <span className="text-[10px] font-mono font-black text-emerald-400 uppercase tracking-widest block">CHAMPIONSHIP SHEET DIRECTORY</span>
+                          <span className="text-[10px] font-mono font-black text-emerald-400 uppercase tracking-widest block">POOL RESULTS DIRECTORY</span>
                           <h4 className="text-sm font-bold text-slate-100 font-sans mt-0.5">Filter & Select Active Results Sheet</h4>
                         </div>
                         {(filterSeason !== 'all' || filterWeek !== 'all' || filterFixtureDate !== '') && (
@@ -4119,22 +4177,21 @@ export default function CustomerPortal({
 
                                 const headers = ['Season', 'Active Week', 'Fixture Date', 'Match No', 'Home Team Selection', 'Away Team Companion', 'Score FT', 'POOL Outcome', 'PAY Status'];
                                 const csvRows = filtered.map((row: any) => [
-                                  activeResult.season_year || 2026,
+                                  String(activeResult.season_year || 2026),
                                   `WEEK #${activeResult.week_number || 43}`,
                                   activeResult.fixture_date || '2026-04-25',
-                                  row.matchNo,
+                                  String(row.matchNo),
                                   row.homeTeam,
                                   row.awayTeam,
                                   row.fullTimeScore,
                                   row.outcome,
                                   row.payoutStatus
                                 ]);
-                                downloadTableAsExcel(`FastPoolCodes_Week_${activeResult.week_number}_Championship_Results.csv`, headers, csvRows);
-                                triggerToast(`Exported ${filtered.length} rows to CSV.`, 'success');
+                                printTable(`Pool Results Week ${activeResult.week_number}`, headers, csvRows);
                               }}
                               className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-[10px] uppercase tracking-wider px-3.5 py-1.5 rounded cursor-pointer transition font-mono shrink-0 flex items-center justify-center gap-1.5 shadow shadow-emerald-500/10 active:scale-95"
                             >
-                              <span>📥 Download CSV (Excel)</span>
+                              <span>📄 Download PDF</span>
                             </button>
                           </div>
                         )}
@@ -4206,7 +4263,7 @@ export default function CustomerPortal({
                                   <div className="w-[45px] shrink-0 bg-[#0F172A] border-r border-slate-800 select-none">3</div>
                                   <div className="flex-1">
                                     {baseRows.length === 0
-                                      ? "No match records added to this Championship Sheet yet. Use the admin panel below to fill outcomes."
+                                      ? "No match records added to this Pool Results Sheet yet. Use the admin panel below to fill outcomes."
                                       : "No matches found matching your filters."}
                                   </div>
                                 </div>
@@ -4413,7 +4470,7 @@ export default function CustomerPortal({
                               </form>
                             </div>
 
-                            {/* Column 2: Build new empty Championship drawing sheet */}
+                            {/* Column 2: Build new empty Pool Results drawing sheet */}
                             <div className="bg-slate-900/95 border-2 border-indigo-500/20 p-5 rounded-2xl flex flex-col gap-4 font-mono text-xs">
                               <div className="border-b border-slate-800 pb-2">
                                 <h4 className="text-sm font-black text-indigo-400 uppercase tracking-wider">
@@ -4506,7 +4563,7 @@ export default function CustomerPortal({
                         <div className="max-w-md">
                           <h4 className="text-sm font-bold text-slate-200 font-sans">No Matching Results Sheets</h4>
                           <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
-                            We couldn't find any Championship Results Sheets matching your select filters:
+                            We couldn't find any Pool Results Sheets matching your select filters:
                             {filterSeason !== 'all' && <span className="text-emerald-400 font-bold ml-1">Season {filterSeason}</span>}
                             {filterWeek !== 'all' && <span className="text-emerald-400 font-bold ml-1">Week #{filterWeek}</span>}
                             {filterFixtureDate !== '' && <span className="text-emerald-400 font-bold ml-1">Fixture Date: {filterFixtureDate}</span>}
@@ -4624,13 +4681,37 @@ export default function CustomerPortal({
                       })}
                     </div>
 
-                    <div className="mt-6 p-4 bg-emerald-950/20 border border-emerald-900/40 rounded-xl flex items-start gap-3 text-left">
-                      <span className="text-lg">📥</span>
-                      <div className="space-y-1">
-                        <h5 className="text-xs font-bold text-emerald-400 uppercase tracking-wider font-mono">AUTOMATIC POOL CODES FILE DOWNLOAD TRIGGER</h5>
-                        <p className="text-[11px] text-slate-450 leading-relaxed">
-                          Your fast-delivery premium experience is fully automated. Immediately upon successful payment processing and upgrade of your subscription tier, the decryption engine compiles the active pool codesheets and automatically pushes a secure <span className="text-amber-400 font-mono">.txt</span> download package directly to your phone or computer.
-                        </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-6">
+                      <div className="p-4 bg-emerald-950/20 border border-emerald-900/40 rounded-xl flex items-start gap-3 text-left">
+                        <span className="text-lg">📥</span>
+                        <div className="space-y-1">
+                          <h5 className="text-xs font-bold text-emerald-400 uppercase tracking-wider font-mono">AUTOMATIC POOL CODES FILE DOWNLOAD TRIGGER</h5>
+                          <p className="text-[11px] text-slate-350 leading-relaxed">
+                            Your fast-delivery premium experience is fully automated. Immediately upon successful payment processing and upgrade of your subscription tier, the decryption engine compiles the active pool codesheets and automatically pushes a secure <span className="text-amber-400 font-mono">.txt</span> download package directly to your phone or computer.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="p-4 bg-blue-950/20 border border-blue-900/40 rounded-xl flex flex-col justify-between gap-3 text-left">
+                        <div className="flex items-start gap-3">
+                          <span className="text-lg">📧</span>
+                          <div className="space-y-1">
+                            <h5 className="text-xs font-bold text-blue-400 uppercase tracking-wider font-mono">AUTOMATED WEEKLY EMAIL DISPATCH (PDF ATTACHED)</h5>
+                            <p className="text-[11px] text-slate-350 leading-relaxed">
+                              When registered premium customers pay, our mail service automatically dispatches a weekly newsletter containing the decrypted poolcodes as an elegant, print-ready <span className="text-blue-400 font-mono">PDF Attachment</span> directly inside your inbox!
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setShowSimulatedEmailModal(true);
+                            triggerToast('Loading simulated premium email dispatch envelope...', 'info');
+                          }}
+                          className="w-full py-2 bg-blue-500/10 hover:bg-blue-500/20 active:scale-95 text-blue-400 border border-blue-500/30 font-black text-[10.5px] font-mono uppercase tracking-wider rounded-lg transition cursor-pointer flex items-center justify-center gap-1.5"
+                        >
+                          <Mail className="w-3.5 h-3.5" />
+                          <span>Preview Simulated Automated Email</span>
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -4755,6 +4836,519 @@ export default function CustomerPortal({
           {renderFooter && renderFooter()}
         </div>
       </main>
+
+      {/* PDF PRINT CUSTOMIZER & GENERATOR MODAL */}
+      <AnimatePresence>
+        {showPdfPrintModal && (
+          <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-[9999] flex items-center justify-center p-2 sm:p-4 select-none">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-slate-950 border border-slate-800 rounded-3xl w-full max-w-6xl h-[95vh] sm:h-[90vh] flex flex-col md:flex-row overflow-hidden shadow-2xl relative text-left"
+            >
+              {/* Close button */}
+              <button
+                onClick={() => setShowPdfPrintModal(false)}
+                className="absolute top-4 right-4 text-slate-400 hover:text-white transition p-1.5 hover:bg-slate-900 rounded-xl z-20 cursor-pointer"
+                title="Close Customizer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              {/* Left Column: Customizer Controls (Scrollable) */}
+              <div className="w-full md:w-[38%] border-b md:border-b-0 md:border-r border-slate-800 flex flex-col h-1/2 md:h-full bg-[#090E1A]/60 shrink-0">
+                <div className="p-5 border-b border-slate-800/80 bg-slate-950 shrink-0">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-emerald-500/15 rounded-lg text-emerald-400">
+                      <Printer className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-mono font-black text-emerald-400 tracking-wider uppercase">PDF Customizer</h4>
+                      <h3 className="text-sm font-sans font-black text-white uppercase tracking-tight">Document Builder</h3>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-5 space-y-5 scrollbar-thin scrollbar-thumb-slate-800">
+                  {/* Title Input */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-mono font-black text-slate-400 uppercase tracking-wider block">
+                      Custom Sheet Header Title
+                    </label>
+                    <input
+                      type="text"
+                      value={pdfConfig.title}
+                      onChange={(e) => setPdfConfig(prev => ({ ...prev, title: e.target.value.toUpperCase() }))}
+                      className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none font-mono"
+                      placeholder="e.g. FASTPOOLCODES PREMIUM SLIP"
+                    />
+                  </div>
+
+                  {/* Subtitle Input */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-mono font-black text-slate-400 uppercase tracking-wider block">
+                      Document Sub-Header
+                    </label>
+                    <input
+                      type="text"
+                      value={pdfConfig.subtitle}
+                      onChange={(e) => setPdfConfig(prev => ({ ...prev, subtitle: e.target.value }))}
+                      className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none font-mono"
+                      placeholder="e.g. Weekly Verified Coupon Keys"
+                    />
+                  </div>
+
+                  {/* Layout Themes Selector */}
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-mono font-black text-slate-400 uppercase tracking-wider block">
+                      Branding Style / Theme
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(['classic', 'emerald', 'compact'] as const).map(t => (
+                        <button
+                          key={t}
+                          onClick={() => setPdfConfig(prev => ({ ...prev, theme: t }))}
+                          className={`py-2 rounded-xl text-[10px] font-mono uppercase tracking-wider border font-bold cursor-pointer transition ${
+                            pdfConfig.theme === t
+                              ? 'bg-emerald-500 text-slate-950 border-emerald-400'
+                              : 'bg-slate-950 text-slate-400 border-slate-850 hover:border-slate-800'
+                          }`}
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Column Toggles */}
+                  <div className="space-y-2.5 bg-slate-950/80 border border-slate-850/60 p-4 rounded-xl">
+                    <span className="text-[10px] font-mono font-black text-slate-400 uppercase tracking-wider block border-b border-slate-850 pb-1.5 mb-2">
+                      Columns Visibility Options
+                    </span>
+                    
+                    <label className="flex items-center gap-2.5 text-xs text-slate-300 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={pdfConfig.showBookmaker}
+                        onChange={(e) => setPdfConfig(prev => ({ ...prev, showBookmaker: e.target.checked }))}
+                        className="rounded border-slate-800 bg-slate-950 text-emerald-500 focus:ring-0 w-4 h-4 cursor-pointer"
+                      />
+                      <span>Show Bookmaker Column</span>
+                    </label>
+
+                    <label className="flex items-center gap-2.5 text-xs text-slate-300 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={pdfConfig.showTips}
+                        onChange={(e) => setPdfConfig(prev => ({ ...prev, showTips: e.target.checked }))}
+                        className="rounded border-slate-800 bg-slate-950 text-emerald-500 focus:ring-0 w-4 h-4 cursor-pointer"
+                      />
+                      <span>Show Prediction/Tips Column</span>
+                    </label>
+
+                    <label className="flex items-center gap-2.5 text-xs text-slate-300 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={pdfConfig.showOdds}
+                        onChange={(e) => setPdfConfig(prev => ({ ...prev, showOdds: e.target.checked }))}
+                        className="rounded border-slate-800 bg-slate-950 text-emerald-500 focus:ring-0 w-4 h-4 cursor-pointer"
+                      />
+                      <span>Show Bookmaker Odds (1-X-2)</span>
+                    </label>
+
+                    <label className="flex items-center gap-2.5 text-xs text-slate-300 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={pdfConfig.showVerificationStamp}
+                        onChange={(e) => setPdfConfig(prev => ({ ...prev, showVerificationStamp: e.target.checked }))}
+                        className="rounded border-slate-800 bg-slate-950 text-emerald-500 focus:ring-0 w-4 h-4 cursor-pointer"
+                      />
+                      <span>Show Secure Verification Badge</span>
+                    </label>
+                  </div>
+
+                  {/* Footnote Custom Text */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-mono font-black text-slate-400 uppercase tracking-wider block">
+                      Custom Disclaimer or Note
+                    </label>
+                    <textarea
+                      value={pdfConfig.customNote}
+                      onChange={(e) => setPdfConfig(prev => ({ ...prev, customNote: e.target.value }))}
+                      rows={3}
+                      className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded-xl px-3.5 py-2 text-xs text-white outline-none font-mono resize-none leading-relaxed"
+                      placeholder="Custom terms or licensing warning..."
+                    />
+                  </div>
+                </div>
+
+                {/* Print Trigger block */}
+                <div className="p-5 border-t border-slate-800/85 bg-slate-950 flex flex-col gap-3 shrink-0">
+                  <button
+                    onClick={() => {
+                      // Dynamically create temporary style sheet for printing to isolate our specific printable sheet
+                      const printStyle = document.createElement('style');
+                      printStyle.id = 'print-coupon-override';
+                      printStyle.innerHTML = `
+                        @media print {
+                          body * {
+                            visibility: hidden !important;
+                          }
+                          #printable-coupon-pdf, #printable-coupon-pdf * {
+                            visibility: visible !important;
+                          }
+                          #printable-coupon-pdf {
+                            position: fixed !important;
+                            left: 0 !important;
+                            top: 0 !important;
+                            width: 100% !important;
+                            height: auto !important;
+                            background: white !important;
+                            color: black !important;
+                            z-index: 9999999 !important;
+                            padding: 20px !important;
+                            margin: 0 !important;
+                          }
+                        }
+                      `;
+                      document.head.appendChild(printStyle);
+                      
+                      setTimeout(() => {
+                        window.print();
+                        setTimeout(() => {
+                          const styleNode = document.getElementById('print-coupon-override');
+                          if (styleNode) {
+                            styleNode.remove();
+                          }
+                        }, 500);
+                      }, 100);
+                      
+                      triggerToast('Opening printer preferences to save PDF...', 'success');
+                    }}
+                    className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/10 font-mono"
+                  >
+                    <Printer className="w-4 h-4" />
+                    <span>Print or Save PDF</span>
+                  </button>
+
+                  <p className="text-[10px] text-slate-500 font-mono leading-relaxed text-center">
+                    💡 <span className="text-emerald-400 font-extrabold">Pro Tip:</span> In the printing dialogue, set your destination to <span className="text-white font-extrabold">"Save as PDF"</span> to download this customized coupon directly.
+                  </p>
+                </div>
+              </div>
+
+              {/* Right Column: Live Sheet Preview (Scrollable wrapper mimicking A4) */}
+              <div className="flex-1 overflow-y-auto p-4 sm:p-8 bg-slate-900/90 flex justify-center items-start scrollbar-thin scrollbar-thumb-slate-800 select-text">
+                <div
+                  id="printable-coupon-pdf"
+                  className={`w-full max-w-[210mm] min-h-[297mm] bg-white text-slate-950 p-6 sm:p-10 shadow-2xl rounded border flex flex-col justify-between font-sans relative ${
+                    pdfConfig.theme === 'emerald' ? 'border-t-8 border-t-emerald-700' : ''
+                  }`}
+                >
+                  {/* Decorative background grid overlay for print preview (removed during print automatically via CSS) */}
+                  <div className="absolute inset-0 bg-grid opacity-[0.01] pointer-events-none print:hidden"></div>
+
+                  <div className="space-y-6">
+                    {/* Header Block */}
+                    <div className="border-b-2 border-slate-950 pb-5">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xl font-black tracking-tighter uppercase font-sans">
+                              ⚽ FAST<span className="text-emerald-700">POOL</span>CODES
+                            </span>
+                            <span className="text-[8.5px] font-mono uppercase bg-slate-950 text-white px-2 py-0.5 rounded font-black select-none">
+                              VIP CERTIFIED
+                            </span>
+                          </div>
+                          <h1 className="text-base font-extrabold font-mono tracking-tight text-slate-900">
+                            {pdfConfig.title}
+                          </h1>
+                          <p className="text-xs text-slate-600 font-sans italic">
+                            {pdfConfig.subtitle}
+                          </p>
+                        </div>
+
+                        {/* Security Verification Stamp */}
+                        {pdfConfig.showVerificationStamp && (
+                          <div className="border-2 border-emerald-600 text-emerald-700 p-2 text-center rounded uppercase select-none font-black font-mono text-[9px] tracking-wider bg-emerald-50/50 flex flex-col items-center">
+                            <span>🛡️ VERIFIED LICENSED KEY</span>
+                            <span className="text-[7.5px] font-normal text-slate-500 lowercase mt-0.5">
+                              id: fp-sec-{Math.random().toString(36).substring(2, 7)}-{currentUser.id.slice(0,4)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Header Table Metadata Info Bar */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 border-t border-slate-200 mt-4 pt-3 text-[10.5px] font-mono text-slate-700">
+                        <div>
+                          <span className="text-slate-400 block text-[9px] uppercase">LICENSEE NICK:</span>
+                          <span className="font-extrabold text-slate-900">@{currentUser.username}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block text-[9px] uppercase">EMAIL REGISTERED:</span>
+                          <span className="font-extrabold text-slate-900 truncate block max-w-[150px]">{currentUser.email}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block text-[9px] uppercase">VERIFIED ACTIVE:</span>
+                          <span className="font-extrabold text-slate-900">WEEK {activeWeekNumber || 43} (2026)</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block text-[9px] uppercase">COMPLIANCE CODE:</span>
+                          <span className="font-extrabold text-slate-900">SHA256:FPC-{currentUser.id.slice(0, 5).toUpperCase()}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Warning Notice Box */}
+                    <div className="bg-slate-50 border border-slate-200 p-3 rounded text-[10px] text-slate-600 leading-relaxed font-mono">
+                      <strong>⚠️ VIP PRINT LICENSE CLAUSE:</strong> This classified match coupon is generated and optimized specifically for subscriber <strong>@{currentUser.username}</strong> ({currentUser.email}). Distributing, photocopying, digital scanning, or public uploading of this document is fully trace-monitored. Infringements will violate Terms of Service Clause 6 (Intellectual Property) and lead to direct account closure without appeal.
+                    </div>
+
+                    {/* Classified Coupon Table */}
+                    <div className="space-y-2">
+                      <h3 className="text-xs font-mono font-black uppercase text-slate-900 tracking-wide">
+                        📋 Compiled Weekly Classified Coupon Match-ups
+                      </h3>
+
+                      <table className="w-full text-left font-sans text-xs border-collapse">
+                        <thead>
+                          <tr className="bg-slate-950 text-white font-mono uppercase text-[9px] tracking-wider border border-slate-950">
+                            <th className="p-2 border text-center w-[10%]">Pool No</th>
+                            <th className="p-2 border text-center w-[15%]">Bet Code</th>
+                            <th className="p-2 border w-[40%]">Match Details (Home vs Away)</th>
+                            
+                            {pdfConfig.showOdds && (
+                              <>
+                                <th className="p-2 border text-center w-[7%]">Home (1)</th>
+                                <th className="p-2 border text-center w-[7%]">Draw (X)</th>
+                                <th className="p-2 border text-center w-[7%]">Away (2)</th>
+                              </>
+                            )}
+
+                            {pdfConfig.showTips && (
+                              <th className="p-2 border text-center w-[15%]">Expert Tip</th>
+                            )}
+
+                            {pdfConfig.showBookmaker && (
+                              <th className="p-2 border text-center w-[12%]">Bookmaker</th>
+                            )}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200 border">
+                          {postedGames.length === 0 ? (
+                            <tr>
+                              <td colSpan={7} className="p-8 text-center text-slate-400 font-mono italic">
+                                No classified fixtures posted for this active week yet.
+                              </td>
+                            </tr>
+                          ) : (
+                            postedGames.map((game, idx) => (
+                              <tr 
+                                key={game.id || idx} 
+                                className={`text-[11px] hover:bg-slate-50 transition-colors ${
+                                  pdfConfig.theme === 'compact' ? 'py-1' : 'py-2.5'
+                                }`}
+                              >
+                                <td className="p-2 border text-center font-mono font-black text-slate-900 bg-slate-50">
+                                  {game.poolNo}
+                                </td>
+                                <td className="p-2 border text-center font-mono font-black text-slate-800 bg-slate-100/50">
+                                  {game.betCode}
+                                </td>
+                                <td className="p-2 border font-extrabold text-slate-900">
+                                  {game.home} <span className="font-normal text-slate-400">vs</span> {game.away}
+                                </td>
+
+                                {pdfConfig.showOdds && (
+                                  <>
+                                    <td className="p-2 border text-center font-mono text-slate-600">{game.homeWin}</td>
+                                    <td className="p-2 border text-center font-mono text-slate-600">{game.draw}</td>
+                                    <td className="p-2 border text-center font-mono text-slate-600">{game.awayWin}</td>
+                                  </>
+                                )}
+
+                                {pdfConfig.showTips && (
+                                  <td className="p-2 border text-center font-mono font-black text-emerald-800 text-[10px] uppercase">
+                                    {game.betTips || 'DRAW (X)'}
+                                  </td>
+                                )}
+
+                                {pdfConfig.showBookmaker && (
+                                  <td className="p-2 border text-center font-mono text-[9.5px] text-slate-500 uppercase">
+                                    {game.bookmaker}
+                                  </td>
+                                )}
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Coupon Sheet Footer */}
+                  <div className="border-t border-slate-300 pt-5 mt-8 flex flex-col gap-2.5 text-center sm:text-left">
+                    <p className="text-[10px] text-slate-700 italic leading-relaxed font-sans">
+                      "{pdfConfig.customNote}"
+                    </p>
+                    <div className="flex flex-col sm:flex-row items-center justify-between text-[8px] font-mono text-slate-400 mt-2 border-t border-slate-100 pt-2 gap-2">
+                      <span>© 2026 FastPoolCodes Compliance & Decryption Syndicate.</span>
+                      <span>Verified Download Path: {currentUser.email} • fpc-user-key-{currentUser.id.slice(0,8)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* SIMULATED INBOX EMAIL PREVIEW MODAL */}
+      <AnimatePresence>
+        {showSimulatedEmailModal && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[9999] flex items-center justify-center p-2 sm:p-4 select-none">
+            <motion.div
+              initial={{ scale: 0.95, y: 15, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.95, y: 15, opacity: 0 }}
+              className="bg-[#0b101d] border border-slate-800 rounded-2xl w-full max-w-3xl overflow-hidden shadow-2xl relative text-left text-slate-100 flex flex-col max-h-[90vh]"
+            >
+              {/* Mail browser window decorations bar */}
+              <div className="bg-[#12192a] border-b border-slate-800 px-4 py-3 shrink-0 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="flex gap-1.5">
+                    <span className="w-3 h-3 bg-rose-500 rounded-full inline-block"></span>
+                    <span className="w-3 h-3 bg-amber-500 rounded-full inline-block"></span>
+                    <span className="w-3 h-3 bg-emerald-500 rounded-full inline-block"></span>
+                  </div>
+                  <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest pl-2">
+                    FPC-MAILBOX-GATEWAY // SUBSCRIBER PREVIEW
+                  </span>
+                </div>
+                <button
+                  onClick={() => setShowSimulatedEmailModal(false)}
+                  className="p-1 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white rounded transition cursor-pointer"
+                  title="Close Mail"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Email meta information panel */}
+              <div className="p-5 border-b border-slate-850 bg-[#090d18] shrink-0 space-y-3">
+                <div className="space-y-1">
+                  <span className="text-[10px] text-slate-500 font-mono block">SUBJECT:</span>
+                  <h3 className="text-xs sm:text-sm font-sans font-extrabold text-white">
+                    📧 [FastPoolCodes Premium Delivery] Week {activeWeekNumber || 43} Classified Coupon Codes & Verified Slip Keys (PDF Attached)
+                  </h3>
+                </div>
+
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between text-[11px] font-mono text-slate-400 pt-2 border-t border-slate-850 gap-2">
+                  <div>
+                    <span className="text-slate-500">From:</span> <span className="text-emerald-400">FastPoolCodes VIP Dispatch &lt;noreply@fastpoolcodes.com&gt;</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">To:</span> <span className="text-blue-300">You &lt;{currentUser.email}&gt;</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Email Content Box */}
+              <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6 text-xs sm:text-sm text-slate-300 leading-relaxed font-sans bg-[#0c1221]">
+                <div className="space-y-3">
+                  <p className="font-extrabold text-white text-sm">Hi @{currentUser.username},</p>
+                  
+                  <p>
+                    Congratulations on maintaining your active <strong>{activePlan?.name || 'VIP'} Subscription License</strong> for the current Week {activeWeekNumber || 43} pools league season!
+                  </p>
+
+                  <p>
+                    As part of your automated fast-delivery experience, our backend compiled, decrypted, and signed your customized weekly coupon code sheet. We have compiled these fixtures into a high-fidelity, print-ready document and attached it to this mailbox dispatch as a secure, compact PDF file.
+                  </p>
+
+                  <p>
+                    You can print it out for physical bookmakers, or save it to your phone for quick reference during coupon matching weekends.
+                  </p>
+                </div>
+
+                {/* Simulated PDF Attachment file */}
+                <div className="bg-slate-950 border border-slate-850 p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-red-500/10 rounded-xl text-red-500">
+                      <FileText className="w-8 h-8" />
+                    </div>
+                    <div>
+                      <h4 className="font-mono font-bold text-slate-200 text-xs">
+                        FastPoolCodes_Week_{activeWeekNumber || 43}_Classified_Coupon.pdf
+                      </h4>
+                      <p className="text-[10px] text-slate-500 font-mono mt-0.5">
+                        Size: 342 KB • Mime: application/pdf • Status: Scanned Secure ✓
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <button
+                      onClick={() => {
+                        setShowSimulatedEmailModal(false);
+                        setShowPdfPrintModal(true);
+                      }}
+                      className="flex-1 sm:flex-initial bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black font-mono text-[10px] uppercase tracking-wider px-4 py-2 rounded-lg transition cursor-pointer flex items-center justify-center gap-1.5"
+                    >
+                      <Printer className="w-3.5 h-3.5" />
+                      <span>Open & Print</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        // Triggers the standard text codesheet download as fallback
+                        const planId = activePlan?.id || 'plan-monthly';
+                        buySubscription(planId); // mock trigger download
+                        triggerToast('Downloading copy of the weekly codes list...', 'success');
+                      }}
+                      className="bg-slate-900 hover:bg-slate-850 border border-slate-800 text-slate-300 font-mono text-[10px] uppercase tracking-wider p-2 rounded-lg transition cursor-pointer flex items-center justify-center"
+                      title="Download Fallback text list"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="border-t border-slate-850 pt-5 space-y-2">
+                  <p className="text-slate-500 text-[11px] leading-relaxed">
+                    Disclaimer: This automated correspondence is powered by FastPoolCodes SMTP secure relays. FastPoolCodes does not solicit or promote gambling. Pool codes are strictly for statistical and coupon historical reference under the laws of your local jurisdiction.
+                  </p>
+                  <p className="text-[10.5px] font-mono text-slate-500">
+                    FastPoolCodes Delivery Syndicate. admin@Fastpoolcodes.com
+                  </p>
+                </div>
+              </div>
+
+              {/* Bottom email dispatch control */}
+              <div className="p-4 bg-[#12192a] border-t border-slate-800 shrink-0 flex items-center justify-between">
+                <button
+                  onClick={() => {
+                    triggerToast('Automated email PDF re-dispatched to mail relay queues...', 'success');
+                  }}
+                  className="bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/25 font-black font-mono text-[10px] uppercase tracking-wider px-4 py-2 rounded-lg transition cursor-pointer flex items-center gap-1.5"
+                >
+                  <Mail className="w-3.5 h-3.5" />
+                  <span>Re-Send To My Inbox</span>
+                </button>
+
+                <button
+                  onClick={() => setShowSimulatedEmailModal(false)}
+                  className="bg-slate-900 hover:bg-slate-800 text-slate-300 font-mono text-[10px] uppercase tracking-wider px-4 py-2 rounded-lg transition border border-slate-800 cursor-pointer"
+                >
+                  Close Preview
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 

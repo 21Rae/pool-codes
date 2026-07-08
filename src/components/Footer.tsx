@@ -59,8 +59,12 @@ export default function Footer({ triggerToast, className = '', onOpenTerms }: Fo
         <span>© 2026 FastPoolCodes. All Rights Reserved.</span>
         <div className="flex gap-4">
           <span onClick={() => triggerToast('Opening Privacy Policy contract...', 'info')} className="hover:text-zinc-700 cursor-pointer transition">Privacy Policy</span>
-          <span>•</span>
-          <span onClick={() => onOpenTerms ? onOpenTerms() : triggerToast('Opening Terms of Service...', 'info')} className="hover:text-zinc-700 cursor-pointer transition">Terms of Use</span>
+          {onOpenTerms && (
+            <>
+              <span>•</span>
+              <span onClick={onOpenTerms} className="hover:text-zinc-700 cursor-pointer transition">Terms of Use</span>
+            </>
+          )}
         </div>
       </div>
     </footer>
