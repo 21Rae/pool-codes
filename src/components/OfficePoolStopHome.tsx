@@ -1595,7 +1595,7 @@ export default function OfficePoolStopHome({
                       className="rounded border-emerald-900 bg-[#020b08] text-emerald-500 focus:ring-0 mt-0.5 h-3.5 w-3.5 cursor-pointer" 
                     />
                     <label htmlFor="agreeTerms" className="cursor-pointer">
-                      I have read and agree to the{' '}
+                      I am <span className="text-amber-400 font-black">18 years of age or older</span>, and agree to the{' '}
                       <span 
                         onClick={(e) => {
                           e.preventDefault();
@@ -1606,7 +1606,7 @@ export default function OfficePoolStopHome({
                       >
                         Terms of Service
                       </span>{' '}
-                      of FastPoolCodes before sign up
+                      of FastPoolCodes.
                     </label>
                   </div>
                 )}

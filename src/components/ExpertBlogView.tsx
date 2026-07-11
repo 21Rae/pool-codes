@@ -12,7 +12,6 @@ import {
   Info,
   Mail,
   HelpCircle,
-  ExternalLink,
   Users,
   Lock,
   Trophy,
@@ -21,7 +20,11 @@ import {
   Volume2,
   TrendingUp,
   Check,
-  FileText
+  FileText,
+  Facebook,
+  Twitter,
+  Instagram,
+  Youtube
 } from 'lucide-react';
 import { getSupabaseClient } from '../lib/supabase';
 
@@ -266,37 +269,45 @@ export default function ExpertBlogView({
               {/* Follow Box */}
               <div className="bg-white border border-zinc-200 rounded p-4 text-left shadow-sm">
                 <span className="font-black text-[10px] tracking-widest text-zinc-400 uppercase">Follow FPCODES</span>
-                <div className="grid grid-cols-2 gap-2 mt-3 select-none text-[11px] font-bold text-zinc-700">
-                  <span onClick={() => triggerToast('Opening Facebook Account...', 'info')} className="flex items-center gap-1.5 p-1.5 hover:bg-zinc-50 rounded cursor-pointer transition">
-                    <span className="text-blue-600 text-sm">f</span> Facebook
-                  </span>
-                  <span onClick={() => triggerToast('Opening X Account...', 'info')} className="flex items-center gap-1.5 p-1.5 hover:bg-zinc-50 rounded cursor-pointer transition">
-                    <span className="text-zinc-900 font-mono text-xs">𝕏</span> Twitter/X
-                  </span>
-                  <span onClick={() => triggerToast('Opening Instagram feed...', 'info')} className="flex items-center gap-1.5 p-1.5 hover:bg-zinc-50 rounded cursor-pointer transition">
-                    <span className="text-pink-600 text-[10px] font-serif">IG</span> Instagram
-                  </span>
-                  <span onClick={() => triggerToast('Opening YouTube channel...', 'info')} className="flex items-center gap-1.5 p-1.5 hover:bg-zinc-50 rounded cursor-pointer transition">
-                    <span className="text-red-600 font-black">▶</span> YouTube
-                  </span>
+                <div className="grid grid-cols-2 gap-2 mt-3 text-[11px] font-bold text-zinc-700">
+                  <a 
+                    href="https://m.facebook.com/fastpoolcodes/" 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="flex items-center gap-2 p-1.5 hover:bg-blue-50 hover:text-blue-600 rounded transition border border-transparent hover:border-blue-150"
+                  >
+                    <Facebook className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                    <span>Facebook</span>
+                  </a>
+                  <a 
+                    href="https://x.com/fastpoolcodes" 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="flex items-center gap-2 p-1.5 hover:bg-zinc-50 hover:text-zinc-900 rounded transition border border-transparent hover:border-zinc-200"
+                  >
+                    <Twitter className="w-3.5 h-3.5 text-zinc-900 shrink-0" />
+                    <span>Twitter/X</span>
+                  </a>
+                  <a 
+                    href="https://www.instagram.com/fastpoolcodes" 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="flex items-center gap-2 p-1.5 hover:bg-pink-50 hover:text-pink-600 rounded transition border border-transparent hover:border-pink-150"
+                  >
+                    <Instagram className="w-3.5 h-3.5 text-pink-600 shrink-0" />
+                    <span>Instagram</span>
+                  </a>
+                  <a 
+                    href="http://www.youtube.com/@FastPoolCodes" 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="flex items-center gap-2 p-1.5 hover:bg-red-50 hover:text-red-600 rounded transition border border-transparent hover:border-red-150"
+                  >
+                    <Youtube className="w-3.5 h-3.5 text-red-600 shrink-0" />
+                    <span>YouTube</span>
+                  </a>
                 </div>
               </div>
-
-              {/* Sites directory */}
-              <div className="bg-white border border-zinc-200 rounded text-left p-3.5 shadow-sm text-[11px]">
-                <span className="font-extrabold text-zinc-400 uppercase tracking-wider block mb-2 text-[9px]">SISTER PORTALS</span>
-                <div className="space-y-1.5 font-bold text-zinc-700">
-                  <div onClick={() => triggerToast('Redirecting to womens pools sub-portal mockup...', 'info')} className="flex items-center justify-between hover:text-[#fa3e65] cursor-pointer transition">
-                    <span>Women's Pools Directory</span>
-                    <ExternalLink className="w-3 h-3 text-zinc-400" />
-                  </div>
-                  <div onClick={() => triggerToast('Redirecting to SEC Network...', 'info')} className="flex items-center justify-between hover:text-[#fa3e65] cursor-pointer transition">
-                    <span>SEC Sports Combinations</span>
-                    <ExternalLink className="w-3 h-3 text-zinc-400" />
-                  </div>
-                </div>
-              </div>
-
             </div>
 
             {/* ================== CENTER COLUMN (Articles - Width ~58%) ================== */}

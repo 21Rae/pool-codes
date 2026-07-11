@@ -1058,32 +1058,42 @@ Format exactly as this JSON schema (NO markdown blocks, NO \`\`\`json):
 
             if (response.ok) {
               const contentType = response.headers.get("content-type") || "";
-              if (contentType.includes("application/json")) {
-                const json = await response.json();
-                console.log("Webhook returned JSON response:", JSON.stringify(json));
-                
-                if (typeof json === "string") {
-                  reply = json;
-                } else if (Array.isArray(json)) {
-                  if (json.length > 0) {
-                    const first = json[0];
-                    if (typeof first === "string") {
-                      reply = first;
-                    } else if (first && typeof first === "object") {
-                      reply = first.reply || first.response || first.message || first.output || first.text || first.content || JSON.stringify(first, null, 2);
+              const responseText = await response.text();
+              const trimmedText = responseText.trim();
+
+              if (!trimmedText) {
+                reply = "Webhook executed successfully but returned an empty response.";
+              } else if (contentType.includes("application/json")) {
+                try {
+                  const json = JSON.parse(trimmedText);
+                  console.log("Webhook returned JSON response:", JSON.stringify(json));
+                  
+                  if (typeof json === "string") {
+                    reply = json;
+                  } else if (Array.isArray(json)) {
+                    if (json.length > 0) {
+                      const first = json[0];
+                      if (typeof first === "string") {
+                        reply = first;
+                      } else if (first && typeof first === "object") {
+                        reply = first.reply || first.response || first.message || first.output || first.text || first.content || JSON.stringify(first, null, 2);
+                      } else {
+                        reply = JSON.stringify(json, null, 2);
+                      }
                     } else {
-                      reply = JSON.stringify(json, null, 2);
+                      reply = "Received an empty array from the webhook.";
                     }
+                  } else if (json && typeof json === "object") {
+                    reply = json.reply || json.response || json.message || json.output || json.text || json.content || json.data || JSON.stringify(json, null, 2);
                   } else {
-                    reply = "Received an empty array from the webhook.";
+                    reply = String(json);
                   }
-                } else if (json && typeof json === "object") {
-                  reply = json.reply || json.response || json.message || json.output || json.text || json.content || json.data || JSON.stringify(json, null, 2);
-                } else {
-                  reply = String(json);
+                } catch (jsonErr: any) {
+                  console.warn("Webhook response header indicated JSON, but body parsing failed:", jsonErr.message);
+                  reply = responseText;
                 }
               } else {
-                reply = await response.text();
+                reply = responseText;
               }
               console.log(`Successfully received response from webhook: "${reply.substring(0, 100)}..."`);
               return true;
