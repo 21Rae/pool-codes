@@ -182,13 +182,6 @@ export default function LiveScoresPage({
         {/* Navigation back and title */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-emerald-950 pb-6">
           <div className="flex items-center gap-4 text-left">
-            <button
-              onClick={onBack}
-              className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-400 hover:text-emerald-300 bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-500/20 px-3.5 py-2 rounded-lg transition duration-150 cursor-pointer group"
-            >
-              <ArrowLeft className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-0.5" />
-              <span>{isInsidePortal ? 'Back to Portal' : 'Back to Home'}</span>
-            </button>
             <div>
               <div className="flex items-center gap-2">
                 <span className="flex h-2.5 w-2.5 relative">
@@ -205,14 +198,12 @@ export default function LiveScoresPage({
             </div>
           </div>
 
-          {/* Refresh Action */}
           <button
-            onClick={handleForceUpdateScores}
-            disabled={isRefreshingLiveScores}
-            className="flex items-center gap-2 justify-center bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-950 disabled:text-slate-500 text-slate-950 font-black px-5 py-2.5 rounded-xl text-xs tracking-wider transition-all cursor-pointer shadow-lg uppercase font-mono"
+            onClick={onBack}
+            className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-emerald-400 hover:text-emerald-300 bg-emerald-950/30 hover:bg-emerald-900/40 border border-emerald-500/20 hover:border-emerald-500/40 px-5 py-3 rounded-xl transition duration-150 cursor-pointer group active:scale-95 text-center font-mono self-start md:self-auto"
           >
-            <Activity className={`w-3.5 h-3.5 ${isRefreshingLiveScores ? 'animate-spin' : ''}`} />
-            {isRefreshingLiveScores ? 'AI Syncing...' : 'Force AI Sync Now'}
+            <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+            <span>{isInsidePortal ? 'Return to Portal' : 'Return to Home'}</span>
           </button>
         </div>
 

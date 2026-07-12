@@ -70,9 +70,11 @@ app.use((req, res, next) => {
   app.get("/api/config", (req, res) => {
     const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
     const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+    const paystackPublicKey = process.env.VITE_PAYSTACK_PUBLIC_KEY || process.env.PAYSTACK_PUBLIC_KEY || '';
     res.json({
       supabaseUrl,
-      supabaseAnonKey
+      supabaseAnonKey,
+      paystackPublicKey
     });
   });
 

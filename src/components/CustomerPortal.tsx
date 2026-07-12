@@ -77,6 +77,19 @@ export default function CustomerPortal({
   renderFooter,
   onNavigateToLiveScores
 }: CustomerPortalProps) {
+  const userSubs = db.user_subscriptions.filter(s => s.user_id === currentUser.id);
+  const latestSub = userSubs.length > 0 
+    ? [...userSubs].sort((a, b) => new Date(b.expires_at).getTime() - new Date(a.expires_at).getTime())[0]
+    : undefined;
+
+  const isSubscriptionExpired = latestSub && (
+    latestSub.status === 'expired' || 
+    new Date(latestSub.expires_at) < new Date()
+  );
+
+  const isFreeTier = !activeSubscription || activePlan?.id === 'plan-free' || !activePlan?.has_premium_codes;
+  const isLockedOut = !!(isSubscriptionExpired || isFreeTier);
+
   const [activeSubTab, setActiveSubTab] = useState<'dashboard' | 'streaming' | 'results' | 'subscription' | 'profile'>('dashboard');
 
   const [codeTypeFilter, setCodeTypeFilter] = useState<'all' | 'uk' | 'aussie' | 'international'>('all');
@@ -1475,8 +1488,96 @@ export default function CustomerPortal({
               className="flex flex-col gap-6"
             >
               
-              {/* SUBTAB 1: SPORT CODES DASHBOARD CONTAINER */}
-              {activeSubTab === 'dashboard' && (
+              {isLockedOut && (activeSubTab === 'dashboard' || activeSubTab === 'streaming' || activeSubTab === 'results') ? (
+                <div className="bg-slate-900/40 border border-rose-900/30 rounded-2xl p-6 md:p-12 text-center max-w-2xl mx-auto my-8 shadow-2xl backdrop-blur-md relative overflow-hidden flex flex-col items-center gap-6">
+                  {/* Decorative Lock Header */}
+                  <div className="relative flex items-center justify-center">
+                    <div className="absolute inset-0 bg-rose-500/10 rounded-full blur-2xl w-24 h-24 -translate-y-2"></div>
+                    <div className="w-16 h-16 rounded-full bg-rose-950/50 border border-rose-500/30 flex items-center justify-center text-rose-455 relative">
+                      <Lock className="w-8 h-8 animate-pulse text-rose-500" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <span className="text-[10px] font-mono font-black text-rose-455 uppercase tracking-widest px-3 py-1 bg-rose-950/40 border border-rose-900/50 rounded-full">
+                      {isSubscriptionExpired ? 'PREMIUM ACCESS LOCKOUT' : 'VIP UPGRADE REQUIRED'}
+                    </span>
+                    <h3 className="text-xl md:text-2xl font-black text-white uppercase tracking-tight">
+                      {isSubscriptionExpired ? 'Your Subscription Has Expired!' : 'Premium VIP Access Required!'}
+                    </h3>
+                    <p className="text-slate-350 text-xs md:text-sm max-w-lg mx-auto leading-relaxed">
+                      {isSubscriptionExpired 
+                        ? 'Access to the priority **PoolCodes Arena Dashboard**, real-time weekly coupon codes sheets, live scores tracking, and banker draw predictions has been strictly suspended due to plan expiration.'
+                        : 'Access to the priority **PoolCodes Arena Dashboard**, real-time weekly coupon codes sheets, live scores tracking, and banker draw predictions is exclusive to active VIP Premium members.'}
+                    </p>
+                  </div>
+
+                  {/* Plan Details */}
+                  {isSubscriptionExpired && latestSub ? (
+                    <div className="w-full max-w-md bg-slate-950/80 border border-slate-800 rounded-xl p-4 flex flex-col gap-2 text-left font-mono text-[11px] text-slate-400">
+                      <div className="flex justify-between border-b border-slate-800/60 pb-1.5">
+                        <span>Expired Plan:</span>
+                        <span className="text-rose-400 font-bold uppercase">
+                          {db.subscription_plans.find(p => p.id === latestSub.plan_id)?.name || 'Weekly VIP'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between border-b border-slate-800/60 pb-1.5">
+                        <span>Expiry Date:</span>
+                        <span className="text-slate-200">
+                          {new Date(latestSub.expires_at).toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Reference Ref:</span>
+                        <span className="text-amber-500 font-bold">{latestSub.payment_ref || 'N/A'}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="w-full max-w-md bg-slate-950/80 border border-slate-800 rounded-xl p-4 flex flex-col gap-2 text-left font-mono text-[11px] text-slate-400">
+                      <div className="flex justify-between border-b border-slate-800/60 pb-1.5">
+                        <span>Current Plan:</span>
+                        <span className="text-amber-500 font-bold uppercase">Free Tier Access</span>
+                      </div>
+                      <div className="flex justify-between border-b border-slate-800/60 pb-1.5">
+                        <span>Status:</span>
+                        <span className="text-rose-400 font-bold uppercase font-mono">Restricted</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Requirement:</span>
+                        <span className="text-emerald-400 font-bold uppercase font-mono">VIP Premium Upgrade</span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex flex-col sm:flex-row gap-3 w-full max-w-md mt-2">
+                    <button
+                      onClick={() => setActiveSubTab('subscription')}
+                      className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-black text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-950/40"
+                    >
+                      <CreditCard className="w-4 h-4" />
+                      <span>{isSubscriptionExpired ? 'Renew Subscription' : 'Upgrade to VIP'}</span>
+                    </button>
+                    
+                    <button
+                      onClick={() => {
+                        const planId = latestSub?.plan_id || 'plan-weekly';
+                        buySubscription(planId);
+                      }}
+                      className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 font-black text-xs uppercase tracking-wider rounded-xl transition cursor-pointer border border-slate-700/60 flex items-center justify-center gap-1.5"
+                    >
+                      <Zap className="w-4 h-4 text-amber-400" />
+                      <span>{isSubscriptionExpired ? 'Instant 1-Click Pay' : 'Instant VIP Activation'}</span>
+                    </button>
+                  </div>
+
+                  <p className="text-[10px] text-slate-500 font-mono mt-2">
+                    Secured by Paystack Standard Payment Gateway. Activation is fully automated.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* SUBTAB 1: SPORT CODES DASHBOARD CONTAINER */}
+                  {activeSubTab === 'dashboard' && (
                 <div className="flex flex-col gap-6">
 
                   {/* LIVE ARENA SPORTS SCORE TICKER (FULLY RESPONSIVE & MOBILE SWEET SWIPER) */}
@@ -4108,7 +4209,7 @@ export default function CustomerPortal({
 
                         {/* 4. Active Sheet Selector */}
                         <div className="flex flex-col gap-1.5">
-                          <label className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider">Select Results Drawing Sheet</label>
+                          <label className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider">Select Sheet</label>
                           <select
                             value={activeResult ? activeResult.id : ''}
                             onChange={(e) => {
@@ -4122,7 +4223,7 @@ export default function CustomerPortal({
                             ) : (
                               filteredResults.map((sheet: any) => (
                                 <option key={sheet.id} value={sheet.id}>
-                                  Week {sheet.week_number} ({(sheet.pool_type || 'uk').toUpperCase()}) - {sheet.fixture_date}
+                                  Wk {sheet.week_number} ({(sheet.pool_type || 'uk').toUpperCase()})
                                 </option>
                               ))
                             )}
@@ -4584,6 +4685,8 @@ export default function CustomerPortal({
                   </div>
                 );
               })()}
+                </>
+              )}
 
               {/* SUBTAB 4: SUBSCRIPTION BILLING MATRIX */}
               {activeSubTab === 'subscription' && (
