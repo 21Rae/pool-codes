@@ -675,6 +675,14 @@ export default function App() {
     const cleanUsername = username.toLowerCase().replace(/\s+/g, '_');
     const cleanEmail = email.toLowerCase().trim();
 
+    // STRICT validation: check if username or email already exists in local database to avoid overlaps and duplicate registrations
+    const localDuplicate = db.users.find(
+      u => u.username.toLowerCase() === cleanUsername || u.email.toLowerCase() === cleanEmail
+    );
+    if (localDuplicate) {
+      return { success: false, error: "An account with this username or email already exists. Please sign in instead." };
+    }
+
     const sClient = getSupabaseClient();
     if (sClient && password) {
       try {
@@ -697,7 +705,8 @@ export default function App() {
               status: 'active',
               phone: '',
               created_at: new Date().toISOString(),
-              email_verified_at: new Date().toISOString()
+              email_verified_at: new Date().toISOString(),
+              password: password
             };
 
             const subId = `sub-sb-${Math.floor(Math.random() * 90000 + 10000)}`;
@@ -768,7 +777,8 @@ export default function App() {
       status: 'active',
       phone: '',
       created_at: new Date().toISOString(),
-      email_verified_at: new Date().toISOString()
+      email_verified_at: new Date().toISOString(),
+      password: password
     };
     
     // Auto premium or free sub as requested
@@ -858,7 +868,8 @@ export default function App() {
                 status: 'active',
                 phone: '',
                 created_at: su.created_at || new Date().toISOString(),
-                email_verified_at: new Date().toISOString()
+                email_verified_at: new Date().toISOString(),
+                password: password
               };
 
               const subId = `sub-sb-${Math.floor(Math.random() * 90000 + 10000)}`;
@@ -927,87 +938,49 @@ export default function App() {
       }
     }
 
-    // Local Sandbox-only login fallback
+    // Local Sandbox-only login fallback (Strict checks)
     const matched = db.users.find(
       u => u.email.toLowerCase() === cleanUName || 
            u.username.toLowerCase() === cleanUName
     );
-    if (matched) {
-      setSelectedPersonaId(matched.id);
-      setViewMode('portal');
-      
-      localStorage.setItem('fastpool_cached_user', JSON.stringify({
-        id: matched.id,
-        username: matched.username,
-        email: matched.email,
-        role: matched.role,
-        payment_ref: `REF-LOCAL-${Math.floor(Math.random() * 9000000 + 1000000)}`,
-        created_at: matched.created_at || new Date().toISOString()
-      }));
-
-      logSQL(
-        `-- Member login local verification\nSELECT * FROM users WHERE (email = '${cleanUName}' OR username = '${cleanUName}') LIMIT 1;`,
-        `Authenticated visitor session for local Sandbox persona @${matched.username}`
-      );
-      return { success: true, message: `Welcome back to Sandbox, @${matched.username}!` };
+    if (!matched) {
+      return { 
+        success: false, 
+        error: "Incorrect login details. User does not exist. Please check your spelling or register a new account." 
+      };
     }
 
-    // Auto-create local user session if not found in local sandbox
-    const newId = `usr-auto-${Math.floor(Math.random() * 90000 + 10000)}`;
-    const isVIP = cleanUName.includes('premium') || cleanUName.includes('vip');
-    
-    const newUser: User = {
-      id: newId,
-      username: cleanUName.replace(/\s+/g, '_'),
-      email: cleanUName.includes('@') ? cleanUName : `${cleanUName}@example.com`,
-      role: cleanUName.includes('admin') || cleanUName.includes('master') ? 'admin' : 'user',
-      status: 'active',
-      phone: '',
-      created_at: new Date().toISOString(),
-      email_verified_at: new Date().toISOString()
-    };
-    
-    const subId = `sub-auto-${Math.floor(Math.random() * 90000 + 10000)}`;
-    const now = new Date();
-    const expiry = new Date();
-    expiry.setDate(now.getDate() + 90);
-    
-    const newSub = {
-      id: subId,
-      user_id: newId,
-      plan_id: isVIP ? 'plan-premium' : 'plan-free',
-      status: 'active',
-      starts_at: now.toISOString(),
-      expires_at: expiry.toISOString(),
-      payment_ref: isVIP ? `REF-AUTO-${Math.floor(Math.random() * 9000000 + 1000000)}` : null,
-      payment_provider: isVIP ? 'Auto-Bypass Secure Simulator' : null,
-      created_at: now.toISOString()
-    };
+    // Enforce Password validation if password is set on the user account
+    if (password && matched.password && matched.password !== password) {
+      return { 
+        success: false, 
+        error: "Incorrect password. Please verify your credentials and try again." 
+      };
+    }
 
-    localStorage.setItem('fastpool_cached_user', JSON.stringify({
-      id: newId,
-      username: newUser.username,
-      email: newUser.email,
-      role: newUser.role,
-      plan_id: isVIP ? 'plan-premium' : 'plan-free',
-      payment_ref: newSub.payment_ref,
-      created_at: newUser.created_at
-    }));
+    // Determine the user's subscription tier
+    const userSub = db.user_subscriptions.find(s => s.user_id === matched.id);
+    const planId = userSub?.plan_id || 'plan-free';
+    const paymentRef = userSub?.payment_ref || null;
 
-    setDb(prev => ({
-      ...prev,
-      users: [...prev.users, newUser],
-      user_subscriptions: [...prev.user_subscriptions, newSub]
-    }));
-    
-    setSelectedPersonaId(newId);
+    setSelectedPersonaId(matched.id);
     setViewMode('portal');
     
+    localStorage.setItem('fastpool_cached_user', JSON.stringify({
+      id: matched.id,
+      username: matched.username,
+      email: matched.email,
+      role: matched.role,
+      plan_id: planId,
+      payment_ref: paymentRef,
+      created_at: matched.created_at || new Date().toISOString()
+    }));
+
     logSQL(
-      `-- Auto-created dummy user session for @${cleanUName}\nINSERT INTO users (id, username, email, role, status, created_at) VALUES ('${newId}', '${cleanUName}', '${newUser.email}', '${newUser.role}', 'active', NOW());`,
-      `Auto-created mock ${isVIP ? 'VIP' : 'Free'} account for @${cleanUName} to bypass login`
+      `-- Member login local verification\nSELECT * FROM users WHERE (email = '${cleanUName}' OR username = '${cleanUName}') LIMIT 1;`,
+      `Strict authentication successful for @${matched.username}`
     );
-    return { success: true, message: `Auto-provisioned sandbox demo profile for @${cleanUName}! (Sandbox Mode Enabled)` };
+    return { success: true, message: `Welcome back, @${matched.username}!` };
   };
 
   // Paths mapping indicator
@@ -1222,7 +1195,7 @@ export default function App() {
         </div>
       )}
       {/* Global Floating Soccer AI Assistant */}
-      <ChatbotSection currentUser={currentUser} triggerToast={triggerToast} />
+      <ChatbotSection currentUser={currentUser} isLoggedIn={viewMode === 'portal'} triggerToast={triggerToast} />
 
       {/* Dynamic Paystack Secure Checkout Fallback Overlay Modal */}
       {paystackFallback && paystackFallback.open && (

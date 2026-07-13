@@ -19,7 +19,8 @@ export const INITIAL_USERS: User[] = [
     status: 'active',
     phone: '+2348011223344',
     email_verified_at: '2026-01-10T12:00:00Z',
-    created_at: '2026-01-10T12:00:00Z'
+    created_at: '2026-01-10T12:00:00Z',
+    password: 'password'
   },
   {
     id: 'usr-free-101',
@@ -29,7 +30,8 @@ export const INITIAL_USERS: User[] = [
     status: 'active',
     phone: '+2348099887766',
     email_verified_at: '2026-02-15T09:30:00Z',
-    created_at: '2026-02-15T09:30:00Z'
+    created_at: '2026-02-15T09:30:00Z',
+    password: 'password'
   },
   {
     id: 'usr-prem-202',
@@ -39,7 +41,8 @@ export const INITIAL_USERS: User[] = [
     status: 'active',
     phone: '+2347066554433',
     email_verified_at: '2026-03-01T14:20:00Z',
-    created_at: '2026-03-01T14:20:00Z'
+    created_at: '2026-03-01T14:20:00Z',
+    password: 'password'
   },
   {
     id: 'usr-exp-303',
@@ -49,7 +52,8 @@ export const INITIAL_USERS: User[] = [
     status: 'active',
     phone: '+2349022334455',
     email_verified_at: '2026-04-18T11:15:00Z',
-    created_at: '2026-04-18T11:15:00Z'
+    created_at: '2026-04-18T11:15:00Z',
+    password: 'password'
   },
   {
     id: 'usr-susp-404',
@@ -59,7 +63,8 @@ export const INITIAL_USERS: User[] = [
     status: 'suspended',
     phone: '+2348055667788',
     email_verified_at: '2026-05-02T10:45:00Z',
-    created_at: '2026-05-02T10:45:00Z'
+    created_at: '2026-05-02T10:45:00Z',
+    password: 'password'
   }
 ];
 

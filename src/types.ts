@@ -16,6 +16,7 @@ export interface User {
   phone?: string;
   email_verified_at: string | null;
   created_at: string;
+  password?: string;
 }
 
 export interface SubscriptionPlan {

@@ -32,19 +32,27 @@ interface Message {
 
 interface ChatbotSectionProps {
   currentUser: User | null;
+  isLoggedIn: boolean;
   triggerToast: (message: string, type?: 'success' | 'info' | 'error') => void;
 }
 
-export default function ChatbotSection({ currentUser, triggerToast }: ChatbotSectionProps) {
+export default function ChatbotSection({ currentUser, isLoggedIn, triggerToast }: ChatbotSectionProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 'welcome',
-      sender: 'bot',
-      text: `👋 Hello${currentUser ? ` @${currentUser.username}` : ''}! Welcome to the **PoolCodes Assistant**.\n\nType your question about coupon codes, soccer predictions, or matches below. I'm here to help you analyze match statistics, find coupons, and predict soccer draws!`,
-      timestamp: new Date()
-    }
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
+
+  // Update welcome message dynamically based on login status
+  useEffect(() => {
+    const welcomeText = `👋 Hello ${isLoggedIn && currentUser ? `@${currentUser.username}` : 'Visitor'}! Welcome to the **PoolCodes Assistant**.\n\nType your question about coupon codes, soccer predictions, or matches below. I'm here to help you analyze match statistics, find coupons, and predict soccer draws!`;
+    
+    setMessages([
+      {
+        id: 'welcome',
+        sender: 'bot',
+        text: welcomeText,
+        timestamp: new Date()
+      }
+    ]);
+  }, [isLoggedIn, currentUser?.id]);
 
   const [inputText, setInputText] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
