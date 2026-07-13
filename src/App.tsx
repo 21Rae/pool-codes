@@ -684,7 +684,10 @@ export default function App() {
     }
 
     const sClient = getSupabaseClient();
-    if (sClient && password) {
+    if (sClient) {
+      if (!password) {
+        return { success: false, error: "Please enter a security password." };
+      }
       try {
         const response = await fetch("/api/auth/signup", {
           method: "POST",
@@ -759,11 +762,10 @@ export default function App() {
 
             return { success: true, message: `Successfully registered and logged in as @${cleanUsername}! Welcome!` };
           }
-        } else {
-          console.warn("Backend sign-up failed or was skipped. Proceeding with seamless Sandbox demo profile setup:", resData?.error);
         }
+        return { success: false, error: resData?.error || "Registration failed. Please make sure the email is valid and password has at least 6 characters." };
       } catch (err: any) {
-        console.warn("Backend registration offline or skipped. Fallback to Local Sandbox: ", err?.message || err);
+        return { success: false, error: err?.message || "Registration service is temporarily unreachable. Please try again." };
       }
     }
 
@@ -840,7 +842,10 @@ export default function App() {
     const cleanUName = emailOrUsername.toLowerCase().trim();
     const sClient = getSupabaseClient();
 
-    if (sClient && password) {
+    if (sClient) {
+      if (!password) {
+        return { success: false, error: "Please enter your security password." };
+      }
       try {
         const response = await fetch("/api/auth/signin", {
           method: "POST",
@@ -930,11 +935,10 @@ export default function App() {
 
             return { success: true, message: `Access granted! Successfully authenticated session for @${username}.` };
           }
-        } else {
-          console.warn("Backend auth rejected or failed. Swapping to local sandbox session credentials seamlessly:", resData?.error);
         }
+        return { success: false, error: resData?.error || "Incorrect login details. Please verify your password and try again." };
       } catch (err: any) {
-        console.warn("Backend login connection unreachable. Auto-swapping to Sandbox login bypass:", err?.message || err);
+        return { success: false, error: err?.message || "Secure authentication service connection failed. Please try again." };
       }
     }
 
@@ -1150,6 +1154,8 @@ export default function App() {
                   triggerToast('Navigating to Live Scores Arena...', 'info');
                 }}
                 onSignOut={() => {
+                  localStorage.removeItem('fastpool_cached_user');
+                  setSelectedPersonaId('usr-free-101');
                   setViewMode('homepage');
                   triggerToast('Logged out of workspace session successfully.', 'success');
                 }}
