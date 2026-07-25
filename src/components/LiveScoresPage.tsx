@@ -394,7 +394,7 @@ export default function LiveScoresPage({
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <AnimatePresence mode="popLayout">
-                {filteredMatches.map((match) => {
+                {filteredMatches.map((match, idx) => {
                   const isLiveStatus = match.status === 'live';
                   const isFinished = match.status === 'finished';
                   const isPostponed = match.status === 'postponed';
@@ -409,7 +409,7 @@ export default function LiveScoresPage({
 
                   return (
                     <motion.div
-                      key={match.id}
+                      key={`live_match_${idx}_${match.id || ''}`}
                       layout
                       initial={{ opacity: 0, scale: 0.95 }}
                       animate={{ opacity: 1, scale: 1 }}

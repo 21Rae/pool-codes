@@ -30,7 +30,13 @@ import {
   INITIAL_POOL_RESULTS,
   INITIAL_NOTIFICATIONS,
   INITIAL_DOWNLOADS,
-  DB_SCHEMAS
+  DB_SCHEMAS,
+  INITIAL_BET9JA,
+  INITIAL_BETKING,
+  INITIAL_SPORTYBET,
+  INITIAL_PREMIERBET,
+  INITIAL_BETWAY,
+  INITIAL_SOCCABET
 } from './initialData';
 import {
   User,
@@ -62,19 +68,25 @@ export default function App() {
     pool_codes: INITIAL_POOL_CODES,
     pool_results: INITIAL_POOL_RESULTS,
     notifications: INITIAL_NOTIFICATIONS,
-    user_downloads: INITIAL_DOWNLOADS
+    user_downloads: INITIAL_DOWNLOADS,
+    bet9ja: INITIAL_BET9JA,
+    betking: INITIAL_BETKING,
+    sportybet: INITIAL_SPORTYBET,
+    premierbet: INITIAL_PREMIERBET,
+    betway: INITIAL_BETWAY,
+    soccabet: INITIAL_SOCCABET
   });
 
   // Simulator Domain Router: toggles independent application instances
   // 'customer' -> app.poolcodes.com
   // 'admin' -> admin.poolcodes.com
   const [currentAppSelector, setCurrentAppSelector] = useState<'customer' | 'admin'>('customer');
-  const [viewMode, setViewMode] = useState<'homepage' | 'portal' | 'livescores' | 'terms'>('homepage');
-  const [livescoresOrigin, setLivescoresOrigin] = useState<'homepage' | 'portal'>('homepage');
-  const [termsOrigin, setTermsOrigin] = useState<'homepage' | 'portal'>('homepage');
+  const [viewMode, setViewMode] = useState<'homepage' | 'portal' | 'livescores' | 'terms'>('portal');
+  const [livescoresOrigin, setLivescoresOrigin] = useState<'homepage' | 'portal'>('portal');
+  const [termsOrigin, setTermsOrigin] = useState<'homepage' | 'portal'>('portal');
 
   const [activeTable, setActiveTable] = useState<string>('users');
-  const [selectedPersonaId, setSelectedPersonaId] = useState<string>('usr-free-101');
+  const [selectedPersonaId, setSelectedPersonaId] = useState<string>('usr-betking-888');
   const [sqlLogs, setSqlLogs] = useState<{ id: string; query: string; purpose: string; timestamp: string }[]>([
     {
       id: 'init-0',
@@ -85,6 +97,11 @@ export default function App() {
   ]);
 
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
+  const [isSyncingSupabase, setIsSyncingSupabase] = useState<boolean>(false);
+  const [bypassPremium, setBypassPremium] = useState<boolean>(() => {
+    const cached = localStorage.getItem('fastpool_bypass_premium');
+    return cached === 'true';
+  });
 
   // Administrative form state overrides for pool publication
   const [formWeekId, setFormWeekId] = useState<string>('pw-week-49');
@@ -96,12 +113,24 @@ export default function App() {
   const [customQueryText, setCustomQueryText] = useState<string>("SELECT * FROM users WHERE status = 'suspended';");
   const [customQueryResult, setCustomQueryResult] = useState<any[] | null>(null);
 
+  // Email confirmation states
+  const [confirmedPaymentMail, setConfirmedPaymentMail] = useState<{
+    subject: string;
+    body: string;
+    pdfUrl: string;
+    pdfName: string;
+    fetchedFromSupabase: boolean;
+    queryDetails: string;
+  } | null>(null);
+  const [showSimulatedEmailModal, setShowSimulatedEmailModal] = useState(false);
+
   // Paystack fallback modal state
   const [paystackFallback, setPaystackFallback] = useState<{
     open: boolean;
     planId: string;
     price: number;
     name: string;
+    components?: string[];
   } | null>(null);
 
   // Dynamic Paystack Public Key from runtime environment variables via server-side config API
@@ -138,17 +167,53 @@ export default function App() {
   // Auto-authenticate active Supabase session securely using cached credentials
   useEffect(() => {
     try {
-      const cachedStr = localStorage.getItem('fastpool_cached_user');
+      const hasInitBetking = sessionStorage.getItem('has_init_betking_once');
+      if (!hasInitBetking) {
+        sessionStorage.setItem('has_init_betking_once', 'true');
+        localStorage.setItem('fastpool_cached_user', JSON.stringify({
+          id: 'usr-betking-888',
+          username: 'betking_subscriber',
+          email: 'betking@outlook.com',
+          role: 'user',
+          plan_id: 'plan-yearly',
+          payment_ref: 'PAY-TX-BETKING-888',
+          created_at: '2026-06-01T10:00:00Z',
+          components: ['bet9ja', 'sportybet', 'betking']
+        }));
+      }
+
+      let cachedStr = localStorage.getItem('fastpool_cached_user');
       if (cachedStr) {
         const cached = JSON.parse(cachedStr);
         if (cached && cached.id) {
+          // Force upgrade to complete components list if this is the subscriber
+          if (cached.id === 'usr-betking-888') {
+            cached.plan_id = 'plan-yearly';
+            cached.components = ['bet9ja', 'sportybet', 'betking'];
+            localStorage.setItem('fastpool_cached_user', JSON.stringify(cached));
+            cachedStr = JSON.stringify(cached);
+          }
+
           const email = cached.email || '';
           const username = cached.username || email.split('@')[0] || 'profile_member';
 
           setDb(prev => {
             const exists = prev.users.find(u => u.id === cached.id || u.email.toLowerCase() === email.toLowerCase());
             if (exists) {
-              return prev;
+              // Update existing user subscription to have full components if it's the active subscriber
+              return {
+                ...prev,
+                user_subscriptions: prev.user_subscriptions.map(s => {
+                  if (s.user_id === cached.id) {
+                    return {
+                      ...s,
+                      plan_id: 'plan-yearly',
+                      components: ['bet9ja', 'sportybet', 'betking']
+                    };
+                  }
+                  return s;
+                })
+              };
             }
             const newUser: User = {
               id: cached.id,
@@ -171,12 +236,13 @@ export default function App() {
               id: subId,
               user_id: cached.id,
               plan_id: cached.plan_id || 'plan-free',
-              status: 'active',
+              status: 'active' as const,
               starts_at: now.toISOString(),
               expires_at: expiry.toISOString(),
               payment_ref: hasPaid ? (cached.payment_ref || `REF-SUPA-${Math.floor(Math.random() * 9000000 + 1000000)}`) : null,
               payment_provider: hasPaid ? 'Supabase Auth Credentials Verified' : null,
-              created_at: now.toISOString()
+              created_at: now.toISOString(),
+              components: cached.components || ['bet9ja', 'sportybet', 'betking']
             };
 
             return {
@@ -218,6 +284,80 @@ export default function App() {
     fetchRuntimeConfig();
   }, []);
 
+  const fetchRealSupabaseData = async (silent: boolean = false) => {
+    setIsSyncingSupabase(true);
+    if (!silent) {
+      triggerToast("🔄 Syncing real-time tables with Supabase database...", "info");
+    }
+
+    const logAndSetTable = async (tableName: string, dbKey: keyof DatabaseState, query: string) => {
+      try {
+        const res = await fetch(`/api/tables/${tableName}`);
+        if (!res.ok) {
+          console.warn(`[Supabase Sync] Could not fetch table '${tableName}' through proxy. Status: ${res.status}`);
+          return false;
+        }
+        const json = await res.json();
+        const data = json.data;
+
+        const isBookmakerTable = ['bet9ja', 'betking', 'sportybet', 'premierbet', 'betway', 'soccabet'].includes(tableName);
+        if (isBookmakerTable) {
+          setDb(prev => ({
+            ...prev,
+            [dbKey]: data || []
+          }));
+          logSQL(query, `Successfully synchronized Supabase '${tableName}' table (${data?.length || 0} rows).`);
+          return true;
+        } else if (data && data.length > 0) {
+          setDb(prev => ({
+            ...prev,
+            [dbKey]: data
+          }));
+          logSQL(query, `Successfully loaded ${data.length} real rows from Supabase '${tableName}' table.`);
+          return true;
+        } else {
+          logSQL(query, `Connected to Supabase '${tableName}' (Table exists but has 0 rows).`);
+        }
+      } catch (err: any) {
+        console.warn(`[Supabase Sync] Exception fetching '${tableName}' through proxy:`, err);
+      }
+      return false;
+    };
+
+    // Execute fetches in parallel to retrieve real tables
+    await Promise.all([
+      logAndSetTable('users', 'users', 'SELECT * FROM users;'),
+      logAndSetTable('subscription_plans', 'subscription_plans', 'SELECT * FROM subscription_plans;'),
+      logAndSetTable('user_subscriptions', 'user_subscriptions', 'SELECT * FROM user_subscriptions;'),
+      logAndSetTable('bookmakers', 'bookmakers', 'SELECT * FROM bookmakers;'),
+      logAndSetTable('pool_weeks', 'pool_weeks', 'SELECT * FROM pool_weeks;'),
+      logAndSetTable('pool_codes', 'pool_codes', 'SELECT * FROM pool_codes;'),
+      logAndSetTable('pool_results', 'pool_results', 'SELECT * FROM pool_results;'),
+      logAndSetTable('notifications', 'notifications', 'SELECT * FROM notifications;'),
+      logAndSetTable('user_downloads', 'user_downloads', 'SELECT * FROM user_downloads;'),
+      logAndSetTable('bet9ja', 'bet9ja', 'SELECT * FROM bet9ja;'),
+      logAndSetTable('betking', 'betking', 'SELECT * FROM betking;'),
+      logAndSetTable('sportybet', 'sportybet', 'SELECT * FROM sportybet;'),
+      logAndSetTable('premierbet', 'premierbet', 'SELECT * FROM premierbet;'),
+      logAndSetTable('betway', 'betway', 'SELECT * FROM betway;'),
+      logAndSetTable('soccabet', 'soccabet', 'SELECT * FROM soccabet;')
+    ]);
+
+    setIsSyncingSupabase(false);
+    if (!silent) {
+      triggerToast("✅ Real-time database sync with Supabase completed!", "success");
+    }
+  };
+
+  // Run initial real-time database sync from Supabase
+  useEffect(() => {
+    // Wait slightly to ensure main bootstrap config has run
+    const timer = setTimeout(() => {
+      fetchRealSupabaseData(true);
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, []);
+
   // Re-verify profile is administrator when switching tabs
   useEffect(() => {
     if (currentAppSelector === 'admin') {
@@ -244,7 +384,13 @@ export default function App() {
       pool_codes: INITIAL_POOL_CODES,
       pool_results: INITIAL_POOL_RESULTS,
       notifications: INITIAL_NOTIFICATIONS,
-      user_downloads: INITIAL_DOWNLOADS
+      user_downloads: INITIAL_DOWNLOADS,
+      bet9ja: INITIAL_BET9JA,
+      betking: INITIAL_BETKING,
+      sportybet: INITIAL_SPORTYBET,
+      premierbet: INITIAL_PREMIERBET,
+      betway: INITIAL_BETWAY,
+      soccabet: INITIAL_SOCCABET
     });
     setCustomQueryResult(null);
     logSQL(
@@ -340,9 +486,12 @@ export default function App() {
     });
   };
 
-  const completePurchase = (planId: string, reference: string) => {
+  const completePurchase = (planId: string, reference: string, selectedComponents?: string[]) => {
     const p = db.subscription_plans.find(x => x.id === planId);
     if (!p) return;
+
+    const defaultComps = planId.includes('ghana') ? ['premierbet', 'betway', 'soccabet', 'sportybet'] : ['bet9ja', 'sportybet', 'betking'];
+    const components = selectedComponents || paystackFallback?.components || defaultComps;
 
     // Remove old active sub
     const sanitizedSubs = db.user_subscriptions.map(s => {
@@ -368,7 +517,8 @@ export default function App() {
       expires_at: expiry.toISOString(),
       payment_ref: reference,
       payment_provider: 'Paystack API Gateway',
-      created_at: now.toISOString()
+      created_at: now.toISOString(),
+      components: components
     };
 
     setDb(prev => ({
@@ -386,16 +536,48 @@ export default function App() {
           plan_id: planId,
           payment_ref: reference,
           expires_at: expiry.toISOString(),
-          status: 'active'
+          status: 'active',
+          components: components
         }));
       }
     } catch (_) {}
 
     logSQL(
-      `-- REAL PAYSTACK TRANSACTION SUCCESSFUL\nUPDATE user_subscriptions SET status = 'cancelled' WHERE user_id = '${currentUser.id}' AND status = 'active';\n\n-- Register new checkouts checkout reference\nINSERT INTO user_subscriptions (id, user_id, plan_id, status, starts_at, expires_at, payment_ref, payment_provider, created_at)\nVALUES ('${subId}', '${currentUser.id}', '${planId}', 'active', '${now.toISOString().slice(0,19)}Z', '${expiry.toISOString().slice(0,19)}Z', '${reference}', 'Paystack API Gateway', NOW());`,
-      `User @${currentUser.username} completed Paystack checkout for [${p.name}]`
+      `-- REAL PAYSTACK TRANSACTION SUCCESSFUL\nUPDATE user_subscriptions SET status = 'cancelled' WHERE user_id = '${currentUser.id}' AND status = 'active';\n\n-- Register new checkouts checkout reference with customized components\nINSERT INTO user_subscriptions (id, user_id, plan_id, status, starts_at, expires_at, payment_ref, payment_provider, created_at, components)\nVALUES ('${subId}', '${currentUser.id}', '${planId}', 'active', '${now.toISOString().slice(0,19)}Z', '${expiry.toISOString().slice(0,19)}Z', '${reference}', 'Paystack API Gateway', NOW(), '${JSON.stringify(components)}');`,
+      `User @${currentUser.username} completed Paystack checkout for [${p.name}] with components: [${components.join(', ')}]`
     );
     triggerToast(`Subscribed successfully to ${p.name}!`, 'success');
+
+    // Fetch official codesheet PDF from Supabase database via server mail dispatch relay
+    fetch('/api/payment/confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: currentUser.email || 'customer@fastpoolcodes.com',
+        username: currentUser.username,
+        planId: planId,
+        paymentRef: reference,
+        components: components
+      })
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setConfirmedPaymentMail({
+            subject: data.subject,
+            body: data.body,
+            pdfUrl: data.pdfUrl,
+            pdfName: data.pdfName,
+            fetchedFromSupabase: data.fetchedFromSupabase,
+            queryDetails: data.queryDetails
+          });
+          setShowSimulatedEmailModal(true);
+          triggerToast('📧 Premium codesheet PDF fetched from database and dispatched to your inbox!', 'success');
+        }
+      })
+      .catch(err => {
+        console.error('[Mail Dispatch API Error]:', err);
+      });
     
     // Auto download pool codes sheet after payment
     setTimeout(() => {
@@ -452,11 +634,18 @@ export default function App() {
   };
 
   // Handler: Purchase/Upgrade user plan via Paystack
-  const buySubscription = async (planId: string) => {
+  const buySubscription = async (planId: string, selectedComponents: string[] = ['bet9ja', 'sportybet', 'betking']) => {
     const p = db.subscription_plans.find(x => x.id === planId);
     if (!p) return;
 
-    triggerToast(`Connecting to secure Paystack servers for ${p.name}...`, 'info');
+    if (selectedComponents.length === 0) {
+      triggerToast('Please select at least one bookmaker component to subscribe.', 'error');
+      return;
+    }
+
+    const calculatedPrice = p.price * selectedComponents.length;
+
+    triggerToast(`Connecting to secure Paystack servers for ${p.name} (${selectedComponents.map(c => c.toUpperCase()).join(' + ')})...`, 'info');
 
     try {
       const PaystackPop = await loadPaystackPop();
@@ -465,12 +654,12 @@ export default function App() {
       const handler = PaystackPop.setup({
         key: publicKey,
         email: currentUser.email || 'customer@fastpoolcodes.com',
-        amount: Math.round(p.price * 100), // convert to kobo
+        amount: Math.round(calculatedPrice * 100), // convert to kobo
         currency: 'NGN',
         ref: `PAY-${Date.now()}-${Math.floor(Math.random() * 100000)}`,
         callback: function(response: any) {
           const ref = response.reference || response.trxref;
-          completePurchase(planId, ref);
+          completePurchase(planId, ref, selectedComponents);
         },
         onClose: function() {
           triggerToast('Paystack payment cancelled by user.', 'info');
@@ -483,8 +672,9 @@ export default function App() {
       setPaystackFallback({
         open: true,
         planId: planId,
-        price: p.price,
-        name: p.name
+        price: calculatedPrice,
+        name: `${p.name} (${selectedComponents.map(c => c.toUpperCase()).join(' + ')})`,
+        components: selectedComponents
       });
     }
   };
@@ -500,18 +690,42 @@ export default function App() {
       return;
     }
 
-    const isPremium = code.access_level === 'premium';
-    const unlockedPremium = activeSubscription && activeSubscription.status === 'active' && activePlan?.has_premium_codes;
-    const hasAccessPrivilege = currentUser.role === 'admin' || !isPremium || unlockedPremium;
+    const isLoggedIn = currentUser && currentUser.id !== 'guest';
+    const isVerified = currentUser && !!currentUser.email_verified_at && currentUser.status === 'active';
+    const isPaidUser = currentUser.role === 'admin' || (
+      activeSubscription && 
+      activeSubscription.status === 'active' && 
+      activePlan?.id !== 'plan-free'
+    );
 
-    const queryPrerequisites = `\n-- Match file requirements and constraints\nSELECT access_level, bookmaker_id FROM pool_codes WHERE id = '${code.id}';\nSELECT status, role FROM users WHERE id = '${currentUser.id}';`;
+    const isPremium = code.access_level === 'premium';
+    const unlockedPremium = isPaidUser && activePlan?.has_premium_codes;
+    
+    // Check component specific active access
+    const bookmakerSlug = code.bookmaker_id.replace('bm-', '').toLowerCase();
+    const hasComponentAccess = !isPremium || (
+      activeSubscription && 
+      (!activeSubscription.components || activeSubscription.components.includes(bookmakerSlug))
+    );
+
+    const hasAccessPrivilege = bypassPremium || currentUser.role === 'admin' || (isLoggedIn && isVerified && isPaidUser && (!isPremium || hasComponentAccess));
+
+    const queryPrerequisites = `\n-- Match file requirements and constraints\nSELECT access_level, bookmaker_id FROM pool_codes WHERE id = '${code.id}';\nSELECT status, role, components FROM users INNER JOIN user_subscriptions ON users.id = user_subscriptions.user_id WHERE users.id = '${currentUser.id}';`;
 
     if (!hasAccessPrivilege) {
-      triggerToast('Plan Lock! This is a premium Exclusive codesheet.', 'error');
-      logSQL(
-        queryPrerequisites + '\n-- Access Denied! Subscription level mismatch.',
-        'Blocked access to VIP code sheet'
-      );
+      if (unlockedPremium && !hasComponentAccess) {
+        triggerToast(`Plan Lock! You do not have the ${bookmakerSlug.toUpperCase()} component enabled in your subscription.`, 'error');
+        logSQL(
+          queryPrerequisites + `\n-- Access Denied! Missing ${bookmakerSlug} component subscription.`,
+          `Blocked access to VIP code sheet due to missing ${bookmakerSlug} component`
+        );
+      } else {
+        triggerToast('Plan Lock! This is a premium Exclusive codesheet.', 'error');
+        logSQL(
+          queryPrerequisites + '\n-- Access Denied! Subscription level mismatch.',
+          'Blocked access to VIP code sheet'
+        );
+      }
       return;
     }
 
@@ -656,6 +870,108 @@ export default function App() {
         setCustomQueryResult(db.notifications.filter(n => n.user_id === currentUser.id));
       } else if (cmd.includes('select * from bookmakers')) {
         setCustomQueryResult(db.bookmakers);
+      } else if (cmd.includes('select * from bet9ja')) {
+        const hasAccess = currentUser.role === 'admin' || (
+          activeSubscription && 
+          activeSubscription.status === 'active' && 
+          (!activeSubscription.components || activeSubscription.components.includes('bet9ja'))
+        );
+        if (!hasAccess) {
+          triggerToast("SQL Access Denied! You did not select Bet9ja component in your active subscription plan.", "error");
+          setCustomQueryResult([{
+            error: "Permission Denied",
+            code: "42501",
+            message: "Access to table 'bet9ja' is restricted. Selected plan component 'bet9ja' is missing from user subscription profile."
+          }]);
+          logSQL(customQueryText, "Blocked unauthorized SELECT query on table 'bet9ja' (component mismatch)");
+          return;
+        }
+        setCustomQueryResult(db.bet9ja || []);
+      } else if (cmd.includes('select * from betking')) {
+        const hasAccess = currentUser.role === 'admin' || (
+          activeSubscription && 
+          activeSubscription.status === 'active' && 
+          (!activeSubscription.components || activeSubscription.components.includes('betking'))
+        );
+        if (!hasAccess) {
+          triggerToast("SQL Access Denied! You did not select Betking component in your active subscription plan.", "error");
+          setCustomQueryResult([{
+            error: "Permission Denied",
+            code: "42501",
+            message: "Access to table 'betking' is restricted. Selected plan component 'betking' is missing from user subscription profile."
+          }]);
+          logSQL(customQueryText, "Blocked unauthorized SELECT query on table 'betking' (component mismatch)");
+          return;
+        }
+        setCustomQueryResult(db.betking || []);
+      } else if (cmd.includes('select * from sportybet')) {
+        const hasAccess = currentUser.role === 'admin' || (
+          activeSubscription && 
+          activeSubscription.status === 'active' && 
+          (!activeSubscription.components || activeSubscription.components.includes('sportybet'))
+        );
+        if (!hasAccess) {
+          triggerToast("SQL Access Denied! You did not select Sportybet component in your active subscription plan.", "error");
+          setCustomQueryResult([{
+            error: "Permission Denied",
+            code: "42501",
+            message: "Access to table 'sportybet' is restricted. Selected plan component 'sportybet' is missing from user subscription profile."
+          }]);
+          logSQL(customQueryText, "Blocked unauthorized SELECT query on table 'sportybet' (component mismatch)");
+          return;
+        }
+        setCustomQueryResult(db.sportybet || []);
+      } else if (cmd.includes('select * from premierbet')) {
+        const hasAccess = currentUser.role === 'admin' || (
+          activeSubscription && 
+          activeSubscription.status === 'active' && 
+          (!activeSubscription.components || activeSubscription.components.includes('premierbet'))
+        );
+        if (!hasAccess) {
+          triggerToast("SQL Access Denied! You did not select PremierBet component in your active subscription plan.", "error");
+          setCustomQueryResult([{
+            error: "Permission Denied",
+            code: "42501",
+            message: "Access to table 'premierbet' is restricted. Selected plan component 'premierbet' is missing from user subscription profile."
+          }]);
+          logSQL(customQueryText, "Blocked unauthorized SELECT query on table 'premierbet' (component mismatch)");
+          return;
+        }
+        setCustomQueryResult(db.premierbet || []);
+      } else if (cmd.includes('select * from betway')) {
+        const hasAccess = currentUser.role === 'admin' || (
+          activeSubscription && 
+          activeSubscription.status === 'active' && 
+          (!activeSubscription.components || activeSubscription.components.includes('betway'))
+        );
+        if (!hasAccess) {
+          triggerToast("SQL Access Denied! You did not select Betway component in your active subscription plan.", "error");
+          setCustomQueryResult([{
+            error: "Permission Denied",
+            code: "42501",
+            message: "Access to table 'betway' is restricted. Selected plan component 'betway' is missing from user subscription profile."
+          }]);
+          logSQL(customQueryText, "Blocked unauthorized SELECT query on table 'betway' (component mismatch)");
+          return;
+        }
+        setCustomQueryResult(db.betway || []);
+      } else if (cmd.includes('select * from soccabet')) {
+        const hasAccess = currentUser.role === 'admin' || (
+          activeSubscription && 
+          activeSubscription.status === 'active' && 
+          (!activeSubscription.components || activeSubscription.components.includes('soccabet'))
+        );
+        if (!hasAccess) {
+          triggerToast("SQL Access Denied! You did not select Soccabet component in your active subscription plan.", "error");
+          setCustomQueryResult([{
+            error: "Permission Denied",
+            code: "42501",
+            message: "Access to table 'soccabet' is restricted. Selected plan component 'soccabet' is missing from user subscription profile."
+          }]);
+          logSQL(customQueryText, "Blocked unauthorized SELECT query on table 'soccabet' (component mismatch)");
+          return;
+        }
+        setCustomQueryResult(db.soccabet || []);
       } else {
         setCustomQueryResult([{
           success: true,
@@ -727,7 +1043,8 @@ export default function App() {
               expires_at: expiry.toISOString(),
               payment_ref: hasPaid ? `REF-SUPA-${Math.floor(Math.random() * 9000000 + 1000000)}` : null,
               payment_provider: hasPaid ? 'Supabase Authenticated Session' : null,
-              created_at: now.toISOString()
+              created_at: now.toISOString(),
+              components: hasPaid ? ['bet9ja', 'sportybet', 'betking'] : []
             };
 
             // Cache session info to avoid loading direct network requests from the client later
@@ -798,7 +1115,8 @@ export default function App() {
       expires_at: expiry.toISOString(),
       payment_ref: hasPaid ? `REF-LOCAL-${Math.floor(Math.random() * 9000000 + 1000000)}` : null,
       payment_provider: hasPaid ? 'Local Sandbox Checkout' : null,
-      created_at: now.toISOString()
+      created_at: now.toISOString(),
+      components: hasPaid ? ['bet9ja', 'sportybet', 'betking'] : []
     };
 
     localStorage.setItem('fastpool_cached_user', JSON.stringify({
@@ -1125,12 +1443,87 @@ export default function App() {
 
               {/* Quick-switch persona dropdown & reload db seeds */}
               <div className="flex items-center gap-1.5 md:gap-3 shrink-0">
+                <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-xs">
+                  <span className="text-[10px] text-slate-400 font-mono uppercase hidden xs:inline">Persona:</span>
+                  <select
+                    value={selectedPersonaId}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSelectedPersonaId(val);
+                      const u = db.users.find(x => x.id === val);
+                      if (u) {
+                        const userSub = db.user_subscriptions.find(s => s.user_id === u.id);
+                        const planId = userSub?.plan_id || 'plan-free';
+                        const paymentRef = userSub?.payment_ref || null;
+                        
+                        localStorage.setItem('fastpool_cached_user', JSON.stringify({
+                          id: u.id,
+                          username: u.username,
+                          email: u.email,
+                          role: u.role,
+                          plan_id: planId,
+                          payment_ref: paymentRef,
+                          components: userSub?.components || [],
+                          created_at: u.created_at || new Date().toISOString()
+                        }));
+
+                        triggerToast(`Switched active context to @${u.username}`, 'info');
+                        logSQL(
+                          `-- Switch Simulator Identity Handshake\nSELECT * FROM users WHERE id = '${u.id}';`,
+                          `Switched active simulation context to @${u.username}`
+                        );
+                      }
+                    }}
+                    className="bg-transparent text-slate-200 focus:outline-none border-none text-[11px] font-semibold cursor-pointer py-0.5 px-1 pr-3"
+                  >
+                    {db.users.map((u: any) => {
+                      const sub = db.user_subscriptions.find((s: any) => s.user_id === u.id && s.status === 'active');
+                      let tag = '(Free)';
+                      if (u.role === 'admin') tag = '(Admin)';
+                      else if (sub) {
+                        tag = `(${sub.components && sub.components.length > 0 ? sub.components.map((c: string) => c.toUpperCase()).join('+') : 'All'})`;
+                      }
+                      return (
+                        <option key={u.id} value={u.id} className="bg-slate-950 text-slate-200 text-xs">
+                          {u.username} {tag}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+
+                <button
+                  onClick={() => {
+                    const newVal = !bypassPremium;
+                    setBypassPremium(newVal);
+                    localStorage.setItem('fastpool_bypass_premium', String(newVal));
+                    triggerToast(newVal ? '🔧 Test Mode Enabled: All premium locks disabled!' : '🔒 Normal Mode: Premium features are locked.', 'info');
+                  }}
+                  className={`px-2.5 py-1.5 border text-[10px] font-mono font-black rounded-lg uppercase tracking-wider transition-all duration-150 active:scale-95 cursor-pointer ${
+                    bypassPremium 
+                      ? 'bg-emerald-950/40 text-emerald-400 border-emerald-900/60 hover:bg-emerald-900/40' 
+                      : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-300 hover:border-slate-700'
+                  }`}
+                  title={bypassPremium ? "Disable Test Mode (Lock Premium Features)" : "Enable Test Mode (Bypass Premium Locks)"}
+                >
+                  {bypassPremium ? "🔧 TEST MODE ACTIVE" : "🔒 TEST INACTIVE"}
+                </button>
+
+                <button
+                  onClick={() => fetchRealSupabaseData(false)}
+                  disabled={isSyncingSupabase}
+                  className={`p-2.5 bg-slate-950 border border-slate-800 rounded-lg hover:border-slate-700 hover:text-emerald-400 text-slate-400 transition hover:bg-slate-900 active:scale-95 duration-150 cursor-pointer ${isSyncingSupabase ? 'opacity-50' : ''}`}
+                  title="Sync Real Data from Supabase"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isSyncingSupabase ? 'animate-spin' : ''}`} />
+                </button>
+
                 <button
                   onClick={resetDatabaseValues}
                   className="p-2.5 bg-slate-950 border border-slate-800 rounded-lg hover:border-slate-700 hover:text-rose-455 text-slate-400 transition hover:bg-slate-900 active:scale-95 duration-150 cursor-pointer"
                   title="Reset Simulated Database Seeds"
                 >
-                  <RefreshCw className="w-4 h-4" />
+                  <RotateCcw className="w-4 h-4" />
                 </button>
               </div>
             </div>
@@ -1148,6 +1541,19 @@ export default function App() {
                 handleDownloadCode={handleDownloadCode}
                 triggerToast={triggerToast}
                 markAllNotificationsRead={markAllNotificationsRead}
+                confirmedPaymentMail={confirmedPaymentMail}
+                setConfirmedPaymentMail={setConfirmedPaymentMail}
+                showSimulatedEmailModal={showSimulatedEmailModal}
+                setShowSimulatedEmailModal={setShowSimulatedEmailModal}
+                isSyncingSupabase={isSyncingSupabase}
+                fetchRealSupabaseData={fetchRealSupabaseData}
+                bypassPremium={bypassPremium}
+                onToggleBypassPremium={() => {
+                  const newVal = !bypassPremium;
+                  setBypassPremium(newVal);
+                  localStorage.setItem('fastpool_bypass_premium', String(newVal));
+                  triggerToast(newVal ? '🔧 Test Mode Enabled: All premium locks disabled!' : '🔒 Normal Mode: Premium features are locked.', 'info');
+                }}
                 onNavigateToLiveScores={() => {
                   setLivescoresOrigin('portal');
                   setViewMode('livescores');

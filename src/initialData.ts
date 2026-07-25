@@ -7,7 +7,8 @@ import {
   PoolCode,
   PoolResult,
   Notification,
-  UserDownload
+  UserDownload,
+  BookmakerTableRecord
 } from './types';
 
 export const INITIAL_USERS: User[] = [
@@ -64,6 +65,17 @@ export const INITIAL_USERS: User[] = [
     phone: '+2348055667788',
     email_verified_at: '2026-05-02T10:45:00Z',
     created_at: '2026-05-02T10:45:00Z',
+    password: 'password'
+  },
+  {
+    id: 'usr-betking-888',
+    username: 'betking_subscriber',
+    email: 'betking@outlook.com',
+    role: 'user',
+    status: 'active',
+    phone: '+2348123456789',
+    email_verified_at: '2026-06-01T10:00:00Z',
+    created_at: '2026-06-01T10:00:00Z',
     password: 'password'
   }
 ];
@@ -146,6 +158,71 @@ export const INITIAL_PLANS: SubscriptionPlan[] = [
     has_notifications: true,
     max_bookmakers: 12,
     created_at: '2026-01-01T00:00:00Z'
+  },
+  {
+    id: 'plan-ghana-weekly',
+    name: 'Ghana Weekly Plan',
+    description: '1 week Only',
+    price: 4.00,
+    billing_cycle: 'weekly',
+    has_premium_codes: true,
+    has_odds_comparison: true,
+    has_results: true,
+    has_notifications: true,
+    max_bookmakers: 4,
+    created_at: '2026-01-01T00:00:00Z'
+  },
+  {
+    id: 'plan-ghana',
+    name: 'Ghana Monthly Plan',
+    description: '4 weeks + 1 week bonus',
+    price: 16.00,
+    billing_cycle: 'monthly',
+    has_premium_codes: true,
+    has_odds_comparison: true,
+    has_results: true,
+    has_notifications: true,
+    max_bookmakers: 4,
+    created_at: '2026-01-01T00:00:00Z'
+  },
+  {
+    id: 'plan-ghana-quarterly',
+    name: 'Ghana Quarterly Plan (New)',
+    description: '12 weeks + 1 week bonus',
+    price: 48.00,
+    billing_cycle: 'quarterly',
+    has_premium_codes: true,
+    has_odds_comparison: true,
+    has_results: true,
+    has_notifications: true,
+    max_bookmakers: 4,
+    created_at: '2026-01-01T00:00:00Z'
+  },
+  {
+    id: 'plan-ghana-biannual',
+    name: 'Ghana BI - Annual Plan (New)',
+    description: '24 weeks + 2 weeks bonus',
+    price: 104.00,
+    billing_cycle: 'biannual',
+    has_premium_codes: true,
+    has_odds_comparison: true,
+    has_results: true,
+    has_notifications: true,
+    max_bookmakers: 4,
+    created_at: '2026-01-01T00:00:00Z'
+  },
+  {
+    id: 'plan-ghana-yearly',
+    name: 'Ghana Yearly Plan (New)',
+    description: '48 weeks + 4 weeks bonus',
+    price: 208.00,
+    billing_cycle: 'yearly',
+    has_premium_codes: true,
+    has_odds_comparison: true,
+    has_results: true,
+    has_notifications: true,
+    max_bookmakers: 4,
+    created_at: '2026-01-01T00:00:00Z'
   }
 ];
 
@@ -159,7 +236,8 @@ export const INITIAL_SUBSCRIPTIONS: UserSubscription[] = [
     expires_at: '2026-07-01T12:00:00Z',
     payment_ref: 'PAY-TX-MONTHLY-5593',
     payment_provider: 'Paystack',
-    created_at: '2026-06-01T12:00:00Z'
+    created_at: '2026-06-01T12:00:00Z',
+    components: ['bet9ja', 'sportybet', 'betking']
   },
   {
     id: 'sub-expired-808',
@@ -170,7 +248,20 @@ export const INITIAL_SUBSCRIPTIONS: UserSubscription[] = [
     expires_at: '2026-05-17T12:00:00Z',
     payment_ref: 'PAY-TX-WEEKLY-1204',
     payment_provider: 'Flutterwave',
-    created_at: '2026-05-10T12:00:00Z'
+    created_at: '2026-05-10T12:00:00Z',
+    components: ['bet9ja']
+  },
+  {
+    id: 'sub-active-888',
+    user_id: 'usr-betking-888', // betking_subscriber
+    plan_id: 'plan-yearly',
+    status: 'active',
+    starts_at: '2026-06-01T12:00:00Z',
+    expires_at: '2026-09-01T12:00:00Z',
+    payment_ref: 'PAY-TX-BETKING-888',
+    payment_provider: 'Paystack',
+    created_at: '2026-06-01T12:00:00Z',
+    components: ['bet9ja', 'sportybet', 'betking']
   }
 ];
 
@@ -203,6 +294,30 @@ export const INITIAL_BOOKMAKERS: Bookmaker[] = [
     id: 'bm-msport',
     name: 'MSport',
     slug: 'msport',
+    logo_url: 'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=100&h=100&fit=crop&q=80',
+    country: 'GH',
+    is_active: true
+  },
+  {
+    id: 'bm-premierbet',
+    name: 'PremierBet',
+    slug: 'premierbet',
+    logo_url: 'https://images.unsplash.com/photo-1518152006812-edab29b069ac?w=100&h=100&fit=crop&q=80',
+    country: 'NG',
+    is_active: true
+  },
+  {
+    id: 'bm-betway',
+    name: 'Betway',
+    slug: 'betway',
+    logo_url: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=100&h=100&fit=crop&q=80',
+    country: 'GH',
+    is_active: true
+  },
+  {
+    id: 'bm-soccabet',
+    name: 'Soccabet',
+    slug: 'soccabet',
     logo_url: 'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=100&h=100&fit=crop&q=80',
     country: 'GH',
     is_active: true
@@ -750,5 +865,358 @@ export const DB_SCHEMAS: TableSchema[] = [
       { fromColumn: 'user_id', toTable: 'users', toColumn: 'id', type: 'N:1' },
       { fromColumn: 'pool_code_id', toTable: 'pool_codes', toColumn: 'id', type: 'N:1' }
     ]
+  },
+  {
+    name: 'bet9ja',
+    description: 'Stores customized pool match coupon codesheets specifically for the Bet9ja plan component. Designed to match the CSV data structure.',
+    sql: `CREATE TABLE bet9ja (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  pool INT NULL,
+  betcode VARCHAR(50) NULL,
+  home VARCHAR(100) NULL,
+  away VARCHAR(100) NULL,
+  homewin DECIMAL(5,2) NULL,
+  draw DECIMAL(5,2) NULL,
+  awaywin DECIMAL(5,2) NULL,
+  bet VARCHAR(50) NULL,
+  status VARCHAR(50) NULL,
+  kickoff VARCHAR(100) NULL,
+  created_at TIMESTAMP DEFAULT NOW()
+);`,
+    columns: [
+      { name: 'id', type: 'UUID', constraints: ['PRIMARY KEY', 'DEFAULT gen_random_uuid()'], description: 'Unique row reference ID.' },
+      { name: 'pool', type: 'INT', constraints: ['NULLABLE'], description: 'Pool match number.' },
+      { name: 'betcode', type: 'VARCHAR(50)', constraints: ['NULLABLE'], description: 'Bet9ja booking betcode string.' },
+      { name: 'home', type: 'VARCHAR(100)', constraints: ['NULLABLE'], description: 'Home playing team name.' },
+      { name: 'away', type: 'VARCHAR(100)', constraints: ['NULLABLE'], description: 'Away playing team name.' },
+      { name: 'homewin', type: 'DECIMAL(5,2)', constraints: ['NULLABLE'], description: 'Home win odds value.' },
+      { name: 'draw', type: 'DECIMAL(5,2)', constraints: ['NULLABLE'], description: 'Draw odds value (X).' },
+      { name: 'awaywin', type: 'DECIMAL(5,2)', constraints: ['NULLABLE'], description: 'Away win odds value.' },
+      { name: 'bet', type: 'VARCHAR(50)', constraints: ['NULLABLE'], description: 'Recommended bet tip option.' },
+      { name: 'status', type: 'VARCHAR(50)', constraints: ['NULLABLE'], description: 'Current status of match (e.g. pending, void).' },
+      { name: 'kickoff', type: 'VARCHAR(100)', constraints: ['NULLABLE'], description: 'Kick off time stamp (West Africa Time).' },
+      { name: 'created_at', type: 'TIMESTAMP', constraints: ["DEFAULT NOW()"], description: 'Record insertion date.' }
+    ],
+    relationships: []
+  },
+  {
+    name: 'betking',
+    description: 'Stores customized pool match coupon codesheets specifically for the Betking plan component. Designed to match the CSV data structure.',
+    sql: `CREATE TABLE betking (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  pool INT NULL,
+  betcode VARCHAR(50) NULL,
+  home VARCHAR(100) NULL,
+  away VARCHAR(100) NULL,
+  homewin DECIMAL(5,2) NULL,
+  draw DECIMAL(5,2) NULL,
+  awaywin DECIMAL(5,2) NULL,
+  bet VARCHAR(50) NULL,
+  status VARCHAR(50) NULL,
+  kickoff VARCHAR(100) NULL,
+  created_at TIMESTAMP DEFAULT NOW()
+);`,
+    columns: [
+      { name: 'id', type: 'UUID', constraints: ['PRIMARY KEY', 'DEFAULT gen_random_uuid()'], description: 'Unique row reference ID.' },
+      { name: 'pool', type: 'INT', constraints: ['NULLABLE'], description: 'Pool match number.' },
+      { name: 'betcode', type: 'VARCHAR(50)', constraints: ['NULLABLE'], description: 'Betking booking betcode string.' },
+      { name: 'home', type: 'VARCHAR(100)', constraints: ['NULLABLE'], description: 'Home playing team name.' },
+      { name: 'away', type: 'VARCHAR(100)', constraints: ['NULLABLE'], description: 'Away playing team name.' },
+      { name: 'homewin', type: 'DECIMAL(5,2)', constraints: ['NULLABLE'], description: 'Home win odds value.' },
+      { name: 'draw', type: 'DECIMAL(5,2)', constraints: ['NULLABLE'], description: 'Draw odds value (X).' },
+      { name: 'awaywin', type: 'DECIMAL(5,2)', constraints: ['NULLABLE'], description: 'Away win odds value.' },
+      { name: 'bet', type: 'VARCHAR(50)', constraints: ['NULLABLE'], description: 'Recommended bet tip option.' },
+      { name: 'status', type: 'VARCHAR(50)', constraints: ['NULLABLE'], description: 'Current status of match (e.g. pending, void).' },
+      { name: 'kickoff', type: 'VARCHAR(100)', constraints: ['NULLABLE'], description: 'Kick off time stamp (West Africa Time).' },
+      { name: 'created_at', type: 'TIMESTAMP', constraints: ["DEFAULT NOW()"], description: 'Record insertion date.' }
+    ],
+    relationships: []
+  },
+  {
+    name: 'sportybet',
+    description: 'Stores customized pool match coupon codesheets specifically for the Sportybet plan component. Designed to match the CSV data structure.',
+    sql: `CREATE TABLE sportybet (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  pool INT NULL,
+  betcode VARCHAR(50) NULL,
+  home VARCHAR(100) NULL,
+  away VARCHAR(100) NULL,
+  homewin DECIMAL(5,2) NULL,
+  draw DECIMAL(5,2) NULL,
+  awaywin DECIMAL(5,2) NULL,
+  bet VARCHAR(50) NULL,
+  status VARCHAR(50) NULL,
+  kickoff VARCHAR(100) NULL,
+  created_at TIMESTAMP DEFAULT NOW()
+);`,
+    columns: [
+      { name: 'id', type: 'UUID', constraints: ['PRIMARY KEY', 'DEFAULT gen_random_uuid()'], description: 'Unique row reference ID.' },
+      { name: 'pool', type: 'INT', constraints: ['NULLABLE'], description: 'Pool match number.' },
+      { name: 'betcode', type: 'VARCHAR(50)', constraints: ['NULLABLE'], description: 'Sportybet booking betcode string.' },
+      { name: 'home', type: 'VARCHAR(100)', constraints: ['NULLABLE'], description: 'Home playing team name.' },
+      { name: 'away', type: 'VARCHAR(100)', constraints: ['NULLABLE'], description: 'Away playing team name.' },
+      { name: 'homewin', type: 'DECIMAL(5,2)', constraints: ['NULLABLE'], description: 'Home win odds value.' },
+      { name: 'draw', type: 'DECIMAL(5,2)', constraints: ['NULLABLE'], description: 'Draw odds value (X).' },
+      { name: 'awaywin', type: 'DECIMAL(5,2)', constraints: ['NULLABLE'], description: 'Away win odds value.' },
+      { name: 'bet', type: 'VARCHAR(50)', constraints: ['NULLABLE'], description: 'Recommended bet tip option.' },
+      { name: 'status', type: 'VARCHAR(50)', constraints: ['NULLABLE'], description: 'Current status of match (e.g. pending, void).' },
+      { name: 'kickoff', type: 'VARCHAR(100)', constraints: ['NULLABLE'], description: 'Kick off time stamp (West Africa Time).' },
+      { name: 'created_at', type: 'TIMESTAMP', constraints: ["DEFAULT NOW()"], description: 'Record insertion date.' }
+    ],
+    relationships: []
+  },
+  {
+    name: 'agent_user_plans',
+    description: 'Tracks customized subscriber package details for agent audits, detailing the exact bookmakers selected per subscription plan.',
+    sql: `CREATE TABLE agent_user_plans (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  plan_id UUID NOT NULL REFERENCES subscription_plans(id) ON DELETE RESTRICT,
+  selected_bookmakers TEXT[] NOT NULL DEFAULT '{}',
+  starts_at TIMESTAMP NOT NULL,
+  expires_at TIMESTAMP NOT NULL,
+  status VARCHAR(20) DEFAULT 'active',
+  created_at TIMESTAMP DEFAULT NOW()
+);`,
+    columns: [
+      { name: 'id', type: 'UUID', constraints: ['PRIMARY KEY', 'DEFAULT gen_random_uuid()'], description: 'Unique ledger identification ID.' },
+      { name: 'user_id', type: 'UUID', constraints: ['NOT NULL', 'FOREIGN KEY REFERENCES users(id)', 'ON DELETE CASCADE'], description: 'Subscriber user account reference.' },
+      { name: 'plan_id', type: 'UUID', constraints: ['NOT NULL', 'FOREIGN KEY REFERENCES subscription_plans(id)', 'ON DELETE RESTRICT'], description: 'Subscribed bundle model reference.' },
+      { name: 'selected_bookmakers', type: 'TEXT[] / JSONB', constraints: ['NOT NULL', "DEFAULT '{}'"], description: 'List of specific bookmakers enabled for customized access (e.g. sportybet, bet9ja, betking).' },
+      { name: 'starts_at', type: 'TIMESTAMP', constraints: ['NOT NULL'], description: 'Billing cycle start date.' },
+      { name: 'expires_at', type: 'TIMESTAMP', constraints: ['NOT NULL'], description: 'Billing expiration date.' },
+      { name: 'status', type: 'VARCHAR(20)', constraints: ["DEFAULT 'active'"], description: "Current plan state (e.g. 'active', 'expired', 'cancelled')." },
+      { name: 'created_at', type: 'TIMESTAMP', constraints: ["DEFAULT NOW()"], description: 'Ledger creation date.' }
+    ],
+    relationships: [
+      { fromColumn: 'user_id', toTable: 'users', toColumn: 'id', type: 'N:1' },
+      { fromColumn: 'plan_id', toTable: 'subscription_plans', toColumn: 'id', type: 'N:1' }
+    ]
+  }
+];
+
+export const INITIAL_BET9JA: BookmakerTableRecord[] = [
+  {
+    id: 'b9-rec-1',
+    pool: 1,
+    betcode: 'B92XWK',
+    home: 'Arsenal',
+    away: 'Chelsea',
+    homewin: 1.95,
+    draw: 3.40,
+    awaywin: 4.10,
+    bet: 'HOME WIN',
+    status: 'PENDING',
+    kickoff: '15:00 WAT'
+  },
+  {
+    id: 'b9-rec-2',
+    pool: 2,
+    betcode: 'B99QQY',
+    home: 'Liverpool',
+    away: 'Leeds',
+    homewin: 1.50,
+    draw: 4.25,
+    awaywin: 6.80,
+    bet: 'HOME WIN',
+    status: 'PENDING',
+    kickoff: '15:00 WAT'
+  },
+  {
+    id: 'b9-rec-3',
+    pool: 3,
+    betcode: 'B94LKS',
+    home: 'Manchester City',
+    away: 'Aston Villa',
+    homewin: 1.25,
+    draw: 5.50,
+    awaywin: 9.00,
+    bet: 'DRAW (X)',
+    status: 'VOID',
+    kickoff: '17:30 WAT'
+  },
+  {
+    id: 'b9-rec-4',
+    pool: 4,
+    betcode: 'B93PPZ',
+    home: 'Napoli',
+    away: 'Juventus',
+    homewin: 2.10,
+    draw: 3.10,
+    awaywin: 3.40,
+    bet: 'AWAY WIN',
+    status: 'PENDING',
+    kickoff: '19:45 WAT'
+  }
+];
+
+export const INITIAL_BETKING: BookmakerTableRecord[] = [
+  {
+    id: 'bk-rec-1',
+    pool: 1,
+    betcode: 'BK551X',
+    home: 'Arsenal',
+    away: 'Chelsea',
+    homewin: 1.90,
+    draw: 3.35,
+    awaywin: 4.20,
+    bet: 'HOME WIN',
+    status: 'PENDING',
+    kickoff: '15:00 WAT'
+  },
+  {
+    id: 'bk-rec-2',
+    pool: 2,
+    betcode: 'BK9012',
+    home: 'Liverpool',
+    away: 'Leeds',
+    homewin: 1.48,
+    draw: 4.30,
+    awaywin: 7.00,
+    bet: 'HOME WIN',
+    status: 'PENDING',
+    kickoff: '15:00 WAT'
+  },
+  {
+    id: 'bk-rec-3',
+    pool: 8,
+    betcode: 'BK1540',
+    home: 'St George City',
+    away: 'NWS Spirit',
+    homewin: 1.90,
+    draw: 3.90,
+    awaywin: 3.40,
+    bet: 'DRAW (X)',
+    status: 'PENDING',
+    kickoff: '04:15 PM'
+  }
+];
+
+export const INITIAL_SPORTYBET: BookmakerTableRecord[] = [
+  {
+    id: 'sb-rec-1',
+    pool: 1,
+    betcode: 'SB9908',
+    home: 'Arsenal',
+    away: 'Chelsea',
+    homewin: 2.00,
+    draw: 3.45,
+    awaywin: 4.05,
+    bet: 'HOME WIN',
+    status: 'PENDING',
+    kickoff: '15:00 WAT'
+  },
+  {
+    id: 'sb-rec-2',
+    pool: 2,
+    betcode: 'SB1123',
+    home: 'Liverpool',
+    away: 'Leeds',
+    homewin: 1.52,
+    draw: 4.20,
+    awaywin: 6.60,
+    bet: 'HOME WIN',
+    status: 'PENDING',
+    kickoff: '15:00 WAT'
+  },
+  {
+    id: 'sb-rec-3',
+    pool: 5,
+    betcode: 'SB8824',
+    home: 'Hume City',
+    away: 'South Melbourne',
+    homewin: 3.10,
+    draw: 3.40,
+    awaywin: 1.95,
+    bet: 'AWAY WIN',
+    status: 'PENDING',
+    kickoff: '07:30 PM'
+  }
+];
+
+export const INITIAL_PREMIERBET: BookmakerTableRecord[] = [
+  {
+    id: 'pb-rec-1',
+    pool: 1,
+    betcode: 'PB101X',
+    home: 'Arsenal',
+    away: 'Chelsea',
+    homewin: 1.98,
+    draw: 3.35,
+    awaywin: 4.15,
+    bet: 'HOME WIN',
+    status: 'PENDING',
+    kickoff: '15:00 WAT'
+  },
+  {
+    id: 'pb-rec-2',
+    pool: 2,
+    betcode: 'PB202Y',
+    home: 'Liverpool',
+    away: 'Leeds',
+    homewin: 1.49,
+    draw: 4.20,
+    awaywin: 6.90,
+    bet: 'HOME WIN',
+    status: 'PENDING',
+    kickoff: '15:00 WAT'
+  }
+];
+
+export const INITIAL_BETWAY: BookmakerTableRecord[] = [
+  {
+    id: 'bw-rec-1',
+    pool: 1,
+    betcode: 'BW303Z',
+    home: 'Arsenal',
+    away: 'Chelsea',
+    homewin: 1.92,
+    draw: 3.40,
+    awaywin: 4.00,
+    bet: 'HOME WIN',
+    status: 'PENDING',
+    kickoff: '15:00 WAT'
+  },
+  {
+    id: 'bw-rec-2',
+    pool: 2,
+    betcode: 'BW404A',
+    home: 'Liverpool',
+    away: 'Leeds',
+    homewin: 1.51,
+    draw: 4.15,
+    awaywin: 6.70,
+    bet: 'HOME WIN',
+    status: 'PENDING',
+    kickoff: '15:00 WAT'
+  }
+];
+
+export const INITIAL_SOCCABET: BookmakerTableRecord[] = [
+  {
+    id: 'sc-rec-1',
+    pool: 1,
+    betcode: 'SC505B',
+    home: 'Arsenal',
+    away: 'Chelsea',
+    homewin: 1.96,
+    draw: 3.42,
+    awaywin: 4.08,
+    bet: 'HOME WIN',
+    status: 'PENDING',
+    kickoff: '15:00 WAT'
+  },
+  {
+    id: 'sc-rec-2',
+    pool: 2,
+    betcode: 'SC606C',
+    home: 'Liverpool',
+    away: 'Leeds',
+    homewin: 1.50,
+    draw: 4.25,
+    awaywin: 6.75,
+    bet: 'HOME WIN',
+    status: 'PENDING',
+    kickoff: '15:00 WAT'
   }
 ];

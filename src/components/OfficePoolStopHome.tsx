@@ -120,6 +120,7 @@ export default function OfficePoolStopHome({
 
   // Paywall states
   const [showPaywall, setShowPaywall] = useState(false);
+  const [paywallRegionFilter, setPaywallRegionFilter] = useState<'nigeria' | 'ghana'>('nigeria');
   const [paywallPlan, setPaywallPlan] = useState<string>('plan-monthly');
   const [paywallForm, setPaywallForm] = useState({
     cardholder: '',
@@ -1382,27 +1383,65 @@ export default function OfficePoolStopHome({
                 </p>
               </div>
 
+              {/* Regional Tab Selector inside Paywall Checkout */}
+              <div className="flex bg-slate-950 p-1 rounded-xl border border-emerald-950 mb-4 select-none text-xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPaywallRegionFilter('nigeria');
+                    setPaywallPlan('plan-monthly');
+                  }}
+                  className={`flex-1 text-center py-1.5 font-mono font-bold uppercase rounded-lg transition ${
+                    paywallRegionFilter === 'nigeria'
+                      ? 'bg-emerald-600 text-white font-black'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  🇳🇬 Nigeria
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPaywallRegionFilter('ghana');
+                    setPaywallPlan('plan-ghana');
+                  }}
+                  className={`flex-1 text-center py-1.5 font-mono font-bold uppercase rounded-lg transition ${
+                    paywallRegionFilter === 'ghana'
+                      ? 'bg-emerald-600 text-white font-black'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  🇬🇭 Ghana
+                </button>
+              </div>
+
               {/* Plans selector inside Paywall Checkout */}
               <div className="grid grid-cols-2 gap-2.5 mb-5 select-none text-xs">
-                {(db.subscription_plans || []).filter((p: any) => p.id !== 'plan-free').map((p: any) => {
-                  const isActive = paywallPlan === p.id;
-                  const cycleAbbr = p.billing_cycle === 'biannual' ? '6mo' : p.billing_cycle === 'quarterly' ? '3mo' : p.billing_cycle === 'weekly' ? 'wk' : p.billing_cycle === 'monthly' ? 'mo' : 'yr';
-                  return (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => setPaywallPlan(p.id)}
-                      className={`p-2.5 rounded-xl border text-left flex flex-col justify-between transition ${
-                        isActive
-                          ? 'border-amber-400 bg-amber-400/10 text-white'
-                          : 'border-emerald-950 hover:bg-emerald-950/20 text-slate-400'
-                      }`}
-                    >
-                      <span className="font-black font-mono block text-xs tracking-tight text-amber-300">₦{p.price.toLocaleString()} / {cycleAbbr}</span>
-                      <span className="text-[9.5px] mt-1 font-bold block leading-none">{p.name}</span>
-                    </button>
-                  );
-                })}
+                {(db.subscription_plans || [])
+                  .filter((p: any) => p.id !== 'plan-free')
+                  .filter((p: any) => paywallRegionFilter === 'ghana' ? p.id.includes('ghana') : !p.id.includes('ghana'))
+                  .map((p: any) => {
+                    const isActive = paywallPlan === p.id;
+                    const cycleAbbr = p.billing_cycle === 'biannual' ? '6mo' : p.billing_cycle === 'quarterly' ? '3mo' : p.billing_cycle === 'weekly' ? 'wk' : p.billing_cycle === 'monthly' ? 'mo' : 'yr';
+                    const currencySymbol = p.id.includes('ghana') ? 'GH₵' : '₦';
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => setPaywallPlan(p.id)}
+                        className={`p-2.5 rounded-xl border text-left flex flex-col justify-between transition ${
+                          isActive
+                            ? 'border-amber-400 bg-amber-400/10 text-white'
+                            : 'border-emerald-950 hover:bg-emerald-950/20 text-slate-400'
+                        }`}
+                      >
+                        <span className="font-black font-mono block text-xs tracking-tight text-amber-300">
+                          {currencySymbol}{p.price.toLocaleString()} / {cycleAbbr}
+                        </span>
+                        <span className="text-[9.5px] mt-1 font-bold block leading-none">{p.name}</span>
+                      </button>
+                    );
+                  })}
               </div>
 
               <form onSubmit={handlePaymentSubmit} className="space-y-4">

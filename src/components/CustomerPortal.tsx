@@ -53,7 +53,7 @@ interface CustomerPortalProps {
   currentUser: User;
   activePlan: SubscriptionPlan | undefined;
   activeSubscription: UserSubscription | undefined;
-  buySubscription: (planId: string) => void;
+  buySubscription: (planId: string, selectedComponents?: string[]) => void;
   handleDownloadCode: (code: PoolCode) => void;
   triggerToast: (message: string, type?: 'success' | 'info' | 'error') => void;
   markAllNotificationsRead: () => void;
@@ -61,6 +61,14 @@ interface CustomerPortalProps {
   onUpdateProfile?: (updated: { username: string; email: string; phone?: string; password?: string }) => void;
   renderFooter?: () => React.ReactNode;
   onNavigateToLiveScores?: () => void;
+  confirmedPaymentMail?: { subject: string; body: string; pdfUrl: string; pdfName: string; fetchedFromSupabase: boolean; queryDetails: string } | null;
+  setConfirmedPaymentMail?: (val: any) => void;
+  showSimulatedEmailModal?: boolean;
+  setShowSimulatedEmailModal?: (val: boolean) => void;
+  isSyncingSupabase?: boolean;
+  fetchRealSupabaseData?: (silent: boolean) => Promise<void>;
+  bypassPremium?: boolean;
+  onToggleBypassPremium?: () => void;
 }
 
 export default function CustomerPortal({
@@ -75,22 +83,62 @@ export default function CustomerPortal({
   onSignOut,
   onUpdateProfile,
   renderFooter,
-  onNavigateToLiveScores
+  onNavigateToLiveScores,
+  confirmedPaymentMail,
+  setConfirmedPaymentMail,
+  showSimulatedEmailModal: showSimulatedEmailModalProp,
+  setShowSimulatedEmailModal: setShowSimulatedEmailModalProp,
+  isSyncingSupabase = false,
+  fetchRealSupabaseData,
+  bypassPremium = false,
+  onToggleBypassPremium
 }: CustomerPortalProps) {
   const userSubs = db.user_subscriptions.filter(s => s.user_id === currentUser.id);
   const latestSub = userSubs.length > 0 
     ? [...userSubs].sort((a, b) => new Date(b.expires_at).getTime() - new Date(a.expires_at).getTime())[0]
     : undefined;
 
+  const isLoggedIn = currentUser && currentUser.id !== 'guest';
+  const isVerified = currentUser && !!currentUser.email_verified_at && currentUser.status === 'active';
+  const isPaidUser = currentUser.role === 'admin' || (
+    activeSubscription && 
+    activeSubscription.status === 'active' && 
+    activePlan?.id !== 'plan-free'
+  );
+
   const isSubscriptionExpired = latestSub && (
     latestSub.status === 'expired' || 
     new Date(latestSub.expires_at) < new Date()
   );
 
-  const isFreeTier = !activeSubscription || activePlan?.id === 'plan-free' || !activePlan?.has_premium_codes;
-  const isLockedOut = !!(isSubscriptionExpired || isFreeTier);
+  const isFreeTier = bypassPremium ? false : (!isPaidUser);
+  const isLockedOut = bypassPremium ? false : (!isLoggedIn || !isVerified || !isPaidUser || !!isSubscriptionExpired);
 
   const [activeSubTab, setActiveSubTab] = useState<'dashboard' | 'streaming' | 'results' | 'subscription' | 'profile'>('dashboard');
+
+  // Component customization states for plans
+  const [selectedComponents, setSelectedComponents] = useState<Record<string, string[]>>({
+    'plan-weekly': ['bet9ja', 'sportybet', 'betking'],
+    'plan-monthly': ['bet9ja', 'sportybet', 'betking'],
+    'plan-quarterly': ['bet9ja', 'sportybet', 'betking'],
+    'plan-biannual': ['bet9ja', 'sportybet', 'betking'],
+    'plan-yearly': ['bet9ja', 'sportybet', 'betking'],
+    'plan-ghana-weekly': ['premierbet', 'betway', 'soccabet', 'sportybet'],
+    'plan-ghana': ['premierbet', 'betway', 'soccabet', 'sportybet'],
+    'plan-ghana-quarterly': ['premierbet', 'betway', 'soccabet', 'sportybet'],
+    'plan-ghana-biannual': ['premierbet', 'betway', 'soccabet', 'sportybet'],
+    'plan-ghana-yearly': ['premierbet', 'betway', 'soccabet', 'sportybet'],
+  });
+
+  const toggleComponentSelection = (planId: string, component: string) => {
+    setSelectedComponents(prev => {
+      const current = prev[planId] || (planId.includes('ghana') ? ['premierbet', 'betway', 'soccabet', 'sportybet'] : ['bet9ja', 'sportybet', 'betking']);
+      const updated = current.includes(component)
+        ? current.filter(c => c !== component)
+        : [...current, component];
+      return { ...prev, [planId]: updated };
+    });
+  };
 
   const [codeTypeFilter, setCodeTypeFilter] = useState<'all' | 'uk' | 'aussie' | 'international'>('all');
   const [bookmakerFilter, setBookmakerFilter] = useState<string>('all');
@@ -107,7 +155,9 @@ export default function CustomerPortal({
 
   // PDF Customization & Printing states
   const [showPdfPrintModal, setShowPdfPrintModal] = useState(false);
-  const [showSimulatedEmailModal, setShowSimulatedEmailModal] = useState(false);
+  const [localShowSimulatedEmailModal, setLocalShowSimulatedEmailModal] = useState(false);
+  const showSimulatedEmailModal = showSimulatedEmailModalProp !== undefined ? showSimulatedEmailModalProp : localShowSimulatedEmailModal;
+  const setShowSimulatedEmailModal = setShowSimulatedEmailModalProp !== undefined ? setShowSimulatedEmailModalProp : setLocalShowSimulatedEmailModal;
   const [pdfConfig, setPdfConfig] = useState({
     title: 'FASTPOOLCODES PREMIUM EXCLUSIVE COUPON',
     subtitle: 'Official Decrypted Classified Fixtures & Key Codes',
@@ -177,27 +227,36 @@ export default function CustomerPortal({
     printDiv.style.fontFamily = 'monospace';
 
     printDiv.innerHTML = `
-      <div style="border-bottom: 2px solid black; padding-bottom: 15px; margin-bottom: 20px; font-family: sans-serif; text-align: left;">
-        <h2 style="margin: 0; text-transform: uppercase; font-size: 16px; letter-spacing: -0.5px;">⚽ FASTPOOLCODES // PRINT SERVICE</h2>
-        <h3 style="margin: 5px 0 0 0; text-transform: uppercase; font-size: 12px; color: #10b981;">${title}</h3>
-        <p style="margin: 5px 0 0 0; font-size: 10px; color: #555;">Generated for: @${currentUser.username} (${currentUser.email}) on ${new Date().toLocaleDateString()}</p>
+      <div style="position: absolute; inset: 0; overflow: hidden; pointer-events: none; opacity: 0.18; display: flex; flex-wrap: wrap; justify-content: space-around; align-content: space-around; z-index: 0; pointer-events: none; user-select: none;">
+        ${Array.from({ length: 40 }).map(() => `
+          <div style="font-family: monospace; font-weight: 950; font-size: 13px; text-transform: uppercase; color: #0f172a; white-space: nowrap; margin: 25px; transform: rotate(-30deg); transform-origin: center;">
+            fastpoolcodes ${currentUser.email}
+          </div>
+        `).join('')}
       </div>
-      <table style="width: 100%; border-collapse: collapse; font-size: 10px; text-align: left; font-family: monospace;">
-        <thead>
-          <tr style="background-color: #0f172a; color: white;">
-            ${headers.map(h => `<th style="border: 1px solid #cbd5e1; padding: 6px; text-transform: uppercase;">${h}</th>`).join('')}
-          </tr>
-        </thead>
-        <tbody>
-          ${rows.map((row, rIdx) => `
-            <tr style="background-color: ${rIdx % 2 === 0 ? '#f8fafc' : '#ffffff'};">
-              ${row.map(cell => `<td style="border: 1px solid #cbd5e1; padding: 6px; color: #0f172a;">${cell}</td>`).join('')}
+      <div style="position: relative; z-index: 10;">
+        <div style="border-bottom: 2px solid black; padding-bottom: 15px; margin-bottom: 20px; font-family: sans-serif; text-align: left;">
+          <h2 style="margin: 0; text-transform: uppercase; font-size: 16px; letter-spacing: -0.5px;">⚽ FASTPOOLCODES // PRINT SERVICE</h2>
+          <h3 style="margin: 5px 0 0 0; text-transform: uppercase; font-size: 12px; color: #10b981;">${title}</h3>
+          <p style="margin: 5px 0 0 0; font-size: 10px; color: #555;">Generated for: @${currentUser.username} (${currentUser.email}) on ${new Date().toLocaleDateString()}</p>
+        </div>
+        <table style="width: 100%; border-collapse: collapse; font-size: 10px; text-align: left; font-family: monospace;">
+          <thead>
+            <tr style="background-color: #0f172a; color: white;">
+              ${headers.map(h => `<th style="border: 1px solid #cbd5e1; padding: 6px; text-transform: uppercase;">${h}</th>`).join('')}
             </tr>
-          `).join('')}
-        </tbody>
-      </table>
-      <div style="margin-top: 30px; border-top: 1px solid #cbd5e1; padding-top: 10px; font-size: 8px; color: #64748b; text-align: center; font-family: sans-serif;">
-        © 2026 FastPoolCodes. Secure printable document license for @${currentUser.username}.
+          </thead>
+          <tbody>
+            ${rows.map((row, rIdx) => `
+              <tr style="background-color: ${rIdx % 2 === 0 ? '#f8fafc' : '#ffffff'};">
+                ${row.map(cell => `<td style="border: 1px solid #cbd5e1; padding: 6px; color: #0f172a;">${cell}</td>`).join('')}
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        <div style="margin-top: 30px; border-top: 1px solid #cbd5e1; padding-top: 10px; font-size: 8px; color: #64748b; text-align: center; font-family: sans-serif;">
+          © 2026 FastPoolCodes. Secure printable document license for @${currentUser.username}.
+        </div>
       </div>
     `;
 
@@ -387,129 +446,63 @@ export default function CustomerPortal({
     } catch (e) {
       console.warn('LocalStorage read omitted in this frame context:', e);
     }
-    return [
-      {
-        id: 'g-1',
-        poolNo: 1,
-        betCode: '2531',
-        home: 'Marconi S.',
-        away: 'Sydney FC',
-        homeWin: '1.40',
-        draw: '4.35',
-        awayWin: '6.40',
-        betTips: 'Ov 2.5',
-        status: 'Friday',
-        kickOff: '11:00 AM',
-        bookmaker: 'Bet9ja',
+    const mapBookieRows = (rows: any[] | undefined, prefix: string, name: string) => {
+      return (rows || []).map(r => ({
+        id: `${prefix}_${r.id}`,
+        poolNo: r.pool !== undefined ? r.pool : (r['pool '] !== undefined ? r['pool '] : undefined),
+        betCode: r.betcode !== undefined ? r.betcode : (r['betcode '] !== undefined ? r['betcode '] : undefined),
+        home: r.home,
+        away: r.away,
+        homeWin: String(r.homewin !== undefined ? r.homewin : ''),
+        draw: String(r.draw !== undefined ? r.draw : ''),
+        awayWin: String(r.awaywin !== undefined ? r.awaywin : ''),
+        betTips: r.bet,
+        status: r.status,
+        kickOff: r.kickoff,
+        bookmaker: name,
         week: 'Week 49 Aussie'
-      },
-      {
-        id: 'g-2',
-        poolNo: 2,
-        betCode: '4922',
-        home: 'Apia L. Tigers',
-        away: 'Rockdale City',
-        homeWin: '2.10',
-        draw: '3.85',
-        awayWin: '3.10',
-        betTips: 'Draw (X)',
-        status: 'Saturday',
-        kickOff: '03:15 PM',
-        bookmaker: 'Bet9ja',
-        week: 'Week 49 Aussie'
-      },
-      {
-        id: 'g-3',
-        poolNo: 3,
-        betCode: '1853',
-        home: 'Wollongong Wolves',
-        away: 'Manly United',
-        homeWin: '1.85',
-        draw: '4.00',
-        awayWin: '4.50',
-        betTips: 'Un 2.5',
-        status: 'Saturday',
-        kickOff: '04:30 PM',
-        bookmaker: 'Bet9ja',
-        week: 'Week 49 Aussie'
-      },
-      {
-        id: 'g-4',
-        poolNo: 4,
-        betCode: '7721',
-        home: 'Melbourne Knights',
-        away: 'Oakleigh Cannons',
-        homeWin: '2.45',
-        draw: '3.60',
-        awayWin: '2.20',
-        betTips: 'Home Draw',
-        status: 'Sunday',
-        kickOff: '05:00 PM',
-        bookmaker: 'BetKing',
-        week: 'Week 49 Aussie'
-      },
-      {
-        id: 'g-5',
-        poolNo: 5,
-        betCode: '8824',
-        home: 'Hume City',
-        away: 'South Melbourne',
-        homeWin: '3.10',
-        draw: '3.40',
-        awayWin: '1.95',
-        betTips: 'Away Win',
-        status: 'Sunday',
-        kickOff: '07:30 PM',
-        bookmaker: 'SportyBet',
-        week: 'Week 49 Aussie'
-      },
-      {
-        id: 'g-6',
-        poolNo: 6,
-        betCode: '9012',
-        home: 'St George FC',
-        away: 'Sutherland Sharks',
-        homeWin: '1.70',
-        draw: '4.20',
-        awayWin: '5.10',
-        betTips: 'Ov 1.5',
-        status: 'Friday',
-        kickOff: '12:45 PM',
-        bookmaker: 'MSport',
-        week: 'Week 49 Aussie'
-      },
-      {
-        id: 'g-7',
-        poolNo: 7,
-        betCode: '3104',
-        home: 'Sydney Olympic',
-        away: 'Western Sydney',
-        homeWin: '2.05',
-        draw: '3.70',
-        awayWin: '2.85',
-        betTips: 'Home To Win',
-        status: 'Saturday',
-        kickOff: '06:00 PM',
-        bookmaker: 'Bet9ja',
-        week: 'Week 49 Aussie'
-      },
-      {
-        id: 'g-8',
-        poolNo: 8,
-        betCode: '1540',
-        home: 'St George City',
-        away: 'NWS Spirit',
-        homeWin: '1.90',
-        draw: '3.90',
-        awayWin: '3.40',
-        betTips: 'Draw (X)',
-        status: 'Saturday',
-        kickOff: '04:15 PM',
-        bookmaker: 'BetKing',
-        week: 'Week 49 Aussie'
-      }
-    ];
+      }));
+    };
+
+    const b9 = mapBookieRows(db.bet9ja, 'bet9ja', 'Bet9ja');
+    const bk = mapBookieRows(db.betking, 'betking', 'BetKing');
+    const sb = mapBookieRows(db.sportybet, 'sportybet', 'SportyBet');
+    const pb = mapBookieRows(db.premierbet, 'premierbet', 'PremierBet');
+    const bw = mapBookieRows(db.betway, 'betway', 'Betway');
+    const sc = mapBookieRows(db.soccabet, 'soccabet', 'Soccabet');
+    return [...b9, ...bk, ...sb, ...pb, ...bw, ...sc];
   });
+  
+  // Synchronize postedGames when database state updates from Supabase (fetching real tables)
+  useEffect(() => {
+    const mapBookieRows = (rows: any[] | undefined, prefix: string, name: string) => {
+      return (rows || []).map(r => ({
+        id: `${prefix}_${r.id}`,
+        poolNo: r.pool !== undefined ? r.pool : (r['pool '] !== undefined ? r['pool '] : undefined),
+        betCode: r.betcode !== undefined ? r.betcode : (r['betcode '] !== undefined ? r['betcode '] : undefined),
+        home: r.home,
+        away: r.away,
+        homeWin: String(r.homewin !== undefined ? r.homewin : ''),
+        draw: String(r.draw !== undefined ? r.draw : ''),
+        awayWin: String(r.awaywin !== undefined ? r.awaywin : ''),
+        betTips: r.bet,
+        status: r.status,
+        kickOff: r.kickoff,
+        bookmaker: name,
+        week: 'Week 49 Aussie'
+      }));
+    };
+
+    const b9 = mapBookieRows(db.bet9ja, 'bet9ja', 'Bet9ja');
+    const bk = mapBookieRows(db.betking, 'betking', 'BetKing');
+    const sb = mapBookieRows(db.sportybet, 'sportybet', 'SportyBet');
+    const pb = mapBookieRows(db.premierbet, 'premierbet', 'PremierBet');
+    const bw = mapBookieRows(db.betway, 'betway', 'Betway');
+    const sc = mapBookieRows(db.soccabet, 'soccabet', 'Soccabet');
+
+    const allGames = [...b9, ...bk, ...sb, ...pb, ...bw, ...sc];
+    setPostedGames(allGames);
+  }, [db.bet9ja, db.betking, db.sportybet, db.premierbet, db.betway, db.soccabet]);
 
   // Persist modifications immediately and dispatch reactive real-time custom notification events
   useEffect(() => {
@@ -620,8 +613,9 @@ export default function CustomerPortal({
   const [adminSheetTitle, setAdminSheetTitle] = useState('');
 
   const [dashboardGameSearch, setDashboardGameSearch] = useState('');
-  const [dashboardBookmakerFilter, setDashboardBookmakerFilter] = useState('All');
+  const [dashboardBookmakerFilter, setDashboardBookmakerFilter] = useState('Bet9ja');
   const [dashboardTheme, setDashboardTheme] = useState<'paper' | 'dark'>('dark');
+  const [pricingRegionFilter, setPricingRegionFilter] = useState<'nigeria' | 'ghana'>('nigeria');
 
   // Admin form state for posting games
   const [adminPoolNo, setAdminPoolNo] = useState<string>('9');
@@ -675,130 +669,34 @@ export default function CustomerPortal({
   };
 
   const handleResetGames = () => {
-    setPostedGames([
-      {
-        id: 'g-1',
-        poolNo: 1,
-        betCode: '2531',
-        home: 'Marconi S.',
-        away: 'Sydney FC',
-        homeWin: '1.40',
-        draw: '4.35',
-        awayWin: '6.40',
-        betTips: 'Ov 2.5',
-        status: 'Friday',
-        kickOff: '11:00 AM',
-        bookmaker: 'Bet9ja',
+    const mapBookieRows = (rows: any[] | undefined, prefix: string, name: string) => {
+      return (rows || []).map(r => ({
+        id: `${prefix}_${r.id}`,
+        poolNo: r.pool !== undefined ? r.pool : (r['pool '] !== undefined ? r['pool '] : undefined),
+        betCode: r.betcode !== undefined ? r.betcode : (r['betcode '] !== undefined ? r['betcode '] : undefined),
+        home: r.home,
+        away: r.away,
+        homeWin: String(r.homewin !== undefined ? r.homewin : ''),
+        draw: String(r.draw !== undefined ? r.draw : ''),
+        awayWin: String(r.awaywin !== undefined ? r.awaywin : ''),
+        betTips: r.bet,
+        status: r.status,
+        kickOff: r.kickoff,
+        bookmaker: name,
         week: 'Week 49 Aussie'
-      },
-      {
-        id: 'g-2',
-        poolNo: 2,
-        betCode: '4922',
-        home: 'Apia L. Tigers',
-        away: 'Rockdale City',
-        homeWin: '2.10',
-        draw: '3.85',
-        awayWin: '3.10',
-        betTips: 'Draw (X)',
-        status: 'Saturday',
-        kickOff: '03:15 PM',
-        bookmaker: 'Bet9ja',
-        week: 'Week 49 Aussie'
-      },
-      {
-        id: 'g-3',
-        poolNo: 3,
-        betCode: '1853',
-        home: 'Wollongong Wolves',
-        away: 'Manly United',
-        homeWin: '1.85',
-        draw: '4.00',
-        awayWin: '4.50',
-        betTips: 'Un 2.5',
-        status: 'Saturday',
-        kickOff: '04:30 PM',
-        bookmaker: 'Bet9ja',
-        week: 'Week 49 Aussie'
-      },
-      {
-        id: 'g-4',
-        poolNo: 4,
-        betCode: '7721',
-        home: 'Melbourne Knights',
-        away: 'Oakleigh Cannons',
-        homeWin: '2.45',
-        draw: '3.60',
-        awayWin: '2.20',
-        betTips: 'Home Draw',
-        status: 'Sunday',
-        kickOff: '05:00 PM',
-        bookmaker: 'BetKing',
-        week: 'Week 49 Aussie'
-      },
-      {
-        id: 'g-5',
-        poolNo: 5,
-        betCode: '8824',
-        home: 'Hume City',
-        away: 'South Melbourne',
-        homeWin: '3.10',
-        draw: '3.40',
-        awayWin: '1.95',
-        betTips: 'Away Win',
-        status: 'Sunday',
-        kickOff: '07:30 PM',
-        bookmaker: 'SportyBet',
-        week: 'Week 49 Aussie'
-      },
-      {
-        id: 'g-6',
-        poolNo: 6,
-        betCode: '9012',
-        home: 'St George FC',
-        away: 'Sutherland Sharks',
-        homeWin: '1.70',
-        draw: '4.20',
-        awayWin: '5.10',
-        betTips: 'Ov 1.5',
-        status: 'Friday',
-        kickOff: '12:45 PM',
-        bookmaker: 'MSport',
-        week: 'Week 49 Aussie'
-      },
-      {
-        id: 'g-7',
-        poolNo: 7,
-        betCode: '3104',
-        home: 'Sydney Olympic',
-        away: 'Western Sydney',
-        homeWin: '2.05',
-        draw: '3.70',
-        awayWin: '2.85',
-        betTips: 'Home To Win',
-        status: 'Saturday',
-        kickOff: '06:00 PM',
-        bookmaker: 'Bet9ja',
-        week: 'Week 49 Aussie'
-      },
-      {
-        id: 'g-8',
-        poolNo: 8,
-        betCode: '1540',
-        home: 'St George City',
-        away: 'NWS Spirit',
-        homeWin: '1.90',
-        draw: '3.90',
-        awayWin: '3.40',
-        betTips: 'Draw (X)',
-        status: 'Saturday',
-        kickOff: '04:15 PM',
-        bookmaker: 'BetKing',
-        week: 'Week 49 Aussie'
-      }
-    ]);
+      }));
+    };
+
+    const b9 = mapBookieRows(db.bet9ja, 'bet9ja', 'Bet9ja');
+    const bk = mapBookieRows(db.betking, 'betking', 'BetKing');
+    const sb = mapBookieRows(db.sportybet, 'sportybet', 'SportyBet');
+    const pb = mapBookieRows(db.premierbet, 'premierbet', 'PremierBet');
+    const bw = mapBookieRows(db.betway, 'betway', 'Betway');
+    const sc = mapBookieRows(db.soccabet, 'soccabet', 'Soccabet');
+
+    setPostedGames([...b9, ...bk, ...sb, ...pb, ...bw, ...sc]);
     setAdminPoolNo('9');
-    triggerToast('Games list reset to high-fidelity default coupon!', 'info');
+    triggerToast('Games list reset to database default tables!', 'info');
   };
 
   // Interactive Live Scoreboard States
@@ -1088,6 +986,15 @@ export default function CustomerPortal({
     if (codeTypeFilter !== 'all' && week.pool_type !== codeTypeFilter) return false;
     if (bookmakerFilter !== 'all' && code.bookmaker_id !== bookmakerFilter) return false;
     
+    // Strict component-level subscription access filtering
+    if (!bypassPremium && code.access_level === 'premium' && currentUser.role !== 'admin') {
+      if (!activeSubscription || activeSubscription.status !== 'active') return false;
+      if (activeSubscription.components) {
+        const compSlug = code.bookmaker_id.replace('bm-', '').toLowerCase();
+        if (!activeSubscription.components.includes(compSlug)) return false;
+      }
+    }
+
     // Search Term match
     if (searchTerm) {
       const matchLabel = `${bookmaker.name} ${week.week_number} ${week.pool_type}`.toLowerCase();
@@ -1181,7 +1088,7 @@ export default function CustomerPortal({
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <span className="inline-block w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></span>
                       <span className="text-[9.5px] font-mono text-emerald-350 tracking-wider uppercase font-semibold">
-                        {activePlan?.id !== 'plan-free' ? '★ VIP Member' : 'Free Trial Tier'}
+                        {bypassPremium ? '★ VIP Member (Test Mode)' : (activePlan?.id !== 'plan-free' ? '★ VIP Member' : 'Free Trial Tier')}
                       </span>
                     </div>
                   </div>
@@ -1204,7 +1111,7 @@ export default function CustomerPortal({
                       <Home className="w-4 h-4" />
                       <span>DASHBOARD</span>
                     </span>
-                    {activePlan?.id === 'plan-free' && (
+                    {activePlan?.id === 'plan-free' && !bypassPremium && (
                       <Lock className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
                     )}
                   </button>
@@ -1345,7 +1252,7 @@ export default function CustomerPortal({
               <div className="flex items-center gap-1.5 mt-0.5">
                 <span className="inline-block w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></span>
                 <span className="text-[9.5px] font-mono text-emerald-350 tracking-wider uppercase font-semibold">
-                  {activePlan?.id !== 'plan-free' ? '★ VIP Member' : 'Free Trial Tier'}
+                  {bypassPremium ? '★ VIP Member (Test Mode)' : (activePlan?.id !== 'plan-free' ? '★ VIP Member' : 'Free Trial Tier')}
                 </span>
               </div>
             </div>
@@ -1365,7 +1272,7 @@ export default function CustomerPortal({
                 <Home className="w-4 h-4" />
                 <span>DASHBOARD</span>
               </span>
-              {activePlan?.id === 'plan-free' && (
+              {activePlan?.id === 'plan-free' && !bypassPremium && (
                 <Lock className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
               )}
             </button>
@@ -1500,20 +1407,46 @@ export default function CustomerPortal({
 
                   <div className="space-y-3">
                     <span className="text-[10px] font-mono font-black text-rose-455 uppercase tracking-widest px-3 py-1 bg-rose-950/40 border border-rose-900/50 rounded-full">
-                      {isSubscriptionExpired ? 'PREMIUM ACCESS LOCKOUT' : 'VIP UPGRADE REQUIRED'}
+                      {!isLoggedIn ? 'AUTHENTICATION REQUIRED' : !isVerified ? 'VERIFICATION REQUIRED' : isSubscriptionExpired ? 'PREMIUM ACCESS EXPIRED' : 'STRICT MODE: PAID VIP REQUIRED'}
                     </span>
                     <h3 className="text-xl md:text-2xl font-black text-white uppercase tracking-tight">
-                      {isSubscriptionExpired ? 'Your Subscription Has Expired!' : 'Premium VIP Access Required!'}
+                      {!isLoggedIn ? 'Please Log In To Access Tables' : !isVerified ? 'Account Verification Pending' : isSubscriptionExpired ? 'Your Subscription Has Expired!' : 'Paid VIP Membership Required!'}
                     </h3>
                     <p className="text-slate-350 text-xs md:text-sm max-w-lg mx-auto leading-relaxed">
-                      {isSubscriptionExpired 
-                        ? 'Access to the priority **PoolCodes Arena Dashboard**, real-time weekly coupon codes sheets, live scores tracking, and banker draw predictions has been strictly suspended due to plan expiration.'
-                        : 'Access to the priority **PoolCodes Arena Dashboard**, real-time weekly coupon codes sheets, live scores tracking, and banker draw predictions is exclusive to active VIP Premium members.'}
+                      {!isLoggedIn 
+                        ? 'Access to classified tables, match matrices, coupon sheets, and subscription plans requires an authenticated account. Please log in or register.'
+                        : !isVerified
+                        ? 'Your user account email must be verified to unlock access to classified tables (Bet9ja, BetKing, SportyBet, PremierBet, Betway, Soccabet).'
+                        : isSubscriptionExpired 
+                        ? 'Access to priority PoolCodes Arena Dashboard tables and weekly coupon sheets has been suspended due to plan expiration. Please renew.'
+                        : 'Access to priority PoolCodes Arena Dashboard tables, real-time coupon code sheets, and match matrices is strictly restricted to verified, paid subscribers.'}
                     </p>
                   </div>
 
                   {/* Plan Details */}
-                  {isSubscriptionExpired && latestSub ? (
+                  {!isLoggedIn ? (
+                    <div className="w-full max-w-md bg-slate-950/80 border border-slate-800 rounded-xl p-4 flex flex-col gap-2 text-left font-mono text-[11px] text-slate-400">
+                      <div className="flex justify-between border-b border-slate-800/60 pb-1.5">
+                        <span>User Session:</span>
+                        <span className="text-rose-400 font-bold uppercase">Guest / Unauthenticated</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Requirement:</span>
+                        <span className="text-emerald-400 font-bold uppercase font-mono">Sign In / Register</span>
+                      </div>
+                    </div>
+                  ) : !isVerified ? (
+                    <div className="w-full max-w-md bg-slate-950/80 border border-slate-800 rounded-xl p-4 flex flex-col gap-2 text-left font-mono text-[11px] text-slate-400">
+                      <div className="flex justify-between border-b border-slate-800/60 pb-1.5">
+                        <span>User Email:</span>
+                        <span className="text-amber-400 font-bold">{currentUser.email}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Verification Status:</span>
+                        <span className="text-rose-400 font-bold uppercase font-mono">Pending Verification</span>
+                      </div>
+                    </div>
+                  ) : isSubscriptionExpired && latestSub ? (
                     <div className="w-full max-w-md bg-slate-950/80 border border-slate-800 rounded-xl p-4 flex flex-col gap-2 text-left font-mono text-[11px] text-slate-400">
                       <div className="flex justify-between border-b border-slate-800/60 pb-1.5">
                         <span>Expired Plan:</span>
@@ -1536,15 +1469,15 @@ export default function CustomerPortal({
                     <div className="w-full max-w-md bg-slate-950/80 border border-slate-800 rounded-xl p-4 flex flex-col gap-2 text-left font-mono text-[11px] text-slate-400">
                       <div className="flex justify-between border-b border-slate-800/60 pb-1.5">
                         <span>Current Plan:</span>
-                        <span className="text-amber-500 font-bold uppercase">Free Tier Access</span>
+                        <span className="text-amber-500 font-bold uppercase">{activePlan?.name || 'Free Tier Access'}</span>
                       </div>
                       <div className="flex justify-between border-b border-slate-800/60 pb-1.5">
                         <span>Status:</span>
-                        <span className="text-rose-400 font-bold uppercase font-mono">Restricted</span>
+                        <span className="text-rose-400 font-bold uppercase font-mono">Unpaid / Restricted</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Requirement:</span>
-                        <span className="text-emerald-400 font-bold uppercase font-mono">VIP Premium Upgrade</span>
+                        <span className="text-emerald-400 font-bold uppercase font-mono">Paid VIP Subscription</span>
                       </div>
                     </div>
                   )}
@@ -1579,6 +1512,28 @@ export default function CustomerPortal({
                   {/* SUBTAB 1: SPORT CODES DASHBOARD CONTAINER */}
                   {activeSubTab === 'dashboard' && (
                 <div className="flex flex-col gap-6">
+                  {bypassPremium && (
+                    <div className="bg-emerald-950/40 border border-emerald-800/60 rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 text-emerald-300 text-xs shadow-lg shadow-emerald-950/20">
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-2.5 w-2.5 relative shrink-0">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                        </span>
+                        <div className="text-left">
+                          <strong className="text-slate-100 block mb-0.5">🔧 Testing Mode Active (Premium Bypassed)</strong>
+                          <span className="text-slate-300">All VIP locks and premium subscription validations are temporarily disabled. You can view all codesheets, download packages, and customize PDF templates for free.</span>
+                        </div>
+                      </div>
+                      {onToggleBypassPremium && (
+                        <button
+                          onClick={onToggleBypassPremium}
+                          className="px-4 py-2 bg-emerald-900 hover:bg-emerald-800/90 hover:text-emerald-250 text-emerald-300 border border-emerald-700/50 rounded-xl text-[10.5px] font-black font-mono transition active:scale-95 duration-100 uppercase tracking-wider shrink-0 cursor-pointer shadow-md select-none"
+                        >
+                          Enable Normal Locks
+                        </button>
+                      )}
+                    </div>
+                  )}
 
                   {/* LIVE ARENA SPORTS SCORE TICKER (FULLY RESPONSIVE & MOBILE SWEET SWIPER) */}
                   <div className="bg-[#111827] rounded-2xl border border-slate-800 p-4 shadow-xl flex flex-col gap-3">
@@ -1633,7 +1588,7 @@ export default function CustomerPortal({
 
                           return (
                             <div 
-                              key={match.id || idx}
+                              key={`live_match_portal_${idx}_${match.id || ''}`}
                               onClick={() => triggerToast(`Match Details: ${team1} vs ${team2} (${typeStr})`, 'info')}
                               className="flex items-center bg-[#070B14] border border-slate-800 hover:border-slate-700 rounded-xl px-4 py-2.5 transition cursor-pointer gap-4 text-left shadow-md select-none shrink-0"
                             >
@@ -1670,16 +1625,25 @@ export default function CustomerPortal({
                       {/* Bookmaker Selector Tabs */}
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-xs font-mono text-slate-400 mr-1 hidden sm:inline">BOOKMAKER:</span>
-                        {['All', 'Bet9ja', 'BetKing', 'SportyBet', 'MSport'].map((bookie) => (
+                        {['Bet9ja', 'BetKing', 'SportyBet', 'PremierBet', 'Betway', 'Soccabet'].map((bookie) => (
                           <button
                             key={bookie}
-                            onClick={() => setDashboardBookmakerFilter(bookie)}
-                            className={`px-3.5 py-1.5 text-xs font-bold font-mono uppercase tracking-wide rounded-lg transition duration-150 ${
+                            disabled={isSyncingSupabase}
+                            onClick={async () => {
+                              setDashboardBookmakerFilter(bookie);
+                              if (fetchRealSupabaseData) {
+                                await fetchRealSupabaseData(false);
+                              }
+                            }}
+                            className={`px-3.5 py-1.5 text-xs font-bold font-mono uppercase tracking-wide rounded-lg transition duration-150 flex items-center gap-1.5 cursor-pointer ${
                               dashboardBookmakerFilter === bookie
                                 ? 'bg-amber-500 text-slate-950 font-black'
                                 : 'bg-slate-900 text-slate-350 hover:bg-slate-800 border border-slate-800'
-                            }`}
+                            } ${isSyncingSupabase ? 'opacity-80' : ''}`}
                           >
+                            {isSyncingSupabase && dashboardBookmakerFilter === bookie && (
+                              <span className="w-2.5 h-2.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                            )}
                             {bookie}
                           </button>
                         ))}
@@ -1722,15 +1686,54 @@ export default function CustomerPortal({
                     {/* THE TABLE CANVAS CONTAINER (COUPON RENDERER) */}
                     <div>
                       {(() => {
+                        const userComponents = activeSubscription?.components || [];
+                        const isBookieAllowed = (bookieName: string) => {
+                          if (bypassPremium) return true;
+                          if (currentUser.role === 'admin') return true;
+                          if (!isLoggedIn || !isVerified || !isPaidUser) return false;
+                          if (!activeSubscription || activeSubscription.status !== 'active') return false;
+                          if (activePlan?.id === 'plan-free') return false;
+                          return userComponents.map(c => c.toLowerCase()).includes(bookieName.toLowerCase());
+                        };
+
+                        const isTabAllowed = isBookieAllowed(dashboardBookmakerFilter);
+
+                        if (!isTabAllowed) {
+                          return (
+                            <div className="p-8 text-center flex flex-col items-center justify-center bg-slate-950/40 border border-slate-800 rounded-2xl py-14">
+                              <div className="w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center mb-4">
+                                <Lock className="w-8 h-8 text-amber-500" />
+                              </div>
+                              <h3 className="text-lg font-bold text-slate-100 uppercase tracking-wider font-mono">
+                                {dashboardBookmakerFilter} Table Access Restricted
+                              </h3>
+                              <p className="text-sm text-slate-400 max-w-md mt-2 leading-relaxed">
+                                You do not have access to the <strong>{dashboardBookmakerFilter}</strong> classified table. This component is not enabled in your current membership.
+                              </p>
+                              <button
+                                onClick={() => {
+                                  setActiveSubTab('subscription');
+                                  triggerToast('Enable this bookmaker on your subscription page!', 'info');
+                                }}
+                                className="mt-6 bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold text-xs px-6 py-3 rounded-xl uppercase transition tracking-wider shadow shadow-amber-500/10"
+                              >
+                                Upgrade Plan / Select Components
+                              </button>
+                            </div>
+                          );
+                        }
+
                         const filteredList = postedGames.filter(game => {
-                          const matchesBookmaker = dashboardBookmakerFilter === 'All' || game.bookmaker === dashboardBookmakerFilter;
+                          // Only include games matching allowed bookmaker components
+                          if (game.bookmaker.toLowerCase() !== dashboardBookmakerFilter.toLowerCase()) return false;
+
                           const matchesSearch = dashboardGameSearch === '' ||
                             game.home.toLowerCase().includes(dashboardGameSearch.toLowerCase()) ||
                             game.away.toLowerCase().includes(dashboardGameSearch.toLowerCase()) ||
                             game.betCode.includes(dashboardGameSearch) ||
                             game.betTips.toLowerCase().includes(dashboardGameSearch.toLowerCase()) ||
                             game.status.toLowerCase().includes(dashboardGameSearch.toLowerCase());
-                          return matchesBookmaker && matchesSearch;
+                          return matchesSearch;
                         });
 
                         const isPaperMode = dashboardTheme === 'paper';
@@ -1762,10 +1765,10 @@ export default function CustomerPortal({
                                   <p className={`text-sm mt-2 font-mono ${isPaperMode ? 'text-gray-600' : 'text-slate-400'}`}>
                                     No posted fixtures match your filter or search query.
                                   </p>
-                                  {(dashboardBookmakerFilter !== 'All' || dashboardGameSearch !== '') && (
+                                  {(dashboardBookmakerFilter !== 'Bet9ja' || dashboardGameSearch !== '') && (
                                     <button
                                       onClick={() => {
-                                        setDashboardBookmakerFilter('All');
+                                        setDashboardBookmakerFilter('Bet9ja');
                                         setDashboardGameSearch('');
                                       }}
                                       className="mt-3 text-xs text-emerald-400 hover:underline font-mono"
@@ -2094,6 +2097,9 @@ export default function CustomerPortal({
                               <option value="BetKing">BetKing</option>
                               <option value="SportyBet">SportyBet</option>
                               <option value="MSport">MSport</option>
+                              <option value="PremierBet">PremierBet</option>
+                              <option value="Betway">Betway</option>
+                              <option value="Soccabet">Soccabet</option>
                             </select>
                           </div>
 
@@ -2405,7 +2411,20 @@ export default function CustomerPortal({
                 const associatedCode = db.pool_codes.find(c => c.id === associatedCodeId);
                 const isCodeUnlocked = associatedCode ? isAlreadyUnlocked(associatedCode.id) : false;
                 const isPremium = associatedCode?.access_level === 'premium';
-                const isLocked = isPremium && activePlan?.id === 'plan-free' && currentUser.role !== 'admin';
+                
+                const bookmakerSlug = associatedCode?.bookmaker_id.replace('bm-', '').toLowerCase() || '';
+                const hasComponentAccess = !isPremium || currentUser.role === 'admin' || (
+                  activeSubscription && 
+                  activeSubscription.status === 'active' &&
+                  (!activeSubscription.components || activeSubscription.components.includes(bookmakerSlug))
+                );
+
+                const isLocked = !bypassPremium && currentUser.role !== 'admin' && (
+                  !isLoggedIn ||
+                  !isVerified ||
+                  !isPaidUser ||
+                  (isPremium && !hasComponentAccess)
+                );
                 const bookmaker = db.bookmakers.find(b => b.id === associatedCode?.bookmaker_id);
 
                 return (
@@ -2863,16 +2882,20 @@ export default function CustomerPortal({
                                         <Lock className="w-7 h-7 text-amber-500 stroke-[2.5]" />
                                         <span className="text-xs font-extrabold text-amber-400 uppercase tracking-widest font-mono">Premium Forecast Codes Locked</span>
                                         <p className="text-[11px] text-slate-400 max-w-sm mt-0.5 font-sans leading-relaxed">
-                                          This is a premium high-odds coupon validation indicator sheet. Revealing is locked to VIP Arena members on the active `{associatedCode.access_level}` plan.
+                                          {activePlan?.id === 'plan-free' ? (
+                                            `This is a premium high-odds coupon validation indicator sheet. Revealing is locked to VIP Arena members on the active ${associatedCode.access_level} plan.`
+                                          ) : (
+                                            `This premium codesheet is locked because you do not have the ${bookmakerSlug.toUpperCase()} bookmaker component enabled in your active subscription. Please configure your components in the subscription page.`
+                                          )}
                                         </p>
                                         <button
                                           onClick={() => {
                                             setActiveSubTab('subscription');
-                                            triggerToast('Choose an upgrade plan to reveal premium sheets!', 'info');
+                                            triggerToast(activePlan?.id === 'plan-free' ? 'Choose an upgrade plan to reveal premium sheets!' : 'Configure your subscribed components!', 'info');
                                           }}
                                           className="mt-3 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-slate-950 font-black text-xs px-5 py-2 rounded-xl transition shadow-md shadow-amber-500/10 uppercase"
                                         >
-                                          Upgrade Membership Plan
+                                          {activePlan?.id === 'plan-free' ? 'Upgrade Membership Plan' : 'Manage Subscribed Components'}
                                         </button>
                                       </div>
                                     ) : isCodeUnlocked ? (
@@ -3465,9 +3488,9 @@ export default function CustomerPortal({
                                 <div className="bg-[#111827] border border-slate-850 rounded p-4 text-left">
                                   <span className="text-[10px] text-slate-500 uppercase font-black block">VERIFIED LCR KEY NUMBERS</span>
                                   <div className="flex flex-wrap gap-2 mt-2.5">
-                                    {activeIntl.codeDetails?.keyNumbers.map((num) => (
+                                    {activeIntl.codeDetails?.keyNumbers.map((num, idx) => (
                                       <span 
-                                        key={num}
+                                        key={`key_num_${idx}_${num}`}
                                         className="w-9 h-9 rounded-full bg-[#004D40]/30 text-emerald-400 border border-emerald-900/40 flex items-center justify-center font-black select-none text-xs"
                                       >
                                         {num}
@@ -3803,13 +3826,13 @@ export default function CustomerPortal({
                                 );
                               });
 
-                              return filtered.map((match: any) => {
+                              return filtered.map((match: any, idx: number) => {
                                 const isLiveStatus = match.status === 'live';
                                 const isFinished = match.status === 'finished';
                                 const isPostponed = match.status === 'postponed';
 
                                 return (
-                                  <tr key={match.id} className="hover:bg-slate-900/40 transition">
+                                  <tr key={`tracked_match_${idx}_${match.id || ''}`} className="hover:bg-slate-900/40 transition">
                                   <td className="py-3.5 px-4 font-semibold font-sans text-slate-100">
                                     <div className="flex items-center gap-2">
                                       <span className="text-slate-400">🥅</span>
@@ -4696,7 +4719,7 @@ export default function CustomerPortal({
                   <div className="bg-[#111827] border border-slate-800 rounded-xl p-5 shadow-lg flex flex-wrap gap-4 items-center justify-between">
                     <div>
                       <span className="text-[9.5px] font-mono text-emerald-400 block uppercase tracking-wide font-extrabold">ACCOUNT STATUS</span>
-                      <h4 className="text-base font-black text-white mt-1 uppercase tracking-wide">
+                      <h4 className="text-sm sm:text-base font-black text-white mt-1 uppercase tracking-wide break-all sm:break-normal">
                         Username: {currentUser.username} ({currentUser.email})
                       </h4>
                       <p className="text-xs text-slate-400 mt-1">
@@ -4714,109 +4737,164 @@ export default function CustomerPortal({
 
                   {/* High fidelity pricing layout */}
                   <div className="border border-slate-800/80 p-5 rounded-xl bg-[#111827] shadow-lg">
-                    <h3 className="font-extrabold text-[#10B981] text-xs uppercase tracking-wider font-mono mb-5 flex items-center gap-1.5">
-                      ★ UPGRADE SUBSCRIPTION
-                    </h3>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-800/60">
+                      <h3 className="font-extrabold text-[#10B981] text-xs uppercase tracking-wider font-mono flex items-center gap-1.5">
+                        ★ UPGRADE SUBSCRIPTION
+                      </h3>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                      {db.subscription_plans.filter(p => p.id !== 'plan-free').map((p) => {
-                        const isCurrentPlan = activePlan?.id === p.id;
-                        return (
-                          <div
-                            key={p.id}
-                            className={`border rounded-2xl p-5 flex flex-col justify-between transition-all duration-200 ${
-                              isCurrentPlan
-                                ? 'ring-2 ring-emerald-500 border-emerald-555 bg-[#122A1E]/30'
-                                : 'border-slate-800 bg-[#070B14]/80 hover:border-slate-700'
-                            }`}
-                          >
-                            <div>
-                              <div className="flex justify-between items-start">
-                                <span className="text-xs font-black uppercase text-white tracking-wide">{p.name} PRO</span>
-                                {isCurrentPlan && (
-                                  <span className="bg-emerald-950 text-emerald-400 text-[8.5px] font-black px-2.5 py-1 rounded border border-emerald-800 uppercase font-mono">
-                                    ACTIVE✓
-                                  </span>
-                                )}
-                              </div>
-
-                              <p className="text-[11.5px] text-slate-350 mt-3 min-h-[40px] leading-relaxed">
-                                {p.description}
-                              </p>
-
-                              <div className="mt-5 pb-5 border-b border-slate-800">
-                                <span className="text-2xl font-mono font-black text-emerald-400">
-                                  ₦{p.price.toLocaleString()}
-                                </span>
-                                <span className="text-[10.5px] text-slate-400 font-mono"> / {p.billing_cycle.toUpperCase()}</span>
-                              </div>
-
-                              {/* Pro perks specs indicators */}
-                              <div className="mt-5 flex flex-col gap-3.5 text-xs text-slate-300 font-mono">
-                                <div className="flex items-center gap-1.5">
-                                  <Check className="w-4 h-4 text-emerald-400 shrink-0" />
-                                  <span>Premium decryption key: {p.has_premium_codes ? 'YES' : 'NO'}</span>
-                                </div>
-                                <div className="flex items-center gap-1.5">
-                                  <Check className="w-4 h-4 text-emerald-400 shrink-0" />
-                                  <span>Bookmakers capacity limits: max {p.max_bookmakers}</span>
-                                </div>
-                                <div className="flex items-center gap-1.5">
-                                  <Check className="w-4 h-4 text-emerald-400 shrink-0" />
-                                  <span>Automated Alerts Telecom: Yes</span>
-                                </div>
-                              </div>
-                            </div>
-
-                            <button
-                              onClick={() => buySubscription(p.id)}
-                              disabled={isCurrentPlan || currentUser.role === 'admin'}
-                              className={`w-full mt-6 text-xs font-black uppercase py-3 rounded-lg transition-all ${
-                                isCurrentPlan
-                                  ? 'bg-emerald-900/40 text-emerald-400 font-bold border border-emerald-800/40 pointer-events-none'
-                                  : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-850/20 active:scale-95'
-                              }`}
-                            >
-                              {isCurrentPlan ? '✓ Subscribed Active' : `Buy ${p.name}`}
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-6">
-                      <div className="p-4 bg-emerald-950/20 border border-emerald-900/40 rounded-xl flex items-start gap-3 text-left">
-                        <span className="text-lg">📥</span>
-                        <div className="space-y-1">
-                          <h5 className="text-xs font-bold text-emerald-400 uppercase tracking-wider font-mono">AUTOMATIC POOL CODES FILE DOWNLOAD TRIGGER</h5>
-                          <p className="text-[11px] text-slate-350 leading-relaxed">
-                            Your fast-delivery premium experience is fully automated. Immediately upon successful payment processing and upgrade of your subscription tier, the decryption engine compiles the active pool codesheets and automatically pushes a secure <span className="text-amber-400 font-mono">.txt</span> download package directly to your phone or computer.
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="p-4 bg-blue-950/20 border border-blue-900/40 rounded-xl flex flex-col justify-between gap-3 text-left">
-                        <div className="flex items-start gap-3">
-                          <span className="text-lg">📧</span>
-                          <div className="space-y-1">
-                            <h5 className="text-xs font-bold text-blue-400 uppercase tracking-wider font-mono">AUTOMATED WEEKLY EMAIL DISPATCH (PDF ATTACHED)</h5>
-                            <p className="text-[11px] text-slate-350 leading-relaxed">
-                              When registered premium customers pay, our mail service automatically dispatches a weekly newsletter containing the decrypted poolcodes as an elegant, print-ready <span className="text-blue-400 font-mono">PDF Attachment</span> directly inside your inbox!
-                            </p>
-                          </div>
-                        </div>
+                      {/* Regional Tab Selector */}
+                      <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800/80 self-start sm:self-auto">
                         <button
-                          onClick={() => {
-                            setShowSimulatedEmailModal(true);
-                            triggerToast('Loading simulated premium email dispatch envelope...', 'info');
-                          }}
-                          className="w-full py-2 bg-blue-500/10 hover:bg-blue-500/20 active:scale-95 text-blue-400 border border-blue-500/30 font-black text-[10.5px] font-mono uppercase tracking-wider rounded-lg transition cursor-pointer flex items-center justify-center gap-1.5"
+                          onClick={() => setPricingRegionFilter('nigeria')}
+                          className={`px-4 py-1.5 text-xs font-mono font-bold uppercase rounded-lg transition-all duration-150 ${
+                            pricingRegionFilter === 'nigeria'
+                              ? 'bg-[#10B981] text-slate-950 font-black shadow shadow-emerald-500/20'
+                              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50'
+                          }`}
                         >
-                          <Mail className="w-3.5 h-3.5" />
-                          <span>Preview Simulated Automated Email</span>
+                          🇳🇬 Nigeria Plans
+                        </button>
+                        <button
+                          onClick={() => setPricingRegionFilter('ghana')}
+                          className={`px-4 py-1.5 text-xs font-mono font-bold uppercase rounded-lg transition-all duration-150 ${
+                            pricingRegionFilter === 'ghana'
+                              ? 'bg-[#10B981] text-slate-950 font-black shadow shadow-emerald-500/20'
+                              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50'
+                          }`}
+                        >
+                          🇬🇭 Ghana Plans
                         </button>
                       </div>
                     </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                      {db.subscription_plans
+                        .filter(p => p.id !== 'plan-free')
+                        .filter(p => pricingRegionFilter === 'ghana' ? p.id.includes('ghana') : !p.id.includes('ghana'))
+                        .map((p) => {
+                          const isCurrentPlan = activePlan?.id === p.id;
+                          const pComponents = selectedComponents[p.id] || (p.id.includes('ghana') ? ['premierbet', 'betway', 'soccabet', 'sportybet'] : ['bet9ja', 'sportybet', 'betking']);
+                          const calculatedCustomPrice = pComponents.length * p.price;
+                          const currencySymbol = p.id.includes('ghana') ? 'GH₵' : '₦';
+                          return (
+                            <div
+                              key={p.id}
+                              className={`border rounded-2xl p-5 flex flex-col justify-between transition-all duration-200 ${
+                                isCurrentPlan
+                                  ? 'ring-2 ring-emerald-500 border-emerald-500 bg-[#122A1E]/30'
+                                  : 'border-slate-800 bg-[#070B14]/80 hover:border-slate-700'
+                              }`}
+                            >
+                              <div>
+                                <div className="flex justify-between items-start">
+                                  <span className="text-xs font-black uppercase text-white tracking-wide">{p.name} PRO</span>
+                                  {isCurrentPlan && (
+                                    <span className="bg-emerald-950 text-emerald-400 text-[8.5px] font-black px-2.5 py-1 rounded border border-emerald-800 uppercase font-mono">
+                                      ACTIVE✓
+                                    </span>
+                                  )}
+                                </div>
+
+                                <p className="text-[11.5px] text-slate-350 mt-3 min-h-[40px] leading-relaxed">
+                                  {p.description}
+                                </p>
+
+                                <div className="mt-5 pb-5 border-b border-slate-800 flex justify-between items-end">
+                                  <div>
+                                    <span className="text-[10px] text-slate-500 font-mono block uppercase">Unit Price</span>
+                                    <span className="text-xl font-mono font-black text-emerald-400">
+                                      {currencySymbol}{p.price.toLocaleString()}
+                                    </span>
+                                    <span className="text-[10.5px] text-slate-400 font-mono"> / {p.billing_cycle.toUpperCase()}</span>
+                                  </div>
+                                  <div className="text-right">
+                                    <span className="text-[10px] text-slate-500 font-mono block uppercase">Components</span>
+                                    <span className="text-sm font-mono font-bold text-slate-200">{pComponents.length} Selected</span>
+                                  </div>
+                                </div>
+
+                                {/* Bookmaker Component Customization Selectors */}
+                                <div className="mt-5 pt-4 border-b border-slate-800/60 pb-5 text-left">
+                                  <span className="text-[10px] font-mono uppercase text-slate-400 block mb-2.5 tracking-wider">
+                                    Custom Plan Components:
+                                  </span>
+                                  <div className="space-y-2">
+                                    {(p.id.includes('ghana') 
+                                      ? ['premierbet', 'betway', 'soccabet', 'sportybet'] 
+                                      : ['bet9ja', 'sportybet', 'betking']
+                                    ).map((comp) => {
+                                      const isSel = pComponents.includes(comp);
+                                      const compLabel = comp === 'bet9ja' ? 'Bet9ja' : comp === 'sportybet' ? 'SportyBet' : comp === 'betking' ? 'BetKing' : comp === 'premierbet' ? 'PremierBet' : comp === 'betway' ? 'Betway' : comp === 'soccabet' ? 'Soccabet' : comp;
+                                      return (
+                                        <label
+                                          key={comp}
+                                          className={`flex items-center justify-between p-2 rounded-lg border transition cursor-pointer select-none ${
+                                            isSel 
+                                              ? 'border-emerald-800/40 bg-emerald-950/20 text-slate-100'
+                                              : 'border-slate-800/60 bg-[#030712] text-slate-500'
+                                          } hover:border-slate-700/60`}
+                                        >
+                                          <div className="flex items-center gap-2">
+                                            <input
+                                              type="checkbox"
+                                              checked={isSel}
+                                              disabled={isCurrentPlan}
+                                              onChange={() => toggleComponentSelection(p.id, comp)}
+                                              className="rounded bg-slate-900 border-slate-700 text-emerald-500 focus:ring-emerald-500 focus:ring-opacity-20 cursor-pointer shrink-0"
+                                            />
+                                            <span className="text-xs font-bold font-sans">{compLabel}</span>
+                                          </div>
+                                          <span className="text-[10.5px] font-mono">
+                                            {currencySymbol}{p.price.toLocaleString()}
+                                          </span>
+                                        </label>
+                                      );
+                                    })}
+                                  </div>
+                                  <div className="mt-4 bg-slate-950/80 rounded-xl p-3 border border-slate-800/80 flex justify-between items-center">
+                                    <span className="text-[10px] text-slate-400 font-mono">Total Price:</span>
+                                    <span className="text-base font-mono font-black text-amber-400">
+                                      {currencySymbol}{calculatedCustomPrice.toLocaleString()}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Pro perks specs indicators */}
+                                <div className="mt-5 flex flex-col gap-3.5 text-xs text-slate-300 font-mono">
+                                  <div className="flex items-center gap-1.5">
+                                    <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                                    <span>Premium decryption key: {p.has_premium_codes ? 'YES' : 'NO'}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5">
+                                    <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                                    <span>Bookmakers capacity limits: max {p.max_bookmakers}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5">
+                                    <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                                    <span>Automated Alerts Telecom: Yes</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <button
+                                onClick={() => buySubscription(p.id, pComponents)}
+                                disabled={isCurrentPlan || currentUser.role === 'admin' || pComponents.length === 0}
+                                className={`w-full mt-6 text-xs font-black uppercase py-3 rounded-lg transition-all ${
+                                  isCurrentPlan
+                                    ? 'bg-emerald-900/40 text-emerald-400 font-bold border border-emerald-800/40 pointer-events-none'
+                                    : pComponents.length === 0
+                                    ? 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'
+                                    : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-850/20 active:scale-95 cursor-pointer'
+                                }`}
+                              >
+                                {isCurrentPlan ? '✓ Subscribed Active' : pComponents.length === 0 ? 'Select Components' : `Buy ${p.name} PRO • ${currencySymbol}${calculatedCustomPrice.toLocaleString()}`}
+                              </button>
+                            </div>
+                          );
+                        })}
+                    </div>
+
+
                   </div>
                 </div>
               )}
@@ -4959,7 +5037,7 @@ export default function CustomerPortal({
                 <X className="w-5 h-5" />
               </button>
 
-              {/* Left Column: Customizer Controls (Scrollable) */}
+              {/* Left Column: Secure Premium Document Details */}
               <div className="w-full md:w-[38%] border-b md:border-b-0 md:border-r border-slate-800 flex flex-col h-1/2 md:h-full bg-[#090E1A]/60 shrink-0">
                 <div className="p-5 border-b border-slate-800/80 bg-slate-950 shrink-0">
                   <div className="flex items-center gap-2">
@@ -4967,122 +5045,35 @@ export default function CustomerPortal({
                       <Printer className="w-5 h-5" />
                     </div>
                     <div>
-                      <h4 className="text-xs font-mono font-black text-emerald-400 tracking-wider uppercase">PDF Customizer</h4>
-                      <h3 className="text-sm font-sans font-black text-white uppercase tracking-tight">Document Builder</h3>
+                      <h4 className="text-xs font-mono font-black text-emerald-400 tracking-wider uppercase">PDF Export</h4>
+                      <h3 className="text-sm font-sans font-black text-white uppercase tracking-tight">Secure Document</h3>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-5 space-y-5 scrollbar-thin scrollbar-thumb-slate-800">
-                  {/* Title Input */}
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-mono font-black text-slate-400 uppercase tracking-wider block">
-                      Custom Sheet Header Title
-                    </label>
-                    <input
-                      type="text"
-                      value={pdfConfig.title}
-                      onChange={(e) => setPdfConfig(prev => ({ ...prev, title: e.target.value.toUpperCase() }))}
-                      className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none font-mono"
-                      placeholder="e.g. FASTPOOLCODES PREMIUM SLIP"
-                    />
-                  </div>
-
-                  {/* Subtitle Input */}
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-mono font-black text-slate-400 uppercase tracking-wider block">
-                      Document Sub-Header
-                    </label>
-                    <input
-                      type="text"
-                      value={pdfConfig.subtitle}
-                      onChange={(e) => setPdfConfig(prev => ({ ...prev, subtitle: e.target.value }))}
-                      className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none font-mono"
-                      placeholder="e.g. Weekly Verified Coupon Keys"
-                    />
-                  </div>
-
-                  {/* Layout Themes Selector */}
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-mono font-black text-slate-400 uppercase tracking-wider block">
-                      Branding Style / Theme
-                    </label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {(['classic', 'emerald', 'compact'] as const).map(t => (
-                        <button
-                          key={t}
-                          onClick={() => setPdfConfig(prev => ({ ...prev, theme: t }))}
-                          className={`py-2 rounded-xl text-[10px] font-mono uppercase tracking-wider border font-bold cursor-pointer transition ${
-                            pdfConfig.theme === t
-                              ? 'bg-emerald-500 text-slate-950 border-emerald-400'
-                              : 'bg-slate-950 text-slate-400 border-slate-850 hover:border-slate-800'
-                          }`}
-                        >
-                          {t}
-                        </button>
-                      ))}
+                <div className="flex-1 overflow-y-auto p-5 flex flex-col justify-center scrollbar-thin scrollbar-thumb-slate-800">
+                  <div className="space-y-4 bg-slate-950/80 border border-slate-850/60 p-5 rounded-2xl">
+                    <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 mx-auto mb-2">
+                      <CheckCircle className="w-6 h-6" />
                     </div>
-                  </div>
-
-                  {/* Column Toggles */}
-                  <div className="space-y-2.5 bg-slate-950/80 border border-slate-850/60 p-4 rounded-xl">
-                    <span className="text-[10px] font-mono font-black text-slate-400 uppercase tracking-wider block border-b border-slate-850 pb-1.5 mb-2">
-                      Columns Visibility Options
-                    </span>
-                    
-                    <label className="flex items-center gap-2.5 text-xs text-slate-300 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={pdfConfig.showBookmaker}
-                        onChange={(e) => setPdfConfig(prev => ({ ...prev, showBookmaker: e.target.checked }))}
-                        className="rounded border-slate-800 bg-slate-950 text-emerald-500 focus:ring-0 w-4 h-4 cursor-pointer"
-                      />
-                      <span>Show Bookmaker Column</span>
-                    </label>
-
-                    <label className="flex items-center gap-2.5 text-xs text-slate-300 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={pdfConfig.showTips}
-                        onChange={(e) => setPdfConfig(prev => ({ ...prev, showTips: e.target.checked }))}
-                        className="rounded border-slate-800 bg-slate-950 text-emerald-500 focus:ring-0 w-4 h-4 cursor-pointer"
-                      />
-                      <span>Show Prediction/Tips Column</span>
-                    </label>
-
-                    <label className="flex items-center gap-2.5 text-xs text-slate-300 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={pdfConfig.showOdds}
-                        onChange={(e) => setPdfConfig(prev => ({ ...prev, showOdds: e.target.checked }))}
-                        className="rounded border-slate-800 bg-slate-950 text-emerald-500 focus:ring-0 w-4 h-4 cursor-pointer"
-                      />
-                      <span>Show Bookmaker Odds (1-X-2)</span>
-                    </label>
-
-                    <label className="flex items-center gap-2.5 text-xs text-slate-300 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={pdfConfig.showVerificationStamp}
-                        onChange={(e) => setPdfConfig(prev => ({ ...prev, showVerificationStamp: e.target.checked }))}
-                        className="rounded border-slate-800 bg-slate-950 text-emerald-500 focus:ring-0 w-4 h-4 cursor-pointer"
-                      />
-                      <span>Show Secure Verification Badge</span>
-                    </label>
-                  </div>
-
-                  {/* Footnote Custom Text */}
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-mono font-black text-slate-400 uppercase tracking-wider block">
-                      Custom Disclaimer or Note
-                    </label>
-                    <textarea
-                      value={pdfConfig.customNote}
-                      onChange={(e) => setPdfConfig(prev => ({ ...prev, customNote: e.target.value }))}
-                      rows={3}
-                      className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded-xl px-3.5 py-2 text-xs text-white outline-none font-mono resize-none leading-relaxed"
-                      placeholder="Custom terms or licensing warning..."
-                    />
+                    <h4 className="text-center text-xs font-mono font-black text-white uppercase tracking-wider">Verified Premium Layout</h4>
+                    <p className="text-[11px] text-slate-450 leading-relaxed text-center">
+                      This document is automatically compiled using secure, official high-fidelity premium styles, licensing footers, and a personalized anti-piracy trace watermark.
+                    </p>
+                    <div className="border-t border-slate-900 pt-4 space-y-2.5">
+                      <div className="flex items-center justify-between text-[10px] font-mono text-slate-500">
+                        <span>FORMAT TYPE:</span>
+                        <span className="text-white font-bold uppercase">A4 PDF Print-Ready</span>
+                      </div>
+                      <div className="flex items-center justify-between text-[10px] font-mono text-slate-500">
+                        <span>ANTI-PIRACY TRACE:</span>
+                        <span className="text-emerald-400 font-bold uppercase">Active Watermark</span>
+                      </div>
+                      <div className="flex items-center justify-between text-[10px] font-mono text-slate-500">
+                        <span>LICENSED SUBSCRIBER:</span>
+                        <span className="text-amber-400 font-bold truncate max-w-[130px]">@{currentUser.username}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -5152,7 +5143,20 @@ export default function CustomerPortal({
                   {/* Decorative background grid overlay for print preview (removed during print automatically via CSS) */}
                   <div className="absolute inset-0 bg-grid opacity-[0.01] pointer-events-none print:hidden"></div>
 
-                  <div className="space-y-6">
+                  {/* Watermark layer: "fastpoolcodes" and user email repeating all over */}
+                  <div className="absolute inset-0 overflow-hidden pointer-events-none select-none opacity-[0.18] print:opacity-[0.24] z-0 flex flex-wrap justify-around items-center content-around">
+                    {Array.from({ length: 48 }).map((_, i) => (
+                      <div
+                        key={i}
+                        className="text-[12px] sm:text-[14px] font-mono font-black text-slate-950 uppercase tracking-widest whitespace-nowrap select-none p-6 rotate-[-30deg]"
+                        style={{ transform: 'rotate(-30deg)' }}
+                      >
+                        fastpoolcodes • {currentUser.email}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="space-y-6 relative z-10">
                     {/* Header Block */}
                     <div className="border-b-2 border-slate-950 pb-5">
                       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -5241,14 +5245,28 @@ export default function CustomerPortal({
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-200 border">
-                          {postedGames.length === 0 ? (
-                            <tr>
-                              <td colSpan={7} className="p-8 text-center text-slate-400 font-mono italic">
-                                No classified fixtures posted for this active week yet.
-                              </td>
-                            </tr>
-                          ) : (
-                            postedGames.map((game, idx) => (
+                          {(() => {
+                            const pdfFilteredGames = postedGames.filter(game => {
+                              if (bypassPremium) return true;
+                              if (currentUser.role === 'admin') return true;
+                              if (!isLoggedIn || !isVerified || !isPaidUser) return false;
+                              if (!activeSubscription || activeSubscription.status !== 'active') return false;
+                              if (activePlan?.id === 'plan-free') return false;
+                              const userComponents = activeSubscription?.components || [];
+                              return userComponents.map(c => c.toLowerCase()).includes(game.bookmaker.toLowerCase());
+                            });
+
+                            if (pdfFilteredGames.length === 0) {
+                              return (
+                                <tr>
+                                  <td colSpan={7} className="p-8 text-center text-slate-400 font-mono italic">
+                                    No classified fixtures match your subscribed bookmaker components.
+                                  </td>
+                                </tr>
+                              );
+                            }
+
+                            return pdfFilteredGames.map((game, idx) => (
                               <tr 
                                 key={game.id || idx} 
                                 className={`text-[11px] hover:bg-slate-50 transition-colors ${
@@ -5285,15 +5303,15 @@ export default function CustomerPortal({
                                   </td>
                                 )}
                               </tr>
-                            ))
-                          )}
+                            ));
+                          })()}
                         </tbody>
                       </table>
                     </div>
                   </div>
 
                   {/* Coupon Sheet Footer */}
-                  <div className="border-t border-slate-300 pt-5 mt-8 flex flex-col gap-2.5 text-center sm:text-left">
+                  <div className="border-t border-slate-300 pt-5 mt-8 flex flex-col gap-2.5 text-center sm:text-left relative z-10">
                     <p className="text-[10px] text-slate-700 italic leading-relaxed font-sans">
                       "{pdfConfig.customNote}"
                     </p>
@@ -5345,7 +5363,7 @@ export default function CustomerPortal({
                 <div className="space-y-1">
                   <span className="text-[10px] text-slate-500 font-mono block">SUBJECT:</span>
                   <h3 className="text-xs sm:text-sm font-sans font-extrabold text-white">
-                    📧 [FastPoolCodes Premium Delivery] Week {activeWeekNumber || 43} Classified Coupon Codes & Verified Slip Keys (PDF Attached)
+                    {confirmedPaymentMail ? confirmedPaymentMail.subject : `📧 [FastPoolCodes Premium Delivery] Week ${activeWeekNumber || 43} Classified Coupon Codes & Verified Slip Keys (PDF Attached)`}
                   </h3>
                 </div>
 
@@ -5364,17 +5382,25 @@ export default function CustomerPortal({
                 <div className="space-y-3">
                   <p className="font-extrabold text-white text-sm">Hi @{currentUser.username},</p>
                   
-                  <p>
-                    Congratulations on maintaining your active <strong>{activePlan?.name || 'VIP'} Subscription License</strong> for the current Week {activeWeekNumber || 43} pools league season!
-                  </p>
+                  {confirmedPaymentMail ? (
+                    <div className="whitespace-pre-line space-y-3">
+                      {confirmedPaymentMail.body.replace(`Hi @${currentUser.username},\n\n`, '')}
+                    </div>
+                  ) : (
+                    <>
+                      <p>
+                        Congratulations on maintaining your active <strong>{activePlan?.name || 'VIP'} Subscription License</strong> for the current Week {activeWeekNumber || 43} pools league season!
+                      </p>
 
-                  <p>
-                    As part of your automated fast-delivery experience, our backend compiled, decrypted, and signed your customized weekly coupon code sheet. We have compiled these fixtures into a high-fidelity, print-ready document and attached it to this mailbox dispatch as a secure, compact PDF file.
-                  </p>
+                      <p>
+                        As part of your automated fast-delivery experience, our backend compiled, decrypted, and signed your customized weekly coupon code sheet. We have compiled these fixtures into a high-fidelity, print-ready document and attached it to this mailbox dispatch as a secure, compact PDF file.
+                      </p>
 
-                  <p>
-                    You can print it out for physical bookmakers, or save it to your phone for quick reference during coupon matching weekends.
-                  </p>
+                      <p>
+                        You can print it out for physical bookmakers, or save it to your phone for quick reference during coupon matching weekends.
+                      </p>
+                    </>
+                  )}
                 </div>
 
                 {/* Simulated PDF Attachment file */}
@@ -5384,26 +5410,43 @@ export default function CustomerPortal({
                       <FileText className="w-8 h-8" />
                     </div>
                     <div>
-                      <h4 className="font-mono font-bold text-slate-200 text-xs">
-                        FastPoolCodes_Week_{activeWeekNumber || 43}_Classified_Coupon.pdf
+                      <h4 className="font-mono font-bold text-slate-200 text-xs break-all">
+                        {confirmedPaymentMail ? confirmedPaymentMail.pdfName : `FastPoolCodes_Week_${activeWeekNumber || 43}_Classified_Coupon.pdf`}
                       </h4>
                       <p className="text-[10px] text-slate-500 font-mono mt-0.5">
-                        Size: 342 KB • Mime: application/pdf • Status: Scanned Secure ✓
+                        {confirmedPaymentMail ? (
+                          <>Size: 420 KB • Mime: application/pdf • Status: Scanned Secure ✓ {confirmedPaymentMail.fetchedFromSupabase ? "• Source: Supabase Table" : "• Offline Cache fallback"}</>
+                        ) : (
+                          <>Size: 342 KB • Mime: application/pdf • Status: Scanned Secure ✓</>
+                        )}
                       </p>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2 w-full sm:w-auto">
-                    <button
-                      onClick={() => {
-                        setShowSimulatedEmailModal(false);
-                        setShowPdfPrintModal(true);
-                      }}
-                      className="flex-1 sm:flex-initial bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black font-mono text-[10px] uppercase tracking-wider px-4 py-2 rounded-lg transition cursor-pointer flex items-center justify-center gap-1.5"
-                    >
-                      <Printer className="w-3.5 h-3.5" />
-                      <span>Open & Print</span>
-                    </button>
+                    {confirmedPaymentMail ? (
+                      <a
+                        href={confirmedPaymentMail.pdfUrl}
+                        download={confirmedPaymentMail.pdfName}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 sm:flex-initial bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black font-mono text-[10px] uppercase tracking-wider px-4 py-2 rounded-lg transition cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Download Supabase PDF</span>
+                      </a>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setShowSimulatedEmailModal(false);
+                          setShowPdfPrintModal(true);
+                        }}
+                        className="flex-1 sm:flex-initial bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black font-mono text-[10px] uppercase tracking-wider px-4 py-2 rounded-lg transition cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                        <Printer className="w-3.5 h-3.5" />
+                        <span>Open & Print</span>
+                      </button>
+                    )}
                     <button
                       onClick={() => {
                         // Triggers the standard text codesheet download as fallback
@@ -5480,6 +5523,18 @@ export default function CustomerPortal({
       cardBg = "from-amber-950 via-[#19150C] to-[#0A111F]";
       brandColor = "text-amber-500";
       accentText = "MSPORT MATCH";
+    } else if (lowercaseName.includes('premier')) {
+      cardBg = "from-purple-950 via-[#150B26] to-[#0A111F]";
+      brandColor = "text-purple-400";
+      accentText = "PREMIERBET MATCH";
+    } else if (lowercaseName.includes('way')) {
+      cardBg = "from-slate-900 via-[#0F172A] to-[#0A111F]";
+      brandColor = "text-emerald-300";
+      accentText = "BETWAY MATCH";
+    } else if (lowercaseName.includes('socca')) {
+      cardBg = "from-cyan-950 via-[#0B1A26] to-[#0A111F]";
+      brandColor = "text-cyan-400";
+      accentText = "SOCCABET MATCH";
     }
 
     return (

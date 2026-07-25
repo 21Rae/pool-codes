@@ -43,6 +43,7 @@ export interface UserSubscription {
   payment_ref: string | null;
   payment_provider: string | null;
   created_at: string;
+  components?: string[];
 }
 
 export interface Bookmaker {
@@ -124,6 +125,21 @@ export interface UserDownload {
   downloaded_at: string;
 }
 
+export interface BookmakerTableRecord {
+  id: string;
+  pool: number;
+  betcode: string;
+  home: string;
+  away: string;
+  homewin: number;
+  draw: number;
+  awaywin: number;
+  bet: string;
+  status: string;
+  kickoff: string;
+  created_at?: string;
+}
+
 export interface DatabaseState {
   users: User[];
   subscription_plans: SubscriptionPlan[];
@@ -134,4 +150,10 @@ export interface DatabaseState {
   pool_results: PoolResult[];
   notifications: Notification[];
   user_downloads: UserDownload[];
+  bet9ja?: BookmakerTableRecord[];
+  betking?: BookmakerTableRecord[];
+  sportybet?: BookmakerTableRecord[];
+  premierbet?: BookmakerTableRecord[];
+  betway?: BookmakerTableRecord[];
+  soccabet?: BookmakerTableRecord[];
 }
