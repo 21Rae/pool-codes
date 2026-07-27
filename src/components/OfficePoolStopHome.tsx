@@ -153,7 +153,15 @@ export default function OfficePoolStopHome({
         }
         const json = await response.json();
         if (json.success) {
-          setLiveScoresData(json.matches || []);
+          const rawMatches = json.matches || [];
+          const seen = new Set();
+          const uniqueMatches = rawMatches.filter((m: any) => {
+            const key = m.id || m.fixture;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+          setLiveScoresData(uniqueMatches);
         }
       } catch (err) {
         console.warn("Graceful notice: Live scores not yet loaded from backend (standard polling behavior).");
@@ -428,14 +436,6 @@ export default function OfficePoolStopHome({
           {/* Actions button group */}
           <div className="flex items-center justify-end gap-2.5">
             <button
-              onClick={() => setCurrentView('livescores')}
-              className="flex items-center gap-1.5 border border-amber-500/30 hover:border-amber-400 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 hover:text-amber-200 text-[11px] font-black uppercase tracking-wider px-3.5 py-2 rounded-lg transition-all duration-150 cursor-pointer select-none"
-            >
-              <Activity className="w-3.5 h-3.5" />
-              <span>Live Cast</span>
-            </button>
-            
-            <button
               onClick={() => handleOpenAuth('login')}
               className="bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-slate-950 text-[11px] font-black uppercase tracking-wider px-4 py-2 rounded-lg transition-all duration-150 shadow-md cursor-pointer select-none"
             >
@@ -463,7 +463,7 @@ export default function OfficePoolStopHome({
               </div>
             ) : (
               <div className="flex items-center gap-3 whitespace-nowrap h-full">
-                {(liveScoresData.length < 4 ? [...liveScoresData, ...liveScoresData, ...liveScoresData, ...liveScoresData] : [...liveScoresData, ...liveScoresData]).map((match: any, idx: number) => {
+                {liveScoresData.map((match: any, idx: number) => {
                   const parts = (match.fixture || "").split(" vs ");
                   const team1 = parts[0]?.trim() || "Home";
                   const team2 = parts[1]?.trim() || "Away";
@@ -574,15 +574,7 @@ export default function OfficePoolStopHome({
               );
 
             case 'livescores': {
-              const activeMatches = liveScoresData.length > 0 ? liveScoresData : [
-                { id: '1', fixture: 'Arsenal vs Chelsea', score: '1 - 1', status: 'live', pool_number: '3' },
-                { id: '2', fixture: 'Man City vs Everton', score: '2 - 2', status: 'live', pool_number: '12' },
-                { id: '3', fixture: 'Leicester vs West Ham', score: '1 - 1', status: 'finished', pool_number: '26' },
-                { id: '4', fixture: 'Aston Villa vs Wolves', score: '0 - 0', status: 'finished', pool_number: '7' },
-                { id: '5', fixture: 'Roma vs Milan', score: '2 - 2', status: 'live', pool_number: '10' },
-                { id: '6', fixture: 'Liverpool vs Leeds', score: '2 - 0', status: 'finished', pool_number: '2' },
-                { id: '7', fixture: 'Tottenham vs Brentford', score: '1 - 0', status: 'finished', pool_number: '8' },
-              ];
+              const activeMatches = liveScoresData;
 
               return (
                 <div className="max-w-7xl mx-auto px-6 py-12 space-y-8 text-left">

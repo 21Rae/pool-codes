@@ -913,9 +913,19 @@ Format exactly as this JSON schema (NO markdown blocks, NO \`\`\`json):
   app.get("/api/livescores", async (req, res) => {
     await ensureLiveScoresLoaded();
 
+    const uniqueMatches: LiveScoreMatch[] = [];
+    const seenIds = new Set<string>();
+    for (const m of liveScores) {
+      const key = m.id || m.fixture;
+      if (!seenIds.has(key)) {
+        seenIds.add(key);
+        uniqueMatches.push(m);
+      }
+    }
+
     res.json({
       success: true,
-      matches: liveScores,
+      matches: uniqueMatches,
       logs: globalLog,
       isChecking: isCheckingLiveScores
     });

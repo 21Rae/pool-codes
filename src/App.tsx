@@ -55,6 +55,7 @@ import ChatbotSection from './components/ChatbotSection';
 import Footer from './components/Footer';
 import LiveScoresPage from './components/LiveScoresPage';
 import TermsOfServicePage from './components/TermsOfServicePage';
+import HelpCenterPage from './components/HelpCenterPage';
 import { getSupabaseClient } from './lib/supabase';
 
 export default function App() {
@@ -81,9 +82,10 @@ export default function App() {
   // 'customer' -> app.poolcodes.com
   // 'admin' -> admin.poolcodes.com
   const [currentAppSelector, setCurrentAppSelector] = useState<'customer' | 'admin'>('customer');
-  const [viewMode, setViewMode] = useState<'homepage' | 'portal' | 'livescores' | 'terms'>('portal');
+  const [viewMode, setViewMode] = useState<'homepage' | 'portal' | 'livescores' | 'terms' | 'help'>('portal');
   const [livescoresOrigin, setLivescoresOrigin] = useState<'homepage' | 'portal'>('portal');
   const [termsOrigin, setTermsOrigin] = useState<'homepage' | 'portal'>('portal');
+  const [helpOrigin, setHelpOrigin] = useState<'homepage' | 'portal'>('portal');
 
   const [activeTable, setActiveTable] = useState<string>('users');
   const [selectedPersonaId, setSelectedPersonaId] = useState<string>('usr-betking-888');
@@ -1315,10 +1317,21 @@ export default function App() {
   };
 
   const renderFooter = () => (
-    <Footer triggerToast={triggerToast} onOpenTerms={() => {
-      setTermsOrigin(viewMode === 'portal' ? 'portal' : 'homepage');
-      setViewMode('terms');
-    }} />
+    <Footer 
+      triggerToast={triggerToast} 
+      onOpenTerms={() => {
+        setTermsOrigin(viewMode === 'portal' ? 'portal' : 'homepage');
+        setViewMode('terms');
+      }} 
+      onNavigateToCodes={() => {
+        setViewMode('portal');
+        triggerToast('Redirected to pool codes list.', 'info');
+      }}
+      onOpenHelp={() => {
+        setHelpOrigin(viewMode === 'portal' ? 'portal' : 'homepage');
+        setViewMode('help');
+      }}
+    />
   );
 
   return (
@@ -1403,6 +1416,17 @@ export default function App() {
             setViewMode(termsOrigin);
           }}
           triggerToast={triggerToast}
+        />
+      ) : viewMode === 'help' ? (
+        <HelpCenterPage
+          onBack={() => {
+            setViewMode(helpOrigin);
+          }}
+          triggerToast={triggerToast}
+          onNavigateToCodes={() => {
+            setViewMode('portal');
+          }}
+          renderFooter={renderFooter}
         />
       ) : (
         <div className="h-screen bg-[#090D1A] flex flex-col overflow-hidden text-slate-100">

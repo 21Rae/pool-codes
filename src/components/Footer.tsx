@@ -5,9 +5,11 @@ interface FooterProps {
   triggerToast: (msg: string, type?: 'success' | 'info' | 'error') => void;
   className?: string;
   onOpenTerms?: () => void;
+  onNavigateToCodes?: () => void;
+  onOpenHelp?: () => void;
 }
 
-export default function Footer({ triggerToast, className = '', onOpenTerms }: FooterProps) {
+export default function Footer({ triggerToast, className = '', onOpenTerms, onNavigateToCodes, onOpenHelp }: FooterProps) {
 
   return (
     <footer className={`bg-white border-t border-zinc-200 text-zinc-500 py-12 px-6 select-none font-sans mt-auto shrink-0 ${className}`} id="global-site-footer">
@@ -79,10 +81,56 @@ export default function Footer({ triggerToast, className = '', onOpenTerms }: Fo
             RESOURCES
           </h4>
           <div className="space-y-2 text-zinc-600 font-bold select-none">
-            <div onClick={() => triggerToast('Loading UK weekly coupon sheets...', 'info')} className="hover:text-[#fa3e65] cursor-pointer transition">UK Weekly Codes</div>
-            <div onClick={() => triggerToast('Loading Aussie coupon sheets...', 'info')} className="hover:text-[#fa3e65] cursor-pointer transition">Aussie Perming Codes</div>
-            <div onClick={() => triggerToast('Loading bet365 files...', 'info')} className="hover:text-[#fa3e65] cursor-pointer transition">Match Fixtures</div>
-            <div onClick={() => triggerToast('Opening customer service knowledgebase...', 'info')} className="hover:text-[#fa3e65] cursor-pointer transition">Help Center</div>
+            <div 
+              onClick={() => {
+                if (onNavigateToCodes) {
+                  onNavigateToCodes();
+                } else {
+                  triggerToast('Loading UK weekly coupon sheets...', 'info');
+                }
+              }} 
+              className="hover:text-[#fa3e65] cursor-pointer transition"
+            >
+              UK Weekly Codes
+            </div>
+            <div 
+              onClick={() => {
+                if (onNavigateToCodes) {
+                  onNavigateToCodes();
+                } else {
+                  triggerToast('Loading Aussie coupon sheets...', 'info');
+                }
+              }} 
+              className="hover:text-[#fa3e65] cursor-pointer transition"
+            >
+              Aussie Perming Codes
+            </div>
+            <div 
+              onClick={() => {
+                if (onNavigateToCodes) {
+                  onNavigateToCodes();
+                } else {
+                  triggerToast('Loading bet365 files...', 'info');
+                }
+              }} 
+              className="hover:text-[#fa3e65] cursor-pointer transition"
+            >
+              Match Fixtures
+            </div>
+            <div 
+              onClick={() => {
+                if (onOpenHelp) {
+                  onOpenHelp();
+                } else if (onNavigateToCodes) {
+                  onNavigateToCodes();
+                } else {
+                  triggerToast('Opening customer service knowledgebase...', 'info');
+                }
+              }} 
+              className="hover:text-[#fa3e65] cursor-pointer transition"
+            >
+              Help Center
+            </div>
           </div>
         </div>
 

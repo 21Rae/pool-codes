@@ -819,7 +819,15 @@ export default function CustomerPortal({
         }
         const json = await response.json();
         if (json.success) {
-          setLiveScoresData(json.matches || []);
+          const rawMatches = json.matches || [];
+          const seen = new Set();
+          const uniqueMatches = rawMatches.filter((m: any) => {
+            const key = m.id || m.fixture;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+          setLiveScoresData(uniqueMatches);
           setLiveLogData(json.logs || []);
           setIsCheckingLive(json.isChecking || false);
         }

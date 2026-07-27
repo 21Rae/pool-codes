@@ -187,63 +187,6 @@ export default function ExpertBlogView({
             {/* ================== LEFT SIDEBAR (Width ~21%) ================== */}
             <div className="col-span-12 lg:col-span-3 xl:col-span-2.5 space-y-4">
               
-              {/* Quick Links Box */}
-              <div className="bg-white border border-zinc-200 rounded shadow-sm text-left">
-                <div className="border-b border-zinc-100 p-3 bg-zinc-50/55">
-                  <span className="font-black text-[10px] tracking-widest text-[#1c1c1e] uppercase">Quick Links</span>
-                </div>
-                <div className="divide-y divide-zinc-100 text-xs text-zinc-700 font-extrabold select-none">
-                  <div 
-                    onClick={() => triggerToast('Loading Aussie Season Power Rankings...', 'info')}
-                    className="p-3 hover:bg-zinc-50 hover:text-rose-600 transition cursor-pointer flex items-center justify-between group"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <span className="w-7 h-7 rounded-md bg-amber-500/10 text-amber-600 flex items-center justify-center border border-amber-500/20 shadow-sm group-hover:bg-amber-500 group-hover:text-white transition duration-200 shrink-0">
-                        <Trophy className="w-3.5 h-3.5" />
-                      </span>
-                      <span>Aussie Power Rankings</span>
-                    </div>
-                    <ChevronRight className="w-3.5 h-3.5 text-zinc-400 group-hover:translate-x-0.5 transition" />
-                  </div>
-                  <div 
-                    onClick={() => triggerToast('Loading Chelsea vs Arsenal Weekly final indicators...', 'info')}
-                    className="p-3 hover:bg-zinc-50 hover:text-rose-600 transition cursor-pointer flex items-center justify-between group"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <span className="w-7 h-7 rounded-md bg-blue-500/10 text-blue-600 flex items-center justify-center border border-blue-500/20 shadow-sm group-hover:bg-blue-500 group-hover:text-white transition duration-200 shrink-0">
-                        <Activity className="w-3.5 h-3.5" />
-                      </span>
-                      <span>UK Coupon Finals</span>
-                    </div>
-                    <ChevronRight className="w-3.5 h-3.5 text-zinc-400 group-hover:translate-x-0.5 transition" />
-                  </div>
-                  <div 
-                    onClick={() => triggerToast('Loading bet365 Core draft tables...', 'info')}
-                    className="p-3 hover:bg-zinc-50 hover:text-rose-600 transition cursor-pointer flex items-center justify-between group"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <span className="w-7 h-7 rounded-md bg-emerald-500/10 text-emerald-600 flex items-center justify-center border border-emerald-500/20 shadow-sm group-hover:bg-emerald-500 group-hover:text-white transition duration-200 shrink-0">
-                        <TrendingUp className="w-3.5 h-3.5" />
-                      </span>
-                      <span>bet365 Core Draft</span>
-                    </div>
-                    <ChevronRight className="w-3.5 h-3.5 text-zinc-400 group-hover:translate-x-0.5 transition" />
-                  </div>
-                  <div 
-                    onClick={() => triggerToast('Opening MSport Forecast matrix wizard...', 'info')}
-                    className="p-3 hover:bg-zinc-50 hover:text-rose-600 transition cursor-pointer flex items-center justify-between group"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <span className="w-7 h-7 rounded-md bg-rose-500/10 text-rose-600 flex items-center justify-center border border-rose-500/20 shadow-sm group-hover:bg-rose-500 group-hover:text-white transition duration-200 shrink-0">
-                        <Award className="w-3.5 h-3.5" />
-                      </span>
-                      <span>MSport Forecast Matrix</span>
-                    </div>
-                    <ChevronRight className="w-3.5 h-3.5 text-zinc-400 group-hover:translate-x-0.5 transition" />
-                  </div>
-                </div>
-              </div>
-
               {/* Customise Box (Auth Promo Card) */}
               <div className="bg-gradient-to-br from-zinc-50 to-zinc-100 border border-zinc-200 rounded p-4 text-left shadow-sm">
                 <h5 className="font-black text-xs text-zinc-900 uppercase tracking-wide">Customise FPCODES</h5>
