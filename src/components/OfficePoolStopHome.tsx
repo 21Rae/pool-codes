@@ -1342,7 +1342,7 @@ export default function OfficePoolStopHome({
                   onClick={() => setBlogModalArticle(null)}
                   className="bg-zinc-800 hover:bg-zinc-750 text-white text-xs font-black uppercase px-6 py-2.5 rounded-lg transition active:scale-95 cursor-pointer"
                 >
-                  Close Analysis
+                  Close
                 </button>
               </div>
             </motion.div>
