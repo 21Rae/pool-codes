@@ -39,6 +39,7 @@ interface OfficePoolStopHomeProps {
   onNavigateToLiveScores: () => void;
   triggerToast: (msg: string, type?: 'success' | 'info' | 'error') => void;
   db: any;
+  currentUser?: any;
   onRegisterUser?: (username: string, email: string, password?: string, planId?: string) => Promise<{ success: boolean; error?: string; message?: string }>;
   onLoginUser?: (usernameOrEmail: string, password?: string) => Promise<{ success: boolean; error?: string; message?: string }>;
   onOpenTerms?: () => void;
@@ -98,6 +99,7 @@ export default function OfficePoolStopHome({
   onNavigateToLiveScores,
   triggerToast,
   db,
+  currentUser,
   onRegisterUser,
   onLoginUser,
   onOpenTerms
@@ -433,15 +435,7 @@ export default function OfficePoolStopHome({
             })}
           </nav>
 
-          {/* Actions button group */}
-          <div className="flex items-center justify-end gap-2.5">
-            <button
-              onClick={() => handleOpenAuth('login')}
-              className="bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-slate-950 text-[11px] font-black uppercase tracking-wider px-4 py-2 rounded-lg transition-all duration-150 shadow-md cursor-pointer select-none"
-            >
-              Sign In
-            </button>
-          </div>
+
         </div>
 
         {/* Real-time Sub-Header Scoreboard Ticker */}
@@ -569,6 +563,7 @@ export default function OfficePoolStopHome({
                   candidateErrors={candidateErrors}
                   onRefreshBlogs={fetchBlogs}
                   onOpenTerms={onOpenTerms}
+                  onNavigateToCodes={onNavigateToCodes}
                   db={db}
                 />
               );
@@ -1311,20 +1306,32 @@ export default function OfficePoolStopHome({
                 {/* Additional footer warning promo */}
                 <div className="bg-emerald-950/25 border border-emerald-900/40 rounded-xl p-4.5 space-y-2 mt-6">
                   <h5 className="font-extrabold text-white text-xs uppercase tracking-wide flex items-center gap-1.5">
-                    <Sparkles className="w-4 h-4 text-amber-400" /> Unlock Live API Code Feeds
+                    <Sparkles className="w-4 h-4 text-amber-400" /> Decrypted Pool Codes & Live API Feeds
                   </h5>
                   <p className="text-[11px] text-zinc-400 leading-relaxed font-semibold">
-                    This analysis is verified by Australian draw calculators. Unlock the actual betting sequences keys inside our members section to maximize perming rates.
+                    This analysis is verified by Australian draw calculators. View full betting sequences and decrypted codes inside our pool codes dashboard.
                   </p>
-                  <button 
-                    onClick={() => {
-                      setBlogModalArticle(null);
-                      setShowPaywall(true);
-                    }}
-                    className="mt-2 bg-amber-400 hover:bg-amber-500 text-slate-950 font-black text-[10px] uppercase py-2 px-4 rounded-lg tracking-wider transition active:scale-95 cursor-pointer block text-center"
-                  >
-                    Unlock VIP Code Sheets Now
-                  </button>
+                  <div className="flex flex-col sm:flex-row items-center gap-2 mt-2">
+                    <button 
+                      onClick={() => {
+                        setBlogModalArticle(null);
+                        onNavigateToCodes();
+                      }}
+                      className="w-full sm:flex-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-[10px] uppercase py-2.5 px-4 rounded-lg tracking-wider transition active:scale-95 cursor-pointer text-center flex items-center justify-center gap-1.5"
+                    >
+                      <span>Open Pool Codes Dashboard</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setBlogModalArticle(null);
+                        setShowPaywall(true);
+                      }}
+                      className="w-full sm:w-auto bg-amber-400 hover:bg-amber-500 text-slate-950 font-black text-[10px] uppercase py-2.5 px-4 rounded-lg tracking-wider transition active:scale-95 cursor-pointer text-center"
+                    >
+                      Unlock VIP Keys
+                    </button>
+                  </div>
                 </div>
               </div>
 

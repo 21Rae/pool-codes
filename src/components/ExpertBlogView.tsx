@@ -47,6 +47,7 @@ interface ExpertBlogViewProps {
   candidateErrors?: Record<string, string>;
   onRefreshBlogs?: () => void;
   onOpenTerms?: () => void;
+  onNavigateToCodes?: () => void;
   db?: any;
 }
 
@@ -61,6 +62,7 @@ export default function ExpertBlogView({
   candidateErrors = {},
   onRefreshBlogs,
   onOpenTerms,
+  onNavigateToCodes,
   db
 }: ExpertBlogViewProps) {
 
@@ -194,6 +196,15 @@ export default function ExpertBlogView({
                   Sign in or register a private profile record in our simulator system to instantly download and copy sheet perming codes.
                 </p>
                 <div className="space-y-2">
+                  {onNavigateToCodes && (
+                    <button 
+                      onClick={onNavigateToCodes}
+                      className="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-[11px] uppercase py-2 px-4 rounded-full transition shadow-sm text-center tracking-wider cursor-pointer flex items-center justify-center gap-1.5"
+                    >
+                      <span>Pool Codes Dashboard</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                   <button 
                     onClick={() => onOpenAuth('signup')}
                     className="w-full bg-[#0066cc] hover:bg-[#0055b3] text-white font-black text-[11px] uppercase py-2 px-4 rounded-full transition shadow-sm text-center tracking-wider cursor-pointer"
@@ -204,7 +215,7 @@ export default function ExpertBlogView({
                     onClick={() => onOpenAuth('login')}
                     className="w-full bg-white hover:bg-zinc-50 text-[#0066cc] border border-zinc-300 font-black text-[11px] uppercase py-2 px-4 rounded-full transition text-center tracking-wider cursor-pointer"
                   >
-                    Access Account
+                    Access Account / Sign In
                   </button>
                 </div>
               </div>
@@ -1058,27 +1069,6 @@ INSERT INTO public.championship_results (
             {/* ================== RIGHT SIDEBAR (Width ~21%) ================== */}
             <div className="col-span-12 lg:col-span-12 xl:col-span-2.5 space-y-4">
               
-              {/* Partner bet365 Bookmaker Promo */}
-              <div 
-                onClick={() => triggerToast('Redirecting securely to bet365 Pool coupon list & codes register...', 'success')}
-                className="bg-[#005a36] text-white rounded p-5 text-left border-l-4 border-[#ffdf1b] relative overflow-hidden font-sans cursor-pointer shadow-sm hover:translate-y-[-2px] transition-all"
-              >
-                <div className="absolute top-0 right-0 w-24 h-24 bg-white/5 rounded-full filter blur-md pointer-events-none"></div>
-                <span className="text-[8.5px] tracking-widest text-[#ffdf1b] font-black uppercase font-mono">Sponsor Partner</span>
-                <h3 className="font-sans font-black text-2xl tracking-tighter text-[#ffdf1b] mt-1">
-                  bet365
-                </h3>
-                <h4 className="font-extrabold text-[#fff] text-xs leading-tight mt-1.5 uppercase">
-                  NGR & UK MATCH CODES DECRYPTED
-                </h4>
-                <p className="text-[10px] text-zinc-200 mt-1 font-medium leading-normal">
-                  Maximize your tie draw perms! Tap to join with validated bookie odds sequences.
-                </p>
-                <div className="mt-4 bg-[#ffdf1b] hover:bg-yellow-400 text-[#005a36] font-black text-[10.5px] py-1.5 px-3.5 rounded-full text-center tracking-widest uppercase transition inline-block">
-                  JOIN NOW
-                </div>
-              </div>
-
               {/* VIP Decryptor Suite Features */}
               <div className="bg-white border border-zinc-200 rounded p-4 text-left shadow-sm">
                 <span className="font-black text-[10px] tracking-widest text-zinc-400 uppercase">VIP PASS BENEFITS</span>

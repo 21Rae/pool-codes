@@ -82,10 +82,10 @@ export default function App() {
   // 'customer' -> app.poolcodes.com
   // 'admin' -> admin.poolcodes.com
   const [currentAppSelector, setCurrentAppSelector] = useState<'customer' | 'admin'>('customer');
-  const [viewMode, setViewMode] = useState<'homepage' | 'portal' | 'livescores' | 'terms' | 'help'>('portal');
-  const [livescoresOrigin, setLivescoresOrigin] = useState<'homepage' | 'portal'>('portal');
-  const [termsOrigin, setTermsOrigin] = useState<'homepage' | 'portal'>('portal');
-  const [helpOrigin, setHelpOrigin] = useState<'homepage' | 'portal'>('portal');
+  const [viewMode, setViewMode] = useState<'homepage' | 'portal' | 'livescores' | 'terms' | 'help'>('homepage');
+  const [livescoresOrigin, setLivescoresOrigin] = useState<'homepage' | 'portal'>('homepage');
+  const [termsOrigin, setTermsOrigin] = useState<'homepage' | 'portal'>('homepage');
+  const [helpOrigin, setHelpOrigin] = useState<'homepage' | 'portal'>('homepage');
 
   const [activeTable, setActiveTable] = useState<string>('users');
   const [selectedPersonaId, setSelectedPersonaId] = useState<string>('usr-betking-888');
@@ -255,7 +255,7 @@ export default function App() {
           });
 
           setSelectedPersonaId(cached.id);
-          setViewMode('portal');
+          setViewMode('homepage');
           logSQL(
             `-- RESTORE SUPABASE AUTHENTICATED SESSION FROM SECURE INSTANCE CACHE\nSELECT * FROM auth.users WHERE id = '${cached.id}';`,
             `Welcome back, @${username}! Restored direct Postgres secure context.`
@@ -1067,7 +1067,7 @@ export default function App() {
             }));
 
             setSelectedPersonaId(su.id);
-            setViewMode('portal');
+            setViewMode('homepage');
             logSQL(
               `-- Supabase secure backend signUp completed.\n-- Registered user id: ${su.id} \n-- Saved token session cache.`,
               `Registered & logged in new member @${cleanUsername} using secure proxy gateway`
@@ -1138,7 +1138,7 @@ export default function App() {
     }));
     
     setSelectedPersonaId(newId);
-    setViewMode('portal');
+    setViewMode('homepage');
     
     logSQL(
       `-- Real-time registration insert transaction (local)\nINSERT INTO users (id, username, email, role, status, created_at)\nVALUES ('${newId}', '${cleanUsername}', '${cleanEmail}', 'user', 'active', NOW());`,
@@ -1247,7 +1247,7 @@ export default function App() {
             }));
 
             setSelectedPersonaId(su.id);
-            setViewMode('portal');
+            setViewMode('homepage');
             logSQL(
               `-- Supabase backend signIn completed successfully.\n-- Connected active session user ID: ${su.id}`,
               `Access granted! Connected to @${username} active instance.`
@@ -1288,7 +1288,7 @@ export default function App() {
     const paymentRef = userSub?.payment_ref || null;
 
     setSelectedPersonaId(matched.id);
-    setViewMode('portal');
+    setViewMode('homepage');
     
     localStorage.setItem('fastpool_cached_user', JSON.stringify({
       id: matched.id,
@@ -1368,9 +1368,10 @@ export default function App() {
           <div className="flex-1">
             <OfficePoolStopHome
               db={db}
+              currentUser={currentUser}
               onSignIn={() => {
-                setViewMode('portal');
-                triggerToast('Authenticated secure session to system dashboard.', 'success');
+                setViewMode('homepage');
+                triggerToast('Authenticated secure session active! Welcome.', 'success');
               }}
               onEnterManagerPanel={() => {
                 setViewMode('portal');
