@@ -26,7 +26,9 @@ import {
   Home,
   FileText,
   Info,
-  Phone
+  Phone,
+  Share2,
+  Copy
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import ExpertBlogView from './ExpertBlogView';
@@ -264,6 +266,33 @@ export default function OfficePoolStopHome({
     };
   }, [fetchCount]);
 
+  const handleShareBlogArticle = async (article: any) => {
+    const shareUrl = window.location.href;
+    const shareTitle = article?.title || 'FastPoolCodes Analysis';
+    const shareText = article?.summary || article?.title || 'Check out this football pool article!';
+
+    if (navigator.share && navigator.canShare && navigator.canShare({ title: shareTitle, text: shareText, url: shareUrl })) {
+      try {
+        await navigator.share({
+          title: shareTitle,
+          text: shareText,
+          url: shareUrl,
+        });
+        triggerToast('Article shared successfully!', 'success');
+        return;
+      } catch (err) {
+        // user cancelled
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      triggerToast('Blog link copied to clipboard!', 'success');
+    } catch (err) {
+      triggerToast('Failed to copy link.', 'error');
+    }
+  };
+
   const handleOpenAuth = (mode: 'login' | 'signup') => {
     setAuthMode(mode);
     setAuthFields({ username: '', email: '', password: '' });
@@ -392,14 +421,13 @@ export default function OfficePoolStopHome({
         <div className="w-full px-6 py-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="flex items-center justify-between lg:justify-start gap-8">
             {/* Logo */}
-            <div className="flex items-center gap-2 cursor-pointer" onClick={() => { setCurrentView('blog'); triggerToast('Welcome to FastPoolCodes!', 'info'); }}>
-              <div className="relative flex items-center justify-center font-black text-white text-xl md:text-2xl tracking-tighter bg-gradient-to-r from-emerald-400 to-teal-500 px-3 py-1 rounded-lg shadow-md shadow-emerald-950/40">
-                <Zap className="w-5 h-5 text-slate-950 fill-current animate-pulse mr-1 inline" /> 
-                <span className="text-slate-950 drop-shadow-sm truncate">FAST</span>
-              </div>
-              <div className="text-left">
-                <span className="font-mono text-[9px] text-emerald-400 leading-none tracking-widest block font-black">SPORTS VERIFIED</span>
-                <span className="font-sans font-extrabold text-[#FBBF24] text-sm tracking-wide leading-none block uppercase">Pool Codes</span>
+            <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => { setCurrentView('blog'); triggerToast('Welcome to FastPoolCodes!', 'info'); }}>
+              <div className="relative flex items-center gap-2.5 font-black bg-slate-950 px-3.5 py-2 rounded-lg shadow-md shadow-emerald-950/80 border border-emerald-500/40 select-none">
+                <Zap className="w-5 h-5 text-amber-400 fill-current animate-pulse shrink-0" /> 
+                <div className="flex flex-col text-left">
+                  <span className="text-amber-400 font-black text-lg md:text-xl tracking-tight leading-none uppercase drop-shadow-sm">FAST</span>
+                  <span className="text-slate-100 font-extrabold text-[10px] md:text-[11px] tracking-widest leading-none uppercase mt-0.5">POOL CODES</span>
+                </div>
               </div>
             </div>
           </div>
@@ -1286,15 +1314,69 @@ export default function OfficePoolStopHome({
 
               {/* Scrollable Content Area */}
               <div className="p-6 overflow-y-auto text-left space-y-4 font-sans">
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-2.5 text-[11px] font-bold text-zinc-400">
-                    <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {blogModalArticle.date}</span>
-                    <span>•</span>
-                    <span className="text-emerald-400 font-extrabold">{blogModalArticle.readTime}</span>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-[11px] font-bold text-zinc-400">
+                    <div className="flex items-center gap-2.5">
+                      <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {blogModalArticle.date}</span>
+                      <span>•</span>
+                      <span className="text-emerald-400 font-extrabold">{blogModalArticle.readTime}</span>
+                    </div>
+
+                    <button
+                      onClick={() => handleShareBlogArticle(blogModalArticle)}
+                      className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-lg font-black text-xs transition active:scale-95 cursor-pointer shadow-xs"
+                      title="Share Article"
+                    >
+                      <Share2 className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Share Post</span>
+                    </button>
                   </div>
+
                   <h3 className="font-sans font-black text-white text-xl md:text-2xl leading-tight tracking-tight">
                     {blogModalArticle.title}
                   </h3>
+                </div>
+
+                {/* Quick Share Bar */}
+                <div className="flex flex-wrap items-center gap-2 bg-zinc-900/90 border border-zinc-800 p-2.5 rounded-xl text-xs font-semibold text-zinc-300">
+                  <span className="text-zinc-400 text-[11px] font-bold uppercase tracking-wider flex items-center gap-1 mr-1">
+                    <Share2 className="w-3.5 h-3.5 text-rose-500" /> Share:
+                  </span>
+                  
+                  <button
+                    onClick={() => handleShareBlogArticle(blogModalArticle)}
+                    className="flex items-center gap-1 px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-white rounded-md text-[11px] font-bold transition cursor-pointer"
+                  >
+                    <Copy className="w-3 h-3 text-emerald-400" />
+                    <span>Copy Link</span>
+                  </button>
+
+                  <a
+                    href={`https://api.whatsapp.com/send?text=${encodeURIComponent((blogModalArticle.title || 'FastPoolCodes Analysis') + ' - ' + window.location.href)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 px-2.5 py-1 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-md text-[11px] font-bold transition"
+                  >
+                    <span>WhatsApp</span>
+                  </a>
+
+                  <a
+                    href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(blogModalArticle.title || 'FastPoolCodes Analysis')}&url=${encodeURIComponent(window.location.href)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 px-2.5 py-1 bg-sky-500/20 hover:bg-sky-500/30 text-sky-400 border border-sky-500/30 rounded-md text-[11px] font-bold transition"
+                  >
+                    <span>X / Twitter</span>
+                  </a>
+
+                  <a
+                    href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 px-2.5 py-1 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 rounded-md text-[11px] font-bold transition"
+                  >
+                    <span>Facebook</span>
+                  </a>
                 </div>
 
                 <div className="h-px bg-zinc-800 w-full my-3"></div>

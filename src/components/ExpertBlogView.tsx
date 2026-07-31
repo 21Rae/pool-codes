@@ -24,7 +24,9 @@ import {
   Facebook,
   Twitter,
   Instagram,
-  Youtube
+  Youtube,
+  Share2,
+  Copy
 } from 'lucide-react';
 import { getSupabaseClient } from '../lib/supabase';
 
@@ -69,6 +71,36 @@ export default function ExpertBlogView({
   const [probeTableName, setProbeTableName] = useState('');
   const [probeResult, setProbeResult] = useState<string | null>(null);
   const [probeLoading, setProbeLoading] = useState(false);
+
+  const handleSharePost = async (post: any, e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+    }
+    const shareUrl = window.location.href;
+    const shareTitle = post?.title || 'FastPoolCodes Blog Analysis';
+    const shareText = post?.summary || 'Check out this verified football pool analysis on FastPoolCodes!';
+
+    if (navigator.share && navigator.canShare && navigator.canShare({ title: shareTitle, text: shareText, url: shareUrl })) {
+      try {
+        await navigator.share({
+          title: shareTitle,
+          text: shareText,
+          url: shareUrl,
+        });
+        triggerToast('Article shared successfully!', 'success');
+        return;
+      } catch (err) {
+        // user cancelled or share failed, fallback to clipboard
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      triggerToast('Blog post link copied to clipboard!', 'success');
+    } catch (err) {
+      triggerToast('Could not copy link.', 'error');
+    }
+  };
 
   const [resultsList, setResultsList] = useState<any[]>(() => {
     const stored = localStorage.getItem('fastpool_pool_results_list');
@@ -348,12 +380,22 @@ export default function ExpertBlogView({
                     <p className="text-zinc-500 font-medium text-xs leading-relaxed">
                       {blogPosts[0].summary}
                     </p>
-                    <div className="pt-2 flex items-center gap-4 text-[11px] font-bold text-zinc-500">
-                      <span className="flex items-center gap-1 hover:text-zinc-800">
-                        <BookOpen className="w-3.5 h-3.5" /> Read Full Analysis
-                      </span>
-                      <span>•</span>
-                      <span className="text-rose-500 font-black">{blogPosts[0].readTime}</span>
+                    <div className="pt-2 flex items-center justify-between text-[11px] font-bold text-zinc-500">
+                      <div className="flex items-center gap-3">
+                        <span className="flex items-center gap-1 hover:text-zinc-800">
+                          <BookOpen className="w-3.5 h-3.5" /> Read Full Analysis
+                        </span>
+                        <span>•</span>
+                        <span className="text-rose-500 font-black">{blogPosts[0].readTime}</span>
+                      </div>
+                      <button
+                        onClick={(e) => handleSharePost(blogPosts[0], e)}
+                        className="flex items-center gap-1 px-2.5 py-1 bg-zinc-100 hover:bg-rose-50 hover:text-rose-600 active:scale-95 text-zinc-700 rounded-md transition text-[10px] font-black uppercase cursor-pointer border border-zinc-200 shadow-xs"
+                        title="Share Article"
+                      >
+                        <Share2 className="w-3 h-3 text-rose-500" />
+                        <span>Share</span>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -393,7 +435,17 @@ export default function ExpertBlogView({
                     </div>
                     <div className="flex items-center justify-between text-[10px] font-bold text-zinc-400">
                       <span>1d • Mikhail de Guzman</span>
-                      <span className="text-[#fa3e65] font-black">{blogPosts[1].readTime}</span>
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-[#fa3e65] font-black">{blogPosts[1].readTime}</span>
+                        <button
+                          onClick={(e) => handleSharePost(blogPosts[1], e)}
+                          className="flex items-center gap-1 px-2.5 py-1 bg-zinc-100 hover:bg-rose-50 hover:text-rose-600 active:scale-95 text-zinc-700 rounded-md transition text-[10px] font-black uppercase cursor-pointer border border-zinc-200 shadow-xs"
+                          title="Share Article"
+                        >
+                          <Share2 className="w-3 h-3 text-rose-500" />
+                          <span>Share</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -433,7 +485,17 @@ export default function ExpertBlogView({
                     </div>
                     <div className="flex items-center justify-between text-[10px] font-bold text-zinc-400">
                       <span>11h • Miguel Alfonso Caramoan</span>
-                      <span className="text-emerald-600 font-black">{blogPosts[2].readTime}</span>
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-emerald-600 font-black">{blogPosts[2].readTime}</span>
+                        <button
+                          onClick={(e) => handleSharePost(blogPosts[2], e)}
+                          className="flex items-center gap-1 px-2.5 py-1 bg-zinc-100 hover:bg-emerald-50 hover:text-emerald-600 active:scale-95 text-zinc-700 rounded-md transition text-[10px] font-black uppercase cursor-pointer border border-zinc-200 shadow-xs"
+                          title="Share Article"
+                        >
+                          <Share2 className="w-3 h-3 text-emerald-600" />
+                          <span>Share</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -470,7 +532,17 @@ export default function ExpertBlogView({
                     </p>
                     <div className="pt-2 flex items-center justify-between text-[10px] font-bold text-zinc-400 font-mono">
                       <span>14d • Miguel Alfonso Caramoan</span>
-                      <span className="text-amber-400 font-black">{blogPosts[3].readTime}</span>
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-amber-400 font-black">{blogPosts[3].readTime}</span>
+                        <button
+                          onClick={(e) => handleSharePost(blogPosts[3], e)}
+                          className="flex items-center gap-1 px-2.5 py-1 bg-zinc-800/90 hover:bg-amber-400 hover:text-slate-950 active:scale-95 text-zinc-200 rounded-md transition text-[10px] font-black uppercase cursor-pointer border border-zinc-700 shadow-xs"
+                          title="Share Article"
+                        >
+                          <Share2 className="w-3 h-3 text-amber-400 group-hover:text-slate-950" />
+                          <span>Share</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -909,7 +981,17 @@ INSERT INTO public.championship_results (
                           </div>
                           <div className="pt-2 flex items-center justify-between text-[10px] font-bold text-zinc-400">
                             <span>{post.date}</span>
-                            <span className="text-[#fa3e65] font-black">{post.readTime}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[#fa3e65] font-black">{post.readTime}</span>
+                              <button
+                                onClick={(e) => handleSharePost(post, e)}
+                                className="flex items-center gap-1 px-2 py-0.5 bg-zinc-100 hover:bg-rose-50 hover:text-rose-600 active:scale-95 text-zinc-700 rounded transition text-[10px] font-black uppercase cursor-pointer border border-zinc-200 shadow-xs"
+                                title="Share Article"
+                              >
+                                <Share2 className="w-3 h-3 text-rose-500" />
+                                <span>Share</span>
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -947,16 +1029,16 @@ INSERT INTO public.championship_results (
                     return (
                       <div className="border border-zinc-200 rounded-lg overflow-hidden flex flex-col bg-white">
                         {/* Active Sheet Header info & Week Selector Dropdown */}
-                        <div className="p-4 bg-zinc-50 border-b border-zinc-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                          <div className="flex flex-col sm:flex-row sm:items-center gap-4 flex-1">
-                            <div className="space-y-1 shrink-0">
-                              <span className="text-[8.5px] font-mono font-black text-rose-600 uppercase tracking-widest block">
+                        <div className="p-4 bg-zinc-50 border-b border-zinc-200 flex flex-col md:flex-row items-center justify-between gap-4">
+                          <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-4 flex-1 w-full">
+                            <div className="space-y-1 shrink-0 flex flex-col items-center sm:items-start w-full sm:w-auto">
+                              <span className="text-[8.5px] font-mono font-black text-rose-600 uppercase tracking-widest block text-center sm:text-left">
                                 Select Results Week
                               </span>
                               <select
                                 value={selectedResultId || (filteredResults[0] && filteredResults[0].id) || ''}
                                 onChange={(e) => setSelectedResultId(e.target.value)}
-                                className="mt-1 bg-white border-2 border-zinc-250 text-zinc-800 text-xs font-black rounded-lg px-3.5 py-2.5 focus:outline-none focus:border-rose-500 cursor-pointer font-sans min-w-[280px] shadow-sm uppercase tracking-wide transition-all"
+                                className="mt-1 bg-white border-2 border-zinc-250 text-zinc-800 text-xs font-black rounded-lg px-3.5 py-2.5 focus:outline-none focus:border-rose-500 cursor-pointer font-sans w-full sm:w-auto min-w-[260px] text-center shadow-sm uppercase tracking-wide transition-all"
                               >
                                 {resultsList.map((result: any) => {
                                   const totalDraws = (result.results_table || []).filter((x: any) => x.outcome === 'DRAW').length;
@@ -969,9 +1051,9 @@ INSERT INTO public.championship_results (
                               </select>
                             </div>
 
-                            <div className="hidden sm:block border-l border-zinc-200 h-10 self-end"></div>
+                            <div className="hidden sm:block border-l border-zinc-200 h-10"></div>
 
-                            <div className="text-left min-w-0 self-end sm:self-auto">
+                            <div className="text-center sm:text-left min-w-0">
                               <span className="text-[8.5px] font-mono font-black text-zinc-400 uppercase tracking-widest block">
                                 Active Result Sheet
                               </span>
@@ -983,7 +1065,7 @@ INSERT INTO public.championship_results (
 
                           <button
                             onClick={handlePdfClick}
-                            className="bg-rose-600 hover:bg-rose-700 text-white font-black text-[10px] uppercase tracking-wider px-4 py-2.5 rounded-lg flex items-center gap-1.5 cursor-pointer transition shrink-0 shadow-sm self-start md:self-auto"
+                            className="bg-rose-600 hover:bg-rose-700 text-white font-black text-[10px] uppercase tracking-wider px-4 py-2.5 rounded-lg flex items-center justify-center gap-1.5 cursor-pointer transition shrink-0 shadow-sm w-full md:w-auto"
                           >
                             <FileText className="w-4 h-4" />
                             <span>Download PDF</span>

@@ -399,23 +399,34 @@ app.use((req, res, next) => {
           const hName = homeAway[0]?.trim() || "Home";
           const aName = homeAway[1]?.trim() || "Away";
 
+          const updatePayloadFull: any = {
+            home_team_score: hScore,
+            away_team_score: aScore,
+            live_score_status: match.status,
+            home_score: hScore,
+            away_score: aScore,
+            status: match.status,
+            log: match.log,
+            last_checked: match.lastChecked
+          };
+
+          const updatePayloadMinimal: any = {
+            home_team_score: hScore,
+            away_team_score: aScore,
+            live_score_status: match.status
+          };
+
           const hasId = match.id && !match.id.startsWith("mock-") && !match.id.startsWith("sim-");
           if (hasId) {
-            await supabase.from('live_scores').update({
-              home_score: hScore,
-              away_score: aScore,
-              status: match.status,
-              log: match.log,
-              last_checked: match.lastChecked
-            }).eq('id', match.id);
+            let { error } = await supabase.from('live_scores').update(updatePayloadFull).eq('id', match.id);
+            if (error) {
+              await supabase.from('live_scores').update(updatePayloadMinimal).eq('id', match.id);
+            }
           } else {
-            await supabase.from('live_scores').update({
-              home_score: hScore,
-              away_score: aScore,
-              status: match.status,
-              log: match.log,
-              last_checked: match.lastChecked
-            }).eq('home_team', hName).eq('away_team', aName);
+            let { error } = await supabase.from('live_scores').update(updatePayloadFull).eq('home_team', hName).eq('away_team', aName);
+            if (error) {
+              await supabase.from('live_scores').update(updatePayloadMinimal).eq('home_team', hName).eq('away_team', aName);
+            }
           }
         }
       } catch (dbErr) {
@@ -431,16 +442,22 @@ app.use((req, res, next) => {
         const { data, error } = await supabase.from('live_scores').select('*');
         if (!error && data) {
           const dbMatches = data.map((r: any) => {
-            const hTeam = (r.home_team || "").trim();
-            const aTeam = (r.away_team || "").trim();
-            const normalizedStatus = r.status === "on going" ? "live" : r.status;
+            const hTeam = (r.home_team || r.Home_team || "").trim();
+            const aTeam = (r.away_team || r.Away_team || "").trim();
+            const rawStatus = r.live_score_status || r.status || r.Status || "Saturday";
+            const normalizedStatus = rawStatus === "on going" ? "live" : rawStatus;
+            
+            const hScore = r.home_team_score ?? r.home_score;
+            const aScore = r.away_team_score ?? r.away_score;
+            const matchScore = r.score || (hScore !== undefined && aScore !== undefined ? `${hScore} - ${aScore}` : "-:-");
+            const matchId = String(r.id ?? r.match_number ?? r.no ?? Math.random());
             return {
-              id: String(r.id),
+              id: matchId,
               fixture: `${hTeam} vs ${aTeam}`,
-              score: `${r.home_score} - ${r.away_score}`,
+              score: matchScore,
               status: normalizedStatus,
               lastChecked: r.last_checked || new Date().toISOString(),
-              log: r.log
+              log: r.log || ""
             };
           });
 
@@ -950,14 +967,34 @@ Format exactly as this JSON schema (NO markdown blocks, NO \`\`\`json):
 
     let dbMatchId = "";
     try {
-      const { data, error } = await supabase.from('live_scores').insert([{
+      const rowToInsert: any = {
         home_team: tHome,
         away_team: tAway,
-        home_score: hScore,
-        away_score: aScore,
-        status: matchStatus,
         log: "Added to real-time tracker board."
-      }]).select();
+      };
+      // Try setting standard and alt column names
+      rowToInsert.home_score = hScore;
+      rowToInsert.away_score = aScore;
+      rowToInsert.status = matchStatus;
+      rowToInsert.home_team_score = hScore;
+      rowToInsert.away_team_score = aScore;
+      rowToInsert.live_score_status = matchStatus;
+
+      let { data, error } = await supabase.from('live_scores').insert([rowToInsert]).select();
+
+      if (error) {
+        // Fallback with just the 5 core columns requested by user
+        const altRow = {
+          home_team: tHome,
+          home_team_score: hScore,
+          away_team_score: aScore,
+          away_team: tAway,
+          live_score_status: matchStatus
+        };
+        const altRes = await supabase.from('live_scores').insert([altRow]).select();
+        data = altRes.data;
+        error = altRes.error;
+      }
 
       if (error) {
         return res.status(500).json({ success: false, error: `Database insert failed: ${error.message}. Make sure the live_scores table exists in your PostgreSQL database.` });
@@ -1035,17 +1072,37 @@ Format exactly as this JSON schema (NO markdown blocks, NO \`\`\`json):
 
       const updateData: any = {
         status,
+        live_score_status: status,
         log: logText,
         last_checked: nowStr
       };
 
       if (score !== undefined) {
         const parts = score.split(" - ");
-        updateData.home_score = Number(parts[0]) || 0;
-        updateData.away_score = Number(parts[1]) || 0;
+        const hVal = Number(parts[0]) || 0;
+        const aVal = Number(parts[1]) || 0;
+        updateData.home_score = hVal;
+        updateData.away_score = aVal;
+        updateData.home_team_score = hVal;
+        updateData.away_team_score = aVal;
       }
 
-      const { error } = await supabase.from('live_scores').update(updateData).eq('id', id);
+      let { error } = await supabase.from('live_scores').update(updateData).eq('id', id);
+
+      if (error) {
+        // Retry with minimal columns if additional columns like log/last_checked don't exist
+        const altUpdate: any = {
+          live_score_status: status,
+          status: status
+        };
+        if (score !== undefined) {
+          const parts = score.split(" - ");
+          altUpdate.home_team_score = Number(parts[0]) || 0;
+          altUpdate.away_team_score = Number(parts[1]) || 0;
+        }
+        const altRes = await supabase.from('live_scores').update(altUpdate).eq('id', id);
+        error = altRes.error;
+      }
 
       if (error) {
         return res.status(500).json({ success: false, error: `Failed to update database: ${error.message}` });
