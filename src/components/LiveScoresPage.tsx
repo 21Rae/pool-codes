@@ -188,12 +188,12 @@ export default function LiveScoresPage({
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
                 </span>
-                <span className="text-[10px] font-mono font-black uppercase text-emerald-400 tracking-wider">
-                  REAL-TIME POOLS MATCHCAST
+                <span className="text-[10px] font-mono font-black text-emerald-400 tracking-wider">
+                  ⚽️Real-time livescores
                 </span>
               </div>
-              <h1 className="text-2xl md:text-3xl font-black text-white tracking-wide uppercase mt-1">
-                AI Live Match Scores
+              <h1 className="text-2xl md:text-3xl font-black text-white tracking-wide mt-1">
+                Pool matches livescore
               </h1>
             </div>
           </div>

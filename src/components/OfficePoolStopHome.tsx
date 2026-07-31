@@ -602,14 +602,14 @@ export default function OfficePoolStopHome({
               return (
                 <div className="max-w-7xl mx-auto px-6 py-12 space-y-8 text-left">
                   <div className="space-y-2">
-                    <span className="text-xs font-mono font-black text-emerald-400 uppercase tracking-widest bg-emerald-950/40 border border-emerald-900/40 px-3 py-1 rounded-full">
-                      ⚽ Real-Time Soccer Cast
+                    <span className="text-xs font-mono font-black text-emerald-400 tracking-widest bg-emerald-950/40 border border-emerald-900/40 px-3 py-1 rounded-full inline-block">
+                      ⚽️Real-time livescores
                     </span>
-                    <h2 className="text-3xl font-black text-white tracking-tight uppercase">
-                      Official Pool Match Live Scores
+                    <h2 className="text-3xl font-black text-white tracking-tight">
+                      Pool matches livescore
                     </h2>
                     <p className="text-slate-400 text-xs md:text-sm max-w-2xl leading-relaxed font-semibold">
-                      Follow the live statuses of active coupon fixtures. Matches are tracked in real-time, displaying official draw statuses to keep your perms synchronized instantly.
+                      Follow pool matches live. Matches are tracked in real-time, displaying official draw statuses to keep your perms synchronized instantly.
                     </p>
                   </div>
 
