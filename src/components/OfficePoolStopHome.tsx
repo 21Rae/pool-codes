@@ -172,7 +172,7 @@ export default function OfficePoolStopHome({
       }
     };
     fetchLiveScores();
-    const interval = setInterval(fetchLiveScores, 15000);
+    const interval = setInterval(fetchLiveScores, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -185,12 +185,16 @@ export default function OfficePoolStopHome({
     if (!container) return;
 
     let iframeId: number;
-    const scrollSpeed = 0.45;
+    const scrollSpeed = 0.65;
 
     const runScroll = () => {
-      if (!isScoreboardHovered) {
+      if (!isScoreboardHovered && container.scrollWidth > container.clientWidth) {
         container.scrollLeft += scrollSpeed;
-        if (container.scrollLeft >= container.scrollWidth / 2) {
+        const maxScroll = container.scrollWidth - container.clientWidth;
+        if (
+          container.scrollLeft >= container.scrollWidth / 2 ||
+          (maxScroll > 0 && container.scrollLeft >= maxScroll - 2)
+        ) {
           container.scrollLeft = 0;
         }
       }
@@ -485,7 +489,9 @@ export default function OfficePoolStopHome({
               </div>
             ) : (
               <div className="flex items-center gap-3 whitespace-nowrap h-full">
-                {liveScoresData.map((match: any, idx: number) => {
+                {Array.from({ length: 12 })
+                  .flatMap(() => liveScoresData)
+                  .map((match: any, idx: number) => {
                   const parts = (match.fixture || "").split(" vs ");
                   const team1 = parts[0]?.trim() || "Home";
                   const team2 = parts[1]?.trim() || "Away";

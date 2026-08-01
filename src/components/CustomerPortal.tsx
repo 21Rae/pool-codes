@@ -403,15 +403,16 @@ export default function CustomerPortal({
 
     let animationFrameId: number;
     let scrollPos = container.scrollLeft;
-    const speed = 0.55; 
+    const speed = 0.65; 
 
     const scroll = () => {
-      if (!isArenaScoreboardHovered) {
+      if (!isArenaScoreboardHovered && container.scrollWidth > container.clientWidth) {
         scrollPos += speed;
-        if (scrollPos >= container.scrollWidth / 2) {
+        const maxScroll = container.scrollWidth - container.clientWidth;
+        if (scrollPos >= container.scrollWidth / 2 || (maxScroll > 0 && scrollPos >= maxScroll - 2)) {
           scrollPos = 0;
         }
-        container.scrollLeft = Math.round(scrollPos);
+        container.scrollLeft = scrollPos;
       } else {
         scrollPos = container.scrollLeft;
       }
@@ -1568,7 +1569,9 @@ export default function CustomerPortal({
                           <span>No live tracked games active in database. Manage games via the Live Match Cast tab.</span>
                         </div>
                       ) : (
-                        liveScoresData.map((match: any, idx: number) => {
+                        Array.from({ length: 12 })
+                          .flatMap(() => liveScoresData)
+                          .map((match: any, idx: number) => {
                           const parts = (match.fixture || "").split(" vs ");
                           const team1 = parts[0]?.trim() || "Home";
                           const team2 = parts[1]?.trim() || "Away";
