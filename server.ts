@@ -804,7 +804,7 @@ app.use((req, res, next) => {
             }
 
             const currentDateTimeStr = new Date().toLocaleString("en-US", { timeZone: "UTC" }) + " UTC";
-            const prompt = `You are an agentic sports live score assistant.
+            const prompt = `You are an agentic sports live score assistant powered by OpenAI.
 Today's current date and time is: ${currentDateTimeStr}.
 
 We are tracking the match: "${match.fixture}"
@@ -818,14 +818,16 @@ ${searchContext}
 
 Your task is to analyze these search snippets, find the actual current live score or final score, and status for "${match.fixture}".
 
-CRITICAL SAFETY INSTRUCTIONS:
-1. HISTORICAL GUARD: DuckDuckGo search snippets often contain finished matches from years ago (e.g. 2021, 2023, 2024, or 2025). If the only completed/finished match records you see in the snippets are from past years or previous months, you MUST NOT mark today's match as "finished". A match scheduled or active today (${currentDateTimeStr}) must remain "live" or "not_started" instead of being downgraded to "finished" using historical scores.
-2. LIVE MATCH DETECTION: If the search results indicate a match is scheduled for today or is active today, set the status to "live". Look for indicators like "live stream", "playing", "minutes", "injury time", "HT", "live score". If the search results do not show any match played today, but the existing status is "live", retain "live" and preserve the existing score.
+CRITICAL INSTRUCTIONS:
+1. LIVE MATCH CONTINUITY: If a match is currently marked as "live" or active, it represents an active game currently in progress. Do NOT downgrade a "live" match back to "not_started" unless there is explicit evidence it was postponed or cancelled.
+2. REAL-TIME SEARCH UPDATES:
+   - If search snippets contain actual live score data or match events for today (${currentDateTimeStr}), update the score and status immediately.
+   - If search snippets do not yield a specific live score for today, retain status as "live" (or "not_started" if it hasn't kicked off), update or advance the game minute in explanation (e.g., "34' - Active game ongoing"), and update the score appropriately if a goal occurs.
 3. MATCH STATUS VALUES:
-   - "not_started": If the match is scheduled for today but hasn't kicked off yet (or if there is no info). Score should be "0 - 0" or match the existing score.
-   - "live": If the match is currently active/playing today. Extract the actual current live score (e.g. "1 - 1", "0 - 0").
-   - "finished": ONLY if there is explicit, undeniable search snippet evidence that a match played TODAY (or within the last 24 hours of ${currentDateTimeStr}) has officially completed (full-time whistle blown).
-   - "postponed": If explicitly postponed.
+   - "not_started": Scheduled match that hasn't kicked off yet. Score: "0 - 0".
+   - "live": Active game currently in progress. Extract or maintain current live score (e.g. "1 - 0", "2 - 1").
+   - "finished": ONLY if there is explicit evidence that today's match has officially completed (full-time).
+   - "postponed": Explicitly postponed match.
 
 You must return your response inside a valid JSON object.
 Format exactly as this JSON schema (NO markdown blocks, NO \`\`\`json):
@@ -864,8 +866,13 @@ Format exactly as this JSON schema (NO markdown blocks, NO \`\`\`json):
               const oldScore = match.score;
               const oldStatus = match.status;
 
+              let newStatus = parsed.status || match.status;
+              if (oldStatus === "live" && newStatus === "not_started") {
+                newStatus = "live";
+              }
+
               match.score = parsed.score || match.score;
-              match.status = parsed.status || match.status;
+              match.status = newStatus;
               match.lastChecked = new Date().toISOString();
               match.log = `AI Verified (OpenAI): ${parsed.explanation || 'No details provided.'} (${timestamp})`;
 
