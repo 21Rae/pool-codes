@@ -139,11 +139,13 @@ export default function App() {
   const [paystackPublicKey, setPaystackPublicKey] = useState<string>('');
 
   // Active Authenticated user in simulated session
-  const currentUser = db.users.find(u => u.id === selectedPersonaId) || db.users[1];
+  const currentUser = (db.users && db.users.length > 0)
+    ? (db.users.find(u => u.id === selectedPersonaId) || db.users[0] || INITIAL_USERS[0])
+    : INITIAL_USERS[0];
 
   // Subscription Perks parser helper
   const activeSubscription = db.user_subscriptions.find(
-    sub => sub.user_id === currentUser.id && sub.status === 'active'
+    sub => sub && sub.user_id === currentUser.id && sub.status === 'active'
   );
   const activePlan = activeSubscription
     ? db.subscription_plans.find(p => p.id === activeSubscription.plan_id)
@@ -286,10 +288,26 @@ export default function App() {
     fetchRuntimeConfig();
   }, []);
 
+  const [discoveredDbTables, setDiscoveredDbTables] = useState<any[]>([]);
+
   const fetchRealSupabaseData = async (silent: boolean = false) => {
     setIsSyncingSupabase(true);
     if (!silent) {
-      triggerToast("🔄 Syncing real-time tables with Supabase database...", "info");
+      triggerToast("🔄 Discovering & syncing all database tables with Supabase...", "info");
+    }
+
+    try {
+      // 1. Dynamic Table Discovery from Supabase backend API
+      const discoveryRes = await fetch('/api/database/tables');
+      if (discoveryRes.ok) {
+        const discJson = await discoveryRes.json();
+        if (discJson.success && Array.isArray(discJson.activeTables)) {
+          setDiscoveredDbTables(discJson.activeTables);
+          logSQL('GET /api/database/tables', `Database discovery detected ${discJson.activeTables.length} active tables in Supabase.`);
+        }
+      }
+    } catch (discErr) {
+      console.warn('[Supabase Discovery] Table discovery endpoint warning:', discErr);
     }
 
     const logAndSetTable = async (tableName: string, dbKey: keyof DatabaseState, query: string) => {
@@ -302,7 +320,7 @@ export default function App() {
         const json = await res.json();
         const data = json.data;
 
-        const isBookmakerTable = ['bet9ja', 'betking', 'sportybet', 'premierbet', 'betway', 'soccabet'].includes(tableName);
+        const isBookmakerTable = ['bet9ja', 'betking', 'sportybet', 'msport', 'premierbet', 'betway', 'soccabet'].includes(tableName);
         if (isBookmakerTable) {
           setDb(prev => ({
             ...prev,
@@ -310,15 +328,17 @@ export default function App() {
           }));
           logSQL(query, `Successfully synchronized Supabase '${tableName}' table (${data?.length || 0} rows).`);
           return true;
-        } else if (data && data.length > 0) {
+        } else if (data && Array.isArray(data)) {
           setDb(prev => ({
             ...prev,
             [dbKey]: data
           }));
-          logSQL(query, `Successfully loaded ${data.length} real rows from Supabase '${tableName}' table.`);
+          if (data.length > 0) {
+            logSQL(query, `Successfully loaded ${data.length} real rows from Supabase '${tableName}' table.`);
+          } else {
+            logSQL(query, `Connected to Supabase '${tableName}' (Table exists but has 0 rows).`);
+          }
           return true;
-        } else {
-          logSQL(query, `Connected to Supabase '${tableName}' (Table exists but has 0 rows).`);
         }
       } catch (err: any) {
         console.warn(`[Supabase Sync] Exception fetching '${tableName}' through proxy:`, err);
@@ -328,6 +348,7 @@ export default function App() {
 
     // Execute fetches in parallel to retrieve real tables
     await Promise.all([
+      logAndSetTable('blogs', 'blogs' as any, 'SELECT * FROM blogs;'),
       logAndSetTable('users', 'users', 'SELECT * FROM users;'),
       logAndSetTable('subscription_plans', 'subscription_plans', 'SELECT * FROM subscription_plans;'),
       logAndSetTable('user_subscriptions', 'user_subscriptions', 'SELECT * FROM user_subscriptions;'),
@@ -340,24 +361,77 @@ export default function App() {
       logAndSetTable('bet9ja', 'bet9ja', 'SELECT * FROM bet9ja;'),
       logAndSetTable('betking', 'betking', 'SELECT * FROM betking;'),
       logAndSetTable('sportybet', 'sportybet', 'SELECT * FROM sportybet;'),
+      logAndSetTable('msport', 'msport' as any, 'SELECT * FROM msport;'),
       logAndSetTable('premierbet', 'premierbet', 'SELECT * FROM premierbet;'),
       logAndSetTable('betway', 'betway', 'SELECT * FROM betway;'),
-      logAndSetTable('soccabet', 'soccabet', 'SELECT * FROM soccabet;')
+      logAndSetTable('soccabet', 'soccabet', 'SELECT * FROM soccabet;'),
+      logAndSetTable('championship_results', 'championship_results' as any, 'SELECT * FROM championship_results;')
     ]);
 
     setIsSyncingSupabase(false);
     if (!silent) {
-      triggerToast("✅ Real-time database sync with Supabase completed!", "success");
+      triggerToast("✅ Database tables fully synchronized with Supabase!", "success");
     }
   };
 
-  // Run initial real-time database sync from Supabase
+  // Run initial and real-time live database synchronization across all Supabase tables
   useEffect(() => {
-    // Wait slightly to ensure main bootstrap config has run
+    // 1. Initial sync after bootstrap
     const timer = setTimeout(() => {
       fetchRealSupabaseData(true);
-    }, 1200);
-    return () => clearTimeout(timer);
+    }, 1000);
+
+    // 2. Continuous background poll (every 6 seconds) to ensure real-time live sync
+    const pollInterval = setInterval(() => {
+      fetchRealSupabaseData(true);
+    }, 6000);
+
+    // 3. Supabase Realtime WebSocket subscription on all public schema tables
+    const supabase = getSupabaseClient();
+    let channel: any = null;
+    if (supabase) {
+      try {
+        channel = supabase
+          .channel('app-all-tables-realtime')
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public'
+            },
+            (payload) => {
+              console.log('⚡ Realtime update across Supabase tables detected:', payload);
+              fetchRealSupabaseData(true);
+            }
+          )
+          .subscribe((status) => {
+            console.log('⚡ Supabase global realtime status:', status);
+          });
+      } catch (rtErr) {
+        console.warn('Real-time subscription notice:', rtErr);
+      }
+    }
+
+    // 4. Re-fetch immediately when user returns to window tab
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchRealSupabaseData(true);
+      }
+    };
+    window.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleVisibilityChange);
+
+    return () => {
+      clearTimeout(timer);
+      clearInterval(pollInterval);
+      window.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleVisibilityChange);
+      if (supabase && channel) {
+        try {
+          supabase.removeChannel(channel);
+        } catch (_) {}
+      }
+    };
   }, []);
 
   // Re-verify profile is administrator when switching tabs
@@ -998,6 +1072,12 @@ export default function App() {
       u => u.username.toLowerCase() === cleanUsername || u.email.toLowerCase() === cleanEmail
     );
     if (localDuplicate) {
+      if (localDuplicate.status === 'suspended' || localDuplicate.status === 'banned') {
+        return { success: false, error: `Account '@${cleanUsername}' is suspended or banned. Please contact support.` };
+      }
+      if (localDuplicate.status === 'deleted') {
+        return { success: false, error: `An account with this username or email was previously deleted.` };
+      }
       return { success: false, error: "An account with this username or email already exists. Please sign in instead." };
     }
 
@@ -1062,7 +1142,7 @@ export default function App() {
 
             setDb(prev => ({
               ...prev,
-              users: [...prev.users, newUser],
+              users: [...prev.users.filter(u => u.id !== su.id), newUser],
               user_subscriptions: [...prev.user_subscriptions, newSub]
             }));
 
@@ -1072,6 +1152,9 @@ export default function App() {
               `-- Supabase secure backend signUp completed.\n-- Registered user id: ${su.id} \n-- Saved token session cache.`,
               `Registered & logged in new member @${cleanUsername} using secure proxy gateway`
             );
+
+            // Re-sync all Supabase tables in background immediately
+            fetchRealSupabaseData(true);
 
             if (planId && planId !== 'plan-free') {
               setTimeout(() => {
@@ -1572,6 +1655,7 @@ export default function App() {
                 setShowSimulatedEmailModal={setShowSimulatedEmailModal}
                 isSyncingSupabase={isSyncingSupabase}
                 fetchRealSupabaseData={fetchRealSupabaseData}
+                discoveredDbTables={discoveredDbTables}
                 bypassPremium={bypassPremium}
                 onToggleBypassPremium={() => {
                   const newVal = !bypassPremium;

@@ -43,10 +43,13 @@ import {
   Printer,
   Mail,
   FileText,
-  CheckCircle
+  CheckCircle,
+  RefreshCw,
+  Database
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DatabaseState, User, SubscriptionPlan, UserSubscription, PoolCode } from '../types';
+import { getSupabaseClient } from '../lib/supabase';
 
 interface CustomerPortalProps {
   db: DatabaseState;
@@ -67,6 +70,7 @@ interface CustomerPortalProps {
   setShowSimulatedEmailModal?: (val: boolean) => void;
   isSyncingSupabase?: boolean;
   fetchRealSupabaseData?: (silent: boolean) => Promise<void>;
+  discoveredDbTables?: any[];
   bypassPremium?: boolean;
   onToggleBypassPremium?: () => void;
 }
@@ -90,6 +94,7 @@ export default function CustomerPortal({
   setShowSimulatedEmailModal: setShowSimulatedEmailModalProp,
   isSyncingSupabase = false,
   fetchRealSupabaseData,
+  discoveredDbTables = [],
   bypassPremium = false,
   onToggleBypassPremium
 }: CustomerPortalProps) {
@@ -182,6 +187,85 @@ export default function CustomerPortal({
   const [matrixSearchQuery, setMatrixSearchQuery] = useState('');
   const [trackedMatchesSearch, setTrackedMatchesSearch] = useState('');
   const [championshipSearchQuery, setChampionshipSearchQuery] = useState('');
+
+  // Database Schema & Table Explorer state
+  const [dbExplorerTables, setDbExplorerTables] = useState<any[]>(discoveredDbTables || []);
+  const [dbExplorerSelectedTable, setDbExplorerSelectedTable] = useState<string>('blogs');
+  const [dbExplorerRows, setDbExplorerRows] = useState<any[]>([]);
+  const [dbExplorerLoading, setDbExplorerLoading] = useState<boolean>(false);
+  const [dbExplorerNewRowJson, setDbExplorerNewRowJson] = useState<string>('{\n  "title": "New Post",\n  "content": "Database entry sample"\n}');
+  const [dbExplorerError, setDbExplorerError] = useState<string | null>(null);
+
+  const refreshDbExplorer = async (selectedTable?: string) => {
+    setDbExplorerLoading(true);
+    setDbExplorerError(null);
+    try {
+      const res = await fetch('/api/database/tables');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.activeTables)) {
+          setDbExplorerTables(json.activeTables);
+          const targetTable = selectedTable || dbExplorerSelectedTable || (json.activeTables[0]?.name || 'blogs');
+          setDbExplorerSelectedTable(targetTable);
+          
+          const rowsRes = await fetch(`/api/tables/${targetTable}`);
+          if (rowsRes.ok) {
+            const rowsJson = await rowsRes.json();
+            setDbExplorerRows(rowsJson.data || []);
+          } else {
+            setDbExplorerError(`Failed to fetch rows for table '${targetTable}'.`);
+          }
+        }
+      }
+    } catch (err: any) {
+      setDbExplorerError(err?.message || String(err));
+    } finally {
+      setDbExplorerLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (discoveredDbTables && discoveredDbTables.length > 0) {
+      setDbExplorerTables(discoveredDbTables);
+    }
+  }, [discoveredDbTables]);
+
+  // Real-time listener and background poll for Database Explorer view
+  useEffect(() => {
+    if ((activeSubTab as string) !== 'db_explorer') return;
+
+    // Refresh initially when tab opens or table changes
+    refreshDbExplorer(dbExplorerSelectedTable);
+
+    // Auto-poll every 5 seconds for real-time changes
+    const interval = setInterval(() => {
+      refreshDbExplorer(dbExplorerSelectedTable);
+    }, 5000);
+
+    const supabase = getSupabaseClient();
+    let channel: any = null;
+    if (supabase) {
+      try {
+        channel = supabase
+          .channel(`db-explorer-${dbExplorerSelectedTable}`)
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public' },
+            () => {
+              refreshDbExplorer(dbExplorerSelectedTable);
+            }
+          )
+          .subscribe();
+      } catch (_) {}
+    }
+
+    return () => {
+      clearInterval(interval);
+      if (supabase && channel) {
+        try { supabase.removeChannel(channel); } catch (_) {}
+      }
+    };
+  }, [activeSubTab, dbExplorerSelectedTable]);
 
   useEffect(() => {
     setProfileUsername(currentUser.username);
@@ -1973,6 +2057,205 @@ export default function CustomerPortal({
                     </div>
 
                     {/* ADMIN PANEL FORM: DYNAMIC POSTER BULLETINS */}
+                    {currentUser.role === 'admin' && (
+                      <div className="bg-slate-900/95 border-2 border-emerald-500/30 p-5 rounded-2xl flex flex-col gap-6 animate-fadeIn mb-6">
+                        {/* DATABASE SCHEMA & TABLE EXPLORER HEADER */}
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-800 pb-4">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                              <h4 className="text-sm font-black font-mono text-emerald-400 uppercase tracking-wider">
+                                🗄️ SUPABASE DATABASE TABLE EXPLORER & SCHEMA SYNCHRONIZER
+                              </h4>
+                            </div>
+                            <p className="text-xs text-slate-400 mt-1">
+                              Detects, queries, inserts, and synchronizes ALL active database tables directly from Supabase.
+                            </p>
+                          </div>
+
+                          <button
+                            onClick={() => {
+                              refreshDbExplorer();
+                              if (fetchRealSupabaseData) fetchRealSupabaseData(false);
+                            }}
+                            disabled={dbExplorerLoading || isSyncingSupabase}
+                            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black font-mono text-xs rounded-xl transition flex items-center gap-2 shadow-lg cursor-pointer"
+                          >
+                            <RefreshCw className={`w-3.5 h-3.5 ${(dbExplorerLoading || isSyncingSupabase) ? 'animate-spin' : ''}`} />
+                            Re-Scan & Sync Database Tables
+                          </button>
+                        </div>
+
+                        {/* DISCOVERED TABLES STRIP */}
+                        <div>
+                          <label className="block text-xs font-mono font-bold text-slate-300 mb-2 uppercase tracking-wide">
+                            DISCOVERED SUPABASE TABLES ({dbExplorerTables.length} Active):
+                          </label>
+                          <div className="flex flex-wrap items-center gap-2">
+                            {dbExplorerTables.length === 0 ? (
+                              <button
+                                onClick={() => refreshDbExplorer()}
+                                className="text-xs text-amber-400 font-mono bg-amber-950/40 border border-amber-800/50 px-3 py-1.5 rounded-lg"
+                              >
+                                ⚠️ No tables cached yet. Click here to scan database schema.
+                              </button>
+                            ) : (
+                              dbExplorerTables.map((tbl) => {
+                                const isSelected = dbExplorerSelectedTable === tbl.name;
+                                return (
+                                  <button
+                                    key={`db_tbl_${tbl.name}`}
+                                    onClick={() => refreshDbExplorer(tbl.name)}
+                                    className={`px-3 py-1.5 text-xs font-mono font-bold rounded-lg transition flex items-center gap-1.5 cursor-pointer ${
+                                      isSelected
+                                        ? 'bg-emerald-500 text-slate-950 font-black ring-2 ring-emerald-300'
+                                        : 'bg-slate-950 text-slate-300 hover:bg-slate-800 border border-slate-800'
+                                    }`}
+                                  >
+                                    <Database className="w-3 h-3" />
+                                    <span>{tbl.name}</span>
+                                    <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono ${isSelected ? 'bg-slate-950 text-emerald-300' : 'bg-slate-800 text-slate-400'}`}>
+                                      {tbl.count ?? 0} rows
+                                    </span>
+                                  </button>
+                                );
+                              })
+                            )}
+                          </div>
+                        </div>
+
+                        {/* SELECTED TABLE DATA VIEWER */}
+                        <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 flex flex-col gap-4">
+                          <div className="flex justify-between items-center border-b border-slate-800/80 pb-3">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-mono text-slate-400 uppercase">ACTIVE TABLE:</span>
+                              <span className="text-sm font-mono font-black text-amber-400 uppercase tracking-wider">{dbExplorerSelectedTable}</span>
+                              <span className="text-xs text-slate-500 font-mono">({dbExplorerRows.length} rows loaded)</span>
+                            </div>
+                            <button
+                              onClick={() => refreshDbExplorer(dbExplorerSelectedTable)}
+                              className="text-xs font-mono text-emerald-400 hover:text-emerald-300 underline"
+                            >
+                              Reload Rows
+                            </button>
+                          </div>
+
+                          {dbExplorerError && (
+                            <div className="bg-rose-950/40 border border-rose-800/50 text-rose-300 p-3 rounded-lg text-xs font-mono">
+                              ⚠️ {dbExplorerError}
+                            </div>
+                          )}
+
+                          {dbExplorerLoading ? (
+                            <div className="py-8 text-center text-xs font-mono text-slate-400 animate-pulse">
+                              Fetching live rows for table '{dbExplorerSelectedTable}' from Supabase...
+                            </div>
+                          ) : dbExplorerRows.length === 0 ? (
+                            <div className="py-6 text-center text-xs font-mono text-slate-500">
+                              No rows found in table '{dbExplorerSelectedTable}'. You can insert a row below using the JSON form.
+                            </div>
+                          ) : (
+                            <div className="overflow-x-auto max-h-72 border border-slate-800 rounded-lg">
+                              <table className="w-full text-left text-xs font-mono text-slate-300">
+                                <thead className="bg-slate-900 text-slate-400 uppercase text-[10px] sticky top-0">
+                                  <tr>
+                                    {Object.keys(dbExplorerRows[0] || {}).slice(0, 7).map((col) => (
+                                      <th key={col} className="p-2.5 border-b border-slate-800 font-black">{col}</th>
+                                    ))}
+                                    <th className="p-2.5 border-b border-slate-800 text-right font-black">Action</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-800/60">
+                                  {dbExplorerRows.map((row, rIdx) => {
+                                    const rowId = row.id || row._id || rIdx;
+                                    return (
+                                      <tr key={`tbl_row_${rIdx}`} className="hover:bg-slate-900/50 transition">
+                                        {Object.keys(dbExplorerRows[0] || {}).slice(0, 7).map((col) => {
+                                          const val = row[col];
+                                          const displayVal = typeof val === 'object' ? JSON.stringify(val) : String(val ?? '');
+                                          return (
+                                            <td key={`${rIdx}_${col}`} className="p-2.5 text-[11px] truncate max-w-[200px]" title={displayVal}>
+                                              {displayVal}
+                                            </td>
+                                          );
+                                        })}
+                                        <td className="p-2.5 text-right whitespace-nowrap">
+                                          {row.id && (
+                                            <button
+                                              onClick={async () => {
+                                                if (confirm(`Delete row ID '${row.id}' from table '${dbExplorerSelectedTable}'?`)) {
+                                                  try {
+                                                    const res = await fetch(`/api/tables/${dbExplorerSelectedTable}/${row.id}`, { method: 'DELETE' });
+                                                    const resJson = await res.json();
+                                                    if (resJson.success) {
+                                                      triggerToast(`Row ${row.id} deleted!`, 'success');
+                                                      refreshDbExplorer(dbExplorerSelectedTable);
+                                                    } else {
+                                                      triggerToast(`Delete error: ${resJson.error}`, 'error');
+                                                    }
+                                                  } catch (e: any) {
+                                                    triggerToast(`Delete error: ${e?.message || e}`, 'error');
+                                                  }
+                                                }
+                                              }}
+                                              className="text-rose-400 hover:text-rose-300 font-bold hover:underline"
+                                            >
+                                              Delete
+                                            </button>
+                                          )}
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+
+                          {/* INSERT ROW JSON FORM */}
+                          <div className="border-t border-slate-800/80 pt-3 flex flex-col gap-2">
+                            <label className="text-xs font-mono font-bold text-amber-400 uppercase">
+                              ➕ Insert Row into '{dbExplorerSelectedTable}' (JSON Payload):
+                            </label>
+                            <textarea
+                              rows={3}
+                              value={dbExplorerNewRowJson}
+                              onChange={(e) => setDbExplorerNewRowJson(e.target.value)}
+                              className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-xs text-emerald-300 font-mono focus:outline-none focus:border-emerald-500"
+                              placeholder='{ "title": "Example", "status": "active" }'
+                            />
+                            <div className="flex justify-end">
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    const parsed = JSON.parse(dbExplorerNewRowJson);
+                                    const res = await fetch(`/api/tables/${dbExplorerSelectedTable}/insert`, {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify(parsed)
+                                    });
+                                    const resJson = await res.json();
+                                    if (resJson.success) {
+                                      triggerToast(`Successfully inserted row into '${dbExplorerSelectedTable}'!`, 'success');
+                                      refreshDbExplorer(dbExplorerSelectedTable);
+                                    } else {
+                                      triggerToast(`Insert failed: ${resJson.error}`, 'error');
+                                    }
+                                  } catch (err: any) {
+                                    triggerToast(`Invalid JSON format: ${err?.message || err}`, 'error');
+                                  }
+                                }}
+                                className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-mono font-black text-xs rounded-lg transition shadow cursor-pointer"
+                              >
+                                Insert Record into {dbExplorerSelectedTable}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ADMIN PANEL FORM: DYNAMIC POSTER BULLETINS */}
                     {currentUser.role === 'admin' && showAdminForm && (
                       <div className="bg-slate-900/95 border-2 border-amber-500/30 p-5 rounded-2xl flex flex-col gap-4 animate-fadeIn">
                         <div className="border-b border-slate-800 pb-2">
@@ -2423,7 +2706,7 @@ export default function CustomerPortal({
                 const isCodeUnlocked = associatedCode ? isAlreadyUnlocked(associatedCode.id) : false;
                 const isPremium = associatedCode?.access_level === 'premium';
                 
-                const bookmakerSlug = associatedCode?.bookmaker_id.replace('bm-', '').toLowerCase() || '';
+                const bookmakerSlug = (associatedCode?.bookmaker_id || '').replace('bm-', '').toLowerCase();
                 const hasComponentAccess = !isPremium || currentUser.role === 'admin' || (
                   activeSubscription && 
                   activeSubscription.status === 'active' &&
@@ -2695,18 +2978,20 @@ export default function CustomerPortal({
                             {/* Star Icon for favorite status toggle */}
                             <button
                               onClick={() => {
-                                const isFav = favoritesList.includes(activeMatch.id);
+                                if (!activeMatch?.id) return;
+                                const matchId = activeMatch.id;
+                                const isFav = favoritesList.includes(matchId);
                                 if (isFav) {
-                                  setFavoritesList(prev => prev.filter(id => id !== activeMatch.id));
+                                  setFavoritesList(prev => prev.filter(id => id !== matchId));
                                   triggerToast('Fixture removed from favorites!', 'info');
                                 } else {
-                                  setFavoritesList(prev => [...prev, activeMatch.id]);
+                                  setFavoritesList(prev => [...prev, matchId]);
                                   triggerToast('Fixture saved to your favorite pool codes!', 'success');
                                 }
                               }}
                               className="w-8 h-8 rounded-full hover:bg-slate-800 flex items-center justify-center transition-colors"
                             >
-                              <Star className={`w-4 h-4 ${favoritesList.includes(activeMatch.id) ? 'text-amber-400 fill-amber-400' : 'text-slate-400'}`} />
+                              <Star className={`w-4 h-4 ${activeMatch?.id && favoritesList.includes(activeMatch.id) ? 'text-amber-400 fill-amber-400' : 'text-slate-400'}`} />
                             </button>
                           </div>
 
@@ -5193,7 +5478,7 @@ export default function CustomerPortal({
                           <div className="border-2 border-emerald-600 text-emerald-700 p-2 text-center rounded uppercase select-none font-black font-mono text-[9px] tracking-wider bg-emerald-50/50 flex flex-col items-center">
                             <span>🛡️ VERIFIED LICENSED KEY</span>
                             <span className="text-[7.5px] font-normal text-slate-500 lowercase mt-0.5">
-                              id: fp-sec-{Math.random().toString(36).substring(2, 7)}-{currentUser.id.slice(0,4)}
+                              id: fp-sec-{Math.random().toString(36).substring(2, 7)}-{(currentUser?.id || 'guest').slice(0,4)}
                             </span>
                           </div>
                         )}
@@ -5215,7 +5500,7 @@ export default function CustomerPortal({
                         </div>
                         <div>
                           <span className="text-slate-400 block text-[9px] uppercase">COMPLIANCE CODE:</span>
-                          <span className="font-extrabold text-slate-900">SHA256:FPC-{currentUser.id.slice(0, 5).toUpperCase()}</span>
+                          <span className="font-extrabold text-slate-900">SHA256:FPC-{(currentUser?.id || 'guest').slice(0, 5).toUpperCase()}</span>
                         </div>
                       </div>
                     </div>
@@ -5328,7 +5613,7 @@ export default function CustomerPortal({
                     </p>
                     <div className="flex flex-col sm:flex-row items-center justify-between text-[8px] font-mono text-slate-400 mt-2 border-t border-slate-100 pt-2 gap-2">
                       <span>© 2026 FastPoolCodes Compliance & Decryption Syndicate.</span>
-                      <span>Verified Download Path: {currentUser.email} • fpc-user-key-{currentUser.id.slice(0,8)}</span>
+                      <span>Verified Download Path: {currentUser?.email} • fpc-user-key-{(currentUser?.id || 'guest').slice(0,8)}</span>
                     </div>
                   </div>
                 </div>

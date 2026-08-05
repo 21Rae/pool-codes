@@ -84,9 +84,7 @@ app.use((req, res, next) => {
     const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
 
     if (!supabaseUrl || !supabaseAnonKey) {
-      return res.status(500).json({ 
-        error: "Supabase connection parameters are missing or not configured in settings." 
-      });
+      return res.json({ success: true, table: 'blogs', data: [], message: 'Supabase credentials not configured' });
     }
 
     try {
@@ -94,11 +92,11 @@ app.use((req, res, next) => {
 
       // Fast-path: Query the standard 'blogs' table
       const fastRes = await supabase.from('blogs').select('*');
-      if (!fastRes.error && fastRes.data && fastRes.data.length > 0) {
+      if (!fastRes.error && Array.isArray(fastRes.data)) {
         return res.json({ success: true, table: 'blogs', data: fastRes.data });
       }
 
-      // Parallel scan fallback to identify alternative schema tables
+      // Parallel scan fallback to identify alternative schema tables if 'blogs' query errored
       const CANDIDATE_TABLES = [
         'blogs', 'blog', 'posts', 'post', 'articles', 'article',
         'news', 'updates', 'expert_blogs', 'sports_blog', 'analyses', 'analysis'
@@ -107,60 +105,105 @@ app.use((req, res, next) => {
       const results = await Promise.all(
         CANDIDATE_TABLES.map(async (tableName) => {
           try {
-            const res = await supabase.from(tableName).select('*');
-            return { tableName, res, error: null };
+            const r = await supabase.from(tableName).select('*');
+            return { tableName, res: r, error: null };
           } catch (err: any) {
             return { tableName, res: null, error: err };
           }
         })
       );
 
-      let chosenTable = '';
-      let successData: any = null;
-
       for (const { tableName, res } of results) {
-        if (res && !res.error && res.data && res.data.length > 0) {
-          chosenTable = tableName;
-          successData = res.data;
-          break;
+        if (res && !res.error && Array.isArray(res.data) && res.data.length > 0) {
+          return res.json({ success: true, table: tableName, data: res.data });
         }
       }
 
-      if (chosenTable && successData) {
-        return res.json({ success: true, table: chosenTable, data: successData });
-      }
-
-      // If no rows found are found in custom tables
+      // Return exact database state (0 rows if table is empty or blocked by RLS)
       return res.json({ success: true, table: 'blogs', data: [] });
     } catch (err: any) {
       console.error("Supabase proxy query failure:", err);
-      return res.status(500).json({ error: err?.message || String(err) });
+      return res.status(500).json({ success: false, error: err?.message || String(err), data: [] });
     }
   });
 
-  // API Route - Securely Query general tables from Supabase (bypassing Client SSL & Mixed Content blocks)
+  // API Route - Get all discovered tables from Supabase database
+  app.get("/api/database/tables", async (req, res) => {
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+    const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return res.status(500).json({ 
+        success: false, 
+        error: "Supabase connection parameters are missing or not configured in settings." 
+      });
+    }
+
+    try {
+      const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+      const CANDIDATE_TABLES = [
+        'blogs', 'blog', 'posts', 'articles', 'news', 'expert_blogs',
+        'users', 'profiles', 'accounts',
+        'livescores', 'live_scores', 'matches', 'fixtures', 'predictions',
+        'championship_results', 'championships',
+        'pool_codes', 'pool_results', 'pool_weeks', 'bookmakers',
+        'subscription_plans', 'user_subscriptions', 'notifications', 'user_downloads',
+        'bet9ja', 'betking', 'sportybet', 'msport', 'premierbet', 'betway', 'soccabet',
+        'coupons', 'bank_codes', 'bank_account_codes', 'settings', 'comments', 'subscriptions'
+      ];
+
+      const probeResults = await Promise.all(
+        CANDIDATE_TABLES.map(async (tableName) => {
+          try {
+            const { data, error, count } = await supabase.from(tableName).select('*', { count: 'exact' }).limit(3);
+            if (!error) {
+              return { 
+                name: tableName, 
+                exists: true, 
+                count: count ?? data?.length ?? 0, 
+                sample: data?.[0] || null,
+                error: null 
+              };
+            }
+            const isMissing = error.code === 'PGRST205' || error.message.includes('Could not find the table');
+            return { 
+              name: tableName, 
+              exists: !isMissing, 
+              count: 0, 
+              sample: null, 
+              error: error.message,
+              errorCode: error.code 
+            };
+          } catch (err: any) {
+            return { name: tableName, exists: false, count: 0, sample: null, error: err?.message || String(err) };
+          }
+        })
+      );
+
+      const activeTables = probeResults.filter(r => r.exists);
+      const missingTables = probeResults.filter(r => !r.exists).map(r => r.name);
+
+      return res.json({
+        success: true,
+        timestamp: new Date().toISOString(),
+        activeCount: activeTables.length,
+        activeTables,
+        missingTables
+      });
+    } catch (err: any) {
+      console.error("Database discovery route failed:", err);
+      return res.status(500).json({ success: false, error: err?.message || String(err) });
+    }
+  });
+
+  // API Route - Securely Query ANY table from Supabase (bypassing Client SSL & Restricted Whitelists)
   app.get("/api/tables/:tableName", async (req, res) => {
     const { tableName } = req.params;
-    const allowedTables = [
-      'users',
-      'subscription_plans',
-      'user_subscriptions',
-      'bookmakers',
-      'pool_weeks',
-      'pool_codes',
-      'pool_results',
-      'notifications',
-      'user_downloads',
-      'bet9ja',
-      'betking',
-      'sportybet',
-      'premierbet',
-      'betway',
-      'soccabet'
-    ];
 
-    if (!allowedTables.includes(tableName)) {
-      return res.status(400).json({ error: `Table '${tableName}' is restricted or invalid.` });
+    // Validate table name format to prevent SQL injection or path traversal
+    if (!tableName || !/^[a-zA-Z0-9_]+$/.test(tableName) || tableName.length > 64) {
+      return res.status(400).json({ success: false, error: `Invalid table name format '${tableName}'.` });
     }
 
     const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
@@ -168,21 +211,82 @@ app.use((req, res, next) => {
 
     if (!supabaseUrl || !supabaseAnonKey) {
       return res.status(500).json({ 
+        success: false, 
         error: "Supabase connection parameters are missing or not configured in settings." 
       });
     }
 
     try {
-      const { createClient } = await import("@supabase/supabase-js");
       const supabase = createClient(supabaseUrl, supabaseAnonKey);
-      const { data, error } = await supabase.from(tableName).select('*');
+      const { data, error, count } = await supabase.from(tableName).select('*', { count: 'exact' });
       if (error) {
-        return res.status(400).json({ error: error.message });
+        return res.status(400).json({ success: false, table: tableName, error: error.message, data: [] });
       }
-      return res.json({ data: data || [] });
+      return res.json({ success: true, table: tableName, count: count ?? data?.length ?? 0, data: data || [] });
     } catch (err: any) {
       console.error(`Supabase proxy query failure for table ${tableName}:`, err);
-      return res.status(500).json({ error: err?.message || String(err) });
+      return res.status(500).json({ success: false, table: tableName, error: err?.message || String(err), data: [] });
+    }
+  });
+
+  // API Route - Insert Row into ANY table in Supabase
+  app.post("/api/tables/:tableName/insert", async (req, res) => {
+    const { tableName } = req.params;
+    const rowPayload = req.body;
+
+    if (!tableName || !/^[a-zA-Z0-9_]+$/.test(tableName)) {
+      return res.status(400).json({ success: false, error: `Invalid table name format '${tableName}'.` });
+    }
+
+    if (!rowPayload || typeof rowPayload !== 'object' || Object.keys(rowPayload).length === 0) {
+      return res.status(400).json({ success: false, error: "Insert payload must be a non-empty JSON object." });
+    }
+
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+    const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return res.status(500).json({ success: false, error: "Supabase credentials missing." });
+    }
+
+    try {
+      const supabase = createClient(supabaseUrl, supabaseAnonKey);
+      const { data, error } = await supabase.from(tableName).insert([rowPayload]).select();
+      if (error) {
+        return res.status(400).json({ success: false, error: error.message });
+      }
+      return res.json({ success: true, table: tableName, data });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || String(err) });
+    }
+  });
+
+  // API Route - Delete Row from ANY table in Supabase by ID
+  app.delete("/api/tables/:tableName/:id", async (req, res) => {
+    const { tableName, id } = req.params;
+
+    if (!tableName || !/^[a-zA-Z0-9_]+$/.test(tableName)) {
+      return res.status(400).json({ success: false, error: `Invalid table name format '${tableName}'.` });
+    }
+
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+    const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return res.status(500).json({ success: false, error: "Supabase credentials missing." });
+    }
+
+    try {
+      const supabase = createClient(supabaseUrl, supabaseAnonKey);
+      const numId = Number(id);
+      let query = supabase.from(tableName).delete();
+      const { error } = await (isNaN(numId) ? query.eq('id', id) : query.eq('id', numId));
+      if (error) {
+        return res.status(400).json({ success: false, error: error.message });
+      }
+      return res.json({ success: true, table: tableName, deletedId: id });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || String(err) });
     }
   });
 
@@ -230,13 +334,37 @@ app.use((req, res, next) => {
 
     try {
       const supabase = createClient(supabaseUrl, supabaseAnonKey);
+      const cleanEmail = email.toLowerCase().trim();
+      const cleanUsername = username.toLowerCase().trim().replace(/\s+/g, '_');
 
+      // 1. Check if user already exists in the Supabase 'users' database table
+      try {
+        const { data: existingUser } = await supabase
+          .from('users')
+          .select('*')
+          .or(`email.eq.${cleanEmail},username.eq.${cleanUsername}`)
+          .maybeSingle();
+
+        if (existingUser) {
+          if (existingUser.status === 'suspended' || existingUser.status === 'banned') {
+            return res.status(400).json({ error: `Account '@${cleanUsername}' is suspended or banned. Please contact support.` });
+          }
+          if (existingUser.status === 'deleted') {
+            return res.status(400).json({ error: `An account with this username or email was previously deleted.` });
+          }
+          return res.status(400).json({ error: "An account with this username or email already exists. Please sign in instead." });
+        }
+      } catch (chkErr) {
+        console.warn("User existence check warning:", chkErr);
+      }
+
+      // 2. Perform Supabase Auth registration
       const { data, error } = await supabase.auth.signUp({
-        email: email,
+        email: cleanEmail,
         password: password,
         options: {
           data: {
-            username: username
+            username: cleanUsername
           }
         }
       });
@@ -248,15 +376,16 @@ app.use((req, res, next) => {
       const su = data.user;
       if (su) {
         try {
-          await supabase.from('users').insert([{
+          await supabase.from('users').upsert([{
             id: su.id,
-            username: username,
-            email: email,
+            username: cleanUsername,
+            email: cleanEmail,
             role: 'user',
-            status: 'active'
-          }]);
+            status: 'active',
+            created_at: new Date().toISOString()
+          }], { onConflict: 'id' });
         } catch (dbErr) {
-          console.warn("Silent profile insert bypass (database table missing, falling back):", dbErr);
+          console.warn("Profile table upsert warning:", dbErr);
         }
       }
 
@@ -283,24 +412,38 @@ app.use((req, res, next) => {
     try {
       const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-      let targetEmail = emailOrUsername.trim();
+      let targetInput = emailOrUsername.trim().toLowerCase();
+      let targetEmail = targetInput;
+
+      // Check user record in 'users' database table first
+      let matchedRecord: any = null;
+      try {
+        const { data: matchedRecords } = await supabase
+          .from('users')
+          .select('*')
+          .or(`email.eq.${targetInput},username.eq.${targetInput}`)
+          .maybeSingle();
+
+        if (matchedRecords) {
+          matchedRecord = matchedRecords;
+          if (matchedRecords.email) {
+            targetEmail = matchedRecords.email;
+          }
+        }
+      } catch (_) {}
+
+      // Reject if account status is suspended, banned, or deleted
+      if (matchedRecord) {
+        if (matchedRecord.status === 'suspended' || matchedRecord.status === 'banned') {
+          return res.status(403).json({ error: "Your account is suspended or banned. Please contact support." });
+        }
+        if (matchedRecord.status === 'deleted') {
+          return res.status(403).json({ error: "This account has been deleted and is no longer active." });
+        }
+      }
 
       if (!targetEmail.includes('@')) {
-        try {
-          const { data: matchedRecords } = await supabase
-            .from('users')
-            .select('email')
-            .eq('username', targetEmail.toLowerCase())
-            .maybeSingle();
-
-          if (matchedRecords?.email) {
-            targetEmail = matchedRecords.email;
-          } else {
-            targetEmail = `${targetEmail}@example.com`;
-          }
-        } catch (_) {
-          targetEmail = `${targetEmail}@example.com`;
-        }
+        targetEmail = `${targetEmail}@example.com`;
       }
 
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -310,6 +453,26 @@ app.use((req, res, next) => {
 
       if (error) {
         return res.status(400).json({ error: error.message });
+      }
+
+      // Re-verify after authentication that account was not deleted or suspended
+      if (data.user) {
+        try {
+          const { data: postAuthCheck } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', data.user.id)
+            .maybeSingle();
+
+          if (postAuthCheck) {
+            if (postAuthCheck.status === 'suspended' || postAuthCheck.status === 'banned') {
+              return res.status(403).json({ error: "Account is suspended. Access denied." });
+            }
+            if (postAuthCheck.status === 'deleted') {
+              return res.status(403).json({ error: "Account has been deleted. Access denied." });
+            }
+          }
+        } catch (_) {}
       }
 
       return res.json({ success: true, user: data.user, session: data.session });
@@ -330,8 +493,9 @@ app.use((req, res, next) => {
 
   let liveScores: LiveScoreMatch[] = [];
 
-  let globalLog: string[] = ["Server booted. Live scores system initialized."];
+  let globalLog: string[] = ["Server booted. Live scores system initialized (Agent stopped)."];
   let isCheckingLiveScores = false;
+  let isLivescoreAgentStopped = true;
 
   const getSupabase = async () => {
     const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
@@ -667,6 +831,7 @@ app.use((req, res, next) => {
   }
 
   async function updateLiveScoresInternal(forceAll: boolean = false) {
+    if (isLivescoreAgentStopped && !forceAll) return;
     if (isCheckingLiveScores) return;
     isCheckingLiveScores = true;
 
@@ -1163,8 +1328,28 @@ Format exactly as this JSON schema (NO markdown blocks, NO \`\`\`json):
       success: true,
       matches: uniqueMatches,
       logs: globalLog,
-      isChecking: isCheckingLiveScores
+      isChecking: isCheckingLiveScores,
+      agentActive: !isLivescoreAgentStopped
     });
+  });
+
+  app.get("/api/livescores/agent/status", (req, res) => {
+    res.json({ success: true, active: !isLivescoreAgentStopped });
+  });
+
+  app.post("/api/livescores/agent/stop", (req, res) => {
+    isLivescoreAgentStopped = true;
+    const timestamp = new Date().toLocaleTimeString();
+    globalLog.unshift(`[${timestamp}] 🛑 LiveScore AI Agent STOPPED by request.`);
+    res.json({ success: true, active: false, message: "Livescore AI Agent has been stopped." });
+  });
+
+  app.post("/api/livescores/agent/start", (req, res) => {
+    isLivescoreAgentStopped = false;
+    const timestamp = new Date().toLocaleTimeString();
+    globalLog.unshift(`[${timestamp}] ▶️ LiveScore AI Agent STARTED by request.`);
+    updateLiveScoresInternal(true).catch(e => console.error("Agent start update error:", e));
+    res.json({ success: true, active: true, message: "Livescore AI Agent has been started." });
   });
 
   app.post("/api/livescores", async (req, res) => {

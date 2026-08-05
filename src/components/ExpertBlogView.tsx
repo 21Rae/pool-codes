@@ -30,6 +30,22 @@ import {
 } from 'lucide-react';
 import { getSupabaseClient } from '../lib/supabase';
 
+const FALLBACK_BLOG_IMAGES = [
+  'https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1518091043644-c1d4457512c6?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1551958219-acbc608c6377?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1579952363873-27f3bade9f55?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1517466787929-bc90951d0974?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1522778119026-d647f0596c20?auto=format&fit=crop&w=800&q=80'
+];
+
+function getBlogImage(post?: any, index: number = 0) {
+  if (post && post.image_url && typeof post.image_url === 'string' && post.image_url.trim() !== '') {
+    return post.image_url;
+  }
+  return FALLBACK_BLOG_IMAGES[index % FALLBACK_BLOG_IMAGES.length];
+}
+
 interface ExpertBlogViewProps {
   blogPosts: Array<{
     id: string;
@@ -115,6 +131,73 @@ export default function ExpertBlogView({
   const [selectedResultId, setSelectedResultId] = useState<string>('');
   const [resultsSearchQuery, setResultsSearchQuery] = useState('');
   const [resultsTableSearch, setResultsTableSearch] = useState('');
+
+  // Publishing to Supabase state
+  const [newArticleTitle, setNewArticleTitle] = useState('FastPoolCodes Weekly Key Analysis & Draw Predictions');
+  const [newArticleSummary, setNewArticleSummary] = useState('Official weekly codes and perming breakdown for Aussie and UK pool coupons.');
+  const [newArticleContent, setNewArticleContent] = useState('Detailed perming breakdown and key selections for the upcoming weekend fixtures. Verify all coupon numbers before placing bets.');
+  const [isPublishingArticle, setIsPublishingArticle] = useState(false);
+  const [publishResult, setPublishResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  const handlePublishArticleToSupabase = async () => {
+    if (!newArticleTitle.trim() || !newArticleSummary.trim()) {
+      triggerToast('Please provide a title and summary', 'error');
+      return;
+    }
+    setIsPublishingArticle(true);
+    setPublishResult(null);
+
+    try {
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        setPublishResult({
+          success: false,
+          message: 'Supabase credentials are not configured in .env / secrets.'
+        });
+        setIsPublishingArticle(false);
+        return;
+      }
+
+      const newRow = {
+        title: newArticleTitle.trim(),
+        summary: newArticleSummary.trim(),
+        content: newArticleContent.trim(),
+        image_url: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=800&q=80',
+        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        read_time: '4 min read'
+      };
+
+      const { data, error } = await supabase.from('blogs').insert([newRow]).select();
+
+      if (error) {
+        console.error('Direct insert error:', error);
+        let errDetail = error.message;
+        if (error.code === '42501' || error.message?.includes('row-level security')) {
+          errDetail += '\n\n💡 REASON: Row Level Security (RLS) is blocking inserts for anonymous users on table "blogs".\nRun this in Supabase SQL Editor:\nALTER TABLE public.blogs DISABLE ROW LEVEL SECURITY;\nOR add an INSERT policy: CREATE POLICY "Allow inserts" ON public.blogs FOR INSERT WITH CHECK (true);';
+        }
+        setPublishResult({
+          success: false,
+          message: `❌ Insert Failed:\n${errDetail}`
+        });
+      } else {
+        setPublishResult({
+          success: true,
+          message: `✅ Success! Published 1 new article to your Supabase "blogs" table.`
+        });
+        triggerToast('Article published to Supabase!', 'success');
+        if (onRefreshBlogs) {
+          onRefreshBlogs();
+        }
+      }
+    } catch (err: any) {
+      setPublishResult({
+        success: false,
+        message: `❌ Exception: ${err.message || String(err)}`
+      });
+    } finally {
+      setIsPublishingArticle(false);
+    }
+  };
 
   useEffect(() => {
     const handleSync = (e: any) => {
@@ -343,16 +426,15 @@ export default function ExpertBlogView({
                 >
                   {/* High Quality Abstract Stadium Banner Representation */}
                   <div className="h-72 w-full relative bg-gradient-to-br from-indigo-900 via-neutral-900 to-emerald-900 overflow-hidden">
-                    {blogPosts[0].image_url ? (
-                      <img 
-                        src={blogPosts[0].image_url} 
-                        alt={blogPosts[0].title}
-                        referrerPolicy="no-referrer"
-                        className="w-full h-full object-cover absolute inset-0 transition-transform duration-500 group-hover:scale-105"
-                      />
-                    ) : (
-                      <div className="absolute inset-0 opacity-20 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]"></div>
-                    )}
+                    <img 
+                      src={getBlogImage(blogPosts[0], 0)} 
+                      alt={blogPosts[0].title}
+                      referrerPolicy="no-referrer"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).src = FALLBACK_BLOG_IMAGES[0];
+                      }}
+                      className="w-full h-full object-cover absolute inset-0 transition-transform duration-500 group-hover:scale-105"
+                    />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent"></div>
                     
                     {/* Floating verified badge */}
@@ -364,16 +446,15 @@ export default function ExpertBlogView({
                     <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-white">
                       <div className="flex items-center gap-2">
                         <span className="bg-emerald-500 text-slate-950 text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-wide">
-                          AUSSIE SPECIAL
+                          ARTICLE
                         </span>
-                        <span className="text-neutral-300 text-[10px] font-bold">WEEK 49 CODES INSTANT</span>
+                        <span className="text-neutral-300 text-[10px] font-bold">{blogPosts[0].date}</span>
                       </div>
-                      <span className="text-[10px] text-zinc-300 font-mono font-bold">12h • Mikhail de Guzman</span>
                     </div>
                   </div>
 
                   {/* Body textual block */}
-                  <div className="p-5 space-y-2.5">
+                  <div className="p-5 space-y-2.5 text-left">
                     <h2 className="font-sans font-black text-zinc-900 text-xl md:text-2xl tracking-tight leading-tight group-hover:text-[#fa3e65] transition">
                       {blogPosts[0].title}
                     </h2>
@@ -383,7 +464,7 @@ export default function ExpertBlogView({
                     <div className="pt-2 flex items-center justify-between text-[11px] font-bold text-zinc-500">
                       <div className="flex items-center gap-3">
                         <span className="flex items-center gap-1 hover:text-zinc-800">
-                          <BookOpen className="w-3.5 h-3.5" /> Read Full Analysis
+                          <BookOpen className="w-3.5 h-3.5" /> Read Full Article
                         </span>
                         <span>•</span>
                         <span className="text-rose-500 font-black">{blogPosts[0].readTime}</span>
@@ -401,31 +482,26 @@ export default function ExpertBlogView({
                 </div>
               )}
 
-              {/* CARD 2: HIGHLIGHT SECTION 1 (AUSSIE GRAPHICS CARD) */}
+              {/* CARD 2: HIGHLIGHT SECTION 1 */}
               {blogPosts[1] && (
                 <div 
                   onClick={() => onReadArticle(blogPosts[1])}
                   className="bg-white border border-zinc-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition cursor-pointer grid grid-cols-1 md:grid-cols-12 group"
                 >
                   <div className="md:col-span-5 h-48 md:h-full relative bg-gradient-to-br from-[#0c243c] via-black to-[#fa3e65]/40 overflow-hidden">
-                    {blogPosts[1].image_url ? (
-                      <img 
-                        src={blogPosts[1].image_url} 
-                        alt={blogPosts[1].title}
-                        referrerPolicy="no-referrer"
-                        className="w-full h-full object-cover absolute inset-0 transition-transform duration-500 group-hover:scale-105"
-                      />
-                    ) : null}
+                    <img 
+                      src={getBlogImage(blogPosts[1], 1)} 
+                      alt={blogPosts[1].title}
+                      referrerPolicy="no-referrer"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).src = FALLBACK_BLOG_IMAGES[1];
+                      }}
+                      className="w-full h-full object-cover absolute inset-0 transition-transform duration-500 group-hover:scale-105"
+                    />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent md:bg-gradient-to-r md:from-transparent md:to-black/30"></div>
-                    <div className="absolute top-3 left-3 bg-[#111] text-white text-[9px] font-black px-2 py-0.5 rounded border border-neutral-700">
-                      UK SPECIAL W49
-                    </div>
                   </div>
                   <div className="md:col-span-7 p-5 flex flex-col justify-between text-left space-y-3">
                     <div className="space-y-1.5">
-                      <span className="font-extrabold text-[10px] uppercase text-[#fa3e65] tracking-widest block font-mono">
-                        ⚽ UK FOOTBALL POOLS DECRYPTED
-                      </span>
                       <h3 className="font-black text-zinc-900 text-base leading-snug group-hover:text-[#fa3e65] transition">
                         {blogPosts[1].title}
                       </h3>
@@ -434,7 +510,7 @@ export default function ExpertBlogView({
                       </p>
                     </div>
                     <div className="flex items-center justify-between text-[10px] font-bold text-zinc-400">
-                      <span>1d • Mikhail de Guzman</span>
+                      <span>{blogPosts[1].date}</span>
                       <div className="flex items-center gap-2.5">
                         <span className="text-[#fa3e65] font-black">{blogPosts[1].readTime}</span>
                         <button
@@ -451,31 +527,26 @@ export default function ExpertBlogView({
                 </div>
               )}
 
-              {/* CARD 3: SPOTLIGHT SECTION 2 (NIGERIA SPOTLIGHT CARD) */}
+              {/* CARD 3: SPOTLIGHT SECTION 2 */}
               {blogPosts[2] && (
                 <div 
                   onClick={() => onReadArticle(blogPosts[2])}
                   className="bg-white border border-zinc-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition cursor-pointer grid grid-cols-1 md:grid-cols-12 group"
                 >
                   <div className="md:col-span-5 h-48 md:h-full relative bg-gradient-to-br from-[#024424] via-black to-slate-900 overflow-hidden">
-                    {blogPosts[2].image_url ? (
-                      <img 
-                        src={blogPosts[2].image_url} 
-                        alt={blogPosts[2].title}
-                        referrerPolicy="no-referrer"
-                        className="w-full h-full object-cover absolute inset-0 transition-transform duration-500 group-hover:scale-105"
-                      />
-                    ) : null}
+                    <img 
+                      src={getBlogImage(blogPosts[2], 2)} 
+                      alt={blogPosts[2].title}
+                      referrerPolicy="no-referrer"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).src = FALLBACK_BLOG_IMAGES[2];
+                      }}
+                      className="w-full h-full object-cover absolute inset-0 transition-transform duration-500 group-hover:scale-105"
+                    />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent md:bg-gradient-to-r md:from-transparent md:to-black/30"></div>
-                    <div className="absolute top-3 left-3 bg-emerald-500 text-slate-950 text-[9px] font-black px-1.5 py-0.5 rounded">
-                      VERIFIED REWARD
-                    </div>
                   </div>
                   <div className="md:col-span-7 p-5 flex flex-col justify-between text-left space-y-3">
                     <div className="space-y-1.5">
-                      <span className="font-extrabold text-[10px] uppercase text-emerald-600 tracking-widest block font-mono">
-                        ⚡ WEST AFRICAN CUP TIPS
-                      </span>
                       <h3 className="font-black text-zinc-900 text-base leading-snug group-hover:text-emerald-600 transition">
                         {blogPosts[2].title}
                       </h3>
@@ -484,7 +555,7 @@ export default function ExpertBlogView({
                       </p>
                     </div>
                     <div className="flex items-center justify-between text-[10px] font-bold text-zinc-400">
-                      <span>11h • Miguel Alfonso Caramoan</span>
+                      <span>{blogPosts[2].date}</span>
                       <div className="flex items-center gap-2.5">
                         <span className="text-emerald-600 font-black">{blogPosts[2].readTime}</span>
                         <button
@@ -501,29 +572,26 @@ export default function ExpertBlogView({
                 </div>
               )}
 
-              {/* CARD 4: FINAL BULK OVERLAY COVER CARD */}
+              {/* CARD 4: OVERLAY COVER CARD */}
               {blogPosts[3] && (
                 <div 
                   onClick={() => onReadArticle(blogPosts[3])}
                   className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden relative shadow-lg hover:shadow-xl transition h-72 cursor-pointer group flex flex-col justify-end"
                 >
-                  {/* Decorative stadium gradient underlay */}
                   <div className="absolute inset-0 bg-gradient-to-br from-[#fa3e65]/35 via-zinc-950 to-emerald-950/20 z-0 overflow-hidden">
-                    {blogPosts[3].image_url ? (
-                      <img 
-                        src={blogPosts[3].image_url} 
-                        alt={blogPosts[3].title}
-                        referrerPolicy="no-referrer"
-                        className="w-full h-full object-cover absolute inset-0 transition-transform duration-500 group-hover:scale-105 opacity-40"
-                      />
-                    ) : null}
+                    <img 
+                      src={getBlogImage(blogPosts[3], 3)} 
+                      alt={blogPosts[3].title}
+                      referrerPolicy="no-referrer"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).src = FALLBACK_BLOG_IMAGES[3];
+                      }}
+                      className="w-full h-full object-cover absolute inset-0 transition-transform duration-500 group-hover:scale-105 opacity-40"
+                    />
                   </div>
                   <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent z-10"></div>
                   
                   <div className="p-6 relative z-20 space-y-2 text-left">
-                    <span className="bg-amber-400 text-slate-950 text-[8.5px] font-black px-2 py-0.5 rounded uppercase tracking-wider block w-fit">
-                      FORECAST TRENDING
-                    </span>
                     <h3 className="text-white font-black text-lg md:text-xl leading-snug group-hover:text-amber-300 transition">
                       {blogPosts[3].title}
                     </h3>
@@ -531,7 +599,7 @@ export default function ExpertBlogView({
                       {blogPosts[3].summary}
                     </p>
                     <div className="pt-2 flex items-center justify-between text-[10px] font-bold text-zinc-400 font-mono">
-                      <span>14d • Miguel Alfonso Caramoan</span>
+                      <span>{blogPosts[3].date}</span>
                       <div className="flex items-center gap-2.5">
                         <span className="text-amber-400 font-black">{blogPosts[3].readTime}</span>
                         <button
@@ -544,6 +612,43 @@ export default function ExpertBlogView({
                         </button>
                       </div>
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {/* CARD 5+: ADDITIONAL ARTICLES LIST IF MORE THAN 4 EXIST */}
+              {blogPosts.length > 4 && (
+                <div className="space-y-4 pt-4 border-t border-zinc-200">
+                  <h4 className="font-sans font-black text-xs text-zinc-800 uppercase tracking-wider text-left flex items-center gap-2">
+                    <BookOpen className="w-4 h-4 text-indigo-600" />
+                    <span>More Published Articles ({blogPosts.length - 4})</span>
+                  </h4>
+                  <div className="grid grid-cols-1 gap-3">
+                    {blogPosts.slice(4).map((post, idx) => (
+                      <div
+                        key={post.id || idx}
+                        onClick={() => onReadArticle(post)}
+                        className="bg-white border border-zinc-200 rounded-lg p-4 shadow-xs hover:shadow-md transition cursor-pointer flex items-center justify-between gap-4 group text-left"
+                      >
+                        <div className="space-y-1">
+                          <h5 className="font-black text-sm text-zinc-900 group-hover:text-indigo-600 transition leading-snug">
+                            {post.title}
+                          </h5>
+                          <p className="text-zinc-500 text-xs line-clamp-2 leading-relaxed">
+                            {post.summary}
+                          </p>
+                          <span className="text-[10px] text-zinc-400 font-bold block pt-1">
+                            {post.date} • {post.readTime}
+                          </span>
+                        </div>
+                        <button
+                          onClick={(e) => handleSharePost(post, e)}
+                          className="px-2.5 py-1.5 bg-zinc-100 hover:bg-indigo-50 hover:text-indigo-600 text-zinc-600 rounded text-[10px] font-black uppercase border border-zinc-200 shrink-0 transition"
+                        >
+                          Share
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
@@ -637,6 +742,81 @@ export default function ExpertBlogView({
                           </div>
                         </div>
 
+                        {/* Direct Article Publisher / Supabase Insert Tester */}
+                        <div className="bg-emerald-50/60 border border-emerald-200 rounded-lg p-4 space-y-3.5 shadow-sm text-left font-sans">
+                          <div className="flex items-center justify-between border-b border-emerald-200 pb-2">
+                            <span className="text-emerald-950 font-black tracking-wider uppercase text-[11px] flex items-center gap-1.5">
+                              <span>✍️ Direct Test Article Publisher</span>
+                            </span>
+                            <span className="text-[9px] bg-emerald-100 text-emerald-800 font-extrabold px-2 py-0.5 rounded tracking-wider uppercase">
+                              In-App Inserter
+                            </span>
+                          </div>
+                          <p className="text-[10.5px] text-zinc-600 font-medium leading-relaxed">
+                            Publish a test article directly into your Supabase <code className="bg-white px-1 py-0.5 rounded border border-emerald-200 font-mono text-emerald-800 font-bold">blogs</code> table right now. If your RLS policy blocks it, you'll see the exact error message instantly!
+                          </p>
+
+                          <div className="space-y-2.5">
+                            <div>
+                              <label className="block text-[10px] font-black uppercase text-zinc-700 mb-1">
+                                Article Title
+                              </label>
+                              <input 
+                                type="text" 
+                                value={newArticleTitle}
+                                onChange={(e) => setNewArticleTitle(e.target.value)}
+                                placeholder="Enter title..."
+                                className="w-full bg-white border border-emerald-200 rounded px-3 py-1.5 text-xs text-zinc-800 font-medium focus:outline-none focus:border-emerald-500 shadow-xs"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-[10px] font-black uppercase text-zinc-700 mb-1">
+                                Summary / Excerpt
+                              </label>
+                              <input 
+                                type="text" 
+                                value={newArticleSummary}
+                                onChange={(e) => setNewArticleSummary(e.target.value)}
+                                placeholder="Enter short summary..."
+                                className="w-full bg-white border border-emerald-200 rounded px-3 py-1.5 text-xs text-zinc-800 font-medium focus:outline-none focus:border-emerald-500 shadow-xs"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-[10px] font-black uppercase text-zinc-700 mb-1">
+                                Full Article Content
+                              </label>
+                              <textarea 
+                                rows={2}
+                                value={newArticleContent}
+                                onChange={(e) => setNewArticleContent(e.target.value)}
+                                placeholder="Enter full body text..."
+                                className="w-full bg-white border border-emerald-200 rounded px-3 py-1.5 text-xs text-zinc-800 font-medium focus:outline-none focus:border-emerald-500 shadow-xs"
+                              />
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={handlePublishArticleToSupabase}
+                              disabled={isPublishingArticle}
+                              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs py-2 rounded transition shadow-sm uppercase tracking-wider disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
+                            >
+                              <span>{isPublishingArticle ? 'Publishing to Supabase...' : '🚀 Publish Article to Supabase'}</span>
+                            </button>
+
+                            {publishResult && (
+                              <div className={`p-3 rounded font-mono text-[10.5px] whitespace-pre-wrap leading-relaxed border shadow-xs ${
+                                publishResult.success 
+                                  ? 'bg-emerald-950 text-emerald-200 border-emerald-800' 
+                                  : 'bg-rose-950 text-rose-200 border-rose-800'
+                              }`}>
+                                {publishResult.message}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
                         {/* Interactive custom table name checker */}
                         <div className="bg-white border border-zinc-200 rounded-lg p-4 space-y-3 shadow-inner">
                           <label className="block text-xs font-black uppercase text-zinc-700 tracking-wider font-sans">
@@ -700,7 +880,7 @@ VALUES (
     'FastPoolCodes Aussie draw strategy & tie combinations',
     'Expert tips for decoding Sydney & Melbourne home team tie parameters with premium bookmaker odds calculations.',
     'Aussie Weekly pools sequence relies on balanced odds matching. Sydney and Melbourne home drawers usually hold a 45% draw average when the home handicap stands exactly at 1.50 goals. Aligning your perms accordingly is crucial.',
-    'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=800&q=80',
+    'https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=800&q=80',
     '6 min read'
 );`}
                             </pre>
@@ -730,7 +910,7 @@ VALUES (
     'FastPoolCodes Aussie draw strategy & tie combinations',
     'Expert tips for decoding Sydney & Melbourne home team tie parameters with premium bookmaker odds calculations.',
     'Aussie Weekly pools sequence relies on balanced odds matching. Sydney and Melbourne home drawers usually hold a 45% draw average when the home handicap stands exactly at 1.50 goals. Aligning your perms accordingly is crucial.',
-    'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=800&q=80',
+    'https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=800&q=80',
     '6 min read'
 );`}
                             </pre>
@@ -955,16 +1135,15 @@ INSERT INTO public.championship_results (
                         className="bg-white border border-zinc-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition cursor-pointer group flex flex-col justify-between"
                       >
                         <div className="h-44 relative bg-gradient-to-br from-indigo-950 via-zinc-950 to-emerald-950 overflow-hidden">
-                          {post.image_url ? (
-                            <img 
-                              src={post.image_url} 
-                              alt={post.title}
-                              referrerPolicy="no-referrer"
-                              className="w-full h-full object-cover absolute inset-0 transition-transform duration-500 group-hover:scale-105"
-                            />
-                          ) : (
-                            <div className="absolute inset-0 opacity-20 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:12px_12px]"></div>
-                          )}
+                          <img 
+                            src={getBlogImage(post, idx + 4)} 
+                            alt={post.title}
+                            referrerPolicy="no-referrer"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).src = FALLBACK_BLOG_IMAGES[(idx + 4) % FALLBACK_BLOG_IMAGES.length];
+                            }}
+                            className="w-full h-full object-cover absolute inset-0 transition-transform duration-500 group-hover:scale-105"
+                          />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
                           <div className="absolute bottom-3 left-3 bg-zinc-950 border border-zinc-800 text-white text-[8px] font-mono font-bold px-2 py-0.5 rounded tracking-widest uppercase">
                             ANALYSIS #{idx + 5}

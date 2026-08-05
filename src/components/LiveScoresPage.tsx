@@ -18,6 +18,7 @@ import {
   Calendar
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { getSupabaseClient } from '../lib/supabase';
 
 interface LiveScoresPageProps {
   currentUser: any;
@@ -35,6 +36,7 @@ export default function LiveScoresPage({
   const [liveScoresData, setLiveScoresData] = useState<any[]>([]);
   const [liveLogData, setLiveLogData] = useState<string[]>([]);
   const [isCheckingLive, setIsCheckingLive] = useState(false);
+  const [isAgentActive, setIsAgentActive] = useState(false);
   const [homeTeam, setHomeTeam] = useState("");
   const [awayTeam, setAwayTeam] = useState("");
   const [homeScore, setHomeScore] = useState(0);
@@ -57,16 +59,71 @@ export default function LiveScoresPage({
         setLiveScoresData(json.matches || []);
         setLiveLogData(json.logs || []);
         setIsCheckingLive(json.isChecking || false);
+        setIsAgentActive(json.agentActive || false);
       }
     } catch (err) {
       console.warn("Graceful notice: Live scores not yet loaded in stand-alone page (standard behavior).");
     }
   };
 
+  const handleStopAgent = async () => {
+    try {
+      const res = await fetch("/api/livescores/agent/stop", { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        setIsAgentActive(false);
+        triggerToast("LiveScore AI Agent has been stopped 🛑", "info");
+        fetchLiveScores();
+      }
+    } catch (err: any) {
+      triggerToast(err?.message || "Failed to stop agent", "error");
+    }
+  };
+
+  const handleStartAgent = async () => {
+    try {
+      const res = await fetch("/api/livescores/agent/start", { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        setIsAgentActive(true);
+        triggerToast("LiveScore AI Agent has been started ▶️", "success");
+        fetchLiveScores();
+      }
+    } catch (err: any) {
+      triggerToast(err?.message || "Failed to start agent", "error");
+    }
+  };
+
   useEffect(() => {
     fetchLiveScores();
-    const interval = setInterval(fetchLiveScores, 10000); // UI poll fast every 10 seconds
-    return () => clearInterval(interval);
+    const interval = setInterval(fetchLiveScores, 5000); // UI fast poll every 5 seconds
+
+    const supabase = getSupabaseClient();
+    let channel: any = null;
+    if (supabase) {
+      try {
+        channel = supabase
+          .channel('realtime-livescores')
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'livescores' },
+            () => { fetchLiveScores(); }
+          )
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'live_scores' },
+            () => { fetchLiveScores(); }
+          )
+          .subscribe();
+      } catch (_) {}
+    }
+
+    return () => {
+      clearInterval(interval);
+      if (supabase && channel) {
+        try { supabase.removeChannel(channel); } catch (_) {}
+      }
+    };
   }, []);
 
   const handleAddMatch = async (e: React.FormEvent) => {
@@ -198,13 +255,35 @@ export default function LiveScoresPage({
             </div>
           </div>
 
-          <button
-            onClick={onBack}
-            className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-emerald-400 hover:text-emerald-300 bg-emerald-950/30 hover:bg-emerald-900/40 border border-emerald-500/20 hover:border-emerald-500/40 px-5 py-3 rounded-xl transition duration-150 cursor-pointer group active:scale-95 text-center font-mono self-start md:self-auto"
-          >
-            <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
-            <span>{isInsidePortal ? 'Return to Portal' : 'Return to Home'}</span>
-          </button>
+          <div className="flex flex-wrap items-center gap-3 self-start md:self-auto">
+            {isAgentActive ? (
+              <button
+                onClick={handleStopAgent}
+                id="stop-livescore-agent-btn"
+                className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-rose-300 hover:text-rose-200 bg-rose-950/40 hover:bg-rose-900/60 border border-rose-500/30 px-4 py-2.5 rounded-xl transition duration-150 cursor-pointer active:scale-95 font-mono shadow-lg"
+              >
+                <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+                <span>Stop Agent 🛑</span>
+              </button>
+            ) : (
+              <button
+                onClick={handleStartAgent}
+                id="start-livescore-agent-btn"
+                className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-emerald-300 hover:text-emerald-200 bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-500/30 px-4 py-2.5 rounded-xl transition duration-150 cursor-pointer active:scale-95 font-mono shadow-lg"
+              >
+                <span className="w-2 h-2 rounded-full bg-slate-400" />
+                <span>Start Agent ▶️</span>
+              </button>
+            )}
+
+            <button
+              onClick={onBack}
+              className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-emerald-400 hover:text-emerald-300 bg-emerald-950/30 hover:bg-emerald-900/40 border border-emerald-500/20 hover:border-emerald-500/40 px-5 py-3 rounded-xl transition duration-150 cursor-pointer group active:scale-95 text-center font-mono"
+            >
+              <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+              <span>{isInsidePortal ? 'Return to Portal' : 'Return to Home'}</span>
+            </button>
+          </div>
         </div>
 
         {/* ADMIN CONTROL SECTION */}

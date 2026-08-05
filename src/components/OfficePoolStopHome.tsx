@@ -47,51 +47,29 @@ interface OfficePoolStopHomeProps {
   onOpenTerms?: () => void;
 }
 
-const staticBlogPosts = [
-  {
-    id: 'blog-1',
-    title: 'Aussie Pools 2026 Season: Keys to Decrypting Major Fixture Draws',
-    summary: 'FastPoolCodes has unlocked full-season decoder keys. Aussie coupon sheets and major bookmaker feeds have been registered. Our upgraded calculation engine computes maximum double-chance combinations instantly.',
-    content: `Let's make football pool perming effortless. Our Aussie Pool Decryptor gives players total control over their coupon selections, sequences, and confidence weights. Whether you are placing a 3-draw perm or a long-stretch 10-match slip, our verified key sequence renders clearly cross-device.\n\nKey features include group-by-bookmaker codes, live draw result comparison, unauthenticated preview boards, and integration with top bookies to update winner tables immediately. Experience why serious coupon players trust FastPoolCodes.`,
-    date: 'June 8, 2026',
-    readTime: '3 min read'
-  },
-  {
-    id: 'blog-2',
-    title: 'Are You Ready for the 2026 UK Football Pools Season?',
-    summary: 'Are you prepared to check verified weekly codes? Yes! We have launched substantial code pipeline upgrades to deliver weekly forecast numbers with zero delay.',
-    content: `The 2026 UK Football Pools are shaping up to be legendary, and our forecasting team has been run-testing data streams to deliver error-free codes. This year, we are proud to launch predictive margin filters and automated odds integration.\n\nPlayers now have instant access to custom filters to locate the highest-vibe key numbers, track draw probabilities, and generate clean perming slips. Experience our zero-latency coupon decryptor and watch your predictions match afternoon results!`,
-    date: 'June 1, 2026',
-    readTime: '5 min read'
-  },
-  {
-    id: 'blog-3',
-    title: 'Double-Chance Perming: Maximize Return on Aussie Match Coupons',
-    summary: 'Aussie pools are getting more exciting this winter! We break down the absolute best tie-breaking and point-allocation strategy to capture the maximum payout multiplier.',
-    content: `With the expanded fixture lists, tracking football draws looks more complex than ever. Selecting correct high-odds draws requires disciplined forecasting. We recommend starting with a balanced 5-game slip.\n\nAt FastPoolCodes, we've integrated specific Aussie and UK coupon filters that automatically calculate payout potential in real-time, letting you watch your custom stats update as games finish. Check back every Tuesday for new keys!`,
-    date: 'May 24, 2026',
-    readTime: '4 min read'
-  },
-  {
-    id: 'blog-4',
-    title: "How Aussie Pools became UK & Nigeria's biggest coupon forecasting attraction of 2026",
-    summary: "As traditional fixed odd sports tickets get tighter, football draw pools are capturing the minds of serious perming experts. We investigate the numerical phenomenon sweep.",
-    content: `With standard single-match betting margins increasing, African and European players are rediscovering the timeless mathematical logic behind pool coupons and perming combinations. Let's look closer.\n\nAt FastPoolCodes, we have seen registrations double this month as customers discover deep double-chance matrices and reward pools. Learn how using verified coupon codes minimizes risk and creates steady, systematic perming strategies that align perfectly with coupon releases. Check back every Tuesday for pre-release keys and pointers.`,
-    date: 'May 18, 2026',
-    readTime: '6 min read'
-  }
+const FALLBACK_BLOG_IMAGES = [
+  'https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1518091043644-c1d4457512c6?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1551958219-acbc608c6377?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1579952363873-27f3bade9f55?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1517466787929-bc90951d0974?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1522778119026-d647f0596c20?auto=format&fit=crop&w=800&q=80'
 ];
 
 function formatBlogRows(rows: any[]) {
-  return rows.map((b: any) => ({
-    id: b.id,
-    title: b.title || b.name || b.heading || b.subject || 'Untitled Analysis',
-    summary: b.summary || b.description || b.content?.slice(0, 150) || b.body?.slice(0, 150) || 'No summary available.',
-    content: b.content || b.body || b.text || b.article_content || '',
-    date: b.date || (b.created_at ? new Date(b.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })),
-    readTime: b.read_time || b.readTime || b.read_duration || b.readTimeMinutes || '5 min read',
-    image_url: b.image_url || b.imageUrl || b.image_link || b.imageLink || b.image || b.img || b.img_url || ''
-  }));
+  return rows.map((b: any, idx: number) => {
+    const rawUrl = b.image_url || b.imageUrl || b.image_link || b.imageLink || b.image || b.img || b.img_url || b.cover || b.cover_image || b.banner || b.thumbnail || b.pic || b.photo;
+    const finalUrl = rawUrl && String(rawUrl).trim() !== '' ? String(rawUrl).trim() : FALLBACK_BLOG_IMAGES[idx % FALLBACK_BLOG_IMAGES.length];
+    return {
+      id: b.id || `blog-${idx}`,
+      title: b.title || b.name || b.heading || b.subject || b.title_text || 'Untitled Article',
+      summary: b.summary || b.description || b.excerpt || b.content?.slice(0, 150) || b.body?.slice(0, 150) || 'No summary available.',
+      content: b.content || b.body || b.text || b.article_content || b.details || '',
+      date: b.date || (b.created_at ? new Date(b.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })),
+      readTime: b.read_time || b.readTime || b.read_duration || b.readTimeMinutes || '5 min read',
+      image_url: finalUrl
+    };
+  });
 }
 
 export default function OfficePoolStopHome({
@@ -136,9 +114,7 @@ export default function OfficePoolStopHome({
   const [pendingUser, setPendingUser] = useState<{ username: string; email: string; password?: string } | null>(null);
 
   // Blog states
-  const [blogPosts, setBlogPosts] = useState<any[]>(() => {
-    return getSupabaseClient() ? [] : staticBlogPosts;
-  });
+  const [blogPosts, setBlogPosts] = useState<any[]>([]);
   const [supabaseError, setSupabaseError] = useState<string | null>(null);
   const [candidateErrors, setCandidateErrors] = useState<Record<string, string>>({});
   const [isBlogsLoading, setIsBlogsLoading] = useState(false);
@@ -214,7 +190,7 @@ export default function OfficePoolStopHome({
       const serverRes = await fetch('/api/blogs');
       if (serverRes.ok) {
         const json = await serverRes.json();
-        if (json.success && json.data && json.data.length > 0) {
+        if (json && json.success && Array.isArray(json.data)) {
           const formatted = formatBlogRows(json.data);
           setBlogPosts(formatted);
           setSupabaseError(null);
@@ -223,24 +199,39 @@ export default function OfficePoolStopHome({
         }
       }
     } catch (err) {
-      console.warn('Backend proxy fetch unavailable, fell back to static list...', err);
+      console.warn('Backend proxy fetch unavailable, checking direct client...', err);
     }
 
-    // Default Fallback guaranteed
-    setBlogPosts(staticBlogPosts);
+    // Direct client SDK fallback
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.from('blogs').select('*');
+        if (!error && Array.isArray(data)) {
+          setBlogPosts(formatBlogRows(data));
+          setSupabaseError(null);
+          setIsBlogsLoading(false);
+          return;
+        }
+      } catch (e) {
+        console.warn('Direct Supabase query failed:', e);
+      }
+    }
+
+    // If fetch failed completely or returned no data, set empty state
+    setBlogPosts([]);
     setIsBlogsLoading(false);
   };
 
   useEffect(() => {
     fetchBlogs();
 
+    // 1. Set up Supabase Realtime WebSocket channel
     const supabase = getSupabaseClient();
-    if (!supabase) return;
-
     let activeChannel: any = null;
-    try {
-      // Set up real-time postgres subscription dynamically (bypassed on HTTPS client pages to avoid mixed-content ws rules blocks)
-      if (typeof window !== 'undefined' && window.location.protocol !== 'https:') {
+
+    if (supabase) {
+      try {
         activeChannel = supabase
           .channel('realtime-blogs-home')
           .on(
@@ -250,25 +241,42 @@ export default function OfficePoolStopHome({
               schema: 'public',
               table: 'blogs'
             },
-            () => {
-              console.log('Real-time update on blogs table detected. Re-fetching.');
+            (payload) => {
+              console.log('Real-time update on blogs table detected:', payload);
               fetchBlogs();
             }
           )
-          .subscribe();
+          .subscribe((status) => {
+            console.log('Supabase real-time channel status:', status);
+          });
+      } catch (realtimeErr) {
+        console.warn('Real-time subscription error:', realtimeErr);
       }
-    } catch (realtimeErr) {
-      console.warn('Real-time subscription channel omitted in this secure client frame context:', realtimeErr);
     }
 
+    // 2. Automatic periodic background sync fallback (every 10 seconds)
+    const pollInterval = setInterval(() => {
+      fetchBlogs();
+    }, 10000);
+
+    // 3. Re-fetch immediately when user returns to tab
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchBlogs();
+      }
+    };
+    window.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
-      if (activeChannel) {
+      clearInterval(pollInterval);
+      window.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (supabase && activeChannel) {
         try {
           supabase.removeChannel(activeChannel);
         } catch (_) {}
       }
     };
-  }, [fetchCount]);
+  }, []);
 
   const handleShareBlogArticle = async (article: any) => {
     const shareUrl = window.location.href;
@@ -1294,6 +1302,9 @@ export default function OfficePoolStopHome({
                     src={blogModalArticle.image_url} 
                     alt={blogModalArticle.title}
                     referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = FALLBACK_BLOG_IMAGES[0];
+                    }}
                     className="w-full h-full object-cover"
                   />
                 ) : (
