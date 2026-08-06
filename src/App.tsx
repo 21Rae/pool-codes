@@ -23,6 +23,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   INITIAL_USERS,
   INITIAL_PLANS,
+  getMergedSubscriptionPlans,
   INITIAL_SUBSCRIPTIONS,
   INITIAL_BOOKMAKERS,
   INITIAL_POOL_WEEKS,
@@ -36,7 +37,8 @@ import {
   INITIAL_SPORTYBET,
   INITIAL_PREMIERBET,
   INITIAL_BETWAY,
-  INITIAL_SOCCABET
+  INITIAL_SOCCABET,
+  INITIAL_MSPORT
 } from './initialData';
 import {
   User,
@@ -70,12 +72,13 @@ export default function App() {
     pool_results: INITIAL_POOL_RESULTS,
     notifications: INITIAL_NOTIFICATIONS,
     user_downloads: INITIAL_DOWNLOADS,
-    bet9ja: INITIAL_BET9JA,
-    betking: INITIAL_BETKING,
-    sportybet: INITIAL_SPORTYBET,
-    premierbet: INITIAL_PREMIERBET,
-    betway: INITIAL_BETWAY,
-    soccabet: INITIAL_SOCCABET
+    bet9ja: [],
+    betking: [],
+    sportybet: [],
+    premierbet: [],
+    betway: [],
+    soccabet: [],
+    msport: []
   });
 
   // Simulator Domain Router: toggles independent application instances
@@ -144,12 +147,13 @@ export default function App() {
     : INITIAL_USERS[0];
 
   // Subscription Perks parser helper
+  const availablePlans = getMergedSubscriptionPlans(db.subscription_plans);
   const activeSubscription = db.user_subscriptions.find(
     sub => sub && sub.user_id === currentUser.id && sub.status === 'active'
   );
   const activePlan = activeSubscription
-    ? db.subscription_plans.find(p => p.id === activeSubscription.plan_id)
-    : db.subscription_plans.find(p => p.id === 'plan-free');
+    ? (availablePlans.find(p => p && p.id === activeSubscription.plan_id) || availablePlans[0] || INITIAL_PLANS[0])
+    : (availablePlans.find(p => p && p.id === 'plan-free') || availablePlans[0] || INITIAL_PLANS[0]);
 
   // Display Toast Alert Banner
   const triggerToast = (message: string, type: 'success' | 'info' | 'error' = 'success') => {
@@ -320,15 +324,7 @@ export default function App() {
         const json = await res.json();
         const data = json.data;
 
-        const isBookmakerTable = ['bet9ja', 'betking', 'sportybet', 'msport', 'premierbet', 'betway', 'soccabet'].includes(tableName);
-        if (isBookmakerTable) {
-          setDb(prev => ({
-            ...prev,
-            [dbKey]: data || []
-          }));
-          logSQL(query, `Successfully synchronized Supabase '${tableName}' table (${data?.length || 0} rows).`);
-          return true;
-        } else if (data && Array.isArray(data)) {
+        if (data && Array.isArray(data)) {
           setDb(prev => ({
             ...prev,
             [dbKey]: data
@@ -365,6 +361,7 @@ export default function App() {
       logAndSetTable('premierbet', 'premierbet', 'SELECT * FROM premierbet;'),
       logAndSetTable('betway', 'betway', 'SELECT * FROM betway;'),
       logAndSetTable('soccabet', 'soccabet', 'SELECT * FROM soccabet;'),
+      logAndSetTable('arena_games', 'arena_games' as any, 'SELECT * FROM arena_games;'),
       logAndSetTable('championship_results', 'championship_results' as any, 'SELECT * FROM championship_results;')
     ]);
 
@@ -461,12 +458,13 @@ export default function App() {
       pool_results: INITIAL_POOL_RESULTS,
       notifications: INITIAL_NOTIFICATIONS,
       user_downloads: INITIAL_DOWNLOADS,
-      bet9ja: INITIAL_BET9JA,
-      betking: INITIAL_BETKING,
-      sportybet: INITIAL_SPORTYBET,
-      premierbet: INITIAL_PREMIERBET,
-      betway: INITIAL_BETWAY,
-      soccabet: INITIAL_SOCCABET
+      bet9ja: [],
+      betking: [],
+      sportybet: [],
+      premierbet: [],
+      betway: [],
+      soccabet: [],
+      msport: []
     });
     setCustomQueryResult(null);
     logSQL(

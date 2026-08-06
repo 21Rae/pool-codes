@@ -226,6 +226,43 @@ export const INITIAL_PLANS: SubscriptionPlan[] = [
   }
 ];
 
+export function isGhanaPlan(p: any): boolean {
+  if (!p) return false;
+  const idStr = String(p.id || '').toLowerCase();
+  const nameStr = String(p.name || '').toLowerCase();
+  const regionStr = String(p.region || '').toLowerCase();
+  const countryStr = String(p.country || '').toLowerCase();
+  const currencyStr = String(p.currency || '').toLowerCase();
+
+  return (
+    regionStr === 'ghana' ||
+    countryStr === 'ghana' ||
+    currencyStr === 'ghs' ||
+    currencyStr === 'ghc' ||
+    currencyStr === 'gh₵' ||
+    idStr.includes('ghana') ||
+    nameStr.includes('ghana') ||
+    nameStr.includes('ghc') ||
+    nameStr.includes('ghs')
+  );
+}
+
+export function getMergedSubscriptionPlans(dbPlans?: SubscriptionPlan[]): SubscriptionPlan[] {
+  const mergedMap = new Map<string, SubscriptionPlan>();
+  (INITIAL_PLANS || []).forEach(p => {
+    if (p && p.id) mergedMap.set(p.id, p);
+  });
+  if (Array.isArray(dbPlans)) {
+    dbPlans.forEach(p => {
+      if (p && (p.id || p.name)) {
+        const key = String(p.id || p.name);
+        mergedMap.set(key, p);
+      }
+    });
+  }
+  return Array.from(mergedMap.values());
+}
+
 export const INITIAL_SUBSCRIPTIONS: UserSubscription[] = [
   {
     id: 'sub-active-909',
@@ -1218,5 +1255,47 @@ export const INITIAL_SOCCABET: BookmakerTableRecord[] = [
     bet: 'HOME WIN',
     status: 'PENDING',
     kickoff: '15:00 WAT'
+  }
+];
+
+export const INITIAL_MSPORT: BookmakerTableRecord[] = [
+  {
+    id: 'ms-rec-1',
+    pool: 1,
+    betcode: 'MS101A',
+    home: 'Arsenal',
+    away: 'Chelsea',
+    homewin: 1.94,
+    draw: 3.40,
+    awaywin: 4.10,
+    bet: 'HOME WIN',
+    status: 'PENDING',
+    kickoff: '15:00 WAT'
+  },
+  {
+    id: 'ms-rec-2',
+    pool: 2,
+    betcode: 'MS202B',
+    home: 'Liverpool',
+    away: 'Leeds',
+    homewin: 1.51,
+    draw: 4.22,
+    awaywin: 6.80,
+    bet: 'HOME WIN',
+    status: 'PENDING',
+    kickoff: '15:00 WAT'
+  },
+  {
+    id: 'ms-rec-3',
+    pool: 6,
+    betcode: 'MS303C',
+    home: 'Real Madrid',
+    away: 'Barcelona',
+    homewin: 1.44,
+    draw: 4.10,
+    awaywin: 5.50,
+    bet: 'HOME WIN',
+    status: 'PENDING',
+    kickoff: '20:00 WAT'
   }
 ];

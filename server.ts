@@ -149,7 +149,7 @@ app.use((req, res, next) => {
         'championship_results', 'championships',
         'pool_codes', 'pool_results', 'pool_weeks', 'bookmakers',
         'subscription_plans', 'user_subscriptions', 'notifications', 'user_downloads',
-        'bet9ja', 'betking', 'sportybet', 'msport', 'premierbet', 'betway', 'soccabet',
+        'bet9ja', 'betking', 'sportybet', 'msport', 'premierbet', 'betway', 'soccabet', 'arena_games',
         'coupons', 'bank_codes', 'bank_account_codes', 'settings', 'comments', 'subscriptions'
       ];
 

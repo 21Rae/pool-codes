@@ -50,6 +50,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { DatabaseState, User, SubscriptionPlan, UserSubscription, PoolCode } from '../types';
 import { getSupabaseClient } from '../lib/supabase';
+import { INITIAL_PLANS, isGhanaPlan, getMergedSubscriptionPlans } from '../initialData';
 
 interface CustomerPortalProps {
   db: DatabaseState;
@@ -521,73 +522,90 @@ export default function CustomerPortal({
     };
   }, [isArenaScoreboardHovered]);
 
-  // Dynamic posted games coupon states
-  const [postedGames, setPostedGames] = useState(() => {
-    try {
-      const stored = localStorage.getItem('fastpool_posted_games_list');
-      if (stored) {
-        return JSON.parse(stored);
+  // Helper to extract and map bookmaker games from global db state
+  const extractAndMapBookmakerGames = (dbState: DatabaseState) => {
+    const getVal = (row: any, ...keys: string[]) => {
+      if (!row) return undefined;
+      for (const k of keys) {
+        if (row[k] !== undefined && row[k] !== null && row[k] !== '') {
+          return row[k];
+        }
       }
-    } catch (e) {
-      console.warn('LocalStorage read omitted in this frame context:', e);
-    }
-    const mapBookieRows = (rows: any[] | undefined, prefix: string, name: string) => {
-      return (rows || []).map(r => ({
-        id: `${prefix}_${r.id}`,
-        poolNo: r.pool !== undefined ? r.pool : (r['pool '] !== undefined ? r['pool '] : undefined),
-        betCode: r.betcode !== undefined ? r.betcode : (r['betcode '] !== undefined ? r['betcode '] : undefined),
-        home: r.home,
-        away: r.away,
-        homeWin: String(r.homewin !== undefined ? r.homewin : ''),
-        draw: String(r.draw !== undefined ? r.draw : ''),
-        awayWin: String(r.awaywin !== undefined ? r.awaywin : ''),
-        betTips: r.bet,
-        status: r.status,
-        kickOff: r.kickoff,
-        bookmaker: name,
-        week: 'Week 49 Aussie'
-      }));
+      return undefined;
     };
 
-    const b9 = mapBookieRows(db.bet9ja, 'bet9ja', 'Bet9ja');
-    const bk = mapBookieRows(db.betking, 'betking', 'BetKing');
-    const sb = mapBookieRows(db.sportybet, 'sportybet', 'SportyBet');
-    const pb = mapBookieRows(db.premierbet, 'premierbet', 'PremierBet');
-    const bw = mapBookieRows(db.betway, 'betway', 'Betway');
-    const sc = mapBookieRows(db.soccabet, 'soccabet', 'Soccabet');
-    return [...b9, ...bk, ...sb, ...pb, ...bw, ...sc];
+    const mapBookieRows = (rows: any[] | undefined, prefix: string, defaultName: string) => {
+      return (rows || []).map((r, idx) => {
+        const rawId = r.id !== undefined && r.id !== null ? String(r.id) : String(idx);
+        const poolVal = getVal(r, 'pool', 'pool ', 'pool_no', 'match_no', 'fixture_no');
+        const betcodeVal = getVal(r, 'betcode', 'betcode ', 'bet_code', 'code');
+        const homeVal = getVal(r, 'home', 'home_team', 'hometeam') || '';
+        const awayVal = getVal(r, 'away', 'away_team', 'awayteam') || '';
+        const homeWinVal = getVal(r, 'homewin', 'home_win', 'home_odds', '1') ?? '';
+        const drawVal = getVal(r, 'draw', 'draw_odds', 'x', 'X') ?? '';
+        const awayWinVal = getVal(r, 'awaywin', 'away_win', 'away_odds', '2') ?? '';
+        const betTipsVal = getVal(r, 'bet', 'bet_tips', 'tips', 'prediction') ?? '';
+        const statusVal = getVal(r, 'status', 'match_status') || 'Active';
+        const kickOffVal = getVal(r, 'kickoff', 'kick_off', 'time') || '04:00 PM';
+        const bookmakerVal = getVal(r, 'bookmaker', 'bookie', 'provider') || defaultName;
+        const weekVal = getVal(r, 'week', 'pool_week') || 'Week 49 Aussie';
+
+        return {
+          id: `${prefix}_${rawId}`,
+          rawId,
+          sourceTable: prefix,
+          poolNo: poolVal !== undefined ? (Number(poolVal) || poolVal) : idx + 1,
+          betCode: String(betcodeVal ?? ''),
+          home: String(homeVal),
+          away: String(awayVal),
+          homeWin: String(homeWinVal),
+          draw: String(drawVal),
+          awayWin: String(awayWinVal),
+          betTips: String(betTipsVal),
+          status: String(statusVal),
+          kickOff: String(kickOffVal),
+          bookmaker: String(bookmakerVal),
+          week: String(weekVal)
+        };
+      });
+    };
+
+    const b9Rows = dbState.bet9ja || [];
+    const bkRows = dbState.betking || [];
+    const sbRows = dbState.sportybet || [];
+    const pbRows = dbState.premierbet || [];
+    const bwRows = dbState.betway || [];
+    const scRows = dbState.soccabet || [];
+    const msRows = (dbState as any).msport || [];
+
+    const b9 = mapBookieRows(b9Rows, 'bet9ja', 'Bet9ja');
+    const bk = mapBookieRows(bkRows, 'betking', 'BetKing');
+    const sb = mapBookieRows(sbRows, 'sportybet', 'SportyBet');
+    const pb = mapBookieRows(pbRows, 'premierbet', 'PremierBet');
+    const bw = mapBookieRows(bwRows, 'betway', 'Betway');
+    const sc = mapBookieRows(scRows, 'soccabet', 'Soccabet');
+    const ms = mapBookieRows(msRows, 'msport', 'MSport');
+
+    return [...b9, ...bk, ...sb, ...pb, ...bw, ...sc, ...ms];
+  };
+
+  // Dynamic posted games coupon states
+  const [postedGames, setPostedGames] = useState(() => {
+    return extractAndMapBookmakerGames(db);
   });
   
   // Synchronize postedGames when database state updates from Supabase (fetching real tables)
   useEffect(() => {
-    const mapBookieRows = (rows: any[] | undefined, prefix: string, name: string) => {
-      return (rows || []).map(r => ({
-        id: `${prefix}_${r.id}`,
-        poolNo: r.pool !== undefined ? r.pool : (r['pool '] !== undefined ? r['pool '] : undefined),
-        betCode: r.betcode !== undefined ? r.betcode : (r['betcode '] !== undefined ? r['betcode '] : undefined),
-        home: r.home,
-        away: r.away,
-        homeWin: String(r.homewin !== undefined ? r.homewin : ''),
-        draw: String(r.draw !== undefined ? r.draw : ''),
-        awayWin: String(r.awaywin !== undefined ? r.awaywin : ''),
-        betTips: r.bet,
-        status: r.status,
-        kickOff: r.kickoff,
-        bookmaker: name,
-        week: 'Week 49 Aussie'
-      }));
-    };
-
-    const b9 = mapBookieRows(db.bet9ja, 'bet9ja', 'Bet9ja');
-    const bk = mapBookieRows(db.betking, 'betking', 'BetKing');
-    const sb = mapBookieRows(db.sportybet, 'sportybet', 'SportyBet');
-    const pb = mapBookieRows(db.premierbet, 'premierbet', 'PremierBet');
-    const bw = mapBookieRows(db.betway, 'betway', 'Betway');
-    const sc = mapBookieRows(db.soccabet, 'soccabet', 'Soccabet');
-
-    const allGames = [...b9, ...bk, ...sb, ...pb, ...bw, ...sc];
-    setPostedGames(allGames);
-  }, [db.bet9ja, db.betking, db.sportybet, db.premierbet, db.betway, db.soccabet]);
+    setPostedGames(extractAndMapBookmakerGames(db));
+  }, [
+    db.bet9ja,
+    db.betking,
+    db.sportybet,
+    db.premierbet,
+    db.betway,
+    db.soccabet,
+    (db as any).msport
+  ]);
 
   // Persist modifications immediately and dispatch reactive real-time custom notification events
   useEffect(() => {
@@ -740,6 +758,32 @@ export default function CustomerPortal({
     };
     setPostedGames(prev => [...prev, newGame]);
     triggerToast(`Game #${newGame.poolNo} [${newGame.home} vs ${newGame.away}] posted live!`, 'success');
+
+    // Persist row to corresponding Supabase bookmaker table for real-time live sync
+    const targetTable = adminBookmakerCode.toLowerCase().replace(/[^a-z0-9]/g, '') || 'bet9ja';
+    const insertPayload = {
+      pool: Number(adminPoolNo) || (postedGames.length + 1),
+      betcode: adminBetCode,
+      home: adminHome,
+      away: adminAway,
+      homewin: adminHomeWin || '1.00',
+      draw: adminDraw || '1.00',
+      awaywin: adminAwayWin || '1.05',
+      bet: adminBetTips || 'X',
+      status: adminStatus,
+      kickoff: adminKickOff,
+      bookmaker: adminBookmakerCode,
+      week: 'Week 49 Aussie'
+    };
+    fetch(`/api/tables/${targetTable}/insert`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(insertPayload)
+    }).then(res => res.json()).then(resJson => {
+      if (resJson.success && fetchRealSupabaseData) {
+        fetchRealSupabaseData(true);
+      }
+    }).catch(err => console.warn('Supabase fixture insert error:', err));
     
     // Auto increment default pool No for ease-of-use
     setAdminPoolNo(String(newGame.poolNo + 1));
@@ -748,38 +792,30 @@ export default function CustomerPortal({
     setAdminAway('');
   };
 
-  const handleDeleteGame = (id: string, matchName: string) => {
+  const handleDeleteGame = async (id: string, matchName: string) => {
     setPostedGames(prev => prev.filter(g => g.id !== id));
     triggerToast(`Removed game: ${matchName}`, 'info');
+
+    if (id.includes('_')) {
+      const parts = id.split('_');
+      const table = parts[0];
+      const rawId = parts.slice(1).join('_');
+      if (table && rawId) {
+        try {
+          await fetch(`/api/tables/${table}/${rawId}`, { method: 'DELETE' });
+          if (fetchRealSupabaseData) {
+            await fetchRealSupabaseData(true);
+          }
+        } catch (e) {
+          console.warn('Delete row error:', e);
+        }
+      }
+    }
   };
 
   const handleResetGames = () => {
-    const mapBookieRows = (rows: any[] | undefined, prefix: string, name: string) => {
-      return (rows || []).map(r => ({
-        id: `${prefix}_${r.id}`,
-        poolNo: r.pool !== undefined ? r.pool : (r['pool '] !== undefined ? r['pool '] : undefined),
-        betCode: r.betcode !== undefined ? r.betcode : (r['betcode '] !== undefined ? r['betcode '] : undefined),
-        home: r.home,
-        away: r.away,
-        homeWin: String(r.homewin !== undefined ? r.homewin : ''),
-        draw: String(r.draw !== undefined ? r.draw : ''),
-        awayWin: String(r.awaywin !== undefined ? r.awaywin : ''),
-        betTips: r.bet,
-        status: r.status,
-        kickOff: r.kickoff,
-        bookmaker: name,
-        week: 'Week 49 Aussie'
-      }));
-    };
-
-    const b9 = mapBookieRows(db.bet9ja, 'bet9ja', 'Bet9ja');
-    const bk = mapBookieRows(db.betking, 'betking', 'BetKing');
-    const sb = mapBookieRows(db.sportybet, 'sportybet', 'SportyBet');
-    const pb = mapBookieRows(db.premierbet, 'premierbet', 'PremierBet');
-    const bw = mapBookieRows(db.betway, 'betway', 'Betway');
-    const sc = mapBookieRows(db.soccabet, 'soccabet', 'Soccabet');
-
-    setPostedGames([...b9, ...bk, ...sb, ...pb, ...bw, ...sc]);
+    const allGames = extractAndMapBookmakerGames(db);
+    setPostedGames(allGames);
     setAdminPoolNo('9');
     triggerToast('Games list reset to database default tables!', 'info');
   };
@@ -1720,7 +1756,7 @@ export default function CustomerPortal({
                       {/* Bookmaker Selector Tabs */}
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-xs font-mono text-slate-400 mr-1 hidden sm:inline">BOOKMAKER:</span>
-                        {['Bet9ja', 'BetKing', 'SportyBet', 'PremierBet', 'Betway', 'Soccabet'].map((bookie) => (
+                        {['Bet9ja', 'BetKing', 'SportyBet', 'PremierBet', 'Betway', 'Soccabet', 'MSport'].map((bookie) => (
                           <button
                             key={bookie}
                             disabled={isSyncingSupabase}
@@ -1782,13 +1818,9 @@ export default function CustomerPortal({
                     <div>
                       {(() => {
                         const userComponents = activeSubscription?.components || [];
-                        const isBookieAllowed = (bookieName: string) => {
-                          if (bypassPremium) return true;
-                          if (currentUser.role === 'admin') return true;
-                          if (!isLoggedIn || !isVerified || !isPaidUser) return false;
-                          if (!activeSubscription || activeSubscription.status !== 'active') return false;
-                          if (activePlan?.id === 'plan-free') return false;
-                          return userComponents.map(c => c.toLowerCase()).includes(bookieName.toLowerCase());
+                        const isBookieAllowed = (_bookieName: string) => {
+                          // Allow all bookmakers to be viewed when clicking the tab buttons
+                          return true;
                         };
 
                         const isTabAllowed = isBookieAllowed(dashboardBookmakerFilter);
@@ -1818,14 +1850,21 @@ export default function CustomerPortal({
                           );
                         }
 
+                        const normStr = (s: string) => (s || '').replace(/\s+/g, '').toLowerCase();
+                        const targetBookieNorm = normStr(dashboardBookmakerFilter);
+
                         const filteredList = postedGames.filter(game => {
-                          // Only include games matching allowed bookmaker components
-                          if (game.bookmaker.toLowerCase() !== dashboardBookmakerFilter.toLowerCase()) return false;
+                          const gameBookieNorm = normStr(game.bookmaker);
+                          const gameSourceNorm = normStr(game.sourceTable || '');
+                          
+                          // Match if either bookmaker name or source table matches selected tab
+                          const matchesBookie = gameBookieNorm === targetBookieNorm || gameSourceNorm === targetBookieNorm;
+                          if (!matchesBookie) return false;
 
                           const matchesSearch = dashboardGameSearch === '' ||
                             game.home.toLowerCase().includes(dashboardGameSearch.toLowerCase()) ||
                             game.away.toLowerCase().includes(dashboardGameSearch.toLowerCase()) ||
-                            game.betCode.includes(dashboardGameSearch) ||
+                            game.betCode.toLowerCase().includes(dashboardGameSearch.toLowerCase()) ||
                             game.betTips.toLowerCase().includes(dashboardGameSearch.toLowerCase()) ||
                             game.status.toLowerCase().includes(dashboardGameSearch.toLowerCase());
                           return matchesSearch;
@@ -1855,22 +1894,10 @@ export default function CustomerPortal({
                               )}
 
                               {filteredList.length === 0 ? (
-                                <div className="p-12 text-center flex flex-col items-center justify-center">
-                                  <div className="text-3xl">📭</div>
-                                  <p className={`text-sm mt-2 font-mono ${isPaperMode ? 'text-gray-600' : 'text-slate-400'}`}>
-                                    No posted fixtures match your filter or search query.
+                                <div className="p-12 text-center flex items-center justify-center">
+                                  <p className={`text-sm font-mono ${isPaperMode ? 'text-gray-600' : 'text-slate-400'}`}>
+                                    No rows to display
                                   </p>
-                                  {(dashboardBookmakerFilter !== 'Bet9ja' || dashboardGameSearch !== '') && (
-                                    <button
-                                      onClick={() => {
-                                        setDashboardBookmakerFilter('Bet9ja');
-                                        setDashboardGameSearch('');
-                                      }}
-                                      className="mt-3 text-xs text-emerald-400 hover:underline font-mono"
-                                    >
-                                      Reset filters
-                                    </button>
-                                  )}
                                 </div>
                               ) : (
                                 <div className="flex flex-col gap-2">
@@ -2056,204 +2083,7 @@ export default function CustomerPortal({
                       })()}
                     </div>
 
-                    {/* ADMIN PANEL FORM: DYNAMIC POSTER BULLETINS */}
-                    {currentUser.role === 'admin' && (
-                      <div className="bg-slate-900/95 border-2 border-emerald-500/30 p-5 rounded-2xl flex flex-col gap-6 animate-fadeIn mb-6">
-                        {/* DATABASE SCHEMA & TABLE EXPLORER HEADER */}
-                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-800 pb-4">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                              <h4 className="text-sm font-black font-mono text-emerald-400 uppercase tracking-wider">
-                                🗄️ SUPABASE DATABASE TABLE EXPLORER & SCHEMA SYNCHRONIZER
-                              </h4>
-                            </div>
-                            <p className="text-xs text-slate-400 mt-1">
-                              Detects, queries, inserts, and synchronizes ALL active database tables directly from Supabase.
-                            </p>
-                          </div>
 
-                          <button
-                            onClick={() => {
-                              refreshDbExplorer();
-                              if (fetchRealSupabaseData) fetchRealSupabaseData(false);
-                            }}
-                            disabled={dbExplorerLoading || isSyncingSupabase}
-                            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black font-mono text-xs rounded-xl transition flex items-center gap-2 shadow-lg cursor-pointer"
-                          >
-                            <RefreshCw className={`w-3.5 h-3.5 ${(dbExplorerLoading || isSyncingSupabase) ? 'animate-spin' : ''}`} />
-                            Re-Scan & Sync Database Tables
-                          </button>
-                        </div>
-
-                        {/* DISCOVERED TABLES STRIP */}
-                        <div>
-                          <label className="block text-xs font-mono font-bold text-slate-300 mb-2 uppercase tracking-wide">
-                            DISCOVERED SUPABASE TABLES ({dbExplorerTables.length} Active):
-                          </label>
-                          <div className="flex flex-wrap items-center gap-2">
-                            {dbExplorerTables.length === 0 ? (
-                              <button
-                                onClick={() => refreshDbExplorer()}
-                                className="text-xs text-amber-400 font-mono bg-amber-950/40 border border-amber-800/50 px-3 py-1.5 rounded-lg"
-                              >
-                                ⚠️ No tables cached yet. Click here to scan database schema.
-                              </button>
-                            ) : (
-                              dbExplorerTables.map((tbl) => {
-                                const isSelected = dbExplorerSelectedTable === tbl.name;
-                                return (
-                                  <button
-                                    key={`db_tbl_${tbl.name}`}
-                                    onClick={() => refreshDbExplorer(tbl.name)}
-                                    className={`px-3 py-1.5 text-xs font-mono font-bold rounded-lg transition flex items-center gap-1.5 cursor-pointer ${
-                                      isSelected
-                                        ? 'bg-emerald-500 text-slate-950 font-black ring-2 ring-emerald-300'
-                                        : 'bg-slate-950 text-slate-300 hover:bg-slate-800 border border-slate-800'
-                                    }`}
-                                  >
-                                    <Database className="w-3 h-3" />
-                                    <span>{tbl.name}</span>
-                                    <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono ${isSelected ? 'bg-slate-950 text-emerald-300' : 'bg-slate-800 text-slate-400'}`}>
-                                      {tbl.count ?? 0} rows
-                                    </span>
-                                  </button>
-                                );
-                              })
-                            )}
-                          </div>
-                        </div>
-
-                        {/* SELECTED TABLE DATA VIEWER */}
-                        <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 flex flex-col gap-4">
-                          <div className="flex justify-between items-center border-b border-slate-800/80 pb-3">
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-mono text-slate-400 uppercase">ACTIVE TABLE:</span>
-                              <span className="text-sm font-mono font-black text-amber-400 uppercase tracking-wider">{dbExplorerSelectedTable}</span>
-                              <span className="text-xs text-slate-500 font-mono">({dbExplorerRows.length} rows loaded)</span>
-                            </div>
-                            <button
-                              onClick={() => refreshDbExplorer(dbExplorerSelectedTable)}
-                              className="text-xs font-mono text-emerald-400 hover:text-emerald-300 underline"
-                            >
-                              Reload Rows
-                            </button>
-                          </div>
-
-                          {dbExplorerError && (
-                            <div className="bg-rose-950/40 border border-rose-800/50 text-rose-300 p-3 rounded-lg text-xs font-mono">
-                              ⚠️ {dbExplorerError}
-                            </div>
-                          )}
-
-                          {dbExplorerLoading ? (
-                            <div className="py-8 text-center text-xs font-mono text-slate-400 animate-pulse">
-                              Fetching live rows for table '{dbExplorerSelectedTable}' from Supabase...
-                            </div>
-                          ) : dbExplorerRows.length === 0 ? (
-                            <div className="py-6 text-center text-xs font-mono text-slate-500">
-                              No rows found in table '{dbExplorerSelectedTable}'. You can insert a row below using the JSON form.
-                            </div>
-                          ) : (
-                            <div className="overflow-x-auto max-h-72 border border-slate-800 rounded-lg">
-                              <table className="w-full text-left text-xs font-mono text-slate-300">
-                                <thead className="bg-slate-900 text-slate-400 uppercase text-[10px] sticky top-0">
-                                  <tr>
-                                    {Object.keys(dbExplorerRows[0] || {}).slice(0, 7).map((col) => (
-                                      <th key={col} className="p-2.5 border-b border-slate-800 font-black">{col}</th>
-                                    ))}
-                                    <th className="p-2.5 border-b border-slate-800 text-right font-black">Action</th>
-                                  </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-800/60">
-                                  {dbExplorerRows.map((row, rIdx) => {
-                                    const rowId = row.id || row._id || rIdx;
-                                    return (
-                                      <tr key={`tbl_row_${rIdx}`} className="hover:bg-slate-900/50 transition">
-                                        {Object.keys(dbExplorerRows[0] || {}).slice(0, 7).map((col) => {
-                                          const val = row[col];
-                                          const displayVal = typeof val === 'object' ? JSON.stringify(val) : String(val ?? '');
-                                          return (
-                                            <td key={`${rIdx}_${col}`} className="p-2.5 text-[11px] truncate max-w-[200px]" title={displayVal}>
-                                              {displayVal}
-                                            </td>
-                                          );
-                                        })}
-                                        <td className="p-2.5 text-right whitespace-nowrap">
-                                          {row.id && (
-                                            <button
-                                              onClick={async () => {
-                                                if (confirm(`Delete row ID '${row.id}' from table '${dbExplorerSelectedTable}'?`)) {
-                                                  try {
-                                                    const res = await fetch(`/api/tables/${dbExplorerSelectedTable}/${row.id}`, { method: 'DELETE' });
-                                                    const resJson = await res.json();
-                                                    if (resJson.success) {
-                                                      triggerToast(`Row ${row.id} deleted!`, 'success');
-                                                      refreshDbExplorer(dbExplorerSelectedTable);
-                                                    } else {
-                                                      triggerToast(`Delete error: ${resJson.error}`, 'error');
-                                                    }
-                                                  } catch (e: any) {
-                                                    triggerToast(`Delete error: ${e?.message || e}`, 'error');
-                                                  }
-                                                }
-                                              }}
-                                              className="text-rose-400 hover:text-rose-300 font-bold hover:underline"
-                                            >
-                                              Delete
-                                            </button>
-                                          )}
-                                        </td>
-                                      </tr>
-                                    );
-                                  })}
-                                </tbody>
-                              </table>
-                            </div>
-                          )}
-
-                          {/* INSERT ROW JSON FORM */}
-                          <div className="border-t border-slate-800/80 pt-3 flex flex-col gap-2">
-                            <label className="text-xs font-mono font-bold text-amber-400 uppercase">
-                              ➕ Insert Row into '{dbExplorerSelectedTable}' (JSON Payload):
-                            </label>
-                            <textarea
-                              rows={3}
-                              value={dbExplorerNewRowJson}
-                              onChange={(e) => setDbExplorerNewRowJson(e.target.value)}
-                              className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-xs text-emerald-300 font-mono focus:outline-none focus:border-emerald-500"
-                              placeholder='{ "title": "Example", "status": "active" }'
-                            />
-                            <div className="flex justify-end">
-                              <button
-                                onClick={async () => {
-                                  try {
-                                    const parsed = JSON.parse(dbExplorerNewRowJson);
-                                    const res = await fetch(`/api/tables/${dbExplorerSelectedTable}/insert`, {
-                                      method: 'POST',
-                                      headers: { 'Content-Type': 'application/json' },
-                                      body: JSON.stringify(parsed)
-                                    });
-                                    const resJson = await res.json();
-                                    if (resJson.success) {
-                                      triggerToast(`Successfully inserted row into '${dbExplorerSelectedTable}'!`, 'success');
-                                      refreshDbExplorer(dbExplorerSelectedTable);
-                                    } else {
-                                      triggerToast(`Insert failed: ${resJson.error}`, 'error');
-                                    }
-                                  } catch (err: any) {
-                                    triggerToast(`Invalid JSON format: ${err?.message || err}`, 'error');
-                                  }
-                                }}
-                                className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-mono font-black text-xs rounded-lg transition shadow cursor-pointer"
-                              >
-                                Insert Record into {dbExplorerSelectedTable}
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
 
                     {/* ADMIN PANEL FORM: DYNAMIC POSTER BULLETINS */}
                     {currentUser.role === 'admin' && showAdminForm && (
@@ -5064,14 +4894,18 @@ export default function CustomerPortal({
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                      {db.subscription_plans
-                        .filter(p => p.id !== 'plan-free')
-                        .filter(p => pricingRegionFilter === 'ghana' ? p.id.includes('ghana') : !p.id.includes('ghana'))
+                      {getMergedSubscriptionPlans(db.subscription_plans)
+                        .filter(p => p && p.id && p.id !== 'plan-free')
+                        .filter(p => pricingRegionFilter === 'ghana' ? isGhanaPlan(p) : !isGhanaPlan(p))
                         .map((p) => {
                           const isCurrentPlan = activePlan?.id === p.id;
-                          const pComponents = selectedComponents[p.id] || (p.id.includes('ghana') ? ['premierbet', 'betway', 'soccabet', 'sportybet'] : ['bet9ja', 'sportybet', 'betking']);
-                          const calculatedCustomPrice = pComponents.length * p.price;
-                          const currencySymbol = p.id.includes('ghana') ? 'GH₵' : '₦';
+                          const isGhana = isGhanaPlan(p);
+                          const defaultComps = isGhana ? ['premierbet', 'betway', 'soccabet', 'sportybet'] : ['bet9ja', 'sportybet', 'betking'];
+                          const pComponents = selectedComponents[p.id] || defaultComps;
+                          const unitPrice = Number(p.price || 0);
+                          const calculatedCustomPrice = pComponents.length * unitPrice;
+                          const currencySymbol = isGhana ? 'GH₵' : '₦';
+                          const billingCycleStr = String(p.billing_cycle || 'period').toUpperCase();
                           return (
                             <div
                               key={p.id}
@@ -5083,7 +4917,7 @@ export default function CustomerPortal({
                             >
                               <div>
                                 <div className="flex justify-between items-start">
-                                  <span className="text-xs font-black uppercase text-white tracking-wide">{p.name} PRO</span>
+                                  <span className="text-xs font-black uppercase text-white tracking-wide">{p.name || 'SUBSCRIPTION'} PRO</span>
                                   {isCurrentPlan && (
                                     <span className="bg-emerald-950 text-emerald-400 text-[8.5px] font-black px-2.5 py-1 rounded border border-emerald-800 uppercase font-mono">
                                       ACTIVE✓
@@ -5092,16 +4926,16 @@ export default function CustomerPortal({
                                 </div>
 
                                 <p className="text-[11.5px] text-slate-350 mt-3 min-h-[40px] leading-relaxed">
-                                  {p.description}
+                                  {p.description || 'Full VIP features and live updates access.'}
                                 </p>
 
                                 <div className="mt-5 pb-5 border-b border-slate-800 flex justify-between items-end">
                                   <div>
                                     <span className="text-[10px] text-slate-500 font-mono block uppercase">Unit Price</span>
                                     <span className="text-xl font-mono font-black text-emerald-400">
-                                      {currencySymbol}{p.price.toLocaleString()}
+                                      {currencySymbol}{unitPrice.toLocaleString()}
                                     </span>
-                                    <span className="text-[10.5px] text-slate-400 font-mono"> / {p.billing_cycle.toUpperCase()}</span>
+                                    <span className="text-[10.5px] text-slate-400 font-mono"> / {billingCycleStr}</span>
                                   </div>
                                   <div className="text-right">
                                     <span className="text-[10px] text-slate-500 font-mono block uppercase">Components</span>
@@ -5115,7 +4949,7 @@ export default function CustomerPortal({
                                     Custom Plan Components:
                                   </span>
                                   <div className="space-y-2">
-                                    {(p.id.includes('ghana') 
+                                    {(isGhana 
                                       ? ['premierbet', 'betway', 'soccabet', 'sportybet'] 
                                       : ['bet9ja', 'sportybet', 'betking']
                                     ).map((comp) => {
@@ -5141,7 +4975,7 @@ export default function CustomerPortal({
                                             <span className="text-xs font-bold font-sans">{compLabel}</span>
                                           </div>
                                           <span className="text-[10.5px] font-mono">
-                                            {currencySymbol}{p.price.toLocaleString()}
+                                            {currencySymbol}{unitPrice.toLocaleString()}
                                           </span>
                                         </label>
                                       );

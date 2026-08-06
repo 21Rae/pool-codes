@@ -33,6 +33,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import ExpertBlogView from './ExpertBlogView';
 import { getSupabaseClient } from '../lib/supabase';
+import { INITIAL_PLANS, isGhanaPlan, getMergedSubscriptionPlans } from '../initialData';
 
 interface OfficePoolStopHomeProps {
   onSignIn: () => void;
@@ -1515,13 +1516,15 @@ export default function OfficePoolStopHome({
 
               {/* Plans selector inside Paywall Checkout */}
               <div className="grid grid-cols-2 gap-2.5 mb-5 select-none text-xs">
-                {(db.subscription_plans || [])
-                  .filter((p: any) => p.id !== 'plan-free')
-                  .filter((p: any) => paywallRegionFilter === 'ghana' ? p.id.includes('ghana') : !p.id.includes('ghana'))
+                {getMergedSubscriptionPlans(db.subscription_plans)
+                  .filter((p: any) => p && p.id && p.id !== 'plan-free')
+                  .filter((p: any) => paywallRegionFilter === 'ghana' ? isGhanaPlan(p) : !isGhanaPlan(p))
                   .map((p: any) => {
                     const isActive = paywallPlan === p.id;
+                    const isGhana = isGhanaPlan(p);
                     const cycleAbbr = p.billing_cycle === 'biannual' ? '6mo' : p.billing_cycle === 'quarterly' ? '3mo' : p.billing_cycle === 'weekly' ? 'wk' : p.billing_cycle === 'monthly' ? 'mo' : 'yr';
-                    const currencySymbol = p.id.includes('ghana') ? 'GH₵' : '₦';
+                    const currencySymbol = isGhana ? 'GH₵' : '₦';
+                    const priceVal = Number(p.price || 0);
                     return (
                       <button
                         key={p.id}
@@ -1534,9 +1537,9 @@ export default function OfficePoolStopHome({
                         }`}
                       >
                         <span className="font-black font-mono block text-xs tracking-tight text-amber-300">
-                          {currencySymbol}{p.price.toLocaleString()} / {cycleAbbr}
+                          {currencySymbol}{priceVal.toLocaleString()} / {cycleAbbr}
                         </span>
-                        <span className="text-[9.5px] mt-1 font-bold block leading-none">{p.name}</span>
+                        <span className="text-[9.5px] mt-1 font-bold block leading-none">{p.name || 'Plan'}</span>
                       </button>
                     );
                   })}

@@ -156,4 +156,6 @@ export interface DatabaseState {
   premierbet?: BookmakerTableRecord[];
   betway?: BookmakerTableRecord[];
   soccabet?: BookmakerTableRecord[];
+  msport?: BookmakerTableRecord[];
+  arena_games?: BookmakerTableRecord[];
 }
