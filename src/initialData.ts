@@ -263,6 +263,68 @@ export function getMergedSubscriptionPlans(dbPlans?: SubscriptionPlan[]): Subscr
   return Array.from(mergedMap.values());
 }
 
+export function isGhanaBookmaker(b: any): boolean {
+  if (!b) return false;
+  const country = String(b.country || '').toLowerCase();
+  const name = String(b.name || '').toLowerCase();
+  const slug = String(b.slug || '').toLowerCase();
+  const id = String(b.id || '').toLowerCase();
+
+  return (
+    country === 'gh' ||
+    country === 'ghana' ||
+    country === 'ghs' ||
+    name.includes('ghana') ||
+    slug.includes('ghana') ||
+    id.includes('ghana') ||
+    slug === 'soccabet' ||
+    slug === 'premierbet'
+  );
+}
+
+export function getMergedBookmakers(dbBookmakers?: Bookmaker[]): Bookmaker[] {
+  const mergedMap = new Map<string, Bookmaker>();
+
+  const getDedupeKey = (b: any): string => {
+    if (!b) return '';
+    const name = String(b.name || '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+    if (name) return name;
+    const slug = String(b.slug || '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+    if (slug) return slug;
+    const id = String(b.id || '').toLowerCase().replace(/^bm-/, '').replace(/[^a-z0-9]/g, '').trim();
+    return id;
+  };
+
+  (INITIAL_BOOKMAKERS || []).forEach(b => {
+    if (b) {
+      const key = getDedupeKey(b);
+      if (key) mergedMap.set(key, b);
+    }
+  });
+
+  if (Array.isArray(dbBookmakers)) {
+    dbBookmakers.forEach(b => {
+      if (b) {
+        const key = getDedupeKey(b);
+        if (key) {
+          const existing = mergedMap.get(key);
+          mergedMap.set(key, existing ? { ...existing, ...b } : b);
+        }
+      }
+    });
+  }
+  return Array.from(mergedMap.values());
+}
+
+export function getBookmakersByCountry(dbBookmakers: Bookmaker[] | undefined, country: 'nigeria' | 'ghana'): Bookmaker[] {
+  const all = getMergedBookmakers(dbBookmakers).filter(b => b && b.is_active !== false);
+  if (country === 'ghana') {
+    return all.filter(b => isGhanaBookmaker(b));
+  } else {
+    return all.filter(b => !isGhanaBookmaker(b));
+  }
+}
+
 export const INITIAL_SUBSCRIPTIONS: UserSubscription[] = [
   {
     id: 'sub-active-909',

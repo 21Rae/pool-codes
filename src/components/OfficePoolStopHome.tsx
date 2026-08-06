@@ -1519,7 +1519,7 @@ export default function OfficePoolStopHome({
                 {getMergedSubscriptionPlans(db.subscription_plans)
                   .filter((p: any) => p && p.id && p.id !== 'plan-free')
                   .filter((p: any) => paywallRegionFilter === 'ghana' ? isGhanaPlan(p) : !isGhanaPlan(p))
-                  .map((p: any) => {
+                  .map((p: any, pIdx: number) => {
                     const isActive = paywallPlan === p.id;
                     const isGhana = isGhanaPlan(p);
                     const cycleAbbr = p.billing_cycle === 'biannual' ? '6mo' : p.billing_cycle === 'quarterly' ? '3mo' : p.billing_cycle === 'weekly' ? 'wk' : p.billing_cycle === 'monthly' ? 'mo' : 'yr';
@@ -1527,7 +1527,7 @@ export default function OfficePoolStopHome({
                     const priceVal = Number(p.price || 0);
                     return (
                       <button
-                        key={p.id}
+                        key={`paywall_plan_${p.id}_${pIdx}`}
                         type="button"
                         onClick={() => setPaywallPlan(p.id)}
                         className={`p-2.5 rounded-xl border text-left flex flex-col justify-between transition ${

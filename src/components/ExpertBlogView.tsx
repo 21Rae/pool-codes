@@ -1073,36 +1073,34 @@ INSERT INTO public.championship_results (
                               Automatic Table Scanner Report:
                             </p>
                             <span className="text-[9px] text-zinc-400 font-bold bg-zinc-100 px-1.5 py-0.5 rounded">
-                              Checked {Object.keys(candidateErrors).length} Candidates
+                              {Object.entries(candidateErrors).filter(([, errMsg]) => !(errMsg.includes('does not exist') || errMsg.includes('not found') || errMsg.includes('404') || errMsg.includes('not find'))).length} Active Tables Found
                             </span>
                           </div>
                           <div className="font-mono text-[10px] space-y-1.5 bg-zinc-950 text-emerald-400 p-3 rounded-lg max-h-48 overflow-y-auto shadow-inner leading-normal">
-                            {Object.keys(candidateErrors).length > 0 ? (
-                              Object.entries(candidateErrors).map(([tableName, errMsg]) => {
-                                const isTableMissing = errMsg.includes('does not exist') || errMsg.includes('not found') || errMsg.includes('404') || errMsg.includes('not find');
-                                return (
+                            {(() => {
+                              const activeEntries = Object.entries(candidateErrors).filter(([, errMsg]) => !(errMsg.includes('does not exist') || errMsg.includes('not found') || errMsg.includes('404') || errMsg.includes('not find')));
+                              if (activeEntries.length > 0) {
+                                return activeEntries.map(([tableName, errMsg]) => (
                                   <div key={tableName} className="border-b border-zinc-800 pb-1.5 last:border-0 last:pb-0">
                                     <div className="flex items-center gap-1.5">
-                                      <span className={isTableMissing ? "text-zinc-600 font-black" : "text-emerald-500 font-black"}>
-                                        {isTableMissing ? '×' : '✓'}
-                                      </span>
-                                      <span className={`font-bold text-white px-1 py-0.2 rounded font-sans text-[9px] uppercase tracking-wider ${isTableMissing ? 'bg-zinc-800' : 'bg-emerald-800'}`}>
+                                      <span className="text-emerald-500 font-black">✓</span>
+                                      <span className="font-bold text-white px-1 py-0.2 rounded font-sans text-[9px] uppercase tracking-wider bg-emerald-800">
                                         TABLE: "{tableName}"
                                       </span>
                                     </div>
                                     <p className="text-zinc-400 pl-3.5 mt-0.5">
-                                      Response: <span className={isTableMissing ? "text-zinc-500 font-semibold" : "text-amber-300 font-semibold"}>
-                                        {errMsg}
-                                      </span>
+                                      Response: <span className="text-amber-300 font-semibold">{errMsg}</span>
                                     </p>
                                   </div>
+                                ));
+                              } else {
+                                return (
+                                  <div className="text-zinc-500 italic">
+                                    No active tables detected yet. Create tables using the SQL setup scripts above or run a re-scan.
+                                  </div>
                                 );
-                              })
-                            ) : (
-                              <div className="text-zinc-500">
-                                # No scan records found yet. Querying in progress...
-                              </div>
-                            )}
+                              }
+                            })()}
                           </div>
                         </div>
 

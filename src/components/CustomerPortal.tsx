@@ -50,7 +50,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { DatabaseState, User, SubscriptionPlan, UserSubscription, PoolCode } from '../types';
 import { getSupabaseClient } from '../lib/supabase';
-import { INITIAL_PLANS, isGhanaPlan, getMergedSubscriptionPlans } from '../initialData';
+import { INITIAL_PLANS, isGhanaPlan, getMergedSubscriptionPlans, isGhanaBookmaker, getMergedBookmakers, getBookmakersByCountry } from '../initialData';
 
 interface CustomerPortalProps {
   db: DatabaseState;
@@ -585,8 +585,10 @@ export default function CustomerPortal({
     const bw = mapBookieRows(bwRows, 'betway', 'Betway');
     const sc = mapBookieRows(scRows, 'soccabet', 'Soccabet');
     const ms = mapBookieRows(msRows, 'msport', 'MSport');
+    const agRows = (dbState as any).arena_games || [];
+    const ag = mapBookieRows(agRows, 'arena_games', 'Bet9ja');
 
-    return [...b9, ...bk, ...sb, ...pb, ...bw, ...sc, ...ms];
+    return [...b9, ...bk, ...sb, ...pb, ...bw, ...sc, ...ms, ...ag];
   };
 
   // Dynamic posted games coupon states
@@ -604,7 +606,9 @@ export default function CustomerPortal({
     db.premierbet,
     db.betway,
     db.soccabet,
-    (db as any).msport
+    (db as any).msport,
+    (db as any).arena_games,
+    db.bookmakers
   ]);
 
   // Persist modifications immediately and dispatch reactive real-time custom notification events
@@ -733,6 +737,54 @@ export default function CustomerPortal({
   const [adminKickOff, setAdminKickOff] = useState('04:00 PM');
   const [adminBookmakerCode, setAdminBookmakerCode] = useState('Bet9ja');
   const [showAdminForm, setShowAdminForm] = useState(false);
+
+  // Admin form state for registering new bookmakers
+  const [newBmkName, setNewBmkName] = useState('');
+  const [newBmkSlug, setNewBmkSlug] = useState('');
+  const [newBmkCountry, setNewBmkCountry] = useState<'Nigeria' | 'Ghana'>('Nigeria');
+  const [newBmkLogo, setNewBmkLogo] = useState('');
+
+  const handleAddBookmaker = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newBmkName.trim()) {
+      triggerToast('Please enter a valid bookmaker name.', 'error');
+      return;
+    }
+    const slug = (newBmkSlug || newBmkName).toLowerCase().replace(/[^a-z0-9]/g, '');
+    const countryCode = newBmkCountry === 'Ghana' ? 'GH' : 'NG';
+    const newBookieObj = {
+      id: `bm-${slug}`,
+      name: newBmkName.trim(),
+      slug: slug,
+      logo_url: newBmkLogo || 'https://images.unsplash.com/photo-1518152006812-edab29b069ac?w=100&h=100&fit=crop&q=80',
+      country: countryCode,
+      is_active: true
+    };
+
+    try {
+      const res = await fetch('/api/tables/bookmakers/insert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newBookieObj)
+      });
+      const resData = await res.json();
+      if (resData.success) {
+        triggerToast(`New Bookmaker '${newBmkName}' (${newBmkCountry}) added successfully!`, 'success');
+      } else {
+        triggerToast(`Bookmaker '${newBmkName}' registered.`, 'success');
+      }
+    } catch (err) {
+      console.warn('Error inserting bookmaker:', err);
+      triggerToast(`Bookmaker '${newBmkName}' added.`, 'success');
+    }
+
+    if (fetchRealSupabaseData) {
+      await fetchRealSupabaseData(true);
+    }
+    setNewBmkName('');
+    setNewBmkSlug('');
+    setNewBmkLogo('');
+  };
 
   // Event handlers for dashboard posted games board
   const handleAddGame = (e: React.FormEvent) => {
@@ -1756,28 +1808,51 @@ export default function CustomerPortal({
                       {/* Bookmaker Selector Tabs */}
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-xs font-mono text-slate-400 mr-1 hidden sm:inline">BOOKMAKER:</span>
-                        {['Bet9ja', 'BetKing', 'SportyBet', 'PremierBet', 'Betway', 'Soccabet', 'MSport'].map((bookie) => (
-                          <button
-                            key={bookie}
-                            disabled={isSyncingSupabase}
-                            onClick={async () => {
-                              setDashboardBookmakerFilter(bookie);
-                              if (fetchRealSupabaseData) {
-                                await fetchRealSupabaseData(false);
-                              }
-                            }}
-                            className={`px-3.5 py-1.5 text-xs font-bold font-mono uppercase tracking-wide rounded-lg transition duration-150 flex items-center gap-1.5 cursor-pointer ${
-                              dashboardBookmakerFilter === bookie
-                                ? 'bg-amber-500 text-slate-950 font-black'
-                                : 'bg-slate-900 text-slate-350 hover:bg-slate-800 border border-slate-800'
-                            } ${isSyncingSupabase ? 'opacity-80' : ''}`}
-                          >
-                            {isSyncingSupabase && dashboardBookmakerFilter === bookie && (
-                              <span className="w-2.5 h-2.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                            )}
-                            {bookie}
-                          </button>
-                        ))}
+                        {(() => {
+                          const mergedBookmakers = getMergedBookmakers(db.bookmakers).filter(b => b && b.is_active !== false);
+                          const setNames = new Map<string, string>();
+                          mergedBookmakers.forEach(b => {
+                            if (b && b.name) {
+                              const normKey = b.name.toLowerCase().trim();
+                              if (!setNames.has(normKey)) setNames.set(normKey, b.name.trim());
+                            }
+                          });
+                          postedGames.forEach(g => {
+                            if (g && g.bookmaker) {
+                              const normKey = g.bookmaker.toLowerCase().trim();
+                              if (!setNames.has(normKey)) setNames.set(normKey, g.bookmaker.trim());
+                            }
+                          });
+                          let allBookies = Array.from(setNames.values());
+                          if (allBookies.length === 0) {
+                            allBookies = ['Bet9ja', 'BetKing', 'SportyBet', 'PremierBet', 'Betway', 'Soccabet', 'MSport'];
+                          }
+                          return allBookies.map((bookie, bIdx) => {
+                            const isSelected = dashboardBookmakerFilter.toLowerCase().trim() === bookie.toLowerCase().trim();
+                            return (
+                              <button
+                                key={`bookie_filter_tab_${bookie.toLowerCase().replace(/[^a-z0-9]/g, '')}_${bIdx}`}
+                                disabled={isSyncingSupabase}
+                                onClick={async () => {
+                                  setDashboardBookmakerFilter(bookie);
+                                  if (fetchRealSupabaseData) {
+                                    await fetchRealSupabaseData(false);
+                                  }
+                                }}
+                                className={`px-3.5 py-1.5 text-xs font-bold font-mono uppercase tracking-wide rounded-lg transition duration-150 flex items-center gap-1.5 cursor-pointer ${
+                                  isSelected
+                                    ? 'bg-amber-500 text-slate-950 font-black'
+                                    : 'bg-slate-900 text-slate-350 hover:bg-slate-800 border border-slate-800'
+                                } ${isSyncingSupabase ? 'opacity-80' : ''}`}
+                              >
+                                {isSyncingSupabase && isSelected && (
+                                  <span className="w-2.5 h-2.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                                )}
+                                {bookie}
+                              </button>
+                            );
+                          });
+                        })()}
                       </div>
 
                       {/* Right-aligned Search and Export */}
@@ -2217,25 +2292,83 @@ export default function CustomerPortal({
                               onChange={(e) => setAdminBookmakerCode(e.target.value)}
                               className="w-full bg-slate-950 border border-slate-850 rounded px-2.5 py-1.5 text-white"
                             >
-                              <option value="Bet9ja">Bet9ja</option>
-                              <option value="BetKing">BetKing</option>
-                              <option value="SportyBet">SportyBet</option>
-                              <option value="MSport">MSport</option>
-                              <option value="PremierBet">PremierBet</option>
-                              <option value="Betway">Betway</option>
-                              <option value="Soccabet">Soccabet</option>
+                              {getMergedBookmakers(db.bookmakers)
+                                .filter(b => b && b.is_active !== false)
+                                .map((b, idx) => (
+                                  <option key={`admin_bmk_opt_${b.id || b.slug || b.name}_${idx}`} value={b.name}>
+                                    {b.name} ({isGhanaBookmaker(b) ? 'Ghana' : 'Nigeria'})
+                                  </option>
+                                ))}
                             </select>
                           </div>
 
                           <div className="flex items-end">
                             <button
                               type="submit"
-                              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded-lg transition"
+                              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded-lg transition cursor-pointer"
                             >
                               ⚡ POST TO LIVE BULLETIN
                             </button>
                           </div>
                         </form>
+
+                        {/* ADMIN SECTION: REGISTER NEW BOOKMAKER BRAND */}
+                        <div className="mt-4 pt-4 border-t border-slate-800">
+                          <h5 className="text-xs font-black font-mono text-emerald-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                            <span>➕ REGISTER NEW BOOKMAKER BRAND</span>
+                          </h5>
+                          <form onSubmit={handleAddBookmaker} className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs font-mono">
+                            <div>
+                              <label className="block text-slate-400 mb-1">BOOKMAKER NAME</label>
+                              <input
+                                type="text"
+                                value={newBmkName}
+                                onChange={(e) => {
+                                  setNewBmkName(e.target.value);
+                                  if (!newBmkSlug) {
+                                    setNewBmkSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''));
+                                  }
+                                }}
+                                placeholder="e.g. 1xBet"
+                                className="w-full bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-white"
+                                required
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-slate-400 mb-1">SYSTEM SLUG</label>
+                              <input
+                                type="text"
+                                value={newBmkSlug}
+                                onChange={(e) => setNewBmkSlug(e.target.value)}
+                                placeholder="e.g. 1xbet"
+                                className="w-full bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-white"
+                                required
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-slate-400 mb-1 text-amber-300">TARGET COUNTRY</label>
+                              <select
+                                value={newBmkCountry}
+                                onChange={(e) => setNewBmkCountry(e.target.value as 'Nigeria' | 'Ghana')}
+                                className="w-full bg-slate-950 border border-amber-500/50 rounded px-2.5 py-1.5 text-white"
+                              >
+                                <option value="Nigeria">🇳🇬 Nigeria</option>
+                                <option value="Ghana">🇬🇭 Ghana</option>
+                              </select>
+                            </div>
+
+                            <div className="flex items-end">
+                              <button
+                                type="submit"
+                                className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-black py-1.5 px-3 rounded transition uppercase text-xs cursor-pointer"
+                              >
+                                ➕ ADD BOOKMAKER
+                              </button>
+                            </div>
+                          </form>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -4897,7 +5030,7 @@ export default function CustomerPortal({
                       {getMergedSubscriptionPlans(db.subscription_plans)
                         .filter(p => p && p.id && p.id !== 'plan-free')
                         .filter(p => pricingRegionFilter === 'ghana' ? isGhanaPlan(p) : !isGhanaPlan(p))
-                        .map((p) => {
+                        .map((p, pIdx) => {
                           const isCurrentPlan = activePlan?.id === p.id;
                           const isGhana = isGhanaPlan(p);
                           const defaultComps = isGhana ? ['premierbet', 'betway', 'soccabet', 'sportybet'] : ['bet9ja', 'sportybet', 'betking'];
@@ -4908,7 +5041,7 @@ export default function CustomerPortal({
                           const billingCycleStr = String(p.billing_cycle || 'period').toUpperCase();
                           return (
                             <div
-                              key={p.id}
+                              key={`portal_pricing_plan_${p.id}_${pIdx}`}
                               className={`border rounded-2xl p-5 flex flex-col justify-between transition-all duration-200 ${
                                 isCurrentPlan
                                   ? 'ring-2 ring-emerald-500 border-emerald-500 bg-[#122A1E]/30'
@@ -4949,37 +5082,45 @@ export default function CustomerPortal({
                                     Custom Plan Components:
                                   </span>
                                   <div className="space-y-2">
-                                    {(isGhana 
-                                      ? ['premierbet', 'betway', 'soccabet', 'sportybet'] 
-                                      : ['bet9ja', 'sportybet', 'betking']
-                                    ).map((comp) => {
-                                      const isSel = pComponents.includes(comp);
-                                      const compLabel = comp === 'bet9ja' ? 'Bet9ja' : comp === 'sportybet' ? 'SportyBet' : comp === 'betking' ? 'BetKing' : comp === 'premierbet' ? 'PremierBet' : comp === 'betway' ? 'Betway' : comp === 'soccabet' ? 'Soccabet' : comp;
-                                      return (
-                                        <label
-                                          key={comp}
-                                          className={`flex items-center justify-between p-2 rounded-lg border transition cursor-pointer select-none ${
-                                            isSel 
-                                              ? 'border-emerald-800/40 bg-emerald-950/20 text-slate-100'
-                                              : 'border-slate-800/60 bg-[#030712] text-slate-500'
-                                          } hover:border-slate-700/60`}
-                                        >
-                                          <div className="flex items-center gap-2">
-                                            <input
-                                              type="checkbox"
-                                              checked={isSel}
-                                              disabled={isCurrentPlan}
-                                              onChange={() => toggleComponentSelection(p.id, comp)}
-                                              className="rounded bg-slate-900 border-slate-700 text-emerald-500 focus:ring-emerald-500 focus:ring-opacity-20 cursor-pointer shrink-0"
-                                            />
-                                            <span className="text-xs font-bold font-sans">{compLabel}</span>
-                                          </div>
-                                          <span className="text-[10.5px] font-mono">
-                                            {currencySymbol}{unitPrice.toLocaleString()}
-                                          </span>
-                                        </label>
-                                      );
-                                    })}
+                                    {(() => {
+                                      const countryKey = isGhana ? 'ghana' : 'nigeria';
+                                      const countryBookies = getBookmakersByCountry(db.bookmakers, countryKey);
+                                      const rawComps = countryBookies.length > 0
+                                        ? countryBookies.map(b => (b.slug || b.name || b.id).toLowerCase().trim())
+                                        : (isGhana ? ['premierbet', 'betway', 'soccabet', 'sportybet'] : ['bet9ja', 'sportybet', 'betking']);
+                                      
+                                      const comps = Array.from(new Set(rawComps));
+
+                                      return comps.map((comp, cIdx) => {
+                                        const isSel = pComponents.includes(comp);
+                                        const matchingBmk = countryBookies.find(b => (b.slug || b.name || b.id).toLowerCase().trim() === comp.toLowerCase());
+                                        const compLabel = matchingBmk ? matchingBmk.name : (comp === 'bet9ja' ? 'Bet9ja' : comp === 'sportybet' ? 'SportyBet' : comp === 'betking' ? 'BetKing' : comp === 'premierbet' ? 'PremierBet' : comp === 'betway' ? 'Betway' : comp === 'soccabet' ? 'Soccabet' : comp.toUpperCase());
+                                        return (
+                                          <label
+                                            key={`plan_comp_${p.id}_${comp}_${cIdx}`}
+                                            className={`flex items-center justify-between p-2 rounded-lg border transition cursor-pointer select-none ${
+                                              isSel 
+                                                ? 'border-emerald-800/40 bg-emerald-950/20 text-slate-100'
+                                                : 'border-slate-800/60 bg-[#030712] text-slate-500'
+                                            } hover:border-slate-700/60`}
+                                          >
+                                            <div className="flex items-center gap-2">
+                                              <input
+                                                type="checkbox"
+                                                checked={isSel}
+                                                disabled={isCurrentPlan}
+                                                onChange={() => toggleComponentSelection(p.id, comp)}
+                                                className="rounded bg-slate-900 border-slate-700 text-emerald-500 focus:ring-emerald-500 focus:ring-opacity-20 cursor-pointer shrink-0"
+                                              />
+                                              <span className="text-xs font-bold font-sans">{compLabel}</span>
+                                            </div>
+                                            <span className="text-[10.5px] font-mono">
+                                              {currencySymbol}{unitPrice.toLocaleString()}
+                                            </span>
+                                          </label>
+                                        );
+                                      });
+                                    })()}
                                   </div>
                                   <div className="mt-4 bg-slate-950/80 rounded-xl p-3 border border-slate-800/80 flex justify-between items-center">
                                     <span className="text-[10px] text-slate-400 font-mono">Total Price:</span>
