@@ -1597,65 +1597,6 @@ export default function CustomerPortal({
                     </h3>
                   </div>
 
-                  {/* Plan Details */}
-                  {!isLoggedIn ? (
-                    <div className="w-full max-w-md bg-slate-950/80 border border-slate-800 rounded-xl p-4 flex flex-col gap-2 text-left font-mono text-[11px] text-slate-400">
-                      <div className="flex justify-between border-b border-slate-800/60 pb-1.5">
-                        <span>User Session:</span>
-                        <span className="text-rose-400 font-bold uppercase">Guest / Unauthenticated</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Requirement:</span>
-                        <span className="text-emerald-400 font-bold uppercase font-mono">Sign In / Register</span>
-                      </div>
-                    </div>
-                  ) : !isVerified ? (
-                    <div className="w-full max-w-md bg-slate-950/80 border border-slate-800 rounded-xl p-4 flex flex-col gap-2 text-left font-mono text-[11px] text-slate-400">
-                      <div className="flex justify-between border-b border-slate-800/60 pb-1.5">
-                        <span>User Email:</span>
-                        <span className="text-amber-400 font-bold">{currentUser.email}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Verification Status:</span>
-                        <span className="text-rose-400 font-bold uppercase font-mono">Pending Verification</span>
-                      </div>
-                    </div>
-                  ) : isSubscriptionExpired && latestSub ? (
-                    <div className="w-full max-w-md bg-slate-950/80 border border-slate-800 rounded-xl p-4 flex flex-col gap-2 text-left font-mono text-[11px] text-slate-400">
-                      <div className="flex justify-between border-b border-slate-800/60 pb-1.5">
-                        <span>Expired Plan:</span>
-                        <span className="text-rose-400 font-bold uppercase">
-                          {db.subscription_plans.find(p => p.id === latestSub.plan_id)?.name || 'Weekly VIP'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between border-b border-slate-800/60 pb-1.5">
-                        <span>Expiry Date:</span>
-                        <span className="text-slate-200">
-                          {new Date(latestSub.expires_at).toLocaleString()}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Reference Ref:</span>
-                        <span className="text-amber-500 font-bold">{latestSub.payment_ref || 'N/A'}</span>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="w-full max-w-md bg-slate-950/80 border border-slate-800 rounded-xl p-4 flex flex-col gap-2 text-left font-mono text-[11px] text-slate-400">
-                      <div className="flex justify-between border-b border-slate-800/60 pb-1.5">
-                        <span>Current Plan:</span>
-                        <span className="text-amber-500 font-bold uppercase">{activePlan?.name || 'Free Tier Access'}</span>
-                      </div>
-                      <div className="flex justify-between border-b border-slate-800/60 pb-1.5">
-                        <span>Status:</span>
-                        <span className="text-rose-400 font-bold uppercase font-mono">Unpaid / Restricted</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Requirement:</span>
-                        <span className="text-emerald-400 font-bold uppercase font-mono">Paid VIP Subscription</span>
-                      </div>
-                    </div>
-                  )}
-
                   <div className="w-full max-w-md mt-2">
                     <button
                       onClick={() => setActiveSubTab('subscription')}
@@ -1665,10 +1606,6 @@ export default function CustomerPortal({
                       <span>{isSubscriptionExpired ? 'Renew Subscription' : 'Upgrade to VIP'}</span>
                     </button>
                   </div>
-
-                  <p className="text-[10px] text-slate-500 font-mono mt-2">
-                    Secured by Paystack Standard Payment Gateway. Activation is fully automated.
-                  </p>
                 </div>
               ) : (
                 <>
