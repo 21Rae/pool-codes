@@ -1595,15 +1595,6 @@ export default function CustomerPortal({
                     <h3 className="text-xl md:text-2xl font-black text-white uppercase tracking-tight">
                       {!isLoggedIn ? 'Please Log In To Access Tables' : !isVerified ? 'Account Verification Pending' : isSubscriptionExpired ? 'Your Subscription Has Expired!' : 'Paid VIP Membership Required!'}
                     </h3>
-                    <p className="text-slate-350 text-xs md:text-sm max-w-lg mx-auto leading-relaxed">
-                      {!isLoggedIn 
-                        ? 'Access to classified tables, match matrices, coupon sheets, and subscription plans requires an authenticated account. Please log in or register.'
-                        : !isVerified
-                        ? 'Your user account email must be verified to unlock access to classified tables (Bet9ja, BetKing, SportyBet, PremierBet, Betway, Soccabet).'
-                        : isSubscriptionExpired 
-                        ? 'Access to priority PoolCodes Arena Dashboard tables and weekly coupon sheets has been suspended due to plan expiration. Please renew.'
-                        : 'Access to priority PoolCodes Arena Dashboard tables, real-time coupon code sheets, and match matrices is strictly restricted to verified, paid subscribers.'}
-                    </p>
                   </div>
 
                   {/* Plan Details */}

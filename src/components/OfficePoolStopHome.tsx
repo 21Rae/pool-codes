@@ -28,7 +28,8 @@ import {
   Info,
   Phone,
   Share2,
-  Copy
+  Copy,
+  KeyRound
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import ExpertBlogView from './ExpertBlogView';
@@ -45,6 +46,7 @@ interface OfficePoolStopHomeProps {
   currentUser?: any;
   onRegisterUser?: (username: string, email: string, password?: string, planId?: string) => Promise<{ success: boolean; error?: string; message?: string }>;
   onLoginUser?: (usernameOrEmail: string, password?: string) => Promise<{ success: boolean; error?: string; message?: string }>;
+  onChangePassword?: (usernameOrEmail: string, newPassword: string) => Promise<{ success: boolean; error?: string; message?: string }>;
   onOpenTerms?: () => void;
 }
 
@@ -83,6 +85,7 @@ export default function OfficePoolStopHome({
   currentUser,
   onRegisterUser,
   onLoginUser,
+  onChangePassword,
   onOpenTerms
 }: OfficePoolStopHomeProps) {
   // Navigation & interaction states
@@ -93,11 +96,16 @@ export default function OfficePoolStopHome({
   const [contactForm, setContactForm] = useState({ name: '', email: '', subject: '', message: '' });
   const [isSendingContact, setIsSendingContact] = useState(false);
   const [showSystemAuth, setShowSystemAuth] = useState(false);
-  const [authMode, setAuthMode] = useState<'login' | 'signup'>('signup');
+  const [authMode, setAuthMode] = useState<'login' | 'signup' | 'change_password'>('signup');
   const [authFields, setAuthFields] = useState({
     username: '',
     email: '',
     password: ''
+  });
+  const [resetFields, setResetFields] = useState({
+    usernameOrEmail: '',
+    newPassword: '',
+    confirmPassword: ''
   });
   const [showPassword, setShowPassword] = useState(false);
 
@@ -306,16 +314,65 @@ export default function OfficePoolStopHome({
     }
   };
 
-  const handleOpenAuth = (mode: 'login' | 'signup') => {
+  const handleOpenAuth = (mode: 'login' | 'signup' | 'change_password') => {
     setAuthMode(mode);
     setAuthFields({ username: '', email: '', password: '' });
+    setResetFields({ usernameOrEmail: '', newPassword: '', confirmPassword: '' });
     setShowPassword(false);
     setShowSystemAuth(true);
-    triggerToast(`Directing to ${mode === 'signup' ? 'Create Premium Account' : 'Sign In'} portal...`, 'info');
+    triggerToast(`Directing to ${mode === 'signup' ? 'Create Premium Account' : mode === 'change_password' ? 'Change Password' : 'Sign In'} portal...`, 'info');
   };
 
   const handleAuthSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (authMode === 'change_password') {
+      if (!resetFields.usernameOrEmail || !resetFields.newPassword || !resetFields.confirmPassword) {
+        triggerToast('Please fill in all details to change your password.', 'error');
+        return;
+      }
+      if (resetFields.newPassword.length < 5) {
+        triggerToast('New security password must be at least 5 characters.', 'error');
+        return;
+      }
+      if (resetFields.newPassword !== resetFields.confirmPassword) {
+        triggerToast('Confirm password does not match new password.', 'error');
+        return;
+      }
+
+      if (onChangePassword) {
+        setIsBlogsLoading(true);
+        triggerToast('Updating account security password...', 'info');
+        onChangePassword(resetFields.usernameOrEmail, resetFields.newPassword)
+          .then((res) => {
+            setIsBlogsLoading(false);
+            if (res.success) {
+              triggerToast(res.message || 'Password updated successfully!', 'success');
+              setAuthFields({
+                username: resetFields.usernameOrEmail,
+                email: '',
+                password: resetFields.newPassword
+              });
+              setAuthMode('login');
+            } else {
+              triggerToast(res.error || 'Password update failed.', 'error');
+            }
+          })
+          .catch((err) => {
+            setIsBlogsLoading(false);
+            triggerToast(err.message || 'Password update failed.', 'error');
+          });
+      } else {
+        triggerToast('Password updated successfully.', 'success');
+        setAuthFields({
+          username: resetFields.usernameOrEmail,
+          email: '',
+          password: resetFields.newPassword
+        });
+        setAuthMode('login');
+      }
+      return;
+    }
+
     if (authMode === 'signup') {
       if (!authFields.username || !authFields.email || !authFields.password) {
         triggerToast('Please fill in all details (email, username, and password).', 'error');
@@ -1629,115 +1686,207 @@ export default function OfficePoolStopHome({
               </button>
 
               <div className="text-center mb-6 select-none space-y-1.5">
-                <Zap className="w-10 h-10 text-emerald-400 mx-auto animate-pulse" />
+                {authMode === 'change_password' ? (
+                  <KeyRound className="w-10 h-10 text-amber-400 mx-auto animate-pulse" />
+                ) : (
+                  <Zap className="w-10 h-10 text-emerald-400 mx-auto animate-pulse" />
+                )}
                 <h3 className="font-sans font-black text-lg text-white tracking-tight uppercase">
-                  {authMode === 'signup' ? 'Create Free Account' : 'Access Member Account'}
+                  {authMode === 'signup' 
+                    ? 'Create Free Account' 
+                    : authMode === 'change_password'
+                    ? 'Change Password'
+                    : 'Access Member Account'}
                 </h3>
                 <p className="text-[10px] text-emerald-400/80 font-semibold max-w-xs mx-auto leading-relaxed">
-                  FastPoolCodes simulator systems securely encrypt identity codes for active sheets access.
+                  {authMode === 'change_password'
+                    ? 'Provide your registered username or email to set a new security password.'
+                    : 'FastPoolCodes simulator systems securely encrypt identity codes for active sheets access.'}
                 </p>
               </div>
 
               <form onSubmit={handleAuthSubmit} className="space-y-4">
-                <div className="space-y-1 text-xs">
-                  <label className="block text-slate-300 font-extrabold font-mono tracking-wider uppercase text-[10px]">
-                    {authMode === 'signup' ? 'Enter Username' : 'Username or Email'}
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={authFields.username}
-                    onChange={(e) => setAuthFields({ ...authFields, username: e.target.value })}
-                    className="w-full bg-[#020b08] border border-emerald-950 rounded-lg p-3 text-[#A7F3D0] focus:ring-1 focus:ring-emerald-400 focus:outline-none placeholder:text-emerald-950 font-semibold"
-                    placeholder="e.g. john_doe_forecaster"
-                  />
-                  {authMode === 'login' && (
-                    <span 
-                      onClick={() => {
-                        setAuthFields({ ...authFields, username: 'john_doe_free' });
-                        triggerToast('Demo Free profile set up correctly.', 'success');
-                      }}
-                      className="text-[9.5px] text-amber-500 font-black uppercase cursor-pointer block text-right mt-1 hover:underline"
-                    >
-                      Bypass using demo free: "john_doe_free"? Or "vip_admin_2026"?
-                    </span>
-                  )}
-                </div>
-
-                {authMode === 'signup' && (
-                  <div className="space-y-1 text-xs">
-                    <label className="block text-slate-300 font-extrabold font-mono tracking-wider uppercase text-[10px]">Your Email Address</label>
-                    <input
-                      type="email"
-                      required
-                      value={authFields.email}
-                      onChange={(e) => setAuthFields({ ...authFields, email: e.target.value })}
-                      className="w-full bg-[#020b08] border border-emerald-950 rounded-lg p-3 text-[#A7F3D0] focus:ring-1 focus:ring-emerald-400 focus:outline-none placeholder:text-emerald-950 font-semibold"
-                      placeholder="e.g. john@fastpoolcodes.com"
-                    />
-                  </div>
-                )}
-
-                <div className="space-y-1 text-xs">
-                  <label className="block text-slate-300 font-extrabold font-mono tracking-wider uppercase text-[10px]">Security Password</label>
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    value={authFields.password}
-                    onChange={(e) => setAuthFields({ ...authFields, password: e.target.value })}
-                    className="w-full bg-[#020b08] border border-emerald-955 rounded-lg p-3 text-[#A7F3D0] focus:ring-1 focus:ring-emerald-400 focus:outline-none placeholder:text-[#062017]"
-                    placeholder="••••••••"
-                  />
-                  <div className="flex items-center justify-between text-[11px] pt-1">
-                    <label className="flex items-center gap-1.5 text-slate-405 font-medium cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        checked={showPassword} 
-                        onChange={() => setShowPassword(!showPassword)}
-                        className="rounded border-emerald-900 bg-[#020b08] text-emerald-500 focus:ring-0"
+                {authMode === 'change_password' ? (
+                  <>
+                    <div className="space-y-1 text-xs">
+                      <label className="block text-slate-300 font-extrabold font-mono tracking-wider uppercase text-[10px]">
+                        Username or Email Address
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={resetFields.usernameOrEmail}
+                        onChange={(e) => setResetFields({ ...resetFields, usernameOrEmail: e.target.value })}
+                        className="w-full bg-[#020b08] border border-emerald-950 rounded-lg p-3 text-[#A7F3D0] focus:ring-1 focus:ring-emerald-400 focus:outline-none placeholder:text-emerald-950 font-semibold"
+                        placeholder="e.g. john_doe_forecaster or john@email.com"
                       />
-                      <span>Show Characters</span>
-                    </label>
-                  </div>
-                </div>
+                    </div>
 
-                {authMode === 'signup' && (
-                  <div className="flex items-start gap-2 text-[10px] text-slate-400 font-sans leading-relaxed select-none bg-emerald-950/20 border border-emerald-950/40 p-2.5 rounded-lg">
-                    <input 
-                      type="checkbox" 
-                      required
-                      id="agreeTerms" 
-                      className="rounded border-emerald-900 bg-[#020b08] text-emerald-500 focus:ring-0 mt-0.5 h-3.5 w-3.5 cursor-pointer" 
-                    />
-                    <label htmlFor="agreeTerms" className="cursor-pointer">
-                      I am <span className="text-amber-400 font-black">18 years of age or older</span>, and agree to the{' '}
-                      <span 
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          if (onOpenTerms) onOpenTerms();
-                        }}
-                        className="text-emerald-400 font-black underline hover:text-emerald-300 transition"
-                      >
-                        Terms of Service
-                      </span>{' '}
-                      of FastPoolCodes.
-                    </label>
-                  </div>
+                    <div className="space-y-1 text-xs">
+                      <label className="block text-slate-300 font-extrabold font-mono tracking-wider uppercase text-[10px]">
+                        New Security Password
+                      </label>
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        required
+                        value={resetFields.newPassword}
+                        onChange={(e) => setResetFields({ ...resetFields, newPassword: e.target.value })}
+                        className="w-full bg-[#020b08] border border-emerald-955 rounded-lg p-3 text-[#A7F3D0] focus:ring-1 focus:ring-emerald-400 focus:outline-none placeholder:text-[#062017]"
+                        placeholder="Minimum 5 characters"
+                      />
+                    </div>
+
+                    <div className="space-y-1 text-xs">
+                      <label className="block text-slate-300 font-extrabold font-mono tracking-wider uppercase text-[10px]">
+                        Confirm New Password
+                      </label>
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        required
+                        value={resetFields.confirmPassword}
+                        onChange={(e) => setResetFields({ ...resetFields, confirmPassword: e.target.value })}
+                        className="w-full bg-[#020b08] border border-emerald-955 rounded-lg p-3 text-[#A7F3D0] focus:ring-1 focus:ring-emerald-400 focus:outline-none placeholder:text-[#062017]"
+                        placeholder="Re-enter new password"
+                      />
+                      <div className="flex items-center justify-between text-[11px] pt-1">
+                        <label className="flex items-center gap-1.5 text-slate-405 font-medium cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            checked={showPassword} 
+                            onChange={() => setShowPassword(!showPassword)}
+                            className="rounded border-emerald-900 bg-[#020b08] text-emerald-500 focus:ring-0"
+                          />
+                          <span>Show Characters</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="w-full bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-950 font-black text-xs uppercase py-3.5 rounded-xl shadow-lg shadow-amber-950/40 transition-all cursor-pointer mt-2 text-center"
+                    >
+                      Update & Save Password
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <div className="space-y-1 text-xs">
+                      <label className="block text-slate-300 font-extrabold font-mono tracking-wider uppercase text-[10px]">
+                        {authMode === 'signup' ? 'Enter Username' : 'Username or Email'}
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={authFields.username}
+                        onChange={(e) => setAuthFields({ ...authFields, username: e.target.value })}
+                        className="w-full bg-[#020b08] border border-emerald-950 rounded-lg p-3 text-[#A7F3D0] focus:ring-1 focus:ring-emerald-400 focus:outline-none placeholder:text-emerald-950 font-semibold"
+                        placeholder="e.g. john_doe_forecaster"
+                      />
+                      {authMode === 'login' && (
+                        <span 
+                          onClick={() => {
+                            setAuthFields({ ...authFields, username: 'john_doe_free' });
+                            triggerToast('Demo Free profile set up correctly.', 'success');
+                          }}
+                          className="text-[9.5px] text-amber-500 font-black uppercase cursor-pointer block text-right mt-1 hover:underline"
+                        >
+                          Bypass using demo free: "john_doe_free"? Or "vip_admin_2026"?
+                        </span>
+                      )}
+                    </div>
+
+                    {authMode === 'signup' && (
+                      <div className="space-y-1 text-xs">
+                        <label className="block text-slate-300 font-extrabold font-mono tracking-wider uppercase text-[10px]">Your Email Address</label>
+                        <input
+                          type="email"
+                          required
+                          value={authFields.email}
+                          onChange={(e) => setAuthFields({ ...authFields, email: e.target.value })}
+                          className="w-full bg-[#020b08] border border-emerald-950 rounded-lg p-3 text-[#A7F3D0] focus:ring-1 focus:ring-emerald-400 focus:outline-none placeholder:text-emerald-950 font-semibold"
+                          placeholder="e.g. john@fastpoolcodes.com"
+                        />
+                      </div>
+                    )}
+
+                    <div className="space-y-1 text-xs">
+                      <div className="flex items-center justify-between">
+                        <label className="block text-slate-300 font-extrabold font-mono tracking-wider uppercase text-[10px]">
+                          Security Password
+                        </label>
+                        {authMode === 'login' && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAuthMode('change_password');
+                              setResetFields({ usernameOrEmail: authFields.username, newPassword: '', confirmPassword: '' });
+                            }}
+                            className="text-[10px] text-emerald-400 hover:text-emerald-300 font-bold uppercase font-mono tracking-wide cursor-pointer hover:underline"
+                          >
+                            Change Password?
+                          </button>
+                        )}
+                      </div>
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        required
+                        value={authFields.password}
+                        onChange={(e) => setAuthFields({ ...authFields, password: e.target.value })}
+                        className="w-full bg-[#020b08] border border-emerald-955 rounded-lg p-3 text-[#A7F3D0] focus:ring-1 focus:ring-emerald-400 focus:outline-none placeholder:text-[#062017]"
+                        placeholder="••••••••"
+                      />
+                      <div className="flex items-center justify-between text-[11px] pt-1">
+                        <label className="flex items-center gap-1.5 text-slate-405 font-medium cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            checked={showPassword} 
+                            onChange={() => setShowPassword(!showPassword)}
+                            className="rounded border-emerald-900 bg-[#020b08] text-emerald-500 focus:ring-0"
+                          />
+                          <span>Show Characters</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {authMode === 'signup' && (
+                      <div className="flex items-start gap-2 text-[10px] text-slate-400 font-sans leading-relaxed select-none bg-emerald-950/20 border border-emerald-950/40 p-2.5 rounded-lg">
+                        <input 
+                          type="checkbox" 
+                          required
+                          id="agreeTerms" 
+                          className="rounded border-emerald-900 bg-[#020b08] text-emerald-500 focus:ring-0 mt-0.5 h-3.5 w-3.5 cursor-pointer" 
+                        />
+                        <label htmlFor="agreeTerms" className="cursor-pointer">
+                          I am <span className="text-amber-400 font-black">18 years of age or older</span>, and agree to the{' '}
+                          <span 
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              if (onOpenTerms) onOpenTerms();
+                            }}
+                            className="text-emerald-400 font-black underline hover:text-emerald-300 transition"
+                          >
+                            Terms of Service
+                          </span>{' '}
+                          of FastPoolCodes.
+                        </label>
+                      </div>
+                    )}
+
+                    <button
+                      type="submit"
+                      className="w-full bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-slate-950 font-black text-xs uppercase py-3.5 rounded-xl shadow-lg shadow-emerald-950/40 transition-all cursor-pointer mt-2 text-center"
+                    >
+                      {authMode === 'signup' ? 'Create Free Account' : 'Access Portal Dashboard'}
+                    </button>
+                  </>
                 )}
-
-                <button
-                  type="submit"
-                  className="w-full bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-slate-950 font-black text-xs uppercase py-3.5 rounded-xl shadow-lg shadow-emerald-950/40 transition-all cursor-pointer mt-2 text-center"
-                >
-                  {authMode === 'signup' ? 'Create Free Account' : 'Access Portal Dashboard'}
-                </button>
               </form>
 
               {/* Toggle mode links */}
-              <div className="mt-5 text-center text-xs text-slate-400 select-none">
+              <div className="mt-5 text-center text-xs text-slate-400 select-none space-y-1.5">
                 {authMode === 'signup' ? (
-                  <>
+                  <div>
                     Already signed up?{' '}
                     <span 
                       onClick={() => setAuthMode('login')}
@@ -1745,16 +1894,40 @@ export default function OfficePoolStopHome({
                     >
                       Login Profile
                     </span>
-                  </>
-                ) : (
-                  <>
-                    New coupon forecast user?{' '}
+                  </div>
+                ) : authMode === 'change_password' ? (
+                  <div>
+                    Remembered your password?{' '}
                     <span 
-                      onClick={() => setAuthMode('signup')}
+                      onClick={() => setAuthMode('login')}
                       className="text-emerald-400 font-black cursor-pointer hover:underline"
                     >
-                      Create Free Account
+                      Back to Login Profile
                     </span>
+                  </div>
+                ) : (
+                  <>
+                    <div>
+                      New coupon forecast user?{' '}
+                      <span 
+                        onClick={() => setAuthMode('signup')}
+                        className="text-emerald-400 font-black cursor-pointer hover:underline"
+                      >
+                        Create Free Account
+                      </span>
+                    </div>
+                    <div>
+                      Forgot or need to update key?{' '}
+                      <span 
+                        onClick={() => {
+                          setAuthMode('change_password');
+                          setResetFields({ usernameOrEmail: authFields.username, newPassword: '', confirmPassword: '' });
+                        }}
+                        className="text-amber-400 font-black cursor-pointer hover:underline"
+                      >
+                        Change Password
+                      </span>
+                    </div>
                   </>
                 )}
               </div>

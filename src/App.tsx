@@ -1329,6 +1329,50 @@ export default function App() {
     return { success: true, message: `Welcome back, @${matched.username}!` };
   };
 
+  const handleResetPassword = async (emailOrUsername: string, newPassword: string) => {
+    if (!emailOrUsername || !emailOrUsername.trim()) {
+      return { success: false, error: "Please enter your registered email or username." };
+    }
+    if (!newPassword || newPassword.length < 5) {
+      return { success: false, error: "New security password must be at least 5 characters." };
+    }
+
+    const cleanUName = emailOrUsername.toLowerCase().trim();
+
+    // Check if user exists in local state
+    const targetUser = db.users.find(
+      u => u.email.toLowerCase() === cleanUName || u.username.toLowerCase() === cleanUName
+    );
+
+    if (!targetUser) {
+      return { success: false, error: "Account not found. Please check your username or email address." };
+    }
+
+    // Update password in local db state
+    setDb(prev => ({
+      ...prev,
+      users: prev.users.map(u => u.id === targetUser.id ? { ...u, password: newPassword } : u)
+    }));
+
+    // If cached in localStorage, update cached user info as well
+    try {
+      const cachedStr = localStorage.getItem('fastpool_cached_user');
+      if (cachedStr) {
+        const cached = JSON.parse(cachedStr);
+        if (cached.id === targetUser.id) {
+          localStorage.setItem('fastpool_cached_user', JSON.stringify({ ...cached, password: newPassword }));
+        }
+      }
+    } catch (_) {}
+
+    logSQL(
+      `-- Password Reset Handshake\nUPDATE users SET password_hash = 'sha256:pbkdf2:${newPassword.slice(0, 3)}...' WHERE email = '${targetUser.email}';`,
+      `Password successfully changed for @${targetUser.username}`
+    );
+
+    return { success: true, message: `Password changed successfully for @${targetUser.username}! You can now log in with your new password.` };
+  };
+
   // Paths mapping indicator
   const getSimulatedUrl = () => {
     if (currentAppSelector === 'customer') {
@@ -1411,6 +1455,7 @@ export default function App() {
               triggerToast={triggerToast}
               onRegisterUser={handleRegisterUser}
               onLoginUser={handleLoginUserWithCreds}
+              onChangePassword={handleResetPassword}
               onOpenTerms={() => {
                 setTermsOrigin('homepage');
                 setViewMode('terms');
@@ -1475,65 +1520,8 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Active Context indicator */}
-              <div className="hidden lg:flex items-center gap-2 bg-emerald-950/40 px-3 py-1 rounded-full border border-emerald-900/40 shadow-inner">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span className="text-[10px] font-mono text-emerald-350 select-none uppercase tracking-wider font-extrabold">
-                  Aussie Pool Season • Week 49 Active
-                </span>
-              </div>
-
-              {/* Quick-switch persona dropdown & reload db seeds */}
+              {/* Header Right Actions */}
               <div className="flex items-center gap-1.5 md:gap-3 shrink-0">
-                <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-xs">
-                  <span className="text-[10px] text-slate-400 font-mono uppercase hidden xs:inline">Persona:</span>
-                  <select
-                    value={selectedPersonaId}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setSelectedPersonaId(val);
-                      const u = db.users.find(x => x.id === val);
-                      if (u) {
-                        const userSub = db.user_subscriptions.find(s => s.user_id === u.id);
-                        const planId = userSub?.plan_id || 'plan-free';
-                        const paymentRef = userSub?.payment_ref || null;
-                        
-                        localStorage.setItem('fastpool_cached_user', JSON.stringify({
-                          id: u.id,
-                          username: u.username,
-                          email: u.email,
-                          role: u.role,
-                          plan_id: planId,
-                          payment_ref: paymentRef,
-                          components: userSub?.components || [],
-                          created_at: u.created_at || new Date().toISOString()
-                        }));
-
-                        triggerToast(`Switched active context to @${u.username}`, 'info');
-                        logSQL(
-                          `-- Switch Simulator Identity Handshake\nSELECT * FROM users WHERE id = '${u.id}';`,
-                          `Switched active simulation context to @${u.username}`
-                        );
-                      }
-                    }}
-                    className="bg-transparent text-slate-200 focus:outline-none border-none text-[11px] font-semibold cursor-pointer py-0.5 px-1 pr-3"
-                  >
-                    {db.users.map((u: any) => {
-                      const sub = db.user_subscriptions.find((s: any) => s.user_id === u.id && s.status === 'active');
-                      let tag = '(Free)';
-                      if (u.role === 'admin') tag = '(Admin)';
-                      else if (sub) {
-                        tag = `(${sub.components && sub.components.length > 0 ? sub.components.map((c: string) => c.toUpperCase()).join('+') : 'All'})`;
-                      }
-                      return (
-                        <option key={u.id} value={u.id} className="bg-slate-950 text-slate-200 text-xs">
-                          {u.username} {tag}
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
-
                 <button
                   onClick={() => {
                     const newVal = !bypassPremium;
