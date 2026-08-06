@@ -561,32 +561,7 @@ export default function OfficePoolStopHome({
         </div>
       </header>
 
-      {/* WhatsApp Community Invitation Banner */}
-      <div className="bg-gradient-to-r from-emerald-950 via-[#04150f] to-emerald-950 border-b border-emerald-500/25 py-3.5 px-4 md:px-8 text-center flex flex-col sm:flex-row items-center justify-center gap-4">
-        <div className="flex items-center gap-2.5">
-          <span className="flex h-2.5 w-2.5 relative">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#25D366] opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#25D366]"></span>
-          </span>
-          <p className="text-xs font-semibold text-emerald-100 flex flex-wrap items-center gap-1.5 justify-center sm:justify-start">
-            <span>Get instantly notified of Aussie, UK & local coupon pool code releases!</span>
-            <span className="text-amber-300 font-extrabold uppercase font-mono text-[9px] tracking-wider px-2 py-0.5 bg-amber-950/40 rounded border border-amber-900/40">
-              OFFICIAL COMMUNITY FEED
-            </span>
-          </p>
-        </div>
-        <a
-          href="https://whatsapp.com/channel/0029VanbsS4EawdxbTTkgc3D"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-2 bg-[#25D366] hover:bg-[#20ba5a] active:scale-95 text-slate-950 text-xs font-extrabold uppercase tracking-wider px-5 py-2 rounded-full shadow-lg transition-all duration-150 cursor-pointer select-none font-mono"
-        >
-          <svg className="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24">
-            <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.513 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.739-1.45L0 24zm6.59-4.846c1.6.95 3.188 1.449 4.825 1.451 5.436 0 9.86-4.42 9.863-9.864.001-2.637-1.03-5.114-2.905-6.99C16.554 1.875 14.075 1.83 11.445 1.83c-5.436 0-9.852 4.417-9.855 9.861-.001 1.77.464 3.497 1.349 5.031l-.995 3.637 3.703-.972zm11.366-5.835c-.322-.162-1.912-.944-2.207-1.052-.296-.108-.512-.162-.728.162-.216.324-.836 1.052-1.025 1.267-.19.215-.38.243-.703.081-.322-.162-1.362-.502-2.595-1.602-.958-.854-1.605-1.91-1.794-2.233-.19-.323-.02-.497.14-.658.145-.145.323-.377.484-.566.162-.188.216-.324.323-.539.108-.216.054-.404-.027-.566-.08-.162-.728-1.752-.998-2.4-.263-.633-.527-.547-.728-.557-.188-.01-.404-.01-.62-.01-.216 0-.566.081-.863.404-.296.324-1.132 1.105-1.132 2.694 0 1.59 1.159 3.127 1.32 3.342.162.216 2.28 3.483 5.526 4.883.772.333 1.375.53 1.844.68.776.246 1.482.211 2.041.127.622-.093 1.912-.782 2.181-1.5.27-.72.27-1.34.19-1.472-.081-.132-.296-.216-.62-.378z"/>
-          </svg>
-          <span>JOIN FREE CHANNEL</span>
-        </a>
-      </div>
+
 
       {/* 3. CORE VIEWS GENERATOR */}
       <div className="flex-1">

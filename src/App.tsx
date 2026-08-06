@@ -91,7 +91,7 @@ export default function App() {
   const [helpOrigin, setHelpOrigin] = useState<'homepage' | 'portal'>('homepage');
 
   const [activeTable, setActiveTable] = useState<string>('users');
-  const [selectedPersonaId, setSelectedPersonaId] = useState<string>('usr-betking-888');
+  const [selectedPersonaId, setSelectedPersonaId] = useState<string>('usr-emmanuel-325');
   const [sqlLogs, setSqlLogs] = useState<{ id: string; query: string; purpose: string; timestamp: string }[]>([
     {
       id: 'init-0',
@@ -104,8 +104,8 @@ export default function App() {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
   const [isSyncingSupabase, setIsSyncingSupabase] = useState<boolean>(false);
   const [bypassPremium, setBypassPremium] = useState<boolean>(() => {
-    const cached = localStorage.getItem('fastpool_bypass_premium');
-    return cached === 'true';
+    localStorage.setItem('fastpool_bypass_premium', 'false');
+    return false;
   });
 
   // Administrative form state overrides for pool publication
@@ -175,101 +175,42 @@ export default function App() {
   // Auto-authenticate active Supabase session securely using cached credentials
   useEffect(() => {
     try {
-      const hasInitBetking = sessionStorage.getItem('has_init_betking_once');
-      if (!hasInitBetking) {
-        sessionStorage.setItem('has_init_betking_once', 'true');
-        localStorage.setItem('fastpool_cached_user', JSON.stringify({
-          id: 'usr-betking-888',
-          username: 'betking_subscriber',
-          email: 'betking@outlook.com',
-          role: 'user',
-          plan_id: 'plan-yearly',
-          payment_ref: 'PAY-TX-BETKING-888',
-          created_at: '2026-06-01T10:00:00Z',
-          components: ['bet9ja', 'sportybet', 'betking']
-        }));
-      }
+      const emmanuelUser = {
+        id: 'usr-emmanuel-325',
+        username: 'emmanuelsolomon325',
+        email: 'emmanuelsolomon325@gmail.com',
+        role: 'user',
+        plan_id: 'plan-yearly',
+        payment_ref: 'PAY-TX-EMMANUEL-325',
+        created_at: '2026-06-01T10:00:00Z',
+        components: ['bet9ja', 'sportybet', 'betking']
+      };
 
-      let cachedStr = localStorage.getItem('fastpool_cached_user');
-      if (cachedStr) {
-        const cached = JSON.parse(cachedStr);
-        if (cached && cached.id) {
-          // Force upgrade to complete components list if this is the subscriber
-          if (cached.id === 'usr-betking-888') {
-            cached.plan_id = 'plan-yearly';
-            cached.components = ['bet9ja', 'sportybet', 'betking'];
-            localStorage.setItem('fastpool_cached_user', JSON.stringify(cached));
-            cachedStr = JSON.stringify(cached);
-          }
+      localStorage.setItem('fastpool_cached_user', JSON.stringify(emmanuelUser));
+      setSelectedPersonaId('usr-emmanuel-325');
 
-          const email = cached.email || '';
-          const username = cached.username || email.split('@')[0] || 'profile_member';
-
-          setDb(prev => {
-            const exists = prev.users.find(u => u.id === cached.id || u.email.toLowerCase() === email.toLowerCase());
-            if (exists) {
-              // Update existing user subscription to have full components if it's the active subscriber
-              return {
-                ...prev,
-                user_subscriptions: prev.user_subscriptions.map(s => {
-                  if (s.user_id === cached.id) {
-                    return {
-                      ...s,
-                      plan_id: 'plan-yearly',
-                      components: ['bet9ja', 'sportybet', 'betking']
-                    };
-                  }
-                  return s;
-                })
-              };
-            }
-            const newUser: User = {
-              id: cached.id,
-              username: username.toLowerCase().replace(/\s+/g, '_'),
-              email: email.toLowerCase(),
-              role: cached.role || 'user',
-              status: 'active',
-              phone: '',
-              created_at: cached.created_at || new Date().toISOString(),
-              email_verified_at: new Date().toISOString()
-            };
-
-            const subId = `sub-sb-${Math.floor(Math.random() * 90000 + 10000)}`;
-            const now = new Date();
-            const expiry = new Date();
-            expiry.setMonth(now.getMonth() + 3);
-
-            const hasPaid = cached.plan_id && cached.plan_id !== 'plan-free';
-            const newSub = {
-              id: subId,
-              user_id: cached.id,
-              plan_id: cached.plan_id || 'plan-free',
-              status: 'active' as const,
-              starts_at: now.toISOString(),
-              expires_at: expiry.toISOString(),
-              payment_ref: hasPaid ? (cached.payment_ref || `REF-SUPA-${Math.floor(Math.random() * 9000000 + 1000000)}`) : null,
-              payment_provider: hasPaid ? 'Supabase Auth Credentials Verified' : null,
-              created_at: now.toISOString(),
-              components: cached.components || ['bet9ja', 'sportybet', 'betking']
-            };
-
+      setDb(prev => ({
+        ...prev,
+        users: prev.users.map(u => u.id === 'usr-emmanuel-325' || u.id === 'usr-betking-888' ? {
+          ...u,
+          id: 'usr-emmanuel-325',
+          username: 'emmanuelsolomon325',
+          email: 'emmanuelsolomon325@gmail.com'
+        } : u),
+        user_subscriptions: prev.user_subscriptions.map(s => {
+          if (s.user_id === 'usr-emmanuel-325' || s.user_id === 'usr-betking-888') {
             return {
-              ...prev,
-              users: [...prev.users, newUser],
-              user_subscriptions: [...prev.user_subscriptions, newSub]
+              ...s,
+              user_id: 'usr-emmanuel-325',
+              plan_id: 'plan-yearly',
+              components: ['bet9ja', 'sportybet', 'betking']
             };
-          });
-
-          setSelectedPersonaId(cached.id);
-          setViewMode('homepage');
-          logSQL(
-            `-- RESTORE SUPABASE AUTHENTICATED SESSION FROM SECURE INSTANCE CACHE\nSELECT * FROM auth.users WHERE id = '${cached.id}';`,
-            `Welcome back, @${username}! Restored direct Postgres secure context.`
-          );
-        }
-      }
-    } catch (err) {
-      console.error('Session restoral check failed:', err);
+          }
+          return s;
+        })
+      }));
+    } catch (e) {
+      console.error("Error setting user session:", e);
     }
   }, []);
 
@@ -1456,12 +1397,7 @@ export default function App() {
               }}
               onEnterManagerPanel={() => {
                 setViewMode('portal');
-                // Automatically switch to admin persona
-                const adminUsr = db.users.find(u => u.role === 'admin');
-                if (adminUsr) {
-                  setSelectedPersonaId(adminUsr.id);
-                }
-                triggerToast('Entered administrative manager dashboard.', 'success');
+                triggerToast(`Entered subscriber portal as @${currentUser.username}.`, 'success');
               }}
               onNavigateToCodes={() => {
                 setViewMode('portal');
@@ -1603,16 +1539,16 @@ export default function App() {
                     const newVal = !bypassPremium;
                     setBypassPremium(newVal);
                     localStorage.setItem('fastpool_bypass_premium', String(newVal));
-                    triggerToast(newVal ? '🔧 Test Mode Enabled: All premium locks disabled!' : '🔒 Normal Mode: Premium features are locked.', 'info');
+                    triggerToast(newVal ? '🔧 Test Mode Enabled: All premium locks bypassed.' : '🟢 Live Mode Active: Premium authorization and locks strictly enforced.', 'info');
                   }}
                   className={`px-2.5 py-1.5 border text-[10px] font-mono font-black rounded-lg uppercase tracking-wider transition-all duration-150 active:scale-95 cursor-pointer ${
                     bypassPremium 
-                      ? 'bg-emerald-950/40 text-emerald-400 border-emerald-900/60 hover:bg-emerald-900/40' 
-                      : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-300 hover:border-slate-700'
+                      ? 'bg-amber-950/40 text-amber-400 border-amber-900/60 hover:bg-amber-900/40' 
+                      : 'bg-emerald-950/40 text-emerald-400 border-emerald-900/60 hover:bg-emerald-900/40'
                   }`}
-                  title={bypassPremium ? "Disable Test Mode (Lock Premium Features)" : "Enable Test Mode (Bypass Premium Locks)"}
+                  title={bypassPremium ? "Switch to Live Mode (Enforce Locks & Real Payments)" : "Switch to Test Mode (Bypass Premium Locks)"}
                 >
-                  {bypassPremium ? "🔧 TEST MODE ACTIVE" : "🔒 TEST INACTIVE"}
+                  {bypassPremium ? "🔧 TEST MODE ACTIVE" : "🟢 LIVE MODE ACTIVE"}
                 </button>
 
                 <button
@@ -1659,7 +1595,7 @@ export default function App() {
                   const newVal = !bypassPremium;
                   setBypassPremium(newVal);
                   localStorage.setItem('fastpool_bypass_premium', String(newVal));
-                  triggerToast(newVal ? '🔧 Test Mode Enabled: All premium locks disabled!' : '🔒 Normal Mode: Premium features are locked.', 'info');
+                  triggerToast(newVal ? '🔧 Test Mode Enabled: All premium locks bypassed.' : '🟢 Live Mode Active: Premium authorization and locks strictly enforced.', 'info');
                 }}
                 onNavigateToLiveScores={() => {
                   setLivescoresOrigin('portal');

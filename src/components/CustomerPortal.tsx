@@ -1265,7 +1265,8 @@ export default function CustomerPortal({
                     {currentUser.username[0].toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <span className="text-xs font-black text-slate-5 block truncate">@{currentUser.username}</span>
+                    <span className="text-xs font-black text-slate-100 block truncate">@{currentUser.username}</span>
+                    <span className="text-[10px] text-slate-400 block truncate">{currentUser.email}</span>
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <span className="inline-block w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></span>
                       <span className="text-[9.5px] font-mono text-emerald-350 tracking-wider uppercase font-semibold">
@@ -1429,7 +1430,8 @@ export default function CustomerPortal({
               {currentUser.username[0].toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
-              <span className="text-xs font-black text-slate-5 block truncate">@{currentUser.username}</span>
+              <span className="text-xs font-black text-slate-100 block truncate">@{currentUser.username}</span>
+              <span className="text-[10px] text-slate-400 block truncate">{currentUser.email}</span>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <span className="inline-block w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></span>
                 <span className="text-[9.5px] font-mono text-emerald-350 tracking-wider uppercase font-semibold">
@@ -1663,24 +1665,13 @@ export default function CustomerPortal({
                     </div>
                   )}
 
-                  <div className="flex flex-col sm:flex-row gap-3 w-full max-w-md mt-2">
+                  <div className="w-full max-w-md mt-2">
                     <button
                       onClick={() => setActiveSubTab('subscription')}
-                      className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-black text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-950/40"
+                      className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-black text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-950/40"
                     >
                       <CreditCard className="w-4 h-4" />
                       <span>{isSubscriptionExpired ? 'Renew Subscription' : 'Upgrade to VIP'}</span>
-                    </button>
-                    
-                    <button
-                      onClick={() => {
-                        const planId = latestSub?.plan_id || 'plan-weekly';
-                        buySubscription(planId);
-                      }}
-                      className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 font-black text-xs uppercase tracking-wider rounded-xl transition cursor-pointer border border-slate-700/60 flex items-center justify-center gap-1.5"
-                    >
-                      <Zap className="w-4 h-4 text-amber-400" />
-                      <span>{isSubscriptionExpired ? 'Instant 1-Click Pay' : 'Instant VIP Activation'}</span>
                     </button>
                   </div>
 
@@ -4754,186 +4745,7 @@ export default function CustomerPortal({
                         </div>
                         </div>
 
-                        {/* ADMIN PANEL FOR RESULT SHEETS */}
-                        {currentUser.role === 'admin' && (
-                          <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6 animate-fadeIn">
-                            {/* Column 1: Fill outcome record to active sheet */}
-                            <div className="bg-slate-900/95 border-2 border-amber-500/20 p-5 rounded-2xl flex flex-col gap-4 font-mono text-xs">
-                              <div className="border-b border-slate-800 pb-2">
-                                <h4 className="text-sm font-black text-amber-400 uppercase tracking-wider">
-                                  🛡️ ADMIN: APPEND ROW TO ACTIVE SHEET
-                                </h4>
-                                <p className="text-[10px] text-slate-400 mt-1">
-                                  Insert or overwrite match scoreline results in active drawing sheet: <span className="text-emerald-400">Week {activeResult.week_number} ({(activeResult.pool_type || 'UK').toUpperCase()})</span>.
-                                </p>
-                              </div>
 
-                              <form onSubmit={handleAddResultRowLocal} className="space-y-3">
-                                <div className="grid grid-cols-2 gap-3">
-                                  <div>
-                                    <label className="block text-slate-400 mb-1">MATCH NO.</label>
-                                    <input 
-                                      type="number"
-                                      value={adminResMatchNo}
-                                      onChange={e => setAdminResMatchNo(e.target.value)}
-                                      placeholder={`Default: ${(activeResult.results_table?.length || 0) + 1}`}
-                                      className="w-full bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-white"
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="block text-slate-400 mb-1 text-emerald-400 font-bold">SCORE FT (FT)</label>
-                                    <input 
-                                      type="text"
-                                      value={adminResScore}
-                                      onChange={e => setAdminResScore(e.target.value)}
-                                      placeholder="e.g. 1-1 or 2-0"
-                                      className="w-full bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-white"
-                                      required
-                                    />
-                                  </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-3">
-                                  <div>
-                                    <label className="block text-slate-400 mb-1 text-emerald-400 font-bold">HOME TEAM SELECTION</label>
-                                    <input 
-                                      type="text"
-                                      value={adminResHome}
-                                      onChange={e => setAdminResHome(e.target.value)}
-                                      className="w-full bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-white"
-                                      placeholder="e.g. Arsenal"
-                                      required
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="block text-slate-400 mb-1 text-emerald-400 font-bold">AWAY TEAM COMPANION</label>
-                                    <input 
-                                      type="text"
-                                      value={adminResAway}
-                                      onChange={e => setAdminResAway(e.target.value)}
-                                      className="w-full bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-white"
-                                      placeholder="e.g. Chelsea"
-                                      required
-                                    />
-                                  </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-3 pb-2">
-                                  <div>
-                                    <label className="block text-slate-400 mb-1">POOL OUTCOME</label>
-                                    <select
-                                      value={adminResOutcome}
-                                      onChange={e => setAdminResOutcome(e.target.value)}
-                                      className="w-full bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-white"
-                                    >
-                                      <option value="DRAW">DRAW (X)</option>
-                                      <option value="HOME WIN">HOME WIN (1)</option>
-                                      <option value="AWAY WIN">AWAY WIN (2)</option>
-                                    </select>
-                                  </div>
-                                  <div>
-                                    <label className="block text-slate-400 mb-1">PAYOUT STATUS</label>
-                                    <select
-                                      value={adminResPayStatus}
-                                      onChange={e => setAdminResPayStatus(e.target.value)}
-                                      className="w-full bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-white"
-                                    >
-                                      <option value="CLEARED">CLEARED (GREEN)</option>
-                                      <option value="PENDING">PENDING</option>
-                                    </select>
-                                  </div>
-                                </div>
-
-                                <button
-                                  type="submit"
-                                  className="w-full bg-emerald-600 hover:bg-emerald-505 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded-lg cursor-pointer transition active:scale-[0.99] uppercase tracking-wider text-[11px]"
-                                >
-                                  Append Match Outcomes Row
-                                </button>
-                              </form>
-                            </div>
-
-                            {/* Column 2: Build new empty Pool Results drawing sheet */}
-                            <div className="bg-slate-900/95 border-2 border-indigo-500/20 p-5 rounded-2xl flex flex-col gap-4 font-mono text-xs">
-                              <div className="border-b border-slate-800 pb-2">
-                                <h4 className="text-sm font-black text-indigo-400 uppercase tracking-wider">
-                                  🛡️ ADMIN: BUILD NEW DRAWING SHEET
-                                </h4>
-                                <p className="text-[10px] text-slate-400 mt-1">
-                                  Generate a brand new empty Week Results Sheet for any season type calendar.
-                                </p>
-                              </div>
-
-                              <form onSubmit={handleCreateNewSheetLocal} className="space-y-3">
-                                <div className="grid grid-cols-2 gap-3">
-                                  <div>
-                                    <label className="block text-slate-400 mb-1">WEEK NUMBER</label>
-                                    <input 
-                                      type="number"
-                                      value={adminSheetWeek}
-                                      onChange={e => setAdminSheetWeek(e.target.value)}
-                                      className="w-full bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-white"
-                                      required
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="block text-slate-400 mb-1">SEASON YEAR</label>
-                                    <input 
-                                      type="number"
-                                      value={adminSheetYear}
-                                      onChange={e => setAdminSheetYear(e.target.value)}
-                                      className="w-full bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-white"
-                                      required
-                                    />
-                                  </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-3">
-                                  <div>
-                                    <label className="block text-slate-400 mb-1">POOL TYPE</label>
-                                    <select
-                                      value={adminSheetType}
-                                      onChange={e => setAdminSheetType(e.target.value)}
-                                      className="w-full bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-white"
-                                    >
-                                      <option value="uk">UK POOL</option>
-                                      <option value="aussie">AUSSIE POOL</option>
-                                      <option value="international">INTERNATIONAL</option>
-                                    </select>
-                                  </div>
-                                  <div>
-                                    <label className="block text-slate-400 mb-1">FIXTURE DATE</label>
-                                    <input 
-                                      type="date"
-                                      value={adminSheetDate}
-                                      onChange={e => setAdminSheetDate(e.target.value)}
-                                      className="w-full bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-white"
-                                      required
-                                    />
-                                  </div>
-                                </div>
-
-                                <div>
-                                  <label className="block text-slate-400 mb-1">CUSTOM SHEET TITLE (OPTIONAL)</label>
-                                  <input 
-                                    type="text"
-                                    value={adminSheetTitle}
-                                    onChange={e => setAdminSheetTitle(e.target.value)}
-                                    placeholder="e.g. Week 44 UK Pool results..."
-                                    className="w-full bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-white"
-                                  />
-                                </div>
-
-                                <button
-                                  type="submit"
-                                  className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-4 rounded-lg cursor-pointer transition active:scale-[0.99] uppercase tracking-wider text-[11px]"
-                                >
-                                  Deploy New Results Sheet
-                                </button>
-                              </form>
-                            </div>
-                          </div>
-                        )}
 
                       </div>
                     )}

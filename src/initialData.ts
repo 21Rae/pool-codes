@@ -13,6 +13,17 @@ import {
 
 export const INITIAL_USERS: User[] = [
   {
+    id: 'usr-emmanuel-325',
+    username: 'emmanuelsolomon325',
+    email: 'emmanuelsolomon325@gmail.com',
+    role: 'user',
+    status: 'active',
+    phone: '+2348123456789',
+    email_verified_at: '2026-06-01T10:00:00Z',
+    created_at: '2026-06-01T10:00:00Z',
+    password: 'password'
+  },
+  {
     id: 'usr-admin-777',
     username: 'pool_master_admin',
     email: 'admin@poolcodes.com',
@@ -65,17 +76,6 @@ export const INITIAL_USERS: User[] = [
     phone: '+2348055667788',
     email_verified_at: '2026-05-02T10:45:00Z',
     created_at: '2026-05-02T10:45:00Z',
-    password: 'password'
-  },
-  {
-    id: 'usr-betking-888',
-    username: 'betking_subscriber',
-    email: 'betking@outlook.com',
-    role: 'user',
-    status: 'active',
-    phone: '+2348123456789',
-    email_verified_at: '2026-06-01T10:00:00Z',
-    created_at: '2026-06-01T10:00:00Z',
     password: 'password'
   }
 ];
@@ -352,7 +352,7 @@ export const INITIAL_SUBSCRIPTIONS: UserSubscription[] = [
   },
   {
     id: 'sub-active-888',
-    user_id: 'usr-betking-888', // betking_subscriber
+    user_id: 'usr-emmanuel-325', // emmanuelsolomon325
     plan_id: 'plan-yearly',
     status: 'active',
     starts_at: '2026-06-01T12:00:00Z',

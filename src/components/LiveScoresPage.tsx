@@ -256,26 +256,6 @@ export default function LiveScoresPage({
           </div>
 
           <div className="flex flex-wrap items-center gap-3 self-start md:self-auto">
-            {isAgentActive ? (
-              <button
-                onClick={handleStopAgent}
-                id="stop-livescore-agent-btn"
-                className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-rose-300 hover:text-rose-200 bg-rose-950/40 hover:bg-rose-900/60 border border-rose-500/30 px-4 py-2.5 rounded-xl transition duration-150 cursor-pointer active:scale-95 font-mono shadow-lg"
-              >
-                <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-                <span>Stop Agent 🛑</span>
-              </button>
-            ) : (
-              <button
-                onClick={handleStartAgent}
-                id="start-livescore-agent-btn"
-                className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-emerald-300 hover:text-emerald-200 bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-500/30 px-4 py-2.5 rounded-xl transition duration-150 cursor-pointer active:scale-95 font-mono shadow-lg"
-              >
-                <span className="w-2 h-2 rounded-full bg-slate-400" />
-                <span>Start Agent ▶️</span>
-              </button>
-            )}
-
             <button
               onClick={onBack}
               className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-emerald-400 hover:text-emerald-300 bg-emerald-950/30 hover:bg-emerald-900/40 border border-emerald-500/20 hover:border-emerald-500/40 px-5 py-3 rounded-xl transition duration-150 cursor-pointer group active:scale-95 text-center font-mono"
@@ -300,9 +280,6 @@ export default function LiveScoresPage({
                   ADMIN CORE MATCH ENGINE CONTROLLER
                 </h3>
               </div>
-              <span className="text-[9px] bg-emerald-950 text-emerald-400 border border-emerald-900/30 px-2.5 py-1 rounded font-mono font-bold">
-                Logged in as Admin • {liveScoresData.length} Tracked
-              </span>
             </div>
 
             {/* Form */}
@@ -380,28 +357,6 @@ export default function LiveScoresPage({
                 </div>
               </div>
             </form>
-
-            {/* Polling Logs */}
-            <div className="w-full bg-slate-950 rounded-xl p-3.5 border border-emerald-950">
-              <div className="flex items-center gap-1.5 mb-2">
-                <Terminal className="w-3.5 h-3.5 text-amber-500" />
-                <span className="text-[10px] font-mono font-bold text-amber-400 uppercase tracking-wider">
-                  SYSTEM CORE GROUNDING PROCESS LOGS (AI Live Tracker Active)
-                </span>
-              </div>
-              <div className="max-h-24 overflow-y-auto text-[10px] font-mono text-slate-400 space-y-1.5 pr-2 scrollbar-thin">
-                {liveLogData.length === 0 ? (
-                  <div className="text-slate-500 italic">Listening for live network feeds... Polling active.</div>
-                ) : (
-                  liveLogData.map((log, idx) => (
-                    <div key={idx} className="flex gap-2 border-b border-emerald-950/20 pb-0.5 whitespace-pre-wrap text-left">
-                      <span className="text-emerald-500 min-w-[70px] select-none">↳ [STATION]</span>
-                      <span className="text-slate-300">{log}</span>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
           </motion.div>
         )}
 
