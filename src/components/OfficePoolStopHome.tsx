@@ -59,8 +59,56 @@ const FALLBACK_BLOG_IMAGES = [
   'https://images.unsplash.com/photo-1522778119026-d647f0596c20?auto=format&fit=crop&w=800&q=80'
 ];
 
+function sortBlogPosts(posts: any[]) {
+  if (!posts || posts.length <= 1) return posts || [];
+
+  // Identify hero blog: explicit is_hero flag, or default to first blog at index 0
+  let heroIndex = posts.findIndex((b: any) => b?.is_hero === true || b?.isHero === true || b?.featured === true || b?.is_featured === true);
+  if (heroIndex === -1) {
+    heroIndex = 0;
+  }
+
+  const heroItem = posts[heroIndex];
+  const remainingItems = posts.filter((_, idx) => idx !== heroIndex);
+
+  const getTimestamp = (item: any) => {
+    if (!item) return 0;
+    if (item.created_at) {
+      const t = new Date(item.created_at).getTime();
+      if (!isNaN(t) && t > 0) return t;
+    }
+    if (item.createdAt) {
+      const t = new Date(item.createdAt).getTime();
+      if (!isNaN(t) && t > 0) return t;
+    }
+    if (item.date) {
+      const t = new Date(item.date).getTime();
+      if (!isNaN(t) && t > 0) return t;
+    }
+    if (typeof item.raw_id === 'number') return item.raw_id;
+    if (typeof item.id === 'number') return item.id;
+    if (typeof item.id === 'string') {
+      const num = parseInt(item.id.replace(/\D/g, ''), 10);
+      if (!isNaN(num)) return num;
+    }
+    return 0;
+  };
+
+  remainingItems.sort((a: any, b: any) => {
+    const timeA = getTimestamp(a);
+    const timeB = getTimestamp(b);
+    if (timeA !== timeB) {
+      return timeB - timeA; // Descending: latest uploaded comes first
+    }
+    return 0;
+  });
+
+  return [heroItem, ...remainingItems];
+}
+
 function formatBlogRows(rows: any[]) {
-  return rows.map((b: any, idx: number) => {
+  if (!rows || !Array.isArray(rows)) return [];
+  const formatted = rows.map((b: any, idx: number) => {
     const rawUrl = b.image_url || b.imageUrl || b.image_link || b.imageLink || b.image || b.img || b.img_url || b.cover || b.cover_image || b.banner || b.thumbnail || b.pic || b.photo;
     const finalUrl = rawUrl && String(rawUrl).trim() !== '' ? String(rawUrl).trim() : FALLBACK_BLOG_IMAGES[idx % FALLBACK_BLOG_IMAGES.length];
     return {
@@ -70,9 +118,14 @@ function formatBlogRows(rows: any[]) {
       content: b.content || b.body || b.text || b.article_content || b.details || '',
       date: b.date || (b.created_at ? new Date(b.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })),
       readTime: b.read_time || b.readTime || b.read_duration || b.readTimeMinutes || '5 min read',
-      image_url: finalUrl
+      image_url: finalUrl,
+      created_at: b.created_at || b.createdAt || b.date || null,
+      is_hero: b.is_hero || b.isHero || b.featured || b.is_featured || false,
+      raw_id: b.id
     };
   });
+
+  return sortBlogPosts(formatted);
 }
 
 export default function OfficePoolStopHome({

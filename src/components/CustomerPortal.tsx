@@ -4721,9 +4721,6 @@ export default function CustomerPortal({
                       <h4 className="text-sm sm:text-base font-black text-white mt-1 uppercase tracking-wide break-all sm:break-normal">
                         Username: {currentUser.username} ({currentUser.email})
                       </h4>
-                      <p className="text-xs text-slate-400 mt-1">
-                        Role: <span className="text-[#10B981] font-mono font-bold uppercase">{currentUser.role}</span> • Status: <span className="text-amber-400 font-mono uppercase font-black">{currentUser.status}</span>
-                      </p>
                     </div>
 
                     <div className="p-4 bg-slate-950/90 text-white rounded-xl border border-[#334155]/20 text-xs font-mono flex flex-col items-end">

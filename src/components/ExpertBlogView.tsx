@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   ChevronDown,
   ChevronRight,
@@ -87,6 +87,53 @@ export default function ExpertBlogView({
   const [probeTableName, setProbeTableName] = useState('');
   const [probeResult, setProbeResult] = useState<string | null>(null);
   const [probeLoading, setProbeLoading] = useState(false);
+
+  // Ensure blogs are sorted: hero blog stays at index 0, remaining blogs sorted latest uploaded first
+  const sortedBlogPosts = useMemo(() => {
+    if (!blogPosts || blogPosts.length <= 1) return blogPosts || [];
+
+    let heroIndex = blogPosts.findIndex((b: any) => b?.is_hero === true || b?.isHero === true || b?.featured === true || b?.is_featured === true);
+    if (heroIndex === -1) {
+      heroIndex = 0;
+    }
+
+    const heroItem = blogPosts[heroIndex];
+    const remainingItems = blogPosts.filter((_, idx) => idx !== heroIndex);
+
+    const getTimestamp = (item: any) => {
+      if (!item) return 0;
+      if (item.created_at) {
+        const t = new Date(item.created_at).getTime();
+        if (!isNaN(t) && t > 0) return t;
+      }
+      if (item.createdAt) {
+        const t = new Date(item.createdAt).getTime();
+        if (!isNaN(t) && t > 0) return t;
+      }
+      if (item.date) {
+        const t = new Date(item.date).getTime();
+        if (!isNaN(t) && t > 0) return t;
+      }
+      if (typeof item.raw_id === 'number') return item.raw_id;
+      if (typeof item.id === 'number') return item.id;
+      if (typeof item.id === 'string') {
+        const num = parseInt(item.id.replace(/\D/g, ''), 10);
+        if (!isNaN(num)) return num;
+      }
+      return 0;
+    };
+
+    remainingItems.sort((a: any, b: any) => {
+      const timeA = getTimestamp(a);
+      const timeB = getTimestamp(b);
+      if (timeA !== timeB) {
+        return timeB - timeA; // Descending: latest uploaded comes first
+      }
+      return 0;
+    });
+
+    return [heroItem, ...remainingItems];
+  }, [blogPosts]);
 
   const handleSharePost = async (post: any, e?: React.MouseEvent) => {
     if (e) {
@@ -419,16 +466,16 @@ export default function ExpertBlogView({
               </div>
 
               {/* CARD 1: MAIN FEATURED HERO ARTICLE CONTAINER */}
-              {blogPosts[0] && (
+              {sortedBlogPosts[0] && (
                 <div 
-                  onClick={() => onReadArticle(blogPosts[0])}
+                  onClick={() => onReadArticle(sortedBlogPosts[0])}
                   className="bg-white border border-zinc-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition cursor-pointer group"
                 >
                   {/* High Quality Abstract Stadium Banner Representation */}
                   <div className="h-72 w-full relative bg-gradient-to-br from-indigo-900 via-neutral-900 to-emerald-900 overflow-hidden">
                     <img 
-                      src={getBlogImage(blogPosts[0], 0)} 
-                      alt={blogPosts[0].title}
+                      src={getBlogImage(sortedBlogPosts[0], 0)} 
+                      alt={sortedBlogPosts[0].title}
                       referrerPolicy="no-referrer"
                       onError={(e) => {
                         (e.currentTarget as HTMLImageElement).src = FALLBACK_BLOG_IMAGES[0];
@@ -448,7 +495,7 @@ export default function ExpertBlogView({
                         <span className="bg-emerald-500 text-slate-950 text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-wide">
                           ARTICLE
                         </span>
-                        <span className="text-neutral-300 text-[10px] font-bold">{blogPosts[0].date}</span>
+                        <span className="text-neutral-300 text-[10px] font-bold">{sortedBlogPosts[0].date}</span>
                       </div>
                     </div>
                   </div>
@@ -456,10 +503,10 @@ export default function ExpertBlogView({
                   {/* Body textual block */}
                   <div className="p-5 space-y-2.5 text-left">
                     <h2 className="font-sans font-black text-zinc-900 text-xl md:text-2xl tracking-tight leading-tight group-hover:text-[#fa3e65] transition">
-                      {blogPosts[0].title}
+                      {sortedBlogPosts[0].title}
                     </h2>
                     <p className="text-zinc-500 font-medium text-xs leading-relaxed">
-                      {blogPosts[0].summary}
+                      {sortedBlogPosts[0].summary}
                     </p>
                     <div className="pt-2 flex items-center justify-between text-[11px] font-bold text-zinc-500">
                       <div className="flex items-center gap-3">
@@ -467,10 +514,10 @@ export default function ExpertBlogView({
                           <BookOpen className="w-3.5 h-3.5" /> Read Full Article
                         </span>
                         <span>•</span>
-                        <span className="text-rose-500 font-black">{blogPosts[0].readTime}</span>
+                        <span className="text-rose-500 font-black">{sortedBlogPosts[0].readTime}</span>
                       </div>
                       <button
-                        onClick={(e) => handleSharePost(blogPosts[0], e)}
+                        onClick={(e) => handleSharePost(sortedBlogPosts[0], e)}
                         className="flex items-center gap-1 px-2.5 py-1 bg-zinc-100 hover:bg-rose-50 hover:text-rose-600 active:scale-95 text-zinc-700 rounded-md transition text-[10px] font-black uppercase cursor-pointer border border-zinc-200 shadow-xs"
                         title="Share Article"
                       >
@@ -483,15 +530,15 @@ export default function ExpertBlogView({
               )}
 
               {/* CARD 2: HIGHLIGHT SECTION 1 */}
-              {blogPosts[1] && (
+              {sortedBlogPosts[1] && (
                 <div 
-                  onClick={() => onReadArticle(blogPosts[1])}
+                  onClick={() => onReadArticle(sortedBlogPosts[1])}
                   className="bg-white border border-zinc-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition cursor-pointer grid grid-cols-1 md:grid-cols-12 group"
                 >
                   <div className="md:col-span-5 h-48 md:h-full relative bg-gradient-to-br from-[#0c243c] via-black to-[#fa3e65]/40 overflow-hidden">
                     <img 
-                      src={getBlogImage(blogPosts[1], 1)} 
-                      alt={blogPosts[1].title}
+                      src={getBlogImage(sortedBlogPosts[1], 1)} 
+                      alt={sortedBlogPosts[1].title}
                       referrerPolicy="no-referrer"
                       onError={(e) => {
                         (e.currentTarget as HTMLImageElement).src = FALLBACK_BLOG_IMAGES[1];
@@ -503,18 +550,18 @@ export default function ExpertBlogView({
                   <div className="md:col-span-7 p-5 flex flex-col justify-between text-left space-y-3">
                     <div className="space-y-1.5">
                       <h3 className="font-black text-zinc-900 text-base leading-snug group-hover:text-[#fa3e65] transition">
-                        {blogPosts[1].title}
+                        {sortedBlogPosts[1].title}
                       </h3>
                       <p className="text-zinc-500 font-medium text-[11.5px] leading-relaxed">
-                        {blogPosts[1].summary}
+                        {sortedBlogPosts[1].summary}
                       </p>
                     </div>
                     <div className="flex items-center justify-between text-[10px] font-bold text-zinc-400">
-                      <span>{blogPosts[1].date}</span>
+                      <span>{sortedBlogPosts[1].date}</span>
                       <div className="flex items-center gap-2.5">
-                        <span className="text-[#fa3e65] font-black">{blogPosts[1].readTime}</span>
+                        <span className="text-[#fa3e65] font-black">{sortedBlogPosts[1].readTime}</span>
                         <button
-                          onClick={(e) => handleSharePost(blogPosts[1], e)}
+                          onClick={(e) => handleSharePost(sortedBlogPosts[1], e)}
                           className="flex items-center gap-1 px-2.5 py-1 bg-zinc-100 hover:bg-rose-50 hover:text-rose-600 active:scale-95 text-zinc-700 rounded-md transition text-[10px] font-black uppercase cursor-pointer border border-zinc-200 shadow-xs"
                           title="Share Article"
                         >
@@ -528,15 +575,15 @@ export default function ExpertBlogView({
               )}
 
               {/* CARD 3: SPOTLIGHT SECTION 2 */}
-              {blogPosts[2] && (
+              {sortedBlogPosts[2] && (
                 <div 
-                  onClick={() => onReadArticle(blogPosts[2])}
+                  onClick={() => onReadArticle(sortedBlogPosts[2])}
                   className="bg-white border border-zinc-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition cursor-pointer grid grid-cols-1 md:grid-cols-12 group"
                 >
                   <div className="md:col-span-5 h-48 md:h-full relative bg-gradient-to-br from-[#024424] via-black to-slate-900 overflow-hidden">
                     <img 
-                      src={getBlogImage(blogPosts[2], 2)} 
-                      alt={blogPosts[2].title}
+                      src={getBlogImage(sortedBlogPosts[2], 2)} 
+                      alt={sortedBlogPosts[2].title}
                       referrerPolicy="no-referrer"
                       onError={(e) => {
                         (e.currentTarget as HTMLImageElement).src = FALLBACK_BLOG_IMAGES[2];
@@ -548,18 +595,18 @@ export default function ExpertBlogView({
                   <div className="md:col-span-7 p-5 flex flex-col justify-between text-left space-y-3">
                     <div className="space-y-1.5">
                       <h3 className="font-black text-zinc-900 text-base leading-snug group-hover:text-emerald-600 transition">
-                        {blogPosts[2].title}
+                        {sortedBlogPosts[2].title}
                       </h3>
                       <p className="text-zinc-500 font-medium text-[11.5px] leading-relaxed">
-                        {blogPosts[2].summary}
+                        {sortedBlogPosts[2].summary}
                       </p>
                     </div>
                     <div className="flex items-center justify-between text-[10px] font-bold text-zinc-400">
-                      <span>{blogPosts[2].date}</span>
+                      <span>{sortedBlogPosts[2].date}</span>
                       <div className="flex items-center gap-2.5">
-                        <span className="text-emerald-600 font-black">{blogPosts[2].readTime}</span>
+                        <span className="text-emerald-600 font-black">{sortedBlogPosts[2].readTime}</span>
                         <button
-                          onClick={(e) => handleSharePost(blogPosts[2], e)}
+                          onClick={(e) => handleSharePost(sortedBlogPosts[2], e)}
                           className="flex items-center gap-1 px-2.5 py-1 bg-zinc-100 hover:bg-emerald-50 hover:text-emerald-600 active:scale-95 text-zinc-700 rounded-md transition text-[10px] font-black uppercase cursor-pointer border border-zinc-200 shadow-xs"
                           title="Share Article"
                         >
@@ -573,15 +620,15 @@ export default function ExpertBlogView({
               )}
 
               {/* CARD 4: OVERLAY COVER CARD */}
-              {blogPosts[3] && (
+              {sortedBlogPosts[3] && (
                 <div 
-                  onClick={() => onReadArticle(blogPosts[3])}
+                  onClick={() => onReadArticle(sortedBlogPosts[3])}
                   className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden relative shadow-lg hover:shadow-xl transition h-72 cursor-pointer group flex flex-col justify-end"
                 >
                   <div className="absolute inset-0 bg-gradient-to-br from-[#fa3e65]/35 via-zinc-950 to-emerald-950/20 z-0 overflow-hidden">
                     <img 
-                      src={getBlogImage(blogPosts[3], 3)} 
-                      alt={blogPosts[3].title}
+                      src={getBlogImage(sortedBlogPosts[3], 3)} 
+                      alt={sortedBlogPosts[3].title}
                       referrerPolicy="no-referrer"
                       onError={(e) => {
                         (e.currentTarget as HTMLImageElement).src = FALLBACK_BLOG_IMAGES[3];
@@ -593,17 +640,17 @@ export default function ExpertBlogView({
                   
                   <div className="p-6 relative z-20 space-y-2 text-left">
                     <h3 className="text-white font-black text-lg md:text-xl leading-snug group-hover:text-amber-300 transition">
-                      {blogPosts[3].title}
+                      {sortedBlogPosts[3].title}
                     </h3>
                     <p className="text-zinc-400 text-xs font-medium max-w-2xl leading-relaxed">
-                      {blogPosts[3].summary}
+                      {sortedBlogPosts[3].summary}
                     </p>
                     <div className="pt-2 flex items-center justify-between text-[10px] font-bold text-zinc-400 font-mono">
-                      <span>{blogPosts[3].date}</span>
+                      <span>{sortedBlogPosts[3].date}</span>
                       <div className="flex items-center gap-2.5">
-                        <span className="text-amber-400 font-black">{blogPosts[3].readTime}</span>
+                        <span className="text-amber-400 font-black">{sortedBlogPosts[3].readTime}</span>
                         <button
-                          onClick={(e) => handleSharePost(blogPosts[3], e)}
+                          onClick={(e) => handleSharePost(sortedBlogPosts[3], e)}
                           className="flex items-center gap-1 px-2.5 py-1 bg-zinc-800/90 hover:bg-amber-400 hover:text-slate-950 active:scale-95 text-zinc-200 rounded-md transition text-[10px] font-black uppercase cursor-pointer border border-zinc-700 shadow-xs"
                           title="Share Article"
                         >
@@ -617,14 +664,14 @@ export default function ExpertBlogView({
               )}
 
               {/* CARD 5+: ADDITIONAL ARTICLES LIST IF MORE THAN 4 EXIST */}
-              {blogPosts.length > 4 && (
+              {sortedBlogPosts.length > 4 && (
                 <div className="space-y-4 pt-4 border-t border-zinc-200">
                   <h4 className="font-sans font-black text-xs text-zinc-800 uppercase tracking-wider text-left flex items-center gap-2">
                     <BookOpen className="w-4 h-4 text-indigo-600" />
-                    <span>More Published Articles ({blogPosts.length - 4})</span>
+                    <span>More Published Articles ({sortedBlogPosts.length - 4})</span>
                   </h4>
                   <div className="grid grid-cols-1 gap-3">
-                    {blogPosts.slice(4).map((post, idx) => (
+                    {sortedBlogPosts.slice(4).map((post, idx) => (
                       <div
                         key={post.id || idx}
                         onClick={() => onReadArticle(post)}
@@ -654,7 +701,7 @@ export default function ExpertBlogView({
               )}
 
               {/* EMPTY STATE WHEN ZERO BLOGS EXISITING: WITH DETAILED SUPABASE CONNECTION DIAGNOSTICS */}
-              {blogPosts.length === 0 && (
+              {sortedBlogPosts.length === 0 && (
                 <div className="bg-white border border-zinc-200 rounded-xl p-8 md:p-12 text-center space-y-6 my-6 shadow-sm">
                   <div className="w-20 h-20 bg-zinc-50 border border-zinc-150 shadow-sm rounded-full flex items-center justify-center mx-auto text-4xl select-none">
                     🧐
@@ -1120,13 +1167,13 @@ INSERT INTO public.championship_results (
               )}
 
               {/* GRID MAPPING FOR MORE ARTICLES (Index 4+) */}
-              {blogPosts.length > 4 && (
+              {sortedBlogPosts.length > 4 && (
                 <div className="space-y-4 pt-6 border-t border-zinc-150">
                   <h4 className="text-zinc-400 text-[10.5px] tracking-widest font-black uppercase font-mono">
                     More Published Analyses
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {blogPosts.slice(4).map((post, idx) => (
+                    {sortedBlogPosts.slice(4).map((post, idx) => (
                       <div 
                         key={post.id || idx}
                         onClick={() => onReadArticle(post)}
