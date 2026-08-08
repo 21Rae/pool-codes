@@ -91,7 +91,16 @@ export default function App() {
   const [helpOrigin, setHelpOrigin] = useState<'homepage' | 'portal'>('homepage');
 
   const [activeTable, setActiveTable] = useState<string>('users');
-  const [selectedPersonaId, setSelectedPersonaId] = useState<string>('usr-emmanuel-325');
+  const [selectedPersonaId, setSelectedPersonaId] = useState<string>(() => {
+    try {
+      const cachedStr = localStorage.getItem('fastpool_cached_user');
+      if (cachedStr) {
+        const cached = JSON.parse(cachedStr);
+        if (cached && cached.id) return cached.id;
+      }
+    } catch (_) {}
+    return '';
+  });
   const [sqlLogs, setSqlLogs] = useState<{ id: string; query: string; purpose: string; timestamp: string }[]>([
     {
       id: 'init-0',
@@ -141,10 +150,28 @@ export default function App() {
   // Dynamic Paystack Public Key from runtime environment variables via server-side config API
   const [paystackPublicKey, setPaystackPublicKey] = useState<string>('');
 
-  // Active Authenticated user in simulated session
-  const currentUser = (db.users && db.users.length > 0)
-    ? (db.users.find(u => u.id === selectedPersonaId) || db.users[0] || INITIAL_USERS[0])
-    : INITIAL_USERS[0];
+  const GUEST_USER: User = {
+    id: 'guest',
+    username: 'Guest',
+    email: 'guest@fastpoolcodes.com',
+    role: 'user',
+    status: 'active',
+    created_at: new Date().toISOString(),
+    email_verified_at: null
+  };
+
+  // Active Authenticated user in session
+  const currentUser = (selectedPersonaId && db.users && db.users.length > 0)
+    ? (db.users.find(u => u.id === selectedPersonaId) || {
+        id: selectedPersonaId,
+        username: 'User',
+        email: 'user@fastpoolcodes.com',
+        role: 'user',
+        status: 'active',
+        created_at: new Date().toISOString(),
+        email_verified_at: new Date().toISOString()
+      })
+    : GUEST_USER;
 
   // Subscription Perks parser helper
   const availablePlans = getMergedSubscriptionPlans(db.subscription_plans);
@@ -172,43 +199,38 @@ export default function App() {
     setSqlLogs(prev => [newLog, ...prev].slice(0, 45));
   };
 
-  // Auto-authenticate active Supabase session securely using cached credentials
+  // Auto-load active user session from localStorage if logged in
   useEffect(() => {
     try {
-      const emmanuelUser = {
-        id: 'usr-emmanuel-325',
-        username: 'emmanuelsolomon325',
-        email: 'emmanuelsolomon325@gmail.com',
-        role: 'user',
-        plan_id: 'plan-yearly',
-        payment_ref: 'PAY-TX-EMMANUEL-325',
-        created_at: '2026-06-01T10:00:00Z',
-        components: ['bet9ja', 'sportybet', 'betking']
-      };
-
-      localStorage.setItem('fastpool_cached_user', JSON.stringify(emmanuelUser));
-      setSelectedPersonaId('usr-emmanuel-325');
-
-      setDb(prev => ({
-        ...prev,
-        users: prev.users.map(u => u.id === 'usr-emmanuel-325' || u.id === 'usr-betking-888' ? {
-          ...u,
-          id: 'usr-emmanuel-325',
-          username: 'emmanuelsolomon325',
-          email: 'emmanuelsolomon325@gmail.com'
-        } : u),
-        user_subscriptions: prev.user_subscriptions.map(s => {
-          if (s.user_id === 'usr-emmanuel-325' || s.user_id === 'usr-betking-888') {
-            return {
-              ...s,
-              user_id: 'usr-emmanuel-325',
-              plan_id: 'plan-yearly',
-              components: ['bet9ja', 'sportybet', 'betking']
-            };
-          }
-          return s;
-        })
-      }));
+      const cachedStr = localStorage.getItem('fastpool_cached_user');
+      if (cachedStr) {
+        const cached = JSON.parse(cachedStr);
+        if (cached && cached.id) {
+          setSelectedPersonaId(cached.id);
+          setDb(prev => {
+            const exists = prev.users.some(u => u.id === cached.id);
+            if (!exists) {
+              const newUser: User = {
+                id: cached.id,
+                username: cached.username || 'user',
+                email: cached.email || '',
+                role: cached.role || 'user',
+                status: 'active',
+                phone: '',
+                created_at: cached.created_at || new Date().toISOString(),
+                email_verified_at: new Date().toISOString()
+              };
+              return {
+                ...prev,
+                users: [...prev.users, newUser]
+              };
+            }
+            return prev;
+          });
+        }
+      } else {
+        setSelectedPersonaId('');
+      }
     } catch (e) {
       console.error("Error setting user session:", e);
     }
@@ -1592,7 +1614,7 @@ export default function App() {
                 }}
                 onSignOut={() => {
                   localStorage.removeItem('fastpool_cached_user');
-                  setSelectedPersonaId('usr-free-101');
+                  setSelectedPersonaId('');
                   setViewMode('homepage');
                   triggerToast('Logged out of workspace session successfully.', 'success');
                 }}
