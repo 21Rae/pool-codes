@@ -136,10 +136,10 @@ export default function ExpertBlogView({
   }, [blogPosts]);
 
   const getPostShareUrl = (post: any) => {
-    if (!post) return window.location.origin + window.location.pathname;
-    const baseUrl = window.location.origin + window.location.pathname;
+    const domain = 'https://fastpoolcodes.com';
+    if (!post) return domain;
     const identifier = post.id || post.raw_id || post.title || '';
-    return `${baseUrl}?blog=${encodeURIComponent(identifier)}`;
+    return `${domain}?blog=${encodeURIComponent(identifier)}`;
   };
 
   const handleSharePost = async (post: any, e?: React.MouseEvent) => {

@@ -107,10 +107,10 @@ function sortBlogPosts(posts: any[]) {
 }
 
 function getPostShareUrl(post: any) {
-  if (!post) return window.location.origin + window.location.pathname;
-  const baseUrl = window.location.origin + window.location.pathname;
+  const domain = 'https://fastpoolcodes.com';
+  if (!post) return domain;
   const identifier = post.id || post.raw_id || post.title || '';
-  return `${baseUrl}?blog=${encodeURIComponent(identifier)}`;
+  return `${domain}?blog=${encodeURIComponent(identifier)}`;
 }
 
 function findBlogPostByUrlParam(posts: any[], param: string | null) {
@@ -408,9 +408,10 @@ export default function OfficePoolStopHome({
   // Keep browser address bar URL in sync with active blog article modal
   useEffect(() => {
     if (blogModalArticle) {
-      const shareUrl = getPostShareUrl(blogModalArticle);
+      const identifier = blogModalArticle.id || blogModalArticle.raw_id || blogModalArticle.title || '';
+      const relativePath = `?blog=${encodeURIComponent(identifier)}`;
       try {
-        window.history.replaceState({}, '', shareUrl);
+        window.history.replaceState({}, '', relativePath);
       } catch (_) {}
     } else if (hasAutoOpenedSharedBlog) {
       try {
