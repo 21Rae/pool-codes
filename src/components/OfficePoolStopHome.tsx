@@ -106,6 +106,45 @@ function sortBlogPosts(posts: any[]) {
   return [heroItem, ...remainingItems];
 }
 
+function getPostShareUrl(post: any) {
+  if (!post) return window.location.origin + window.location.pathname;
+  const baseUrl = window.location.origin + window.location.pathname;
+  const identifier = post.id || post.raw_id || post.title || '';
+  return `${baseUrl}?blog=${encodeURIComponent(identifier)}`;
+}
+
+function findBlogPostByUrlParam(posts: any[], param: string | null) {
+  if (!posts || !posts.length || !param) return null;
+  const rawParam = param.trim();
+  const decodedParam = decodeURIComponent(rawParam).trim().toLowerCase();
+
+  return posts.find((p: any) => {
+    if (!p) return false;
+    const pid = String(p.id || '').trim().toLowerCase();
+    const rawId = String(p.raw_id || '').trim().toLowerCase();
+    const title = String(p.title || '').trim().toLowerCase();
+
+    if (pid === decodedParam || rawId === decodedParam || pid === rawParam || rawId === rawParam) {
+      return true;
+    }
+    if (title === decodedParam) {
+      return true;
+    }
+
+    const slugifiedTitle = title.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    const slugifiedParam = decodedParam.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    if (slugifiedTitle && slugifiedParam && slugifiedTitle === slugifiedParam) {
+      return true;
+    }
+
+    if (title.length > 5 && (title.includes(decodedParam) || decodedParam.includes(title))) {
+      return true;
+    }
+
+    return false;
+  }) || null;
+}
+
 function formatBlogRows(rows: any[]) {
   if (!rows || !Array.isArray(rows)) return [];
   const formatted = rows.map((b: any, idx: number) => {
@@ -182,6 +221,7 @@ export default function OfficePoolStopHome({
   const [isBlogsLoading, setIsBlogsLoading] = useState(false);
   const [fetchCount, setFetchCount] = useState(0);
   const [blogModalArticle, setBlogModalArticle] = useState<any | null>(null);
+  const [hasAutoOpenedSharedBlog, setHasAutoOpenedSharedBlog] = useState(false);
 
   // Scoreboard horizontal ticker state
   const [liveScoresData, setLiveScoresData] = useState<any[]>([]);
@@ -340,8 +380,47 @@ export default function OfficePoolStopHome({
     };
   }, []);
 
+  // Deep-link auto-open for shared blog post links
+  useEffect(() => {
+    if (blogPosts && blogPosts.length > 0 && !hasAutoOpenedSharedBlog) {
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const targetParam = urlParams.get('blog') || urlParams.get('post') || urlParams.get('article');
+        let hashParam: string | null = null;
+        if (window.location.hash && window.location.hash.includes('blog=')) {
+          const match = window.location.hash.match(/blog=([^&]+)/);
+          if (match && match[1]) hashParam = decodeURIComponent(match[1]);
+        }
+        const blogIdToFind = targetParam || hashParam;
+
+        if (blogIdToFind) {
+          const matched = findBlogPostByUrlParam(blogPosts, blogIdToFind);
+          if (matched) {
+            setCurrentView('blog');
+            setBlogModalArticle(matched);
+            setHasAutoOpenedSharedBlog(true);
+          }
+        }
+      } catch (_) {}
+    }
+  }, [blogPosts, hasAutoOpenedSharedBlog]);
+
+  // Keep browser address bar URL in sync with active blog article modal
+  useEffect(() => {
+    if (blogModalArticle) {
+      const shareUrl = getPostShareUrl(blogModalArticle);
+      try {
+        window.history.replaceState({}, '', shareUrl);
+      } catch (_) {}
+    } else if (hasAutoOpenedSharedBlog) {
+      try {
+        window.history.replaceState({}, '', window.location.origin + window.location.pathname);
+      } catch (_) {}
+    }
+  }, [blogModalArticle, hasAutoOpenedSharedBlog]);
+
   const handleShareBlogArticle = async (article: any) => {
-    const shareUrl = window.location.href;
+    const shareUrl = getPostShareUrl(article);
     const shareTitle = article?.title || 'FastPoolCodes Analysis';
     const shareText = article?.summary || article?.title || 'Check out this football pool article!';
 
@@ -361,7 +440,7 @@ export default function OfficePoolStopHome({
 
     try {
       await navigator.clipboard.writeText(shareUrl);
-      triggerToast('Blog link copied to clipboard!', 'success');
+      triggerToast('Blog post link copied to clipboard!', 'success');
     } catch (err) {
       triggerToast('Failed to copy link.', 'error');
     }
@@ -593,7 +672,7 @@ export default function OfficePoolStopHome({
         <div className="bg-[#020b08] border-t border-emerald-950/60 py-2.5 px-6 flex items-center">
           <span className="text-[9px] font-mono text-emerald-400 font-extrabold uppercase tracking-widest flex items-center gap-1 shrink-0 border-r border-emerald-950 pr-4 mr-4">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
-            Sports Casting
+            LIVE pool matche
           </span>
           <div 
             ref={scoreboardRef}
@@ -1455,7 +1534,7 @@ export default function OfficePoolStopHome({
                   </button>
 
                   <a
-                    href={`https://api.whatsapp.com/send?text=${encodeURIComponent((blogModalArticle.title || 'FastPoolCodes Analysis') + ' - ' + window.location.href)}`}
+                    href={`https://api.whatsapp.com/send?text=${encodeURIComponent((blogModalArticle.title || 'FastPoolCodes Analysis') + ' - ' + getPostShareUrl(blogModalArticle))}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-1 px-2.5 py-1 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-md text-[11px] font-bold transition"
@@ -1464,7 +1543,7 @@ export default function OfficePoolStopHome({
                   </a>
 
                   <a
-                    href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(blogModalArticle.title || 'FastPoolCodes Analysis')}&url=${encodeURIComponent(window.location.href)}`}
+                    href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(blogModalArticle.title || 'FastPoolCodes Analysis')}&url=${encodeURIComponent(getPostShareUrl(blogModalArticle))}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-1 px-2.5 py-1 bg-sky-500/20 hover:bg-sky-500/30 text-sky-400 border border-sky-500/30 rounded-md text-[11px] font-bold transition"
@@ -1473,7 +1552,7 @@ export default function OfficePoolStopHome({
                   </a>
 
                   <a
-                    href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`}
+                    href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(getPostShareUrl(blogModalArticle))}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-1 px-2.5 py-1 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 rounded-md text-[11px] font-bold transition"

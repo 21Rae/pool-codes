@@ -135,11 +135,18 @@ export default function ExpertBlogView({
     return [heroItem, ...remainingItems];
   }, [blogPosts]);
 
+  const getPostShareUrl = (post: any) => {
+    if (!post) return window.location.origin + window.location.pathname;
+    const baseUrl = window.location.origin + window.location.pathname;
+    const identifier = post.id || post.raw_id || post.title || '';
+    return `${baseUrl}?blog=${encodeURIComponent(identifier)}`;
+  };
+
   const handleSharePost = async (post: any, e?: React.MouseEvent) => {
     if (e) {
       e.stopPropagation();
     }
-    const shareUrl = window.location.href;
+    const shareUrl = getPostShareUrl(post);
     const shareTitle = post?.title || 'FastPoolCodes Blog Analysis';
     const shareText = post?.summary || 'Check out this verified football pool analysis on FastPoolCodes!';
 
