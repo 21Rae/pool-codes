@@ -439,7 +439,8 @@ export default function App() {
 
   const downloadCodesFileAuto = (userObj: any, planId: string, paymentRef: string) => {
     try {
-      const plan = db.subscription_plans.find(p => p.id === planId) || db.subscription_plans[1];
+      const plans = getMergedSubscriptionPlans(db.subscription_plans);
+      const plan = plans.find(p => p.id === planId) || plans[0] || INITIAL_PLANS[0];
       const activeWeek = db.pool_weeks.find(w => w.status === 'active') || db.pool_weeks[0];
       const weekNum = activeWeek ? activeWeek.week_number : '49';
       
@@ -524,7 +525,8 @@ export default function App() {
   };
 
   const completePurchase = (planId: string, reference: string, selectedComponents?: string[]) => {
-    const p = db.subscription_plans.find(x => x.id === planId);
+    const plans = getMergedSubscriptionPlans(db.subscription_plans);
+    const p = plans.find(x => x.id === planId);
     if (!p) return;
 
     const defaultComps = planId.includes('ghana') ? ['premierbet', 'betway', 'soccabet', 'sportybet'] : ['bet9ja', 'sportybet', 'betking'];
@@ -672,7 +674,8 @@ export default function App() {
 
   // Handler: Purchase/Upgrade user plan via Paystack
   const buySubscription = async (planId: string, selectedComponents: string[] = ['bet9ja', 'sportybet', 'betking']) => {
-    const p = db.subscription_plans.find(x => x.id === planId);
+    const plans = getMergedSubscriptionPlans(db.subscription_plans);
+    const p = plans.find(x => x.id === planId);
     if (!p) return;
 
     if (selectedComponents.length === 0) {

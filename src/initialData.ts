@@ -237,19 +237,10 @@ export function isGhanaPlan(p: any): boolean {
 }
 
 export function getMergedSubscriptionPlans(dbPlans?: SubscriptionPlan[]): SubscriptionPlan[] {
-  const mergedMap = new Map<string, SubscriptionPlan>();
-  (INITIAL_PLANS || []).forEach(p => {
-    if (p && p.id) mergedMap.set(p.id, p);
-  });
-  if (Array.isArray(dbPlans)) {
-    dbPlans.forEach(p => {
-      if (p && (p.id || p.name)) {
-        const key = String(p.id || p.name);
-        mergedMap.set(key, p);
-      }
-    });
+  if (Array.isArray(dbPlans) && dbPlans.length > 0) {
+    return dbPlans;
   }
-  return Array.from(mergedMap.values());
+  return INITIAL_PLANS || [];
 }
 
 export function isGhanaBookmaker(b: any): boolean {

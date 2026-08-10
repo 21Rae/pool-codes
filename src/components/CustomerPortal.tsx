@@ -4724,7 +4724,7 @@ export default function CustomerPortal({
                     </div>
 
                     <div className="p-4 bg-slate-950/90 text-white rounded-xl border border-[#334155]/20 text-xs font-mono flex flex-col items-end">
-                      <div>CURRENT PLAN: <span className="text-amber-400 font-extrabold uppercase">{activePlan?.name}</span></div>
+                      <div>CURRENT PLAN: <span className="text-amber-400 font-extrabold">{activePlan?.name}</span></div>
                       {activeSubscription && (
                         <span className="text-[10px] text-slate-400 mt-1 text-right">Receipt ID: {activeSubscription.payment_ref}</span>
                       )}
@@ -4764,10 +4764,14 @@ export default function CustomerPortal({
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                      {getMergedSubscriptionPlans(db.subscription_plans)
-                        .filter(p => p && p.id && p.id !== 'plan-free')
-                        .filter(p => pricingRegionFilter === 'ghana' ? isGhanaPlan(p) : !isGhanaPlan(p))
-                        .map((p, pIdx) => {
+                      {(() => {
+                        const rawPlans = getMergedSubscriptionPlans(db.subscription_plans).filter(p => p && p.id);
+                        const paidPlans = rawPlans.filter(p => p.price > 0 || p.id !== 'plan-free');
+                        const pool = paidPlans.length > 0 ? paidPlans : rawPlans;
+                        const regionMatches = pool.filter(p => pricingRegionFilter === 'ghana' ? isGhanaPlan(p) : !isGhanaPlan(p));
+                        const displayPlans = regionMatches.length > 0 ? regionMatches : pool;
+
+                        return displayPlans.map((p, pIdx) => {
                           const isCurrentPlan = activePlan?.id === p.id;
                           const isGhana = isGhanaPlan(p);
                           const defaultComps = isGhana ? ['premierbet', 'betway', 'soccabet', 'sportybet'] : ['bet9ja', 'sportybet', 'betking'];
@@ -4787,7 +4791,7 @@ export default function CustomerPortal({
                             >
                               <div>
                                 <div className="flex justify-between items-start">
-                                  <span className="text-xs font-black uppercase text-white tracking-wide">{p.name || 'SUBSCRIPTION'} PRO</span>
+                                  <span className="text-xs font-black text-white tracking-wide">{p.name || 'Subscription'}</span>
                                   {isCurrentPlan && (
                                     <span className="bg-emerald-950 text-emerald-400 text-[8.5px] font-black px-2.5 py-1 rounded border border-emerald-800 uppercase font-mono">
                                       ACTIVE✓
@@ -4895,11 +4899,12 @@ export default function CustomerPortal({
                                     : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-850/20 active:scale-95 cursor-pointer'
                                 }`}
                               >
-                                {isCurrentPlan ? '✓ Subscribed Active' : pComponents.length === 0 ? 'Select Components' : `Buy ${p.name} PRO • ${currencySymbol}${calculatedCustomPrice.toLocaleString()}`}
+                                {isCurrentPlan ? '✓ Subscribed Active' : pComponents.length === 0 ? 'Select Components' : `Buy ${p.name} • ${currencySymbol}${calculatedCustomPrice.toLocaleString()}`}
                               </button>
                             </div>
                           );
-                        })}
+                        });
+                      })()}
                     </div>
 
 
@@ -4941,19 +4946,6 @@ export default function CustomerPortal({
                             onChange={(e) => setProfileEmail(e.target.value)}
                             placeholder="Primary email ID..."
                             type="email"
-                            className="bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-600 outline-hidden font-mono"
-                          />
-                        </div>
-
-                        <div className="flex flex-col gap-1.5">
-                          <label className="text-[10px] font-mono font-black text-slate-400 uppercase pl-0.5">
-                            Secure Phone Number
-                          </label>
-                          <input
-                            value={profilePhone}
-                            onChange={(e) => setProfilePhone(e.target.value)}
-                            placeholder="e.g. +234 801 234 5678"
-                            type="text"
                             className="bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-600 outline-hidden font-mono"
                           />
                         </div>

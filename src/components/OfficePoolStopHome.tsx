@@ -1681,10 +1681,14 @@ export default function OfficePoolStopHome({
 
               {/* Plans selector inside Paywall Checkout */}
               <div className="grid grid-cols-2 gap-2.5 mb-5 select-none text-xs">
-                {getMergedSubscriptionPlans(db.subscription_plans)
-                  .filter((p: any) => p && p.id && p.id !== 'plan-free')
-                  .filter((p: any) => paywallRegionFilter === 'ghana' ? isGhanaPlan(p) : !isGhanaPlan(p))
-                  .map((p: any, pIdx: number) => {
+                {(() => {
+                  const rawPlans = getMergedSubscriptionPlans(db.subscription_plans).filter((p: any) => p && p.id);
+                  const paidPlans = rawPlans.filter((p: any) => Number(p.price || 0) > 0 || p.id !== 'plan-free');
+                  const pool = paidPlans.length > 0 ? paidPlans : rawPlans;
+                  const regionMatches = pool.filter((p: any) => paywallRegionFilter === 'ghana' ? isGhanaPlan(p) : !isGhanaPlan(p));
+                  const displayPlans = regionMatches.length > 0 ? regionMatches : pool;
+
+                  return displayPlans.map((p: any, pIdx: number) => {
                     const isActive = paywallPlan === p.id;
                     const isGhana = isGhanaPlan(p);
                     const cycleAbbr = p.billing_cycle === 'biannual' ? '6mo' : p.billing_cycle === 'quarterly' ? '3mo' : p.billing_cycle === 'weekly' ? 'wk' : p.billing_cycle === 'monthly' ? 'mo' : 'yr';
@@ -1707,7 +1711,8 @@ export default function OfficePoolStopHome({
                         <span className="text-[9.5px] mt-1 font-bold block leading-none">{p.name || 'Plan'}</span>
                       </button>
                     );
-                  })}
+                  });
+                })()}
               </div>
 
               <form onSubmit={handlePaymentSubmit} className="space-y-4">
