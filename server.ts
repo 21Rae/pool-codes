@@ -327,13 +327,14 @@ app.use((req, res, next) => {
 
     const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
     const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || '';
 
-    if (!supabaseUrl || !supabaseAnonKey) {
+    if (!supabaseUrl || (!supabaseAnonKey && !serviceRoleKey)) {
       return res.status(500).json({ error: "Supabase secrets are not configured in settings." });
     }
 
     try {
-      const supabase = createClient(supabaseUrl, supabaseAnonKey);
+      const supabase = createClient(supabaseUrl, supabaseAnonKey || serviceRoleKey);
       const cleanEmail = email.toLowerCase().trim();
       const cleanUsername = username.toLowerCase().trim().replace(/\s+/g, '_');
 
@@ -352,54 +353,94 @@ app.use((req, res, next) => {
           if (existingUser.status === 'deleted') {
             return res.status(400).json({ error: `An account with this username or email was previously deleted.` });
           }
-          return res.status(400).json({ error: "An account with this username or email already exists. Please sign in instead." });
+          return res.status(400).json({ error: "An account with this email/username already exists. Please sign in instead." });
         }
       } catch (chkErr) {
         console.warn("User existence check warning:", chkErr);
       }
 
       // 2. Perform Supabase Auth registration
-      const { data, error } = await supabase.auth.signUp({
-        email: cleanEmail,
-        password: password,
-        options: {
-          data: {
-            username: cleanUsername
-          }
-        }
-      });
+      // If serviceRoleKey is configured, use admin API to bypass public email rate limits & auto-confirm email
+      let su: any = null;
+      let session: any = null;
 
-      if (error) {
-        const errLower = (error.message || '').toLowerCase();
-        if (errLower.includes('rate limit') || errLower.includes('email rate') || errLower.includes('too many requests')) {
-          console.warn("Supabase auth email rate limit hit. Falling back to direct database user creation.");
-          const fallbackId = `usr-sb-${Math.floor(Math.random() * 900000 + 100000)}`;
-          try {
-            await supabase.from('users').upsert([{
-              id: fallbackId,
-              username: cleanUsername,
-              email: cleanEmail,
-              role: 'user',
-              status: 'active',
-              created_at: new Date().toISOString()
-            }], { onConflict: 'id' });
-          } catch (dbErr) {
-            console.warn("Fallback user table upsert warning:", dbErr);
-          }
-          return res.json({
-            success: true,
-            user: {
-              id: fallbackId,
-              email: cleanEmail,
-              user_metadata: { username: cleanUsername }
-            },
-            session: null
+      if (serviceRoleKey) {
+        try {
+          const adminSupabase = createClient(supabaseUrl, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
+          const { data: adminData, error: adminErr } = await adminSupabase.auth.admin.createUser({
+            email: cleanEmail,
+            password: password,
+            email_confirm: true,
+            user_metadata: { username: cleanUsername }
           });
+
+          if (!adminErr && adminData?.user) {
+            su = adminData.user;
+          } else if (adminErr) {
+            console.warn("Admin createUser warning, falling back to standard signUp:", adminErr.message);
+          }
+        } catch (adminEx) {
+          console.warn("Admin client exception:", adminEx);
         }
-        return res.status(400).json({ error: error.message });
       }
 
-      const su = data.user;
+      // Standard signUp fallback if admin API not used/available
+      if (!su) {
+        const { data, error } = await supabase.auth.signUp({
+          email: cleanEmail,
+          password: password,
+          options: {
+            data: {
+              username: cleanUsername
+            }
+          }
+        });
+
+        if (error) {
+          const errLower = (error.message || '').toLowerCase();
+          
+          // Check if user was already created during a previous rapid request
+          const { data: signInData } = await supabase.auth.signInWithPassword({
+            email: cleanEmail,
+            password: password
+          });
+
+          if (signInData?.user) {
+            su = signInData.user;
+            session = signInData.session;
+          } else if (errLower.includes('rate limit') || errLower.includes('email rate') || errLower.includes('too many requests')) {
+            console.warn("Supabase auth email rate limit hit. Creating account directly in database session.");
+            const fallbackId = `usr-sb-${Math.floor(Math.random() * 900000 + 100000)}`;
+            try {
+              await supabase.from('users').upsert([{
+                id: fallbackId,
+                username: cleanUsername,
+                email: cleanEmail,
+                role: 'user',
+                status: 'active',
+                created_at: new Date().toISOString()
+              }], { onConflict: 'id' });
+            } catch (dbErr) {
+              console.warn("Fallback user table upsert warning:", dbErr);
+            }
+            return res.json({
+              success: true,
+              user: {
+                id: fallbackId,
+                email: cleanEmail,
+                user_metadata: { username: cleanUsername }
+              },
+              session: null
+            });
+          } else {
+            return res.status(400).json({ error: error.message });
+          }
+        } else {
+          su = data.user;
+          session = data.session;
+        }
+      }
+
       if (su) {
         try {
           await supabase.from('users').upsert([{
@@ -415,7 +456,7 @@ app.use((req, res, next) => {
         }
       }
 
-      return res.json({ success: true, user: data.user, session: data.session });
+      return res.json({ success: true, user: su, session });
     } catch (err: any) {
       return res.status(500).json({ error: err?.message || String(err) });
     }
