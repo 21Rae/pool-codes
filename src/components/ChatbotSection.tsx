@@ -106,7 +106,7 @@ export default function ChatbotSection({ currentUser, isLoggedIn, triggerToast }
             role: currentUser.role
           } : {
             username: 'guest_user',
-            email: 'guest@poolcodes.com',
+            email: '',
             role: 'user'
           }
         })

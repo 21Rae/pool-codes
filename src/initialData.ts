@@ -11,63 +11,7 @@ import {
   BookmakerTableRecord
 } from './types';
 
-export const INITIAL_USERS: User[] = [
-  {
-    id: 'usr-admin-777',
-    username: 'pool_master_admin',
-    email: 'admin@poolcodes.com',
-    role: 'admin',
-    status: 'active',
-    phone: '+2348011223344',
-    email_verified_at: '2026-01-10T12:00:00Z',
-    created_at: '2026-01-10T12:00:00Z',
-    password: 'password'
-  },
-  {
-    id: 'usr-free-101',
-    username: 'john_doe_free',
-    email: 'john@gmail.com',
-    role: 'user',
-    status: 'active',
-    phone: '+2348099887766',
-    email_verified_at: '2026-02-15T09:30:00Z',
-    created_at: '2026-02-15T09:30:00Z',
-    password: 'password'
-  },
-  {
-    id: 'usr-prem-202',
-    username: 'alex_premium',
-    email: 'alex@outlook.com',
-    role: 'user',
-    status: 'active',
-    phone: '+2347066554433',
-    email_verified_at: '2026-03-01T14:20:00Z',
-    created_at: '2026-03-01T14:20:00Z',
-    password: 'password'
-  },
-  {
-    id: 'usr-exp-303',
-    username: 'expired_bettor',
-    email: 'expired@yahoo.com',
-    role: 'user',
-    status: 'active',
-    phone: '+2349022334455',
-    email_verified_at: '2026-04-18T11:15:00Z',
-    created_at: '2026-04-18T11:15:00Z',
-    password: 'password'
-  },
-  {
-    id: 'usr-susp-404',
-    username: 'suspended_user_99',
-    email: 'spammer_alert@gmail.com',
-    role: 'user',
-    status: 'suspended',
-    phone: '+2348055667788',
-    email_verified_at: '2026-05-02T10:45:00Z',
-    created_at: '2026-05-02T10:45:00Z',
-    password: 'password'
-  }
-];
+export const INITIAL_USERS: User[] = [];
 
 export const INITIAL_PLANS: SubscriptionPlan[] = [
   {
@@ -305,44 +249,7 @@ export function getBookmakersByCountry(dbBookmakers: Bookmaker[] | undefined, co
   }
 }
 
-export const INITIAL_SUBSCRIPTIONS: UserSubscription[] = [
-  {
-    id: 'sub-active-909',
-    user_id: 'usr-prem-202', // alex_premium
-    plan_id: 'plan-monthly',
-    status: 'active',
-    starts_at: '2026-06-01T12:00:00Z',
-    expires_at: '2026-07-01T12:00:00Z',
-    payment_ref: 'PAY-TX-MONTHLY-5593',
-    payment_provider: 'Paystack',
-    created_at: '2026-06-01T12:00:00Z',
-    components: ['bet9ja', 'sportybet', 'betking']
-  },
-  {
-    id: 'sub-expired-808',
-    user_id: 'usr-exp-303', // expired_bettor
-    plan_id: 'plan-weekly',
-    status: 'expired',
-    starts_at: '2026-05-10T12:00:00Z',
-    expires_at: '2026-05-17T12:00:00Z',
-    payment_ref: 'PAY-TX-WEEKLY-1204',
-    payment_provider: 'Flutterwave',
-    created_at: '2026-05-10T12:00:00Z',
-    components: ['bet9ja']
-  },
-  {
-    id: 'sub-active-888',
-    user_id: 'usr-prem-202', // alex_premium
-    plan_id: 'plan-yearly',
-    status: 'active',
-    starts_at: '2026-06-01T12:00:00Z',
-    expires_at: '2026-09-01T12:00:00Z',
-    payment_ref: 'PAY-TX-BETKING-888',
-    payment_provider: 'Paystack',
-    created_at: '2026-06-01T12:00:00Z',
-    components: ['bet9ja', 'sportybet', 'betking']
-  }
-];
+export const INITIAL_SUBSCRIPTIONS: UserSubscription[] = [];
 
 export const INITIAL_BOOKMAKERS: Bookmaker[] = [
   {

@@ -154,7 +154,7 @@ export default function App() {
   const GUEST_USER: User = {
     id: 'guest',
     username: 'Guest',
-    email: 'guest@fastpoolcodes.com',
+    email: '',
     role: 'user',
     status: 'active',
     created_at: new Date().toISOString(),
@@ -165,8 +165,8 @@ export default function App() {
   const currentUser = selectedPersonaId
     ? (db.users.find(u => u.id === selectedPersonaId) || {
         id: selectedPersonaId,
-        username: 'User',
-        email: 'user@fastpoolcodes.com',
+        username: selectedPersonaId,
+        email: '',
         role: 'user',
         status: 'active',
         created_at: new Date().toISOString(),
@@ -474,7 +474,7 @@ export default function App() {
       fileText += `[LICENSE REGISTRATION DETAILS]\n`;
       fileText += `------------------------------------------------------------------------\n`;
       fileText += `Account Nickname : @${userObj.username || 'VIP_User'}\n`;
-      fileText += `Account Email    : ${userObj.email || 'vip@fastpoolcodes.com'}\n`;
+      fileText += `Account Email    : ${userObj.email || 'N/A'}\n`;
       fileText += `Active License   : ${plan.name.toUpperCase()} PLAN\n`;
       fileText += `Payment Reference: ${paymentRef || 'REF-' + Math.floor(Math.random() * 900000 + 100000)}\n`;
       fileText += `Verification Date: ${new Date().toLocaleString()}\n`;
@@ -614,7 +614,7 @@ export default function App() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        email: currentUser.email || 'customer@fastpoolcodes.com',
+        email: currentUser.email,
         username: currentUser.username,
         planId: planId,
         paymentRef: reference,
@@ -715,7 +715,7 @@ export default function App() {
       
       const handler = PaystackPop.setup({
         key: publicKey,
-        email: currentUser.email || 'customer@fastpoolcodes.com',
+        email: currentUser.email,
         amount: Math.round(calculatedPrice * 100), // convert to kobo
         currency: 'NGN',
         ref: `PAY-${Date.now()}-${Math.floor(Math.random() * 100000)}`,
@@ -1053,341 +1053,224 @@ export default function App() {
     let cleanUsername = username.toLowerCase().trim().replace(/[^a-z0-9_]/g, '_');
     const cleanEmail = email.toLowerCase().trim();
 
-    // 1. Check if email already exists in local database
-    const emailDup = db.users.find(u => u.email.toLowerCase() === cleanEmail);
-    if (emailDup) {
-      if (emailDup.status === 'suspended' || emailDup.status === 'banned') {
-        return { success: false, error: `Account for '${cleanEmail}' is suspended or banned. Please contact support.` };
-      }
-      if (emailDup.status === 'deleted') {
-        return { success: false, error: `An account with email '${cleanEmail}' was previously deleted.` };
-      }
-      return { success: false, error: `An account with email '${cleanEmail}' already exists. Please sign in instead.` };
+    if (!password) {
+      return { success: false, error: "Please enter a security password." };
     }
 
-    // 2. If username is taken by a different email in local db, make cleanUsername unique
-    const usernameDup = db.users.find(u => u.username.toLowerCase() === cleanUsername);
-    if (usernameDup) {
-      cleanUsername = `${cleanUsername}_${Math.floor(Math.random() * 899 + 100)}`;
-    }
+    try {
+      const response = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: cleanEmail, password, username: cleanUsername })
+      });
 
-    const sClient = getSupabaseClient();
-    if (sClient) {
-      if (!password) {
-        return { success: false, error: "Please enter a security password." };
+      const resData = await response.json();
+
+      if (!response.ok || resData.error) {
+        return { success: false, error: resData.error || "Registration failed on Supabase. Please check your details and try again." };
       }
-      try {
-        const response = await fetch("/api/auth/signup", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: cleanEmail, password, username: cleanUsername })
-        });
 
-        const resData = await response.json();
-        if (response.ok && !resData.error && resData.user) {
-          const su = resData.user;
-          if (su) {
-            // Register locally
-            const newUser: User = {
-              id: su.id,
-              username: cleanUsername,
-              email: cleanEmail,
-              role: 'user',
-              status: 'active',
-              phone: '',
-              created_at: new Date().toISOString(),
-              email_verified_at: new Date().toISOString(),
-              password: password
-            };
+      // If email confirmation is required by Supabase
+      if (resData.requiresEmailConfirmation || (resData.user && !resData.session && !resData.user.email_confirmed_at)) {
+        return {
+          success: true,
+          requiresEmailConfirmation: true,
+          email: cleanEmail,
+          message: resData.message || `We sent a verification link to ${cleanEmail}. Please check your email inbox and confirm before signing in.`
+        };
+      }
 
-            const subId = `sub-sb-${Math.floor(Math.random() * 90000 + 10000)}`;
-            const now = new Date();
-            const expiry = new Date();
-            expiry.setMonth(now.getMonth() + 3);
+      if (resData.user && (resData.session || resData.user.email_confirmed_at)) {
+        const su = resData.user;
+        const newUser: User = {
+          id: su.id,
+          username: cleanUsername,
+          email: cleanEmail,
+          role: 'user',
+          status: 'active',
+          phone: '',
+          created_at: new Date().toISOString(),
+          email_verified_at: new Date().toISOString(),
+          password: password
+        };
 
-            const hasPaid = planId && planId !== 'plan-free';
-            const newSub = {
-              id: subId,
-              user_id: su.id,
-              plan_id: planId || 'plan-free',
-              status: 'active',
-              starts_at: now.toISOString(),
-              expires_at: expiry.toISOString(),
-              payment_ref: hasPaid ? `REF-SUPA-${Math.floor(Math.random() * 9000000 + 1000000)}` : null,
-              payment_provider: hasPaid ? 'Supabase Authenticated Session' : null,
-              created_at: now.toISOString(),
-              components: hasPaid ? ['bet9ja', 'sportybet', 'betking'] : []
-            };
+        const subId = `sub-sb-${Math.floor(Math.random() * 90000 + 10000)}`;
+        const now = new Date();
+        const expiry = new Date();
+        expiry.setMonth(now.getMonth() + 3);
 
-            // Cache session info to avoid loading direct network requests from the client later
-            localStorage.setItem('fastpool_cached_user', JSON.stringify({
-              id: su.id,
-              username: cleanUsername,
-              email: cleanEmail,
-              role: 'user',
-              plan_id: planId || 'plan-free',
-              payment_ref: newSub.payment_ref,
-              created_at: newUser.created_at
-            }));
+        const hasPaid = planId && planId !== 'plan-free';
+        const newSub = {
+          id: subId,
+          user_id: su.id,
+          plan_id: planId || 'plan-free',
+          status: 'active',
+          starts_at: now.toISOString(),
+          expires_at: expiry.toISOString(),
+          payment_ref: hasPaid ? `REF-SUPA-${Math.floor(Math.random() * 9000000 + 1000000)}` : null,
+          payment_provider: hasPaid ? 'Supabase Authenticated Session' : null,
+          created_at: now.toISOString(),
+          components: hasPaid ? ['bet9ja', 'sportybet', 'betking'] : []
+        };
 
-            setDb(prev => ({
-              ...prev,
-              users: [...prev.users.filter(u => u.id !== su.id), newUser],
-              user_subscriptions: [...prev.user_subscriptions, newSub]
-            }));
+        localStorage.setItem('fastpool_cached_user', JSON.stringify({
+          id: su.id,
+          username: cleanUsername,
+          email: cleanEmail,
+          role: 'user',
+          plan_id: planId || 'plan-free',
+          payment_ref: newSub.payment_ref,
+          created_at: newUser.created_at
+        }));
 
-            setSelectedPersonaId(su.id);
-            setViewMode('portal');
-            logSQL(
-              `-- Supabase secure backend signUp completed.\n-- Registered user id: ${su.id} \n-- Saved token session cache.`,
-              `Registered & logged in new member @${cleanUsername} using secure proxy gateway`
-            );
+        setDb(prev => ({
+          ...prev,
+          users: [...prev.users.filter(u => u.id !== su.id), newUser],
+          user_subscriptions: [...prev.user_subscriptions, newSub]
+        }));
 
-            // Re-sync all Supabase tables in background immediately
-            fetchRealSupabaseData(true);
+        setSelectedPersonaId(su.id);
+        setViewMode('portal');
+        logSQL(
+          `-- Supabase secure backend signUp completed.\n-- Registered user id: ${su.id}`,
+          `Registered & logged in new member @${cleanUsername} via Supabase`
+        );
 
-            if (planId && planId !== 'plan-free') {
-              setTimeout(() => {
-                downloadCodesFileAuto(newUser, planId, newSub.payment_ref || '');
-              }, 1200);
-            }
+        fetchRealSupabaseData(true);
 
-            return { success: true, message: `Successfully registered and logged in as @${cleanUsername}! Welcome!` };
-          }
+        if (planId && planId !== 'plan-free') {
+          setTimeout(() => {
+            downloadCodesFileAuto(newUser, planId, newSub.payment_ref || '');
+          }, 1200);
         }
-        
-        // If Supabase auth returned an error, check if it's account duplication or status error
-        if (resData?.error) {
-          return { success: false, error: resData.error };
-        }
-      } catch (err: any) {
-        console.warn("Registration API warning, falling back to local session creation:", err?.message);
+
+        return { success: true, message: `Successfully registered and logged in as @${cleanUsername}! Welcome!` };
       }
+
+      return { success: false, error: "Supabase registration did not return a valid session." };
+    } catch (err: any) {
+      return { success: false, error: err?.message || "Connection to Supabase server failed." };
     }
-
-    // Local-only signup fallback (No Supabase client available or direct bypass)
-    const newId = `usr-reg-${Math.floor(Math.random() * 90000 + 10000)}`;
-    const newUser: User = {
-      id: newId,
-      username: cleanUsername,
-      email: cleanEmail,
-      role: 'user',
-      status: 'active',
-      phone: '',
-      created_at: new Date().toISOString(),
-      email_verified_at: new Date().toISOString(),
-      password: password
-    };
-    
-    // Auto premium or free sub as requested
-    const subId = `sub-reg-${Math.floor(Math.random() * 90000 + 10000)}`;
-    const now = new Date();
-    const expiry = new Date();
-    expiry.setMonth(now.getMonth() + 3);
-    const hasPaid = planId && planId !== 'plan-free';
-    const newSub = {
-      id: subId,
-      user_id: newId,
-      plan_id: planId || 'plan-free',
-      status: 'active',
-      starts_at: now.toISOString(),
-      expires_at: expiry.toISOString(),
-      payment_ref: hasPaid ? `REF-LOCAL-${Math.floor(Math.random() * 9000000 + 1000000)}` : null,
-      payment_provider: hasPaid ? 'Local Sandbox Checkout' : null,
-      created_at: now.toISOString(),
-      components: hasPaid ? ['bet9ja', 'sportybet', 'betking'] : []
-    };
-
-    localStorage.setItem('fastpool_cached_user', JSON.stringify({
-      id: newId,
-      username: cleanUsername,
-      email: cleanEmail,
-      role: 'user',
-      plan_id: planId || 'plan-free',
-      payment_ref: newSub.payment_ref,
-      created_at: newUser.created_at
-    }));
-
-    setDb(prev => ({
-      ...prev,
-      users: [...prev.users, newUser],
-      user_subscriptions: [...prev.user_subscriptions, newSub]
-    }));
-    
-    setSelectedPersonaId(newId);
-    setViewMode('portal');
-    
-    logSQL(
-      `-- Real-time registration insert transaction (local)\nINSERT INTO users (id, username, email, role, status, created_at)\nVALUES ('${newId}', '${cleanUsername}', '${cleanEmail}', 'user', 'active', NOW());`,
-      `Newly registered customer @${cleanUsername} joined local Sandbox session`
-    );
-
-    if (planId && planId !== 'plan-free') {
-      setTimeout(() => {
-        downloadCodesFileAuto(newUser, planId, newSub.payment_ref || '');
-      }, 1200);
-    }
-
-    return { success: true, message: `Successfully registered locally as @${cleanUsername}! (Sandbox Mode Enabled)` };
   };
 
   const handleLoginUserWithCreds = async (emailOrUsername: string, password?: string) => {
     if (!emailOrUsername || !emailOrUsername.trim()) {
       return { success: false, error: "Please enter your email or username." };
     }
+    if (!password) {
+      return { success: false, error: "Please enter your security password." };
+    }
 
     const cleanUName = emailOrUsername.toLowerCase().trim();
-    const sClient = getSupabaseClient();
 
-    if (sClient) {
-      if (!password) {
-        return { success: false, error: "Please enter your security password." };
+    try {
+      const response = await fetch("/api/auth/signin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ emailOrUsername: cleanUName, password })
+      });
+
+      const resData = await response.json();
+
+      if (!response.ok || resData.error) {
+        return {
+          success: false,
+          requiresEmailConfirmation: Boolean(resData.requiresEmailConfirmation),
+          error: resData.error || "Authentication failed. Please check your credentials."
+        };
       }
-      try {
-        const response = await fetch("/api/auth/signin", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ emailOrUsername: cleanUName, password })
+
+      if (resData.requiresEmailConfirmation) {
+        return {
+          success: false,
+          requiresEmailConfirmation: true,
+          error: resData.error || "Please confirm your email address before signing in. Check your email inbox for the confirmation link."
+        };
+      }
+
+      if (resData.user && (resData.session || resData.user.email_confirmed_at || resData.user.confirmed_at)) {
+        const su = resData.user;
+        const email = su.email || cleanUName;
+        const username = su.user_metadata?.username || cleanUName || email.split('@')[0];
+
+        setDb(prev => {
+          const exists = prev.users.find(u => u.id === su.id || u.email.toLowerCase() === email.toLowerCase());
+          if (exists) {
+            return prev;
+          }
+          const newUser: User = {
+            id: su.id,
+            username: username.toLowerCase().replace(/\s+/g, '_'),
+            email: email.toLowerCase(),
+            role: 'user',
+            status: 'active',
+            phone: '',
+            created_at: su.created_at || new Date().toISOString(),
+            email_verified_at: new Date().toISOString(),
+            password: password
+          };
+
+          const subId = `sub-sb-${Math.floor(Math.random() * 90000 + 10000)}`;
+          const now = new Date();
+          const expiry = new Date();
+          expiry.setMonth(now.getMonth() + 3);
+
+          const cachedStr = localStorage.getItem('fastpool_cached_user');
+          let restoredPlan = 'plan-free';
+          let restoredRef = null;
+          try {
+            if (cachedStr) {
+              const cached = JSON.parse(cachedStr);
+              if (cached.id === su.id && cached.plan_id) {
+                restoredPlan = cached.plan_id;
+                restoredRef = cached.payment_ref;
+              }
+            }
+          } catch (_) {}
+
+          const newSub = {
+            id: subId,
+            user_id: su.id,
+            plan_id: restoredPlan,
+            status: 'active',
+            starts_at: now.toISOString(),
+            expires_at: expiry.toISOString(),
+            payment_ref: restoredRef,
+            payment_provider: restoredRef ? 'Supabase Auth Verified' : null,
+            created_at: now.toISOString()
+          };
+
+          return {
+            ...prev,
+            users: [...prev.users, newUser],
+            user_subscriptions: [...prev.user_subscriptions, newSub]
+          };
         });
 
-        const resData = await response.json();
-        if (response.ok && !resData.error && resData.user) {
-          const su = resData.user;
-          if (su) {
-            const email = su.email || cleanUName;
-            const username = su.user_metadata?.username || cleanUName || email.split('@')[0];
+        localStorage.setItem('fastpool_cached_user', JSON.stringify({
+          id: su.id,
+          username: username.toLowerCase().replace(/\s+/g, '_'),
+          email: email.toLowerCase(),
+          role: 'user',
+          plan_id: 'plan-free',
+          payment_ref: null,
+          created_at: su.created_at || new Date().toISOString()
+        }));
 
-            setDb(prev => {
-              const exists = prev.users.find(u => u.id === su.id || u.email.toLowerCase() === email.toLowerCase());
-              if (exists) {
-                return prev;
-              }
-              const newUser: User = {
-                id: su.id,
-                username: username.toLowerCase().replace(/\s+/g, '_'),
-                email: email.toLowerCase(),
-                role: 'user',
-                status: 'active',
-                phone: '',
-                created_at: su.created_at || new Date().toISOString(),
-                email_verified_at: new Date().toISOString(),
-                password: password
-              };
+        setSelectedPersonaId(su.id);
+        setViewMode('portal');
+        logSQL(
+          `-- Supabase backend signIn completed successfully.\n-- Connected active session user ID: ${su.id}`,
+          `Access granted! Connected to @${username} active instance.`
+        );
 
-              const subId = `sub-sb-${Math.floor(Math.random() * 90000 + 10000)}`;
-              const now = new Date();
-              const expiry = new Date();
-              expiry.setMonth(now.getMonth() + 3);
-
-              // Standard login defaults to free tier unless they purchased, checked from cache
-              const cachedStr = localStorage.getItem('fastpool_cached_user');
-              let restoredPlan = 'plan-free';
-              let restoredRef = null;
-              try {
-                if (cachedStr) {
-                  const cached = JSON.parse(cachedStr);
-                  if (cached.id === su.id && cached.plan_id) {
-                    restoredPlan = cached.plan_id;
-                    restoredRef = cached.payment_ref;
-                  }
-                }
-              } catch (_) {}
-
-              const newSub = {
-                id: subId,
-                user_id: su.id,
-                plan_id: restoredPlan,
-                status: 'active',
-                starts_at: now.toISOString(),
-                expires_at: expiry.toISOString(),
-                payment_ref: restoredRef,
-                payment_provider: restoredRef ? 'Supabase Auth Verified' : null,
-                created_at: now.toISOString()
-              };
-
-              return {
-                ...prev,
-                users: [...prev.users, newUser],
-                user_subscriptions: [...prev.user_subscriptions, newSub]
-              };
-            });
-
-            // Cache session info to localStorage
-            localStorage.setItem('fastpool_cached_user', JSON.stringify({
-              id: su.id,
-              username: username.toLowerCase().replace(/\s+/g, '_'),
-              email: email.toLowerCase(),
-              role: 'user',
-              plan_id: 'plan-free', // Standard login starts free unless they checkout
-              payment_ref: null,
-              created_at: su.created_at || new Date().toISOString()
-            }));
-
-            setSelectedPersonaId(su.id);
-            setViewMode('portal');
-            logSQL(
-              `-- Supabase backend signIn completed successfully.\n-- Connected active session user ID: ${su.id}`,
-              `Access granted! Connected to @${username} active instance.`
-            );
-
-            return { success: true, message: `Access granted! Successfully authenticated session for @${username}.` };
-          }
-        }
-        
-        if (resData?.error) {
-          const errLower = resData.error.toLowerCase();
-          if (errLower.includes('suspended') || errLower.includes('banned') || errLower.includes('deleted')) {
-            return { success: false, error: resData.error };
-          }
-        }
-      } catch (err: any) {
-        console.warn("SignIn API call warning, falling back to local user check:", err?.message);
+        return { success: true, message: `Access granted! Successfully authenticated session for @${username}.` };
       }
+
+      return { success: false, error: "Authentication failed. Please verify your credentials." };
+    } catch (err: any) {
+      return { success: false, error: err?.message || "Connection to Supabase server failed." };
     }
-
-    // Local Sandbox-only login fallback (Strict checks)
-    const matched = db.users.find(
-      u => u.email.toLowerCase() === cleanUName || 
-           u.username.toLowerCase() === cleanUName
-    );
-    if (!matched) {
-      return { 
-        success: false, 
-        error: "Incorrect login details. User does not exist. Please check your spelling or register a new account." 
-      };
-    }
-
-    // Enforce Password validation if password is set on the user account
-    if (password && matched.password && matched.password !== password) {
-      return { 
-        success: false, 
-        error: "Incorrect password. Please verify your credentials and try again." 
-      };
-    }
-
-    // Determine the user's subscription tier
-    const userSub = db.user_subscriptions.find(s => s.user_id === matched.id);
-    const planId = userSub?.plan_id || 'plan-free';
-    const paymentRef = userSub?.payment_ref || null;
-
-    setSelectedPersonaId(matched.id);
-    setViewMode('portal');
-    
-    localStorage.setItem('fastpool_cached_user', JSON.stringify({
-      id: matched.id,
-      username: matched.username,
-      email: matched.email,
-      role: matched.role,
-      plan_id: planId,
-      payment_ref: paymentRef,
-      created_at: matched.created_at || new Date().toISOString()
-    }));
-
-    logSQL(
-      `-- Member login local verification\nSELECT * FROM users WHERE (email = '${cleanUName}' OR username = '${cleanUName}') LIMIT 1;`,
-      `Strict authentication successful for @${matched.username}`
-    );
-    return { success: true, message: `Welcome back, @${matched.username}!` };
   };
 
   const handleResetPassword = async (emailOrUsername: string, newPassword: string) => {

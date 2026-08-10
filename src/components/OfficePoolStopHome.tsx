@@ -610,7 +610,12 @@ export default function OfficePoolStopHome({
     triggerToast('Connecting to payment gateways & establishing user profile...', 'info');
 
     const username = pendingUser?.username || authFields.username || 'VIP_User';
-    const email = pendingUser?.email || authFields.email || 'vip@fastpoolcodes.com';
+    const email = pendingUser?.email || authFields.email;
+    if (!email) {
+      triggerToast('Please provide a valid email to complete subscription.', 'error');
+      setIsProcessingPayment(false);
+      return;
+    }
     const password = pendingUser?.password || authFields.password;
 
     setTimeout(() => {
