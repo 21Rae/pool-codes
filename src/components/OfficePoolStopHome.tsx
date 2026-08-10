@@ -48,6 +48,8 @@ interface OfficePoolStopHomeProps {
   onLoginUser?: (usernameOrEmail: string, password?: string) => Promise<{ success: boolean; error?: string; message?: string }>;
   onChangePassword?: (usernameOrEmail: string, newPassword: string) => Promise<{ success: boolean; error?: string; message?: string }>;
   onOpenTerms?: () => void;
+  autoOpenAuth?: boolean;
+  onResetAutoOpenAuth?: () => void;
 }
 
 const FALLBACK_BLOG_IMAGES = [
@@ -178,7 +180,9 @@ export default function OfficePoolStopHome({
   onRegisterUser,
   onLoginUser,
   onChangePassword,
-  onOpenTerms
+  onOpenTerms,
+  autoOpenAuth,
+  onResetAutoOpenAuth
 }: OfficePoolStopHomeProps) {
   // Navigation & interaction states
   const [currentView, setCurrentView] = useState<'blog' | 'livescores' | 'results' | 'about' | 'contact'>('blog');
@@ -189,6 +193,16 @@ export default function OfficePoolStopHome({
   const [isSendingContact, setIsSendingContact] = useState(false);
   const [showSystemAuth, setShowSystemAuth] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'signup' | 'change_password'>('signup');
+
+  useEffect(() => {
+    if (autoOpenAuth) {
+      setShowSystemAuth(true);
+      setAuthMode('signup');
+      if (onResetAutoOpenAuth) {
+        onResetAutoOpenAuth();
+      }
+    }
+  }, [autoOpenAuth, onResetAutoOpenAuth]);
   const [authFields, setAuthFields] = useState({
     username: '',
     email: '',

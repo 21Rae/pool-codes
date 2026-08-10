@@ -111,6 +111,7 @@ export default function App() {
   ]);
 
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
+  const [autoOpenAuthHome, setAutoOpenAuthHome] = useState<boolean>(false);
   const [isSyncingSupabase, setIsSyncingSupabase] = useState<boolean>(false);
   const [bypassPremium, setBypassPremium] = useState<boolean>(() => {
     localStorage.setItem('fastpool_bypass_premium', 'false');
@@ -235,6 +236,15 @@ export default function App() {
       console.error("Error setting user session:", e);
     }
   }, []);
+
+  // Strict Dashboard Guard: Users cannot access portal dashboard without signing up / logging in
+  useEffect(() => {
+    if (viewMode === 'portal' && (!selectedPersonaId || currentUser.id === 'guest')) {
+      setViewMode('homepage');
+      setAutoOpenAuthHome(true);
+      triggerToast('Access restricted: Please sign up or log in to access the user dashboard.', 'error');
+    }
+  }, [viewMode, selectedPersonaId, currentUser.id]);
 
   // Fetch dynamic runtime configuration (including live Paystack Public Key) on load
   useEffect(() => {
@@ -1421,8 +1431,14 @@ export default function App() {
         setViewMode('terms');
       }} 
       onNavigateToCodes={() => {
-        setViewMode('portal');
-        triggerToast('Redirected to pool codes list.', 'info');
+        if (!selectedPersonaId || currentUser.id === 'guest') {
+          setViewMode('homepage');
+          setAutoOpenAuthHome(true);
+          triggerToast('Please sign up or log in to access the user dashboard and pool codes.', 'error');
+        } else {
+          setViewMode('portal');
+          triggerToast('Redirected to pool codes list.', 'info');
+        }
       }}
       onOpenHelp={() => {
         setHelpOrigin(viewMode === 'portal' ? 'portal' : 'homepage');
@@ -1466,17 +1482,31 @@ export default function App() {
             <OfficePoolStopHome
               db={db}
               currentUser={currentUser}
+              autoOpenAuth={autoOpenAuthHome}
+              onResetAutoOpenAuth={() => setAutoOpenAuthHome(false)}
               onSignIn={() => {
                 setViewMode('portal');
                 triggerToast('Authenticated secure session active! Welcome.', 'success');
               }}
               onEnterManagerPanel={() => {
-                setViewMode('portal');
-                triggerToast(`Entered subscriber portal as @${currentUser.username}.`, 'success');
+                if (!selectedPersonaId || currentUser.id === 'guest') {
+                  setViewMode('homepage');
+                  setAutoOpenAuthHome(true);
+                  triggerToast('Please sign up or log in to access the user dashboard.', 'error');
+                } else {
+                  setViewMode('portal');
+                  triggerToast(`Entered subscriber portal as @${currentUser.username}.`, 'success');
+                }
               }}
               onNavigateToCodes={() => {
-                setViewMode('portal');
-                triggerToast('Redirected to pool codes list.', 'info');
+                if (!selectedPersonaId || currentUser.id === 'guest') {
+                  setViewMode('homepage');
+                  setAutoOpenAuthHome(true);
+                  triggerToast('Please sign up or log in to view pool codes in the dashboard.', 'error');
+                } else {
+                  setViewMode('portal');
+                  triggerToast('Redirected to pool codes list.', 'info');
+                }
               }}
               onNavigateToLiveScores={() => {
                 setLivescoresOrigin('homepage');

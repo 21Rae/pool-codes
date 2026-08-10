@@ -120,6 +120,30 @@ export default function CustomerPortal({
   const isFreeTier = bypassPremium ? false : (!isPaidUser);
   const isLockedOut = bypassPremium ? false : (!isLoggedIn || !isVerified || !isPaidUser || !!isSubscriptionExpired);
 
+  if (!currentUser || currentUser.id === 'guest') {
+    return (
+      <div className="w-full h-screen bg-[#030d0a] text-slate-100 flex flex-col items-center justify-center p-6 text-center space-y-6">
+        <div className="w-16 h-16 rounded-2xl bg-emerald-950/80 border border-emerald-500/40 flex items-center justify-center text-amber-400 shadow-xl">
+          <Lock className="w-8 h-8 animate-pulse" />
+        </div>
+        <div className="space-y-2 max-w-md">
+          <h2 className="text-2xl font-black uppercase tracking-tight text-white">Subscriber Dashboard Protected</h2>
+          <p className="text-slate-400 text-xs font-semibold leading-relaxed">
+            You must be signed up and logged into your FastPoolCodes account to access the subscriber dashboard, view live match feeds, and download pool codes.
+          </p>
+        </div>
+        <button
+          onClick={() => {
+            if (onSignOut) onSignOut();
+          }}
+          className="px-6 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg transition cursor-pointer"
+        >
+          Sign Up / Log In Now
+        </button>
+      </div>
+    );
+  }
+
   const [activeSubTab, setActiveSubTab] = useState<'dashboard' | 'streaming' | 'results' | 'subscription' | 'profile'>('dashboard');
 
   // Component customization states for plans
