@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import ExpertBlogView from './ExpertBlogView';
+import GoogleAdBanner from './GoogleAdBanner';
 import { getSupabaseClient } from '../lib/supabase';
 import { INITIAL_PLANS, isGhanaPlan, getMergedSubscriptionPlans } from '../initialData';
 
@@ -529,8 +530,8 @@ export default function OfficePoolStopHome({
         triggerToast('Please provide a valid email address containing @.', 'error');
         return;
       }
-      if (authFields.password.length < 5) {
-        triggerToast('Security password must be at least 5 characters.', 'error');
+      if (authFields.password.length < 6) {
+        triggerToast('Security password must be at least 6 characters.', 'error');
         return;
       }
 
@@ -548,6 +549,10 @@ export default function OfficePoolStopHome({
               onSignIn();
             } else {
               triggerToast(res.error || 'Registration failed.', 'error');
+              if (res.error && res.error.toLowerCase().includes('already exists')) {
+                setAuthMode('login');
+                setAuthFields(prev => ({ ...prev, username: prev.email }));
+              }
             }
           })
           .catch((err) => {
@@ -767,6 +772,11 @@ export default function OfficePoolStopHome({
       </header>
 
 
+
+      {/* Top Page Header Ad Banner */}
+      <div className="max-w-[1360px] mx-auto px-4 pt-4">
+        <GoogleAdBanner className="bg-[#020b08] border border-emerald-950/80 rounded-xl p-2 shadow-md" />
+      </div>
 
       {/* 3. CORE VIEWS GENERATOR */}
       <div className="flex-1">
@@ -1945,7 +1955,7 @@ export default function OfficePoolStopHome({
                         value={authFields.password}
                         onChange={(e) => setAuthFields({ ...authFields, password: e.target.value })}
                         className="w-full bg-[#020b08] border border-emerald-955 rounded-lg p-3 text-[#A7F3D0] focus:ring-1 focus:ring-emerald-400 focus:outline-none placeholder:text-[#062017]"
-                        placeholder="Minimum 5 characters"
+                        placeholder="Minimum 6 characters"
                       />
                       <div className="flex items-center justify-between text-[11px] pt-1">
                         <label className="flex items-center gap-1.5 text-slate-405 font-medium cursor-pointer">

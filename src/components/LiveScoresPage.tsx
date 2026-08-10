@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { getSupabaseClient } from '../lib/supabase';
+import GoogleAdBanner from './GoogleAdBanner';
 
 interface LiveScoresPageProps {
   currentUser: any;
@@ -265,6 +266,9 @@ export default function LiveScoresPage({
             </button>
           </div>
         </div>
+
+        {/* Google AdSense Banner */}
+        <GoogleAdBanner className="bg-emerald-950/20 border border-emerald-900/30 p-2 rounded-2xl" />
 
         {/* ADMIN CONTROL SECTION */}
         {isAdmin && (

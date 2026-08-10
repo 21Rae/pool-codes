@@ -50,6 +50,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { DatabaseState, User, SubscriptionPlan, UserSubscription, PoolCode } from '../types';
 import { getSupabaseClient } from '../lib/supabase';
+import GoogleAdBanner from './GoogleAdBanner';
 import { INITIAL_PLANS, isGhanaPlan, getMergedSubscriptionPlans, isGhanaBookmaker, getMergedBookmakers, getBookmakersByCountry } from '../initialData';
 
 interface CustomerPortalProps {
@@ -1579,6 +1580,9 @@ export default function CustomerPortal({
       {/* Main Panel View Area */}
       <main className="flex-1 p-3 sm:p-5 md:p-8 bg-[#070B14] flex flex-col gap-4 sm:gap-6 overflow-x-hidden overflow-y-auto min-h-0">
         
+        {/* Google AdSense Banner */}
+        <GoogleAdBanner className="bg-slate-900/60 border border-slate-800 rounded-xl p-2" />
+
         {/* Revocation Warning Alert */}
         {currentUser.status === 'suspended' && (
           <div className="bg-gradient-to-r from-rose-950/80 to-[#1C1014] border border-rose-800/60 text-rose-300 p-4 rounded-xl flex items-center gap-3 text-xs shadow-lg">

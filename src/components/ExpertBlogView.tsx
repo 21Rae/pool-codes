@@ -29,6 +29,7 @@ import {
   Copy
 } from 'lucide-react';
 import { getSupabaseClient } from '../lib/supabase';
+import GoogleAdBanner from './GoogleAdBanner';
 
 const FALLBACK_BLOG_IMAGES = [
   'https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=800&q=80',
@@ -471,6 +472,9 @@ export default function ExpertBlogView({
                   </button>
                 </div>
               </div>
+
+              {/* Google AdSense Banner */}
+              <GoogleAdBanner className="bg-white p-2 rounded-lg border border-zinc-200 shadow-xs" />
 
               {/* CARD 1: MAIN FEATURED HERO ARTICLE CONTAINER */}
               {sortedBlogPosts[0] && (
@@ -1382,6 +1386,9 @@ INSERT INTO public.championship_results (
             {/* ================== RIGHT SIDEBAR (Width ~21%) ================== */}
             <div className="col-span-12 lg:col-span-12 xl:col-span-2.5 space-y-4">
               
+              {/* Google AdSense Sidebar Banner */}
+              <GoogleAdBanner className="bg-white p-2 rounded-lg border border-zinc-200 shadow-xs" />
+
               {/* VIP Decryptor Suite Features */}
               <div className="bg-white border border-zinc-200 rounded p-4 text-left shadow-sm">
                 <span className="font-black text-[10px] tracking-widest text-zinc-400 uppercase">VIP PASS BENEFITS</span>

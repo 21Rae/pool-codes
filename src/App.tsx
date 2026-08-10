@@ -1140,11 +1140,13 @@ export default function App() {
           }
         }
         
-        // If Supabase auth hit a rate limit or unexpected error, fall back to creating local user session
-        if (resData?.error && (resData.error.toLowerCase().includes('rate limit') || resData.error.toLowerCase().includes('email rate'))) {
-          console.warn("Supabase rate limit error encountered, falling back to instant local session creation:", resData.error);
-        } else if (resData?.error) {
-          return { success: false, error: resData.error };
+        // If Supabase auth returned an error, check if it's account duplication or status error
+        if (resData?.error) {
+          const errLower = resData.error.toLowerCase();
+          if (errLower.includes('already exists') || errLower.includes('suspended') || errLower.includes('banned') || errLower.includes('deleted')) {
+            return { success: false, error: resData.error };
+          }
+          console.warn("Supabase auth API warning, falling back to local account creation:", resData.error);
         }
       } catch (err: any) {
         console.warn("Registration API warning, falling back to local session creation:", err?.message);
@@ -1319,9 +1321,15 @@ export default function App() {
             return { success: true, message: `Access granted! Successfully authenticated session for @${username}.` };
           }
         }
-        return { success: false, error: resData?.error || "Incorrect login details. Please verify your password and try again." };
+        
+        if (resData?.error) {
+          const errLower = resData.error.toLowerCase();
+          if (errLower.includes('suspended') || errLower.includes('banned') || errLower.includes('deleted')) {
+            return { success: false, error: resData.error };
+          }
+        }
       } catch (err: any) {
-        return { success: false, error: err?.message || "Secure authentication service connection failed. Please try again." };
+        console.warn("SignIn API call warning, falling back to local user check:", err?.message);
       }
     }
 
