@@ -507,16 +507,12 @@ export default function OfficePoolStopHome({
     }
 
     if (authMode === 'signup') {
-      if (!authFields.username || !authFields.email || !authFields.password) {
-        triggerToast('Please fill in all details (email, username, and password).', 'error');
+      if (!authFields.email || !authFields.password) {
+        triggerToast('Please fill in both your email address and password.', 'error');
         return;
       }
       if (!authFields.email.includes('@')) {
         triggerToast('Please provide a valid email address containing @.', 'error');
-        return;
-      }
-      if (authFields.username.length < 3) {
-        triggerToast('Username needs to be at least 3 characters.', 'error');
         return;
       }
       if (authFields.password.length < 5) {
@@ -524,10 +520,12 @@ export default function OfficePoolStopHome({
         return;
       }
 
+      const derivedUsername = authFields.username?.trim() || authFields.email.split('@')[0] || 'user';
+
       if (onRegisterUser) {
         setIsBlogsLoading(true);
         triggerToast('Establishing your account on standard Free Plan...', 'info');
-        onRegisterUser(authFields.username, authFields.email, authFields.password, 'plan-free')
+        onRegisterUser(derivedUsername, authFields.email, authFields.password, 'plan-free')
           .then((res) => {
             setIsBlogsLoading(false);
             if (res.success) {
@@ -1906,11 +1904,80 @@ export default function OfficePoolStopHome({
                       Update & Save Password
                     </button>
                   </>
+                ) : authMode === 'signup' ? (
+                  <>
+                    <div className="space-y-1 text-xs">
+                      <label className="block text-slate-300 font-extrabold font-mono tracking-wider uppercase text-[10px]">Your Email Address</label>
+                      <input
+                        type="email"
+                        required
+                        value={authFields.email}
+                        onChange={(e) => setAuthFields({ ...authFields, email: e.target.value })}
+                        className="w-full bg-[#020b08] border border-emerald-950 rounded-lg p-3 text-[#A7F3D0] focus:ring-1 focus:ring-emerald-400 focus:outline-none placeholder:text-emerald-950 font-semibold"
+                        placeholder="e.g. john@fastpoolcodes.com"
+                      />
+                    </div>
+
+                    <div className="space-y-1 text-xs">
+                      <label className="block text-slate-300 font-extrabold font-mono tracking-wider uppercase text-[10px]">
+                        Security Password
+                      </label>
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        required
+                        value={authFields.password}
+                        onChange={(e) => setAuthFields({ ...authFields, password: e.target.value })}
+                        className="w-full bg-[#020b08] border border-emerald-955 rounded-lg p-3 text-[#A7F3D0] focus:ring-1 focus:ring-emerald-400 focus:outline-none placeholder:text-[#062017]"
+                        placeholder="Minimum 5 characters"
+                      />
+                      <div className="flex items-center justify-between text-[11px] pt-1">
+                        <label className="flex items-center gap-1.5 text-slate-405 font-medium cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            checked={showPassword} 
+                            onChange={() => setShowPassword(!showPassword)}
+                            className="rounded border-emerald-900 bg-[#020b08] text-emerald-500 focus:ring-0"
+                          />
+                          <span>Show Characters</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-2 text-[10px] text-slate-400 font-sans leading-relaxed select-none bg-emerald-950/20 border border-emerald-950/40 p-2.5 rounded-lg">
+                      <input 
+                        type="checkbox" 
+                        required
+                        id="agreeTerms" 
+                        className="rounded border-emerald-900 bg-[#020b08] text-emerald-500 focus:ring-0 mt-0.5 h-3.5 w-3.5 cursor-pointer" 
+                      />
+                      <label htmlFor="agreeTerms" className="cursor-pointer">
+                        I am <span className="text-amber-400 font-black">18 years of age or older</span>, and agree to the{' '}
+                        <span 
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (onOpenTerms) onOpenTerms();
+                          }}
+                          className="text-emerald-400 font-black underline hover:text-emerald-300 transition"
+                        >
+                          Terms of Service
+                        </span>{' '}
+                        of FastPoolCodes.
+                      </label>
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="w-full bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-slate-950 font-black text-xs uppercase py-3.5 rounded-xl shadow-lg shadow-emerald-950/40 transition-all cursor-pointer mt-2 text-center"
+                    >
+                      Create Free Account
+                    </button>
+                  </>
                 ) : (
                   <>
                     <div className="space-y-1 text-xs">
                       <label className="block text-slate-300 font-extrabold font-mono tracking-wider uppercase text-[10px]">
-                        {authMode === 'signup' ? 'Enter Username' : 'Username or Email'}
+                        Email or Username
                       </label>
                       <input
                         type="text"
@@ -1918,52 +1985,25 @@ export default function OfficePoolStopHome({
                         value={authFields.username}
                         onChange={(e) => setAuthFields({ ...authFields, username: e.target.value })}
                         className="w-full bg-[#020b08] border border-emerald-950 rounded-lg p-3 text-[#A7F3D0] focus:ring-1 focus:ring-emerald-400 focus:outline-none placeholder:text-emerald-950 font-semibold"
-                        placeholder="e.g. john_doe_forecaster"
+                        placeholder="e.g. john@fastpoolcodes.com or john_doe"
                       />
-                      {authMode === 'login' && (
-                        <span 
-                          onClick={() => {
-                            setAuthFields({ ...authFields, username: 'john_doe_free' });
-                            triggerToast('Demo Free profile set up correctly.', 'success');
-                          }}
-                          className="text-[9.5px] text-amber-500 font-black uppercase cursor-pointer block text-right mt-1 hover:underline"
-                        >
-                          Bypass using demo free: "john_doe_free"? Or "vip_admin_2026"?
-                        </span>
-                      )}
                     </div>
-
-                    {authMode === 'signup' && (
-                      <div className="space-y-1 text-xs">
-                        <label className="block text-slate-300 font-extrabold font-mono tracking-wider uppercase text-[10px]">Your Email Address</label>
-                        <input
-                          type="email"
-                          required
-                          value={authFields.email}
-                          onChange={(e) => setAuthFields({ ...authFields, email: e.target.value })}
-                          className="w-full bg-[#020b08] border border-emerald-950 rounded-lg p-3 text-[#A7F3D0] focus:ring-1 focus:ring-emerald-400 focus:outline-none placeholder:text-emerald-950 font-semibold"
-                          placeholder="e.g. john@fastpoolcodes.com"
-                        />
-                      </div>
-                    )}
 
                     <div className="space-y-1 text-xs">
                       <div className="flex items-center justify-between">
                         <label className="block text-slate-300 font-extrabold font-mono tracking-wider uppercase text-[10px]">
                           Security Password
                         </label>
-                        {authMode === 'login' && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setAuthMode('change_password');
-                              setResetFields({ usernameOrEmail: authFields.username, newPassword: '', confirmPassword: '' });
-                            }}
-                            className="text-[10px] text-emerald-400 hover:text-emerald-300 font-bold uppercase font-mono tracking-wide cursor-pointer hover:underline"
-                          >
-                            Change Password?
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAuthMode('change_password');
+                            setResetFields({ usernameOrEmail: authFields.username, newPassword: '', confirmPassword: '' });
+                          }}
+                          className="text-[10px] text-emerald-400 hover:text-emerald-300 font-bold uppercase font-mono tracking-wide cursor-pointer hover:underline"
+                        >
+                          Change Password?
+                        </button>
                       </div>
                       <input
                         type={showPassword ? 'text' : 'password'}
@@ -1986,36 +2026,11 @@ export default function OfficePoolStopHome({
                       </div>
                     </div>
 
-                    {authMode === 'signup' && (
-                      <div className="flex items-start gap-2 text-[10px] text-slate-400 font-sans leading-relaxed select-none bg-emerald-950/20 border border-emerald-950/40 p-2.5 rounded-lg">
-                        <input 
-                          type="checkbox" 
-                          required
-                          id="agreeTerms" 
-                          className="rounded border-emerald-900 bg-[#020b08] text-emerald-500 focus:ring-0 mt-0.5 h-3.5 w-3.5 cursor-pointer" 
-                        />
-                        <label htmlFor="agreeTerms" className="cursor-pointer">
-                          I am <span className="text-amber-400 font-black">18 years of age or older</span>, and agree to the{' '}
-                          <span 
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              if (onOpenTerms) onOpenTerms();
-                            }}
-                            className="text-emerald-400 font-black underline hover:text-emerald-300 transition"
-                          >
-                            Terms of Service
-                          </span>{' '}
-                          of FastPoolCodes.
-                        </label>
-                      </div>
-                    )}
-
                     <button
                       type="submit"
                       className="w-full bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-slate-950 font-black text-xs uppercase py-3.5 rounded-xl shadow-lg shadow-emerald-950/40 transition-all cursor-pointer mt-2 text-center"
                     >
-                      {authMode === 'signup' ? 'Create Free Account' : 'Access Portal Dashboard'}
+                      Access Portal Dashboard
                     </button>
                   </>
                 )}
