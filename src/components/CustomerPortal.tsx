@@ -119,7 +119,25 @@ export default function CustomerPortal({
   );
 
   const isFreeTier = bypassPremium ? false : (!isPaidUser);
-  const isLockedOut = bypassPremium ? false : (!isLoggedIn || !isVerified || !isPaidUser || !!isSubscriptionExpired);
+  const isLockedOut = bypassPremium ? false : (!isLoggedIn || !isVerified);
+
+  const isBookieAllowed = (bookieName: string) => {
+    if (currentUser.role === 'admin' || bypassPremium) return true;
+    if (!activeSubscription || activeSubscription.status !== 'active') return false;
+    if (!activePlan || activePlan.id === 'plan-free') return false;
+
+    const targetSlug = (bookieName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const userComponents = activeSubscription.components || [];
+
+    if (userComponents.length === 0 || userComponents.includes('all') || (activePlan && activePlan.id.includes('yearly'))) {
+      return true;
+    }
+
+    return userComponents.some((comp: string) => {
+      const cSlug = (comp || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      return cSlug === targetSlug || targetSlug.includes(cSlug) || cSlug.includes(targetSlug);
+    });
+  };
 
   if (!currentUser || currentUser.id === 'guest') {
     return (
@@ -1640,6 +1658,36 @@ export default function CustomerPortal({
                   {/* SUBTAB 1: SPORT CODES DASHBOARD CONTAINER */}
                   {activeSubTab === 'dashboard' && (
                 <div className="flex flex-col gap-6">
+                  {/* Free-tier Dashboard Welcome & Table Subscription Notice */}
+                  {activePlan?.id === 'plan-free' && !bypassPremium && (
+                    <div className="bg-gradient-to-r from-slate-900 via-slate-900/95 to-[#0F172A] border border-amber-500/30 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl">
+                      <div className="flex items-start sm:items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0 mt-0.5 sm:mt-0">
+                          <UserIcon className="w-5 h-5 text-amber-400" />
+                        </div>
+                        <div className="text-left">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-black text-slate-100 uppercase font-mono tracking-wide">
+                              Signed In as @{currentUser.username}
+                            </span>
+                            <span className="text-[9px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded font-mono font-bold uppercase">
+                              Dashboard Active
+                            </span>
+                          </div>
+                          <p className="text-[11.5px] text-slate-300 mt-1 leading-snug">
+                            Welcome to your User Dashboard! You have access to all dashboard tools. To view and download decrypted pool codes for specific bookmaker tables (Bet9ja, SportyBet, BetKing, PremierBet, Betway, SoccaBet, etc.), please subscribe to your preferred pool code tables below.
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setActiveSubTab('subscription')}
+                        className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition cursor-pointer shadow-md shrink-0 flex items-center gap-1.5 font-mono"
+                      >
+                        <CreditCard className="w-3.5 h-3.5" />
+                        <span>Subscribe to Tables</span>
+                      </button>
+                    </div>
+                  )}
                   {bypassPremium && (
                     <div className="bg-emerald-950/40 border border-emerald-800/60 rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 text-emerald-300 text-xs shadow-lg shadow-emerald-950/20">
                       <div className="flex items-center gap-3">
@@ -1776,6 +1824,7 @@ export default function CustomerPortal({
                           }
                           return allBookies.map((bookie, bIdx) => {
                             const isSelected = dashboardBookmakerFilter.toLowerCase().trim() === bookie.toLowerCase().trim();
+                            const isSubscribed = isBookieAllowed(bookie);
                             return (
                               <button
                                 key={`bookie_filter_tab_${bookie.toLowerCase().replace(/[^a-z0-9]/g, '')}_${bIdx}`}
@@ -1786,16 +1835,19 @@ export default function CustomerPortal({
                                     await fetchRealSupabaseData(false);
                                   }
                                 }}
-                                className={`px-3.5 py-1.5 text-xs font-bold font-mono uppercase tracking-wide rounded-lg transition duration-150 flex items-center gap-1.5 cursor-pointer ${
+                                className={`px-3 py-1.5 text-xs font-bold font-mono uppercase tracking-wide rounded-lg transition duration-150 flex items-center gap-1.5 cursor-pointer ${
                                   isSelected
-                                    ? 'bg-amber-500 text-slate-950 font-black'
-                                    : 'bg-slate-900 text-slate-350 hover:bg-slate-800 border border-slate-800'
+                                    ? 'bg-amber-500 text-slate-950 font-black shadow-md'
+                                    : isSubscribed
+                                    ? 'bg-slate-900 text-emerald-400 hover:bg-slate-800 border border-emerald-500/30'
+                                    : 'bg-slate-900 text-slate-400 hover:bg-slate-800 border border-slate-800 opacity-90'
                                 } ${isSyncingSupabase ? 'opacity-80' : ''}`}
                               >
                                 {isSyncingSupabase && isSelected && (
                                   <span className="w-2.5 h-2.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
                                 )}
-                                {bookie}
+                                <span className="text-[11px]">{isSubscribed ? '🔓' : '🔒'}</span>
+                                <span>{bookie}</span>
                               </button>
                             );
                           });
@@ -1839,34 +1891,32 @@ export default function CustomerPortal({
                     {/* THE TABLE CANVAS CONTAINER (COUPON RENDERER) */}
                     <div>
                       {(() => {
-                        const userComponents = activeSubscription?.components || [];
-                        const isBookieAllowed = (_bookieName: string) => {
-                          // Allow all bookmakers to be viewed when clicking the tab buttons
-                          return true;
-                        };
-
                         const isTabAllowed = isBookieAllowed(dashboardBookmakerFilter);
 
                         if (!isTabAllowed) {
                           return (
-                            <div className="p-8 text-center flex flex-col items-center justify-center bg-slate-950/40 border border-slate-800 rounded-2xl py-14">
-                              <div className="w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center mb-4">
-                                <Lock className="w-8 h-8 text-amber-500" />
+                            <div className="p-8 text-center flex flex-col items-center justify-center bg-slate-950/60 border border-slate-800 rounded-2xl py-14 my-4 shadow-2xl relative overflow-hidden">
+                              <div className="w-16 h-16 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex items-center justify-center mb-4 text-amber-400 shadow-inner">
+                                <Lock className="w-8 h-8 animate-pulse text-amber-400" />
                               </div>
-                              <h3 className="text-lg font-bold text-slate-100 uppercase tracking-wider font-mono">
-                                {dashboardBookmakerFilter} Table Access Restricted
+                              <span className="text-[10px] font-mono font-black text-amber-400 uppercase tracking-widest px-3 py-1 bg-amber-950/40 border border-amber-900/50 rounded-full mb-3">
+                                TABLE ACCESS RESTRICTED
+                              </span>
+                              <h3 className="text-xl font-extrabold text-slate-100 uppercase tracking-tight font-mono">
+                                {dashboardBookmakerFilter} Pool Code Table Locked
                               </h3>
-                              <p className="text-sm text-slate-400 max-w-md mt-2 leading-relaxed">
-                                You do not have access to the <strong>{dashboardBookmakerFilter}</strong> classified table. This component is not enabled in your current membership.
+                              <p className="text-xs text-slate-300 max-w-lg mt-3 leading-relaxed font-sans">
+                                You are signed in as <strong className="text-emerald-400 font-bold">@{currentUser.username}</strong>. Signing up gives you full access to the User Dashboard, but viewing or downloading the <strong className="text-amber-400 font-bold">{dashboardBookmakerFilter}</strong> pool code table requires a subscription to this table.
                               </p>
                               <button
                                 onClick={() => {
                                   setActiveSubTab('subscription');
-                                  triggerToast('Enable this bookmaker on your subscription page!', 'info');
+                                  triggerToast(`Select and subscribe to the ${dashboardBookmakerFilter} pool code table!`, 'info');
                                 }}
-                                className="mt-6 bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold text-xs px-6 py-3 rounded-xl uppercase transition tracking-wider shadow shadow-amber-500/10"
+                                className="mt-6 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs px-6 py-3.5 rounded-xl uppercase transition tracking-wider shadow-lg shadow-emerald-950/50 cursor-pointer flex items-center gap-2"
                               >
-                                Upgrade Plan / Select Components
+                                <CreditCard className="w-4 h-4" />
+                                <span>Subscribe to {dashboardBookmakerFilter} Pool Code Table</span>
                               </button>
                             </div>
                           );
