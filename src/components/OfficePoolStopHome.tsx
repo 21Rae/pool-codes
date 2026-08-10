@@ -1934,13 +1934,24 @@ export default function OfficePoolStopHome({
                 ) : authMode === 'signup' ? (
                   <>
                     <div className="space-y-1 text-xs">
+                      <label className="block text-slate-300 font-extrabold font-mono tracking-wider uppercase text-[10px]">Username (Optional)</label>
+                      <input
+                        type="text"
+                        value={authFields.username || ''}
+                        onChange={(e) => setAuthFields({ ...authFields, username: e.target.value })}
+                        className="w-full bg-[#020b08] border border-emerald-950 rounded-lg p-3 text-[#A7F3D0] focus:ring-1 focus:ring-emerald-400 focus:outline-none placeholder:text-emerald-900 font-semibold"
+                        placeholder="Choose a username (e.g. pool_master)"
+                      />
+                    </div>
+
+                    <div className="space-y-1 text-xs">
                       <label className="block text-slate-300 font-extrabold font-mono tracking-wider uppercase text-[10px]">Your Email Address</label>
                       <input
                         type="email"
                         required
                         value={authFields.email}
                         onChange={(e) => setAuthFields({ ...authFields, email: e.target.value })}
-                        className="w-full bg-[#020b08] border border-emerald-950 rounded-lg p-3 text-[#A7F3D0] focus:ring-1 focus:ring-emerald-400 focus:outline-none placeholder:text-emerald-950 font-semibold"
+                        className="w-full bg-[#020b08] border border-emerald-950 rounded-lg p-3 text-[#A7F3D0] focus:ring-1 focus:ring-emerald-400 focus:outline-none placeholder:text-emerald-900 font-semibold"
                         placeholder="e.g. john@fastpoolcodes.com"
                       />
                     </div>

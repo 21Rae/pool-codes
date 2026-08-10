@@ -336,22 +336,25 @@ app.use((req, res, next) => {
     try {
       const supabase = createClient(supabaseUrl, supabaseAnonKey || serviceRoleKey);
       const cleanEmail = email.toLowerCase().trim();
-      const cleanUsername = username.toLowerCase().trim().replace(/\s+/g, '_');
+      let finalUsername = username.toLowerCase().trim().replace(/[^a-z0-9_]/g, '_');
 
-      // 1. Check if user already exists in the Supabase 'users' database table safely without PostgREST filter string issues
+      // 1. Check if user already exists in the Supabase 'users' database table
       try {
         const { data: byEmail } = await supabase.from('users').select('*').eq('email', cleanEmail).maybeSingle();
-        const { data: byUsername } = await supabase.from('users').select('*').eq('username', cleanUsername).maybeSingle();
-        const existingUser = byEmail || byUsername;
+        if (byEmail) {
+          if (byEmail.status === 'suspended' || byEmail.status === 'banned') {
+            return res.status(400).json({ error: `Account with email '${cleanEmail}' is suspended or banned. Please contact support.` });
+          }
+          if (byEmail.status === 'deleted') {
+            return res.status(400).json({ error: `An account with email '${cleanEmail}' was previously deleted.` });
+          }
+          return res.status(400).json({ error: "An account with this email address already exists. Please sign in instead." });
+        }
 
-        if (existingUser) {
-          if (existingUser.status === 'suspended' || existingUser.status === 'banned') {
-            return res.status(400).json({ error: `Account '@${cleanUsername}' is suspended or banned. Please contact support.` });
-          }
-          if (existingUser.status === 'deleted') {
-            return res.status(400).json({ error: `An account with this username or email was previously deleted.` });
-          }
-          return res.status(400).json({ error: "An account with this email/username already exists. Please sign in instead." });
+        const { data: byUsername } = await supabase.from('users').select('*').eq('username', finalUsername).maybeSingle();
+        if (byUsername) {
+          // If username is taken by another email, make finalUsername unique
+          finalUsername = `${finalUsername}_${Math.floor(Math.random() * 899 + 100)}`;
         }
       } catch (chkErr) {
         console.warn("User existence check warning:", chkErr);
@@ -369,7 +372,7 @@ app.use((req, res, next) => {
             email: cleanEmail,
             password: password,
             email_confirm: true,
-            user_metadata: { username: cleanUsername }
+            user_metadata: { username: finalUsername }
           });
 
           if (!adminErr && adminData?.user) {
@@ -397,7 +400,7 @@ app.use((req, res, next) => {
           password: password,
           options: {
             data: {
-              username: cleanUsername
+              username: finalUsername
             }
           }
         });
@@ -421,7 +424,7 @@ app.use((req, res, next) => {
             try {
               await clientToUse.from('users').upsert([{
                 id: fallbackId,
-                username: cleanUsername,
+                username: finalUsername,
                 email: cleanEmail,
                 role: 'user',
                 status: 'active',
@@ -435,7 +438,7 @@ app.use((req, res, next) => {
               user: {
                 id: fallbackId,
                 email: cleanEmail,
-                user_metadata: { username: cleanUsername }
+                user_metadata: { username: finalUsername }
               },
               session: null
             });
@@ -462,7 +465,7 @@ app.use((req, res, next) => {
           const clientToUse = serviceRoleKey ? createClient(supabaseUrl, serviceRoleKey) : supabase;
           await clientToUse.from('users').upsert([{
             id: su.id,
-            username: cleanUsername,
+            username: finalUsername,
             email: cleanEmail,
             role: 'user',
             status: 'active',

@@ -1038,21 +1038,25 @@ export default function App() {
   };
 
   const handleRegisterUser = async (username: string, email: string, password?: string, planId: string = 'plan-free') => {
-    const cleanUsername = username.toLowerCase().replace(/\s+/g, '_');
+    let cleanUsername = username.toLowerCase().trim().replace(/[^a-z0-9_]/g, '_');
     const cleanEmail = email.toLowerCase().trim();
 
-    // STRICT validation: check if username or email already exists in local database to avoid overlaps and duplicate registrations
-    const localDuplicate = db.users.find(
-      u => u.username.toLowerCase() === cleanUsername || u.email.toLowerCase() === cleanEmail
-    );
-    if (localDuplicate) {
-      if (localDuplicate.status === 'suspended' || localDuplicate.status === 'banned') {
-        return { success: false, error: `Account '@${cleanUsername}' is suspended or banned. Please contact support.` };
+    // 1. Check if email already exists in local database
+    const emailDup = db.users.find(u => u.email.toLowerCase() === cleanEmail);
+    if (emailDup) {
+      if (emailDup.status === 'suspended' || emailDup.status === 'banned') {
+        return { success: false, error: `Account for '${cleanEmail}' is suspended or banned. Please contact support.` };
       }
-      if (localDuplicate.status === 'deleted') {
-        return { success: false, error: `An account with this username or email was previously deleted.` };
+      if (emailDup.status === 'deleted') {
+        return { success: false, error: `An account with email '${cleanEmail}' was previously deleted.` };
       }
-      return { success: false, error: "An account with this username or email already exists. Please sign in instead." };
+      return { success: false, error: `An account with email '${cleanEmail}' already exists. Please sign in instead.` };
+    }
+
+    // 2. If username is taken by a different email in local db, make cleanUsername unique
+    const usernameDup = db.users.find(u => u.username.toLowerCase() === cleanUsername);
+    if (usernameDup) {
+      cleanUsername = `${cleanUsername}_${Math.floor(Math.random() * 899 + 100)}`;
     }
 
     const sClient = getSupabaseClient();
