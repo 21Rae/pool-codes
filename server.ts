@@ -338,13 +338,11 @@ app.use((req, res, next) => {
       const cleanEmail = email.toLowerCase().trim();
       const cleanUsername = username.toLowerCase().trim().replace(/\s+/g, '_');
 
-      // 1. Check if user already exists in the Supabase 'users' database table
+      // 1. Check if user already exists in the Supabase 'users' database table safely without PostgREST filter string issues
       try {
-        const { data: existingUser } = await supabase
-          .from('users')
-          .select('*')
-          .or(`email.eq.${cleanEmail},username.eq.${cleanUsername}`)
-          .maybeSingle();
+        const { data: byEmail } = await supabase.from('users').select('*').eq('email', cleanEmail).maybeSingle();
+        const { data: byUsername } = await supabase.from('users').select('*').eq('username', cleanUsername).maybeSingle();
+        const existingUser = byEmail || byUsername;
 
         if (existingUser) {
           if (existingUser.status === 'suspended' || existingUser.status === 'banned') {
@@ -360,10 +358,10 @@ app.use((req, res, next) => {
       }
 
       // 2. Perform Supabase Auth registration
-      // If serviceRoleKey is configured, use admin API to bypass public email rate limits & auto-confirm email
       let su: any = null;
       let session: any = null;
 
+      // Option A: If serviceRoleKey is configured, use admin API to bypass public email rate limits & auto-confirm email
       if (serviceRoleKey) {
         try {
           const adminSupabase = createClient(supabaseUrl, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
@@ -376,6 +374,14 @@ app.use((req, res, next) => {
 
           if (!adminErr && adminData?.user) {
             su = adminData.user;
+            // Attempt to get an active session for the created user
+            const { data: sData } = await supabase.auth.signInWithPassword({
+              email: cleanEmail,
+              password: password
+            });
+            if (sData?.session) {
+              session = sData.session;
+            }
           } else if (adminErr) {
             console.warn("Admin createUser warning, falling back to standard signUp:", adminErr.message);
           }
@@ -384,7 +390,7 @@ app.use((req, res, next) => {
         }
       }
 
-      // Standard signUp fallback if admin API not used/available
+      // Option B: Standard signUp fallback if admin API not used/available
       if (!su) {
         const { data, error } = await supabase.auth.signUp({
           email: cleanEmail,
@@ -438,6 +444,17 @@ app.use((req, res, next) => {
         } else {
           su = data.user;
           session = data.session;
+
+          // If session is null (due to email confirmation enabled in Supabase), try logging in directly
+          if (!session && password) {
+            const { data: autoLoginData } = await supabase.auth.signInWithPassword({
+              email: cleanEmail,
+              password: password
+            });
+            if (autoLoginData?.session) {
+              session = autoLoginData.session;
+            }
+          }
         }
       }
 
@@ -482,22 +499,19 @@ app.use((req, res, next) => {
       let targetInput = emailOrUsername.trim().toLowerCase();
       let targetEmail = targetInput;
 
-      // Check user record in 'users' database table first
+      // Check user record in 'users' database table first cleanly
       let matchedRecord: any = null;
       try {
-        const { data: matchedRecords } = await supabase
-          .from('users')
-          .select('*')
-          .or(`email.eq.${targetInput},username.eq.${targetInput}`)
-          .maybeSingle();
+        const { data: byEmail } = await supabase.from('users').select('*').eq('email', targetInput).maybeSingle();
+        const { data: byUsername } = await supabase.from('users').select('*').eq('username', targetInput).maybeSingle();
+        matchedRecord = byEmail || byUsername;
 
-        if (matchedRecords) {
-          matchedRecord = matchedRecords;
-          if (matchedRecords.email) {
-            targetEmail = matchedRecords.email;
-          }
+        if (matchedRecord && matchedRecord.email) {
+          targetEmail = matchedRecord.email;
         }
-      } catch (_) {}
+      } catch (err) {
+        console.warn("SignIn user table lookup warning:", err);
+      }
 
       // Reject if account status is suspended, banned, or deleted
       if (matchedRecord) {
