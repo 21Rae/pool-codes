@@ -162,7 +162,7 @@ export default function App() {
   };
 
   // Active Authenticated user in session
-  const currentUser = (selectedPersonaId && db.users && db.users.length > 0)
+  const currentUser = selectedPersonaId
     ? (db.users.find(u => u.id === selectedPersonaId) || {
         id: selectedPersonaId,
         username: 'User',
@@ -298,10 +298,22 @@ export default function App() {
         const data = json.data;
 
         if (data && Array.isArray(data)) {
-          setDb(prev => ({
-            ...prev,
-            [dbKey]: data
-          }));
+          setDb(prev => {
+            const existingList = (prev[dbKey] as any[]) || [];
+            const fetchedMap = new Map((data as any[]).map(item => [item.id, item]));
+            const merged = [...(data as any[])];
+            
+            for (const existingItem of existingList) {
+              if (existingItem && existingItem.id && !fetchedMap.has(existingItem.id)) {
+                merged.push(existingItem);
+              }
+            }
+
+            return {
+              ...prev,
+              [dbKey]: merged
+            };
+          });
           if (data.length > 0) {
             logSQL(query, `Successfully loaded ${data.length} real rows from Supabase '${tableName}' table.`);
           } else {
@@ -1146,11 +1158,7 @@ export default function App() {
         
         // If Supabase auth returned an error, check if it's account duplication or status error
         if (resData?.error) {
-          const errLower = resData.error.toLowerCase();
-          if (errLower.includes('already exists') || errLower.includes('suspended') || errLower.includes('banned') || errLower.includes('deleted')) {
-            return { success: false, error: resData.error };
-          }
-          console.warn("Supabase auth API warning, falling back to local account creation:", resData.error);
+          return { success: false, error: resData.error };
         }
       } catch (err: any) {
         console.warn("Registration API warning, falling back to local session creation:", err?.message);

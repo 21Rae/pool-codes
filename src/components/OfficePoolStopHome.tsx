@@ -215,6 +215,7 @@ export default function OfficePoolStopHome({
     confirmPassword: ''
   });
   const [showPassword, setShowPassword] = useState(false);
+  const [agreeTerms, setAgreeTerms] = useState(true);
 
   // Paywall states
   const [showPaywall, setShowPaywall] = useState(false);
@@ -467,6 +468,7 @@ export default function OfficePoolStopHome({
     setAuthFields({ username: '', email: '', password: '' });
     setResetFields({ usernameOrEmail: '', newPassword: '', confirmPassword: '' });
     setShowPassword(false);
+    setAgreeTerms(true);
     setShowSystemAuth(true);
     triggerToast(`Directing to ${mode === 'signup' ? 'Create Premium Account' : mode === 'change_password' ? 'Change Password' : 'Sign In'} portal...`, 'info');
   };
@@ -522,6 +524,10 @@ export default function OfficePoolStopHome({
     }
 
     if (authMode === 'signup') {
+      if (!agreeTerms) {
+        triggerToast('Please confirm you are 18+ and accept the Terms of Service to proceed.', 'error');
+        return;
+      }
       if (!authFields.email || !authFields.password) {
         triggerToast('Please fill in both your email address and password.', 'error');
         return;
@@ -1984,7 +1990,8 @@ export default function OfficePoolStopHome({
                     <div className="flex items-start gap-2 text-[10px] text-slate-400 font-sans leading-relaxed select-none bg-emerald-950/20 border border-emerald-950/40 p-2.5 rounded-lg">
                       <input 
                         type="checkbox" 
-                        required
+                        checked={agreeTerms}
+                        onChange={(e) => setAgreeTerms(e.target.checked)}
                         id="agreeTerms" 
                         className="rounded border-emerald-900 bg-[#020b08] text-emerald-500 focus:ring-0 mt-0.5 h-3.5 w-3.5 cursor-pointer" 
                       />

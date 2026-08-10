@@ -418,6 +418,10 @@ app.use((req, res, next) => {
             su = signInData.user;
             session = signInData.session;
           } else {
+            if (errLower.includes('already registered') || errLower.includes('already exists') || errLower.includes('user_already_exists')) {
+              return res.status(400).json({ error: "An account with this email address already exists. Please sign in instead." });
+            }
+
             console.warn("Supabase auth signUp error or rate limit hit:", error.message, "Creating account directly in database session.");
             const fallbackId = `usr-sb-${Math.floor(Math.random() * 900000 + 100000)}`;
             const clientToUse = serviceRoleKey ? createClient(supabaseUrl, serviceRoleKey) : supabase;
