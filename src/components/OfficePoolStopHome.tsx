@@ -531,6 +531,7 @@ export default function OfficePoolStopHome({
             if (res.success) {
               triggerToast(res.message || `Account created successfully on Free Plan! Welcome!`, 'success');
               setShowSystemAuth(false);
+              onSignIn();
             } else {
               triggerToast(res.error || 'Registration failed.', 'error');
             }
@@ -558,6 +559,7 @@ export default function OfficePoolStopHome({
             if (res.success) {
               triggerToast(res.message || `Successfully logged in as @${authFields.username}!`, 'success');
               setShowSystemAuth(false);
+              onSignIn();
             } else {
               triggerToast(res.error || `Authentication failed. Check your password or try signing up!`, 'error');
             }
@@ -595,6 +597,7 @@ export default function OfficePoolStopHome({
               triggerToast(res.message || `Payment Authorized! Premium account registered for @${username}. Welcome!`, 'success');
               setShowPaywall(false);
               setPendingUser(null);
+              onSignIn();
             } else {
               triggerToast(res.error || 'Registration failed.', 'error');
             }

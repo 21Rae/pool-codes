@@ -1111,7 +1111,7 @@ export default function App() {
             }));
 
             setSelectedPersonaId(su.id);
-            setViewMode('homepage');
+            setViewMode('portal');
             logSQL(
               `-- Supabase secure backend signUp completed.\n-- Registered user id: ${su.id} \n-- Saved token session cache.`,
               `Registered & logged in new member @${cleanUsername} using secure proxy gateway`
@@ -1129,9 +1129,15 @@ export default function App() {
             return { success: true, message: `Successfully registered and logged in as @${cleanUsername}! Welcome!` };
           }
         }
-        return { success: false, error: resData?.error || "Registration failed. Please make sure the email is valid and password has at least 6 characters." };
+        
+        // If Supabase auth hit a rate limit or unexpected error, fall back to creating local user session
+        if (resData?.error && (resData.error.toLowerCase().includes('rate limit') || resData.error.toLowerCase().includes('email rate'))) {
+          console.warn("Supabase rate limit error encountered, falling back to instant local session creation:", resData.error);
+        } else if (resData?.error) {
+          return { success: false, error: resData.error };
+        }
       } catch (err: any) {
-        return { success: false, error: err?.message || "Registration service is temporarily unreachable. Please try again." };
+        console.warn("Registration API warning, falling back to local session creation:", err?.message);
       }
     }
 
@@ -1185,7 +1191,7 @@ export default function App() {
     }));
     
     setSelectedPersonaId(newId);
-    setViewMode('homepage');
+    setViewMode('portal');
     
     logSQL(
       `-- Real-time registration insert transaction (local)\nINSERT INTO users (id, username, email, role, status, created_at)\nVALUES ('${newId}', '${cleanUsername}', '${cleanEmail}', 'user', 'active', NOW());`,
@@ -1294,7 +1300,7 @@ export default function App() {
             }));
 
             setSelectedPersonaId(su.id);
-            setViewMode('homepage');
+            setViewMode('portal');
             logSQL(
               `-- Supabase backend signIn completed successfully.\n-- Connected active session user ID: ${su.id}`,
               `Access granted! Connected to @${username} active instance.`
@@ -1335,7 +1341,7 @@ export default function App() {
     const paymentRef = userSub?.payment_ref || null;
 
     setSelectedPersonaId(matched.id);
-    setViewMode('homepage');
+    setViewMode('portal');
     
     localStorage.setItem('fastpool_cached_user', JSON.stringify({
       id: matched.id,
@@ -1461,7 +1467,7 @@ export default function App() {
               db={db}
               currentUser={currentUser}
               onSignIn={() => {
-                setViewMode('homepage');
+                setViewMode('portal');
                 triggerToast('Authenticated secure session active! Welcome.', 'success');
               }}
               onEnterManagerPanel={() => {
