@@ -45,7 +45,9 @@ import {
   FileText,
   CheckCircle,
   RefreshCw,
-  Database
+  Database,
+  BookOpen,
+  Share2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DatabaseState, User, SubscriptionPlan, UserSubscription, PoolCode } from '../types';
@@ -106,7 +108,7 @@ export default function CustomerPortal({
     : undefined;
 
   const isLoggedIn = currentUser && currentUser.id !== 'guest';
-  const isVerified = currentUser && !!currentUser.email_verified_at && currentUser.status === 'active';
+  const isVerified = currentUser && currentUser.status !== 'suspended';
   const isPaidUser = currentUser.role === 'admin' || (
     activeSubscription && 
     activeSubscription.status === 'active' && 
@@ -201,6 +203,55 @@ export default function CustomerPortal({
   const [streamAlertEmail, setStreamAlertEmail] = useState(currentUser?.email || '');
   const [streamSubscribed, setStreamSubscribed] = useState(false);
   const [streamReminders, setStreamReminders] = useState<Record<string, boolean>>({});
+
+  // Dashboard Header Post / Cover Story states
+  const [dashboardHeaderPost, setDashboardHeaderPost] = useState<any>({
+    id: 'week-7-sportybet-header-post',
+    title: 'Download Week 7 Sportybet Pool Codes (Nigeria): UK Pool Fixtures – 15th August, 2026 [PREMIUM CONTENT]',
+    summary: 'These are Sportybet pool codes for week 7. Log in to download it',
+    content: `### Download Week 7 Sportybet Pool Codes (Nigeria): UK Pool Fixtures – 15th August, 2026 [PREMIUM CONTENT]\n\nWelcome to FastPoolCodes official decrypted Sportybet pool codes for Week 7 (15th August, 2026). Below you will find key numbers, match numbers, odds, and predictions for this week's UK Pool fixtures on Sportybet Nigeria.\n\n#### Key Features & Highlights:\n- **Official UK Fixtures**: Decrypted directly from primary UK football pool papers.\n- **Sportybet Booking Codes**: Instant access to verified Sportybet booking codes for fast placement.\n- **High Precision Odds**: Comprehensive odds analysis across all 49 matches.\n\nLog in or subscribe to your SportyBet pool code table to download the full decrypted codesheet in your dashboard below!`,
+    date: 'Aug 10, 2026',
+    readTime: '2 mins',
+    image_url: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=1200&q=80',
+    category: 'ARTICLE',
+    badge: '★ COVER STORY',
+    bookmaker: 'SportyBet',
+    week_number: 7
+  });
+  const [selectedDashboardArticle, setSelectedDashboardArticle] = useState<any | null>(null);
+
+  useEffect(() => {
+    const loadDashboardBlogs = async () => {
+      try {
+        const res = await fetch('/api/blogs');
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+            const heroBlog = json.data.find((b: any) => 
+              b.is_hero || b.featured || b.is_featured || (b.title && b.title.toLowerCase().includes('week 7'))
+            ) || json.data[0];
+
+            if (heroBlog) {
+              setDashboardHeaderPost({
+                id: heroBlog.id || 'blog-hero',
+                title: heroBlog.title || heroBlog.heading || 'Download Week 7 Sportybet Pool Codes (Nigeria): UK Pool Fixtures – 15th August, 2026 [PREMIUM CONTENT]',
+                summary: heroBlog.summary || heroBlog.description || 'These are Sportybet pool codes for week 7. Log in to download it',
+                content: heroBlog.content || heroBlog.body || 'Logged in to download week 7 Sportybet pool codes.',
+                date: heroBlog.date || (heroBlog.created_at ? new Date(heroBlog.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Aug 10, 2026'),
+                readTime: heroBlog.read_time || heroBlog.readTime || '2 mins',
+                image_url: heroBlog.image_url || heroBlog.cover || heroBlog.banner || 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=1200&q=80',
+                category: 'ARTICLE',
+                badge: '★ COVER STORY',
+                bookmaker: 'SportyBet',
+                week_number: 7
+              });
+            }
+          }
+        }
+      } catch (_) {}
+    };
+    loadDashboardBlogs();
+  }, []);
 
   // PDF Customization & Printing states
   const [showPdfPrintModal, setShowPdfPrintModal] = useState(false);
@@ -1636,10 +1687,10 @@ export default function CustomerPortal({
 
                   <div className="space-y-3">
                     <span className="text-[10px] font-mono font-black text-rose-455 uppercase tracking-widest px-3 py-1 bg-rose-950/40 border border-rose-900/50 rounded-full">
-                      {!isLoggedIn ? 'AUTHENTICATION REQUIRED' : !isVerified ? 'VERIFICATION REQUIRED' : isSubscriptionExpired ? 'PREMIUM ACCESS EXPIRED' : 'STRICT MODE: PAID VIP REQUIRED'}
+                      {!isLoggedIn ? 'AUTHENTICATION REQUIRED' : isSubscriptionExpired ? 'PREMIUM ACCESS EXPIRED' : 'STRICT MODE: PAID VIP REQUIRED'}
                     </span>
                     <h3 className="text-xl md:text-2xl font-black text-white uppercase tracking-tight">
-                      {!isLoggedIn ? 'Please Log In To Access Tables' : !isVerified ? 'Account Verification Pending' : isSubscriptionExpired ? 'Your Subscription Has Expired!' : 'Paid VIP Membership Required!'}
+                      {!isLoggedIn ? 'Please Log In To Access Tables' : isSubscriptionExpired ? 'Your Subscription Has Expired!' : 'Paid VIP Membership Required!'}
                     </h3>
                   </div>
 
@@ -1708,6 +1759,110 @@ export default function CustomerPortal({
                           Enable Normal Locks
                         </button>
                       )}
+                    </div>
+                  )}
+
+                  {/* COVER STORY HEADER POST CARD IN USER DASHBOARD */}
+                  {dashboardHeaderPost && (
+                    <div className="bg-white dark:bg-[#111827] border border-zinc-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl transition duration-300 group">
+                      {/* Banner Image Container */}
+                      <div 
+                        onClick={() => setSelectedDashboardArticle(dashboardHeaderPost)}
+                        className="h-64 sm:h-80 w-full relative bg-gradient-to-br from-indigo-950 via-slate-900 to-emerald-950 overflow-hidden cursor-pointer"
+                      >
+                        <img 
+                          src={dashboardHeaderPost.image_url} 
+                          alt={dashboardHeaderPost.title}
+                          referrerPolicy="no-referrer"
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=1200&q=80';
+                          }}
+                          className="w-full h-full object-cover absolute inset-0 transition-transform duration-500 group-hover:scale-105 opacity-85"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/50 to-black/20"></div>
+
+                        {/* Center Overlay Graphics matching uploaded image design */}
+                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none p-4 text-center">
+                          <div className="bg-black/75 backdrop-blur-md border border-white/15 px-6 py-3.5 rounded-2xl shadow-2xl flex flex-col items-center max-w-xs sm:max-w-md">
+                            <span className="text-white text-2xl sm:text-4xl font-black uppercase tracking-tight font-sans drop-shadow">
+                              Week 7
+                            </span>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className="text-slate-100 text-2xl sm:text-3xl font-black tracking-tight drop-shadow">FastPool</span>
+                              <span className="text-[#FA3E65] text-2xl sm:text-3xl font-black tracking-tight drop-shadow">Codes</span>
+                            </div>
+                            <span className="text-slate-300 text-[10px] sm:text-xs font-mono tracking-widest mt-1 opacity-90">
+                              fastpoolcodes.com
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Floating Cover Story Badge Top Left */}
+                        <div className="absolute top-4 left-4 bg-[#fa3e65] text-white text-[10px] font-black px-2.5 py-1 rounded shadow-lg tracking-widest uppercase flex items-center gap-1">
+                          <span>★</span>
+                          <span>COVER STORY</span>
+                        </div>
+
+                        {/* Meta Stamp Bottom Left */}
+                        <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-white">
+                          <div className="flex items-center gap-2">
+                            <span className="bg-emerald-500 text-slate-950 text-[10px] font-black px-2.5 py-0.5 rounded uppercase tracking-wide">
+                              {dashboardHeaderPost.category || 'ARTICLE'}
+                            </span>
+                            <span className="text-neutral-200 text-xs font-bold font-mono">
+                              {dashboardHeaderPost.date}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Textual Body Block */}
+                      <div className="p-5 sm:p-6 space-y-3 text-left">
+                        <h2 
+                          onClick={() => setSelectedDashboardArticle(dashboardHeaderPost)}
+                          className="font-sans font-black text-zinc-900 dark:text-white text-xl sm:text-2xl tracking-tight leading-tight group-hover:text-[#fa3e65] transition cursor-pointer"
+                        >
+                          {dashboardHeaderPost.title}
+                        </h2>
+                        <p 
+                          onClick={() => setSelectedDashboardArticle(dashboardHeaderPost)}
+                          className="text-zinc-600 dark:text-slate-300 font-medium text-xs sm:text-sm leading-relaxed cursor-pointer"
+                        >
+                          {dashboardHeaderPost.summary}
+                        </p>
+
+                        {/* Footer Controls */}
+                        <div className="pt-3 border-t border-zinc-100 dark:border-slate-800 flex items-center justify-between text-xs font-bold text-zinc-500 dark:text-slate-400">
+                          <div 
+                            onClick={() => setSelectedDashboardArticle(dashboardHeaderPost)}
+                            className="flex items-center gap-2 cursor-pointer hover:text-zinc-800 dark:hover:text-white transition"
+                          >
+                            <span className="flex items-center gap-1.5 text-zinc-700 dark:text-slate-300 font-bold">
+                              <BookOpen className="w-4 h-4 text-emerald-500" />
+                              <span>Read Full Article</span>
+                            </span>
+                            <span>•</span>
+                            <span className="text-rose-500 font-black">{dashboardHeaderPost.readTime}</span>
+                          </div>
+
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (navigator.clipboard) {
+                                navigator.clipboard.writeText(window.location.href);
+                                triggerToast('Article link copied to clipboard!', 'success');
+                              } else {
+                                triggerToast(`Share: ${dashboardHeaderPost.title}`, 'info');
+                              }
+                            }}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-100 hover:bg-rose-50 hover:text-rose-600 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 text-zinc-700 rounded-lg transition text-xs font-bold uppercase cursor-pointer border border-zinc-200 dark:border-slate-700 shadow-xs active:scale-95"
+                            title="Share Article"
+                          >
+                            <Share2 className="w-3.5 h-3.5 text-rose-500" />
+                            <span>SHARE</span>
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   )}
 
@@ -1832,7 +1987,7 @@ export default function CustomerPortal({
                                 onClick={async () => {
                                   setDashboardBookmakerFilter(bookie);
                                   if (fetchRealSupabaseData) {
-                                    await fetchRealSupabaseData(false);
+                                    await fetchRealSupabaseData(true);
                                   }
                                 }}
                                 className={`px-3 py-1.5 text-xs font-bold font-mono uppercase tracking-wide rounded-lg transition duration-150 flex items-center gap-1.5 cursor-pointer ${
@@ -5095,6 +5250,116 @@ export default function CustomerPortal({
           {renderFooter && renderFooter()}
         </div>
       </main>
+
+      {/* DASHBOARD COVER STORY ARTICLE READER MODAL */}
+      <AnimatePresence>
+        {selectedDashboardArticle && (
+          <div className="fixed inset-0 z-[99999] bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-[#0c1322] border border-slate-800 text-white rounded-3xl max-w-2xl w-full overflow-hidden shadow-2xl relative my-auto text-left"
+            >
+              {/* Modal Close Button */}
+              <button 
+                onClick={() => setSelectedDashboardArticle(null)}
+                className="absolute top-4 right-4 z-30 bg-black/70 hover:bg-rose-600 text-white p-2 rounded-full border border-white/20 transition cursor-pointer shadow-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              {/* Header Banner */}
+              <div className="h-64 sm:h-72 w-full relative bg-slate-900 overflow-hidden">
+                <img 
+                  src={selectedDashboardArticle.image_url} 
+                  alt={selectedDashboardArticle.title}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=1200&q=80';
+                  }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#0c1322] via-[#0c1322]/50 to-black/30"></div>
+                
+                {/* Center Badge Graphic Overlay */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none p-4 text-center">
+                  <div className="bg-black/75 backdrop-blur-md border border-white/15 px-5 py-2.5 rounded-2xl shadow-2xl flex flex-col items-center">
+                    <span className="text-white text-xl sm:text-2xl font-black uppercase tracking-tight font-sans drop-shadow">
+                      Week 7
+                    </span>
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <span className="text-slate-100 text-lg sm:text-xl font-black tracking-tight">FastPool</span>
+                      <span className="text-[#FA3E65] text-lg sm:text-xl font-black tracking-tight">Codes</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="absolute top-4 left-4 bg-[#fa3e65] text-white text-[10px] font-black px-2.5 py-1 rounded shadow-lg tracking-widest uppercase flex items-center gap-1">
+                  <span>★</span>
+                  <span>COVER STORY</span>
+                </div>
+              </div>
+
+              {/* Modal Content */}
+              <div className="p-6 sm:p-8 space-y-4 text-left -mt-8 relative z-10">
+                <div className="flex items-center gap-2 text-xs text-slate-400 font-mono">
+                  <span className="bg-emerald-500 text-slate-950 font-black px-2.5 py-0.5 rounded uppercase">
+                    {selectedDashboardArticle.category || 'ARTICLE'}
+                  </span>
+                  <span>{selectedDashboardArticle.date}</span>
+                  <span>•</span>
+                  <span className="text-rose-400 font-extrabold">{selectedDashboardArticle.readTime}</span>
+                </div>
+
+                <h2 className="text-2xl sm:text-3xl font-black text-white leading-tight">
+                  {selectedDashboardArticle.title}
+                </h2>
+
+                <p className="text-xs sm:text-sm text-slate-300 font-medium leading-relaxed bg-slate-900/80 p-4 rounded-xl border border-slate-800/80">
+                  {selectedDashboardArticle.summary}
+                </p>
+
+                <div className="prose prose-invert prose-xs text-slate-300 leading-relaxed space-y-3 font-sans text-xs sm:text-sm pt-2">
+                  {(selectedDashboardArticle.content || '').split('\n\n').map((paragraph: string, pIdx: number) => (
+                    <p key={pIdx} className="leading-relaxed">{paragraph}</p>
+                  ))}
+                </div>
+
+                {/* Action Buttons */}
+                <div className="pt-6 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-3">
+                  <button
+                    onClick={() => {
+                      setDashboardBookmakerFilter('SportyBet');
+                      setSelectedDashboardArticle(null);
+                      setTimeout(() => {
+                        const el = document.getElementById('posted-games-bulletin');
+                        if (el) el.scrollIntoView({ behavior: 'smooth' });
+                      }, 100);
+                    }}
+                    className="w-full sm:w-auto px-6 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg transition cursor-pointer flex items-center justify-center gap-2 font-mono"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Download Week 7 Sportybet Codes</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      if (navigator.clipboard) {
+                        navigator.clipboard.writeText(window.location.href);
+                        triggerToast('Article link copied to clipboard!', 'success');
+                      }
+                    }}
+                    className="w-full sm:w-auto px-4 py-3.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 font-mono"
+                  >
+                    <Share2 className="w-4 h-4 text-rose-500" />
+                    <span>Share Article</span>
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* PDF PRINT CUSTOMIZER & GENERATOR MODAL */}
       <AnimatePresence>

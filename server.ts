@@ -352,7 +352,7 @@ app.use((req, res, next) => {
     }
   });
 
-  // API Route - Secure Proxy Sign-Up
+  // API Route - Direct Database Sign-Up (Using 'users' table directly)
   app.post("/api/auth/signup", async (req, res) => {
     const { email, password, username } = req.body;
     if (!email || !password || !username) {
@@ -373,125 +373,73 @@ app.use((req, res, next) => {
     try {
       const supabase = createClient(supabaseUrl, serviceRoleKey || supabaseAnonKey);
 
-      // 1. Check if user already exists in public 'users' table
+      // Check if user already exists in public 'users' table
       try {
-        const { data: byEmail } = await supabase.from('users').select('*').eq('email', cleanEmail).maybeSingle();
-        if (byEmail) {
-          if (byEmail.status === 'suspended' || byEmail.status === 'banned') {
+        const { data: existingUser } = await supabase
+          .from('users')
+          .select('*')
+          .or(`email.eq.${cleanEmail},username.eq.${finalUsername}`)
+          .maybeSingle();
+
+        if (existingUser) {
+          if (existingUser.status === 'suspended' || existingUser.status === 'banned') {
             return res.status(400).json({ error: `Account for '${cleanEmail}' is suspended or banned. Please contact support.` });
           }
-          if (byEmail.status === 'deleted') {
-            return res.status(400).json({ error: `An account with email '${cleanEmail}' was previously deleted.` });
-          }
-          return res.status(400).json({ error: "An account with this email address already exists. Please sign in instead." });
-        }
-      } catch (chkErr: any) {
-        if (chkErr.message && (chkErr.message.includes('suspended') || chkErr.message.includes('already exists'))) {
-          return res.status(400).json({ error: chkErr.message });
-        }
-      }
-
-      let su: any = null;
-      let session: any = null;
-
-      // Primary: Use Admin API if service role key is available
-      if (serviceRoleKey) {
-        try {
-          const adminSupabase = createClient(supabaseUrl, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
-          const { data: adminData, error: adminErr } = await adminSupabase.auth.admin.createUser({
-            email: cleanEmail,
-            password: password,
-            email_confirm: true,
-            user_metadata: { username: finalUsername }
-          });
-          if (!adminErr && adminData?.user) {
-            su = adminData.user;
-            const { data: sData } = await supabase.auth.signInWithPassword({
-              email: cleanEmail,
-              password: password
-            });
-            if (sData?.session) {
-              session = sData.session;
-            }
-          }
-        } catch (adminEx) {
-          console.warn("Admin createUser exception:", adminEx);
-        }
-      }
-
-      // Standard Supabase Auth SignUp
-      if (!su) {
-        const { data, error } = await supabase.auth.signUp({
-          email: cleanEmail,
-          password: password,
-          options: {
-            data: { username: finalUsername }
-          }
-        });
-
-        if (error) {
-          const errLower = (error.message || '').toLowerCase();
-          if (errLower.includes('already registered') || errLower.includes('already exists') || errLower.includes('user_already_exists')) {
+          if (existingUser.email?.toLowerCase() === cleanEmail) {
             return res.status(400).json({ error: "An account with this email address already exists. Please sign in instead." });
           }
-          if (errLower.includes('rate limit') || errLower.includes('rate_limit') || errLower.includes('over_email_send_rate_limit')) {
-            return res.status(429).json({ error: "Supabase email rate limit exceeded (429). Supabase's default mailer limits emails to 3 per hour. To fix this, set up a custom SMTP server in Supabase Dashboard -> Authentication -> Email Settings, or add SUPABASE_SERVICE_ROLE_KEY to environment variables." });
+          if (existingUser.username?.toLowerCase() === finalUsername) {
+            return res.status(400).json({ error: `Username '@${finalUsername}' is already taken. Please choose another username.` });
           }
-          if (errLower.includes('upstream request timeout') || errLower.includes('timeout') || errLower.includes('504')) {
-            return res.status(504).json({ error: "Supabase SMTP server connection timed out (upstream request timeout). The custom SMTP server configured in Supabase Dashboard -> Authentication -> Email Settings could not be reached. Please check your SMTP Host, Port (e.g., 587 with STARTTLS or 465 with SSL), and credentials in Supabase Dashboard." });
-          }
-          return res.status(400).json({ error: error.message || "Registration failed on Supabase Authentication." });
         }
-
-        su = data?.user;
-        session = data?.session;
+      } catch (chkErr) {
+        console.warn("User lookup warning:", chkErr);
       }
 
-      if (!su) {
-        return res.status(400).json({ error: "Supabase Authentication did not return a user record. Please try again." });
-      }
+      // Generate unique user ID
+      const newUserId = `usr_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+      const nowIso = new Date().toISOString();
 
-      // Sync user profile into Supabase 'users' table using the EXACT Supabase Auth User ID
+      const userRecord = {
+        id: newUserId,
+        username: finalUsername,
+        email: cleanEmail,
+        password: password,
+        role: 'user',
+        status: 'active',
+        created_at: nowIso
+      };
+
+      // Insert user directly into 'users' table
+      let returnedUser: any = userRecord;
       try {
-        await supabase.from('users').upsert([{
-          id: su.id,
-          username: finalUsername,
-          email: cleanEmail,
-          role: 'user',
-          status: 'active',
-          created_at: new Date().toISOString()
-        }], { onConflict: 'id' });
-      } catch (dbErr) {
-        console.warn("Profile table upsert warning:", dbErr);
-      }
+        const { data: insertedUser, error: insertErr } = await supabase
+          .from('users')
+          .insert([userRecord])
+          .select()
+          .single();
 
-      const isConfirmed = Boolean(su.email_confirmed_at || su.confirmed_at || session);
-
-      if (!isConfirmed) {
-        return res.json({
-          success: true,
-          requiresEmailConfirmation: true,
-          email: cleanEmail,
-          user: su,
-          session: null,
-          message: `Account created in Supabase Authentication! If 'Confirm email' is enabled in your Supabase project settings, please check your inbox for the confirmation link. If email confirmation is disabled in Supabase, you can sign in directly.`
-        });
+        if (!insertErr && insertedUser) {
+          returnedUser = insertedUser;
+        }
+      } catch (insEx) {
+        console.warn("Insert into users table warning:", insEx);
       }
 
       return res.json({
         success: true,
         requiresEmailConfirmation: false,
-        user: su,
-        session: session,
-        message: `Account created successfully in Supabase Authentication!`
+        user: returnedUser,
+        session: { access_token: `token_${returnedUser.id}`, user: returnedUser },
+        message: `Account registered successfully!`
       });
     } catch (err: any) {
-      console.error("Supabase signup error:", err);
-      return res.status(400).json({ error: err?.message || "Registration failed on Supabase." });
+      console.error("Database signup error:", err);
+      return res.status(400).json({ error: err?.message || "Registration failed on users database." });
     }
   });
 
-  // API Route - Secure Proxy Sign-In / Login
+  // API Route - Direct Database Sign-In (Using 'users' table directly)
   app.post("/api/auth/signin", async (req, res) => {
     const { emailOrUsername, password } = req.body;
     if (!emailOrUsername || !password) {
@@ -506,60 +454,51 @@ app.use((req, res, next) => {
       return res.status(500).json({ error: "Supabase configuration missing in server environment." });
     }
 
-    let targetInput = emailOrUsername.trim().toLowerCase();
-    let targetEmail = targetInput;
+    const targetInput = emailOrUsername.trim().toLowerCase();
 
     try {
       const supabase = createClient(supabaseUrl, serviceRoleKey || supabaseAnonKey);
 
-      // 1. Resolve username to email if needed
-      try {
-        const { data: byUsername } = await supabase.from('users').select('email, status').eq('username', targetInput).maybeSingle();
-        if (byUsername) {
-          if (byUsername.status === 'suspended' || byUsername.status === 'banned') {
-            return res.status(403).json({ error: "Your account is suspended or banned. Please contact support." });
-          }
-          if (byUsername.status === 'deleted') {
-            return res.status(403).json({ error: "This account has been deleted and is no longer active." });
-          }
-          if (byUsername.email) {
-            targetEmail = byUsername.email;
-          }
-        }
-      } catch (err) {
-        console.warn("SignIn username lookup warning:", err);
+      // Look up user in 'users' table by email or username
+      const { data: userRow, error: queryErr } = await supabase
+        .from('users')
+        .select('*')
+        .or(`email.eq.${targetInput},username.eq.${targetInput}`)
+        .maybeSingle();
+
+      if (queryErr || !userRow) {
+        return res.status(400).json({ error: "Account not found. Please check your email or username." });
       }
 
-      if (!targetEmail.includes('@')) {
-        targetEmail = `${targetEmail}@example.com`;
+      if (userRow.status === 'suspended' || userRow.status === 'banned') {
+        return res.status(403).json({ error: "Your account is suspended or banned. Please contact support." });
+      }
+      if (userRow.status === 'deleted') {
+        return res.status(403).json({ error: "This account has been deleted and is no longer active." });
       }
 
-      // Authenticate via Supabase Auth
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: targetEmail,
-        password: password
+      // Check password if available
+      if (userRow.password && userRow.password !== password) {
+        return res.status(400).json({ error: "Invalid password. Please verify your details and try again." });
+      }
+
+      const activeUser = {
+        id: userRow.id,
+        username: userRow.username,
+        email: userRow.email,
+        role: userRow.role || 'user',
+        status: userRow.status || 'active',
+        created_at: userRow.created_at || new Date().toISOString()
+      };
+
+      return res.json({
+        success: true,
+        user: activeUser,
+        session: { access_token: `token_${userRow.id}`, user: activeUser }
       });
-
-      if (error) {
-        const errLower = (error.message || '').toLowerCase();
-        if (errLower.includes('email not confirmed') || errLower.includes('confirm your email') || errLower.includes('not verified')) {
-          return res.status(400).json({
-            error: "Email address not confirmed yet. Check your inbox, or disable 'Confirm email' in Supabase Dashboard -> Authentication -> Providers -> Email to allow instant logins.",
-            requiresEmailConfirmation: true,
-            email: targetEmail
-          });
-        }
-        return res.status(400).json({ error: error.message || "Invalid login credentials." });
-      }
-
-      if (!data.user) {
-        return res.status(400).json({ error: "Invalid login credentials." });
-      }
-
-      return res.json({ success: true, user: data.user, session: data.session });
     } catch (err: any) {
-      console.error("Supabase signin error:", err);
-      return res.status(400).json({ error: err?.message || "Sign in failed on Supabase." });
+      console.error("Database signin error:", err);
+      return res.status(500).json({ error: err?.message || "Sign in failed." });
     }
   });
 
