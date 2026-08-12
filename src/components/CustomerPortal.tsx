@@ -1872,7 +1872,7 @@ export default function CustomerPortal({
                       <div className="flex items-center gap-2">
                         <span className="w-2.5 h-2.5 rounded-full bg-[#FA3E65] animate-ping shrink-0"></span>
                         <h2 className="text-xs font-black font-sans uppercase tracking-widest text-[#FA3E65] flex items-center gap-1.5">
-                          LIVE Arena Sports Scores
+                          LIVESCORES
                         </h2>
                       </div>
                       <span className="text-[9px] font-mono text-slate-500 uppercase">Swipe Left/Right to browse</span>
