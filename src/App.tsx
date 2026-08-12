@@ -177,7 +177,10 @@ export default function App() {
   // Subscription Perks parser helper
   const availablePlans = getMergedSubscriptionPlans(db.subscription_plans);
   const activeSubscription = db.user_subscriptions.find(
-    sub => sub && sub.user_id === currentUser.id && sub.status === 'active'
+    sub => sub && 
+    (sub.user_id === currentUser.id || (sub.username && sub.username.toLowerCase() === currentUser.username.toLowerCase())) && 
+    sub.status === 'active' && 
+    new Date(sub.expires_at) > new Date()
   );
   const activePlan = activeSubscription
     ? (availablePlans.find(p => p && p.id === activeSubscription.plan_id) || availablePlans[0] || INITIAL_PLANS[0])
@@ -556,7 +559,7 @@ export default function App() {
 
     // Remove old active sub
     const sanitizedSubs = db.user_subscriptions.map(s => {
-      if (s.user_id === currentUser.id && s.status === 'active') {
+      if ((s.user_id === currentUser.id || (s.username && s.username.toLowerCase() === currentUser.username.toLowerCase())) && s.status === 'active') {
         return { ...s, status: 'cancelled' as const };
       }
       return s;
@@ -567,11 +570,14 @@ export default function App() {
     const expiry = new Date();
     if (p.billing_cycle === 'weekly') expiry.setDate(now.getDate() + 7);
     else if (p.billing_cycle === 'monthly') expiry.setMonth(now.getMonth() + 1);
+    else if (p.billing_cycle === 'quarterly') expiry.setMonth(now.getMonth() + 3);
+    else if (p.billing_cycle === 'biannual') expiry.setMonth(now.getMonth() + 6);
     else expiry.setFullYear(now.getFullYear() + 1);
 
     const newSub: UserSubscription = {
       id: subId,
       user_id: currentUser.id,
+      username: currentUser.username,
       plan_id: planId,
       status: 'active',
       starts_at: now.toISOString(),
@@ -817,6 +823,7 @@ export default function App() {
         user_downloads: [...prev.user_downloads, {
           id: dlId,
           user_id: currentUser.id,
+          username: currentUser.username,
           pool_code_id: code.id,
           downloaded_at: new Date().toISOString()
         }],

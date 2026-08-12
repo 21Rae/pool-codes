@@ -36,6 +36,7 @@ export interface SubscriptionPlan {
 export interface UserSubscription {
   id: string;
   user_id: string;
+  username?: string;
   plan_id: string;
   status: SubscriptionStatus;
   starts_at: string;
@@ -121,6 +122,7 @@ export interface Notification {
 export interface UserDownload {
   id: string;
   user_id: string;
+  username?: string;
   pool_code_id: string;
   downloaded_at: string;
 }

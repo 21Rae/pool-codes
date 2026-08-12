@@ -102,7 +102,9 @@ export default function CustomerPortal({
   bypassPremium = false,
   onToggleBypassPremium
 }: CustomerPortalProps) {
-  const userSubs = db.user_subscriptions.filter(s => s.user_id === currentUser.id);
+  const userSubs = db.user_subscriptions.filter(s => 
+    s && (s.user_id === currentUser.id || (s.username && s.username.toLowerCase() === currentUser.username.toLowerCase()))
+  );
   const latestSub = userSubs.length > 0 
     ? [...userSubs].sort((a, b) => new Date(b.expires_at).getTime() - new Date(a.expires_at).getTime())[0]
     : undefined;
@@ -1247,7 +1249,9 @@ export default function CustomerPortal({
   const unreadCount = myNotifications.filter(n => !n.is_read).length;
 
   // Downloads history
-  const myDownloads = db.user_downloads.filter(d => d.user_id === currentUser.id);
+  const myDownloads = db.user_downloads.filter(d => 
+    d && (d.user_id === currentUser.id || (d.username && d.username.toLowerCase() === currentUser.username.toLowerCase()))
+  );
 
   // Active codes filtering
   const filteredCodes = db.pool_codes.filter(code => {
@@ -4947,21 +4951,187 @@ export default function CustomerPortal({
               {activeSubTab === 'subscription' && (
                 <div className="flex flex-col gap-6">
                   
-                  {/* Subscriber license identity display card */}
-                  <div className="bg-[#111827] border border-slate-800 rounded-xl p-5 shadow-lg flex flex-wrap gap-4 items-center justify-between">
-                    <div>
-                      <span className="text-[9.5px] font-mono text-emerald-400 block uppercase tracking-wide font-extrabold">ACCOUNT STATUS</span>
-                      <h4 className="text-sm sm:text-base font-black text-white mt-1 uppercase tracking-wide break-all sm:break-normal">
-                        Username: {currentUser.username} ({currentUser.email})
-                      </h4>
+                  {/* Subscriber license identity & paid access duration card */}
+                  <div className="bg-[#111827] border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col gap-5">
+                    <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-800">
+                      <div>
+                        <span className="text-[10px] font-mono text-emerald-400 block uppercase tracking-wider font-extrabold flex items-center gap-1.5">
+                          <span>🛡️ VERIFIED SUBSCRIBER LICENSE</span>
+                        </span>
+                        <h4 className="text-base sm:text-lg font-black text-white mt-1 uppercase tracking-wide flex items-center gap-2">
+                          <span>Username:</span>
+                          <span className="text-emerald-400 font-mono bg-emerald-950/80 px-2.5 py-0.5 rounded border border-emerald-800">@{currentUser.username}</span>
+                          <span className="text-xs text-slate-400 font-normal">({currentUser.email})</span>
+                        </h4>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        {activeSubscription ? (
+                          <div className="px-3.5 py-1.5 bg-emerald-950/90 text-emerald-400 rounded-xl border border-emerald-800/80 text-xs font-mono font-black uppercase tracking-wider flex items-center gap-2 shadow-inner">
+                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                            <span>🟢 PAID ACCESS ACTIVE</span>
+                          </div>
+                        ) : (
+                          <div className="px-3.5 py-1.5 bg-rose-950/90 text-rose-300 rounded-xl border border-rose-800/80 text-xs font-mono font-black uppercase tracking-wider flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+                            <span>🔴 ACCESS EXPIRED / FREE TIER</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
 
-                    <div className="p-4 bg-slate-950/90 text-white rounded-xl border border-[#334155]/20 text-xs font-mono flex flex-col items-end">
-                      <div>CURRENT PLAN: <span className="text-amber-400 font-extrabold">{activePlan?.name}</span></div>
-                      {activeSubscription && (
-                        <span className="text-[10px] text-slate-400 mt-1 text-right">Receipt ID: {activeSubscription.payment_ref}</span>
-                      )}
+                    {/* Paid Duration Details Grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 bg-slate-950/80 p-4 rounded-xl border border-slate-800/80 text-xs font-mono">
+                      <div>
+                        <span className="text-[9.5px] text-slate-500 uppercase font-bold block">ACTIVE SUBSCRIBED PLAN</span>
+                        <span className="text-amber-400 font-black text-sm block mt-0.5">{activePlan?.name || 'Free Plan'}</span>
+                      </div>
+                      <div>
+                        <span className="text-[9.5px] text-slate-500 uppercase font-bold block">UNLOCKED BOOKMAKERS</span>
+                        <span className="text-slate-200 font-extrabold block mt-0.5 uppercase">
+                          {activeSubscription?.components && activeSubscription.components.length > 0 
+                            ? activeSubscription.components.map(c => c.replace(/[^a-z0-9]/gi, '')).join(' + ')
+                            : 'All Bookmaker Codes'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[9.5px] text-slate-500 uppercase font-bold block">PAYMENT REFERENCE / RECEIPT</span>
+                        <span className="text-slate-300 font-bold block mt-0.5 break-all">
+                          {activeSubscription?.payment_ref || 'N/A'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[9.5px] text-slate-500 uppercase font-bold block">REMAINING PAID DURATION</span>
+                        <div className="mt-0.5">
+                          {activeSubscription ? (() => {
+                            const expiry = new Date(activeSubscription.expires_at).getTime();
+                            const now = new Date().getTime();
+                            const diff = expiry - now;
+                            if (diff <= 0) {
+                              return <span className="text-rose-400 font-black">Expired</span>;
+                            }
+                            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                            const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                            return (
+                              <span className="text-emerald-400 font-black">
+                                {days}d {hours}h {mins}m remaining
+                              </span>
+                            );
+                          })() : (
+                            <span className="text-slate-500 italic">No Active Paid Access</span>
+                          )}
+                        </div>
+                      </div>
                     </div>
+
+                    {/* Start Date & Expiry Timestamps */}
+                    {activeSubscription && (
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-slate-400 pt-1">
+                        <span>Paid Date: <strong className="text-slate-200">{new Date(activeSubscription.starts_at).toLocaleString()}</strong></span>
+                        <span>Access Expires On: <strong className="text-emerald-400">{new Date(activeSubscription.expires_at).toLocaleString()}</strong></span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Purchases & Code Unlocks Audit Ledger for @username */}
+                  <div className="bg-[#111827] border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                      <div>
+                        <h3 className="font-extrabold text-white text-xs uppercase tracking-wider font-mono flex items-center gap-2">
+                          <span>🧾 PURCHASES & CODE ACCESS LOG FOR</span>
+                          <span className="text-emerald-400">@{currentUser.username}</span>
+                        </h3>
+                        <p className="text-[10px] text-slate-400 mt-0.5 font-mono">
+                          Tracking all paid transactions, payment receipts, and code sheet downloads matched with user @{currentUser.username}
+                        </p>
+                      </div>
+                      <span className="text-[10px] font-mono bg-slate-900 text-slate-300 px-2.5 py-1 rounded border border-slate-800">
+                        {userSubs.length} Subscription(s) Recorded
+                      </span>
+                    </div>
+
+                    {/* Subscriptions Transactions Table */}
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left font-mono text-xs">
+                        <thead>
+                          <tr className="bg-slate-950 text-slate-400 text-[10px] uppercase border-b border-slate-800">
+                            <th className="p-3">User Matched</th>
+                            <th className="p-3">Plan Purchased</th>
+                            <th className="p-3">Enabled Bookmakers</th>
+                            <th className="p-3">Payment Ref</th>
+                            <th className="p-3">Paid Date</th>
+                            <th className="p-3">Expiry Date</th>
+                            <th className="p-3 text-right">Access Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800/60">
+                          {userSubs.length > 0 ? (
+                            userSubs.map((sub, idx) => {
+                              const plan = getMergedSubscriptionPlans(db.subscription_plans).find(p => p.id === sub.plan_id);
+                              const isSubActive = sub.status === 'active' && new Date(sub.expires_at) > new Date();
+                              return (
+                                <tr key={`sub_log_${sub.id}_${idx}`} className="hover:bg-slate-900/50">
+                                  <td className="p-3 font-bold text-emerald-400">@{sub.username || currentUser.username}</td>
+                                  <td className="p-3 font-bold text-white">{plan?.name || sub.plan_id}</td>
+                                  <td className="p-3 text-slate-300">
+                                    {sub.components && sub.components.length > 0 
+                                      ? sub.components.map(c => c.toUpperCase()).join(', ') 
+                                      : 'ALL'}
+                                  </td>
+                                  <td className="p-3 text-slate-400 text-[11px] font-mono">{sub.payment_ref || 'N/A'}</td>
+                                  <td className="p-3 text-slate-400 text-[11px]">{new Date(sub.starts_at).toLocaleDateString()}</td>
+                                  <td className="p-3 text-slate-400 text-[11px]">{new Date(sub.expires_at).toLocaleDateString()}</td>
+                                  <td className="p-3 text-right">
+                                    {isSubActive ? (
+                                      <span className="bg-emerald-950 text-emerald-400 px-2 py-0.5 rounded text-[9.5px] font-extrabold border border-emerald-800">
+                                        ACTIVE✓
+                                      </span>
+                                    ) : (
+                                      <span className="bg-rose-950 text-rose-400 px-2 py-0.5 rounded text-[9.5px] font-extrabold border border-rose-800">
+                                        EXPIRED
+                                      </span>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          ) : (
+                            <tr>
+                              <td colSpan={7} className="p-4 text-center text-slate-500 italic">
+                                No purchase transactions recorded yet for @{currentUser.username}. Select a subscription plan below to subscribe.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Purchased/Downloaded Codes Log */}
+                    {myDownloads.length > 0 && (
+                      <div className="pt-3 border-t border-slate-800/80">
+                        <span className="text-[10.5px] font-mono text-slate-400 uppercase font-bold block mb-2">
+                          🔓 UNLOCKED CODE SHEETS FOR @{currentUser.username} ({myDownloads.length})
+                        </span>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                          {myDownloads.map((dl, dIdx) => {
+                            const code = db.pool_codes.find(c => c.id === dl.pool_code_id);
+                            const bookmaker = db.bookmakers.find(b => b.id === code?.bookmaker_id);
+                            return (
+                              <div key={`dl_card_${dl.id}_${dIdx}`} className="bg-slate-950 p-2.5 rounded-lg border border-slate-800 flex items-center justify-between text-xs font-mono">
+                                <div>
+                                  <span className="text-white font-bold block">{bookmaker?.name || 'Pool Code Sheet'}</span>
+                                  <span className="text-[10px] text-slate-500 block">Unlocked: {new Date(dl.downloaded_at).toLocaleDateString()}</span>
+                                </div>
+                                <span className="text-[9px] bg-emerald-950 text-emerald-400 px-2 py-0.5 rounded border border-emerald-800 font-extrabold">
+                                  UNLOCKED
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* High fidelity pricing layout */}
