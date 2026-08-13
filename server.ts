@@ -409,14 +409,12 @@ app.use((req, res, next) => {
     const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || '';
 
-    const newUserId = `usr_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
     const nowIso = new Date().toISOString();
 
-    const userRecord = {
-      id: newUserId,
+    // Exact schema object matching Supabase 'users' table
+    const dbInsertRecord: any = {
       username: finalUsername,
       email: cleanEmail,
-      password: password,
       role: 'user',
       status: 'active',
       created_at: nowIso
@@ -449,23 +447,26 @@ app.use((req, res, next) => {
           console.warn("User lookup warning:", chkErr);
         }
 
-        // Insert user directly into 'users' table
+        // Insert user directly into 'users' table matching exact schema
         try {
           const { data: insertedUser, error: insertErr } = await supabase
             .from('users')
-            .insert([userRecord])
+            .insert([dbInsertRecord])
             .select()
             .single();
 
           if (!insertErr && insertedUser) {
-            serverMemoryUsers.push(insertedUser);
+            const fullUser = { ...insertedUser, password };
+            serverMemoryUsers.push(fullUser);
             return res.json({
               success: true,
               requiresEmailConfirmation: false,
-              user: insertedUser,
-              session: { access_token: `token_${insertedUser.id}`, user: insertedUser },
+              user: fullUser,
+              session: { access_token: `token_${insertedUser.id}`, user: fullUser },
               message: `Account registered and added to users database table successfully!`
             });
+          } else if (insertErr) {
+            console.warn("Supabase users insert error:", insertErr.message);
           }
         } catch (insEx) {
           console.warn("Insert into users table warning:", insEx);
@@ -475,14 +476,20 @@ app.use((req, res, next) => {
       }
     }
 
+    const fallbackUser = {
+      id: `usr_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+      ...dbInsertRecord,
+      password
+    };
+
     // Always record in serverMemoryUsers database table
-    serverMemoryUsers.push(userRecord);
+    serverMemoryUsers.push(fallbackUser);
 
     return res.json({
       success: true,
       requiresEmailConfirmation: false,
-      user: userRecord,
-      session: { access_token: `token_${userRecord.id}`, user: userRecord },
+      user: fallbackUser,
+      session: { access_token: `token_${fallbackUser.id}`, user: fallbackUser },
       message: `Account registered and inserted into users database table successfully!`
     });
   });
