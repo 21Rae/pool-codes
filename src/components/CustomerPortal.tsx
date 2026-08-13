@@ -253,19 +253,6 @@ export default function CustomerPortal({
 
   const [activeSubTab, setActiveSubTab] = useState<'dashboard' | 'streaming' | 'results' | 'subscription' | 'profile'>('dashboard');
 
-  // Component customization states for plans
-  const [selectedComponents, setSelectedComponents] = useState<Record<string, string[]>>({});
-
-  const toggleComponentSelection = (planId: string, component: string) => {
-    setSelectedComponents(prev => {
-      const current = prev[planId] || [];
-      const updated = current.includes(component)
-        ? current.filter(c => c !== component)
-        : [...current, component];
-      return { ...prev, [planId]: updated };
-    });
-  };
-
   const [codeTypeFilter, setCodeTypeFilter] = useState<'all' | 'uk' | 'aussie' | 'international'>('all');
   const [bookmakerFilter, setBookmakerFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');

@@ -35,7 +35,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import ExpertBlogView from './ExpertBlogView';
 import GoogleAdBanner from './GoogleAdBanner';
 import { getSupabaseClient } from '../lib/supabase';
-import { INITIAL_PLANS, isGhanaPlan, getMergedSubscriptionPlans } from '../initialData';
+import { INITIAL_PLANS, isGhanaPlan, getMergedSubscriptionPlans, getBookmakersByCountry, isGhanaBookmaker } from '../initialData';
 
 interface OfficePoolStopHomeProps {
   onSignIn: () => void;
@@ -221,6 +221,8 @@ export default function OfficePoolStopHome({
   const [showPaywall, setShowPaywall] = useState(false);
   const [paywallRegionFilter, setPaywallRegionFilter] = useState<'nigeria' | 'ghana'>('nigeria');
   const [paywallPlan, setPaywallPlan] = useState<string>('plan-monthly');
+  const [vipBookmakerFilter, setVipBookmakerFilter] = useState<string>('all');
+  const [selectedPaywallBookmaker, setSelectedPaywallBookmaker] = useState<string>('bet9ja');
   const [paywallForm, setPaywallForm] = useState({
     cardholder: '',
     cardNumber: '',
@@ -1657,124 +1659,245 @@ export default function OfficePoolStopHome({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-[99] backdrop-blur-md"
+            className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-[99] backdrop-blur-md overflow-y-auto"
           >
             <motion.div 
               initial={{ scale: 0.95 }}
               animate={{ scale: 1 }}
               exit={{ scale: 0.95 }}
-              className="bg-[#05110e] text-emerald-100 max-w-md w-full rounded-2xl border-2 border-amber-400 p-6 shadow-[0_0_50px_rgba(245,158,11,0.25)] relative text-left"
+              className="bg-[#080E1E] text-emerald-100 max-w-4xl w-full rounded-2xl border-2 border-emerald-500/50 p-6 shadow-[0_0_50px_rgba(16,185,129,0.2)] relative text-left my-8 max-h-[90vh] overflow-y-auto"
             >
               <button 
                 onClick={() => {
                   setShowPaywall(false);
                   setPendingUser(null);
                 }}
-                className="absolute top-4 right-4 text-emerald-550 hover:text-white transition"
+                className="absolute top-4 right-4 text-slate-400 hover:text-white transition"
               >
                 <X className="w-5 h-5" />
               </button>
 
               <div className="text-center space-y-2 mb-6 select-none">
-                <Award className="w-12 h-12 text-amber-400 mx-auto animate-pulse" />
-                <h3 className="font-sans font-black text-xl text-white tracking-tight uppercase">VIP Premium Pass Checkout</h3>
-                <p className="text-[11px] text-emerald-400 font-bold max-w-xs mx-auto">
-                  Authorize payment to register access account on fastpoolcodes.com and access daily secret keys!
+                <Award className="w-10 h-10 text-emerald-400 mx-auto animate-pulse" />
+                <h3 className="font-sans font-black text-xl text-white tracking-tight uppercase">👑 VIP Membership & Bookmaker Subscriptions</h3>
+                <p className="text-xs text-emerald-400 font-bold max-w-lg mx-auto">
+                  Select any bookmaker subscription plan using the comparison matrix below for instant automated access.
                 </p>
               </div>
 
-              {/* Regional Tab Selector inside Paywall Checkout */}
-              <div className="flex bg-slate-950 p-1 rounded-xl border border-emerald-950 mb-4 select-none text-xs">
+              {/* Regional Tab Selector */}
+              <div className="flex bg-slate-950 p-1.5 rounded-xl border border-slate-800 mb-5 max-w-md mx-auto shadow-inner">
                 <button
                   type="button"
                   onClick={() => {
                     setPaywallRegionFilter('nigeria');
                     setPaywallPlan('plan-monthly');
+                    setVipBookmakerFilter('all');
                   }}
-                  className={`flex-1 text-center py-1.5 font-mono font-bold uppercase rounded-lg transition ${
+                  className={`flex-1 text-center py-2 px-3 text-xs font-mono font-bold uppercase rounded-lg transition-all duration-150 flex items-center justify-center gap-2 ${
                     paywallRegionFilter === 'nigeria'
-                      ? 'bg-emerald-600 text-white font-black'
+                      ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-black shadow-lg shadow-emerald-500/20'
                       : 'text-slate-400 hover:text-slate-200'
                   }`}
                 >
-                  🇳🇬 Nigeria
+                  <span>🇳🇬</span>
+                  <span>Nigeria Standalone Plans</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => {
                     setPaywallRegionFilter('ghana');
                     setPaywallPlan('plan-ghana');
+                    setVipBookmakerFilter('all');
                   }}
-                  className={`flex-1 text-center py-1.5 font-mono font-bold uppercase rounded-lg transition ${
+                  className={`flex-1 text-center py-2 px-3 text-xs font-mono font-bold uppercase rounded-lg transition-all duration-150 flex items-center justify-center gap-2 ${
                     paywallRegionFilter === 'ghana'
-                      ? 'bg-emerald-600 text-white font-black'
+                      ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-black shadow-lg shadow-emerald-500/20'
                       : 'text-slate-400 hover:text-slate-200'
                   }`}
                 >
-                  🇬🇭 Ghana
+                  <span>🇬🇭</span>
+                  <span>Ghana Standalone Plans</span>
                 </button>
               </div>
 
-              {/* Plans selector inside Paywall Checkout */}
-              <div className="grid grid-cols-2 gap-2.5 mb-5 select-none text-xs">
-                {(() => {
-                  const rawPlans = getMergedSubscriptionPlans(db.subscription_plans).filter((p: any) => p && p.id);
-                  const paidPlans = rawPlans.filter((p: any) => Number(p.price || 0) > 0 || p.id !== 'plan-free');
-                  const pool = paidPlans.length > 0 ? paidPlans : rawPlans;
-                  const regionMatches = pool.filter((p: any) => paywallRegionFilter === 'ghana' ? isGhanaPlan(p) : !isGhanaPlan(p));
-                  const displayPlans = regionMatches.length > 0 ? regionMatches : pool;
+              {/* Bookmaker x Billing Cycle Comparison Matrix */}
+              {(() => {
+                const isGhana = paywallRegionFilter === 'ghana';
+                const currencySymbol = isGhana ? 'GH₵' : '₦';
+                const countryKey = isGhana ? 'ghana' : 'nigeria';
 
-                  return displayPlans.map((p: any, pIdx: number) => {
-                    const isActive = paywallPlan === p.id;
-                    const isGhana = isGhanaPlan(p);
-                    const cycleAbbr = p.billing_cycle === 'biannual' ? '6mo' : p.billing_cycle === 'quarterly' ? '3mo' : p.billing_cycle === 'weekly' ? 'wk' : p.billing_cycle === 'monthly' ? 'mo' : 'yr';
-                    const currencySymbol = isGhana ? 'GH₵' : '₦';
-                    const priceVal = Number(p.price || 0);
-                    return (
-                      <button
-                        key={`paywall_plan_${p.id}_${pIdx}`}
-                        type="button"
-                        onClick={() => setPaywallPlan(p.id)}
-                        className={`p-2.5 rounded-xl border text-left flex flex-col justify-between transition ${
-                          isActive
-                            ? 'border-amber-400 bg-amber-400/10 text-white'
-                            : 'border-emerald-950 hover:bg-emerald-950/20 text-slate-400'
-                        }`}
-                      >
-                        <span className="font-black font-mono block text-xs tracking-tight text-amber-300">
-                          {currencySymbol}{priceVal.toLocaleString()} / {cycleAbbr}
-                        </span>
-                        <span className="text-[9.5px] mt-1 font-bold block leading-none">{p.name || 'Plan'}</span>
-                      </button>
+                const countryBookies = getBookmakersByCountry(db.bookmakers, countryKey);
+                const rawComps = countryBookies.length > 0
+                  ? countryBookies.map((b: any) => ({
+                      slug: (b.slug || b.name || b.id).toLowerCase().trim(),
+                      name: b.name,
+                      id: b.id
+                    }))
+                  : (isGhana
+                      ? [
+                          { slug: 'premierbet', name: 'PremierBet', id: 'premierbet' },
+                          { slug: 'betway', name: 'Betway', id: 'betway' },
+                          { slug: 'soccabet', name: 'Soccabet', id: 'soccabet' },
+                          { slug: 'sportybet', name: 'SportyBet', id: 'sportybet' }
+                        ]
+                      : [
+                          { slug: 'bet9ja', name: 'Bet9ja', id: 'bet9ja' },
+                          { slug: 'sportybet', name: 'SportyBet', id: 'sportybet' },
+                          { slug: 'betking', name: 'BetKing', id: 'betking' },
+                          { slug: 'msport', name: 'MSport', id: 'msport' }
+                        ]
                     );
-                  });
-                })()}
-              </div>
 
-              <form onSubmit={handlePaymentSubmit} className="space-y-4">
-                <div className="space-y-1.5 text-xs">
-                  <label className="block text-slate-300 font-extrabold font-mono tracking-wider uppercase text-[10px]">Cardholder Name</label>
-                  <input
-                    type="text"
-                    required
-                    value={paywallForm.cardholder}
-                    onChange={(e) => setPaywallForm({ ...paywallForm, cardholder: e.target.value })}
-                    className="w-full bg-[#020b08] border border-emerald-900 rounded-lg p-3 text-[#A7F3D0] focus:ring-1 focus:ring-amber-400 focus:outline-none placeholder:text-emerald-950"
-                    placeholder="e.g. Mikhail de Guzman"
-                  />
+                const bookmakersList = Array.from(
+                  new Map(rawComps.map(item => [item.slug, item])).values()
+                );
+
+                const rawPlans = getMergedSubscriptionPlans(db.subscription_plans).filter((p: any) => p && p.id);
+                const paidPlans = rawPlans.filter((p: any) => Number(p.price || 0) > 0 || p.id !== 'plan-free');
+                const regionPlans = paidPlans.filter((p: any) => isGhana ? isGhanaPlan(p) : !isGhanaPlan(p));
+                const displayPlans = regionPlans.length > 0 ? regionPlans : paidPlans;
+
+                const activeBookmakers = vipBookmakerFilter === 'all'
+                  ? bookmakersList
+                  : bookmakersList.filter(b => b.slug === vipBookmakerFilter.toLowerCase());
+
+                return (
+                  <div className="flex flex-col gap-4 mb-6">
+                    <div className="border border-slate-800 bg-[#070B14] rounded-2xl overflow-hidden shadow-xl">
+                      <div className="bg-slate-950 p-4 border-b border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                        <div>
+                          <h4 className="text-xs font-black text-white uppercase tracking-wider font-mono">
+                            📊 Bookmaker x Billing Cycle Comparison Matrix
+                          </h4>
+                          <p className="text-[11px] text-slate-400 font-mono mt-0.5">
+                            Select any bookmaker cell to select access package.
+                          </p>
+                        </div>
+
+                        {/* Bookmaker Filter Pills */}
+                        <div className="flex items-center gap-1.5 overflow-x-auto pt-2 md:pt-0">
+                          <span className="text-[10px] font-mono uppercase text-slate-500 font-bold shrink-0 mr-1">Filter:</span>
+                          <button
+                            type="button"
+                            onClick={() => setVipBookmakerFilter('all')}
+                            className={`px-2 py-1 text-[10px] font-mono rounded font-bold transition shrink-0 ${
+                              vipBookmakerFilter === 'all'
+                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                                : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
+                            }`}
+                          >
+                            ALL
+                          </button>
+                          {bookmakersList.map((bmk, bIdx) => (
+                            <button
+                              key={`pw_bmk_pill_${bmk.slug}_${bIdx}`}
+                              type="button"
+                              onClick={() => setVipBookmakerFilter(bmk.slug)}
+                              className={`px-2 py-1 text-[10px] font-mono rounded font-bold transition shrink-0 uppercase ${
+                                vipBookmakerFilter === bmk.slug
+                                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                                  : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
+                              }`}
+                            >
+                              {bmk.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="bg-slate-950 text-slate-400 text-[10px] uppercase font-mono font-bold border-b border-slate-800">
+                              <th className="p-3 pl-4">Bookmaker</th>
+                              {displayPlans.map((p, idx) => (
+                                <th key={`pw_matrix_head_${p.id}_${idx}`} className="p-3 text-center">
+                                  <div>{p.name}</div>
+                                  <div className="text-[9px] text-slate-500 lowercase font-normal">({p.billing_cycle})</div>
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-800/60 text-xs">
+                            {activeBookmakers.map((bmk, bIdx) => (
+                              <tr key={`pw_matrix_row_${bmk.slug}_${bIdx}`} className="hover:bg-slate-900/50">
+                                <td className="p-3 pl-4 font-bold text-white font-sans">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-5 h-5 rounded bg-emerald-950 text-emerald-400 font-mono font-black text-[10px] flex items-center justify-center border border-emerald-800">
+                                      {(bmk.name || 'B').charAt(0).toUpperCase()}
+                                    </div>
+                                    <span>{bmk.name}</span>
+                                  </div>
+                                </td>
+                                {displayPlans.map((p, pIdx) => {
+                                  const isSelected = paywallPlan === p.id && selectedPaywallBookmaker === bmk.slug;
+                                  const unitPrice = Number(p.price || 0);
+                                  return (
+                                    <td key={`pw_matrix_cell_${bmk.slug}_${p.id}_${pIdx}`} className="p-3 text-center font-mono">
+                                      <div className="flex flex-col items-center gap-1.5">
+                                        <span className="text-xs font-black text-emerald-400">
+                                          {currencySymbol}{unitPrice.toLocaleString()}
+                                        </span>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setPaywallPlan(p.id);
+                                            setSelectedPaywallBookmaker(bmk.slug);
+                                          }}
+                                          className={`font-black text-[9.5px] uppercase px-2.5 py-1 rounded transition cursor-pointer active:scale-95 ${
+                                            isSelected
+                                              ? 'bg-amber-400 text-slate-950 shadow-md shadow-amber-400/30'
+                                              : 'bg-emerald-600 hover:bg-emerald-500 text-slate-950'
+                                          }`}
+                                        >
+                                          {isSelected ? 'SELECTED ✓' : `BUY ${(bmk.name || 'BOOKMAKER').toUpperCase()}`}
+                                        </button>
+                                      </div>
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <form onSubmit={handlePaymentSubmit} className="space-y-4 pt-2 border-t border-slate-800">
+                <div className="text-xs font-mono font-bold text-amber-400 mb-2 flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-amber-400" />
+                  <span>AUTHORIZE PAYMENT DEPOSIT FOR SELECTED PACKAGE ({selectedPaywallBookmaker.toUpperCase()})</span>
                 </div>
 
-                <div className="space-y-1.5 text-xs">
-                  <label className="block text-slate-300 font-extrabold font-mono tracking-wider uppercase text-[10px]">Card Number</label>
-                  <input
-                    type="text"
-                    required
-                    maxLength={19}
-                    value={paywallForm.cardNumber}
-                    onChange={(e) => setPaywallForm({ ...paywallForm, cardNumber: e.target.value.replace(/\s?/g, '').replace(/(\d{4})/g, '$1 ').trim() })}
-                    className="w-full bg-[#020b08] border border-emerald-900 rounded-lg p-3 text-[#A7F3D0] focus:ring-1 focus:ring-amber-400 focus:outline-none font-mono placeholder:text-emerald-950"
-                    placeholder="4000 1234 5678 9010"
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="space-y-1.5 text-xs">
+                    <label className="block text-slate-300 font-extrabold font-mono tracking-wider uppercase text-[10px]">Cardholder Name</label>
+                    <input
+                      type="text"
+                      required
+                      value={paywallForm.cardholder}
+                      onChange={(e) => setPaywallForm({ ...paywallForm, cardholder: e.target.value })}
+                      className="w-full bg-[#020b08] border border-emerald-900 rounded-lg p-3 text-[#A7F3D0] focus:ring-1 focus:ring-amber-400 focus:outline-none placeholder:text-emerald-950"
+                      placeholder="e.g. Mikhail de Guzman"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5 text-xs">
+                    <label className="block text-slate-300 font-extrabold font-mono tracking-wider uppercase text-[10px]">Card Number</label>
+                    <input
+                      type="text"
+                      required
+                      maxLength={19}
+                      value={paywallForm.cardNumber}
+                      onChange={(e) => setPaywallForm({ ...paywallForm, cardNumber: e.target.value.replace(/\s?/g, '').replace(/(\d{4})/g, '$1 ').trim() })}
+                      className="w-full bg-[#020b08] border border-emerald-900 rounded-lg p-3 text-[#A7F3D0] focus:ring-1 focus:ring-amber-400 focus:outline-none font-mono placeholder:text-emerald-950"
+                      placeholder="4000 1234 5678 9010"
+                    />
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 text-xs">
