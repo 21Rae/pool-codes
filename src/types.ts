@@ -41,10 +41,77 @@ export interface UserSubscription {
   status: SubscriptionStatus;
   starts_at: string;
   expires_at: string;
-  payment_ref: string | null;
-  payment_provider: string | null;
+  payment_ref?: string | null;
+  payment_reference?: string | null;
+  payment_provider?: string | null;
+  item_name?: string;
+  currency?: string;
+  amount_paid?: number;
+  granted_tables?: string | string[];
+  created_at?: string;
+  components?: string[] | string;
+}
+
+export interface UserPayment {
+  id: string;
+  user_id: string;
+  username: string;
+  plan_id: string;
+  item_name: string;
+  bookmaker_components: string[];
+  granted_tables: string[];
+  amount: number;
+  currency: string;
+  payment_reference: string;
+  payment_provider: string;
+  status: string;
+  access_start_at: string;
+  access_expires_at: string;
   created_at: string;
-  components?: string[];
+  updated_at?: string;
+}
+
+export interface PurchasesAccessLog {
+  id: string;
+  user_id: string;
+  username: string;
+  plan_id: string;
+  plan_purchased: string;
+  payment_ref: string;
+  payment_provider: string;
+  amount: number;
+  currency: string;
+  components: string[];
+  paid_date: string;
+  expiry_date: string;
+  access_status: string;
+  created_at?: string;
+}
+
+export function parseComponents(raw: any): string[] {
+  if (!raw) return [];
+  if (Array.isArray(raw)) {
+    return raw.map(c => String(c).toLowerCase().trim()).filter(Boolean);
+  }
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (!trimmed) return [];
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed.map(c => String(c).toLowerCase().trim()).filter(Boolean);
+      }
+      if (typeof parsed === 'string' && parsed.trim()) {
+        return [parsed.trim().toLowerCase()];
+      }
+    } catch (_) {}
+    if (trimmed.includes(',')) {
+      return trimmed.split(',').map(c => c.toLowerCase().trim()).filter(Boolean);
+    }
+    const cleaned = trimmed.replace(/[\[\]"']/g, '').toLowerCase().trim();
+    return cleaned ? [cleaned] : [];
+  }
+  return [];
 }
 
 export interface Bookmaker {
@@ -146,6 +213,8 @@ export interface DatabaseState {
   users: User[];
   subscription_plans: SubscriptionPlan[];
   user_subscriptions: UserSubscription[];
+  user_payments?: UserPayment[];
+  purchases_access_log?: PurchasesAccessLog[];
   bookmakers: Bookmaker[];
   pool_weeks: PoolWeek[];
   pool_codes: PoolCode[];

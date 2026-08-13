@@ -50,7 +50,7 @@ import {
   Share2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { DatabaseState, User, SubscriptionPlan, UserSubscription, PoolCode } from '../types';
+import { DatabaseState, User, SubscriptionPlan, UserSubscription, PoolCode, parseComponents } from '../types';
 import { getSupabaseClient } from '../lib/supabase';
 import GoogleAdBanner from './GoogleAdBanner';
 import { INITIAL_PLANS, isGhanaPlan, getMergedSubscriptionPlans, isGhanaBookmaker, getMergedBookmakers, getBookmakersByCountry } from '../initialData';
@@ -77,6 +77,7 @@ interface CustomerPortalProps {
   discoveredDbTables?: any[];
   bypassPremium?: boolean;
   onToggleBypassPremium?: () => void;
+  onDownloadReceipt?: (userObj: any, planId: string, paymentRef: string) => void;
 }
 
 export default function CustomerPortal({
@@ -100,8 +101,50 @@ export default function CustomerPortal({
   fetchRealSupabaseData,
   discoveredDbTables = [],
   bypassPremium = false,
-  onToggleBypassPremium
+  onToggleBypassPremium,
+  onDownloadReceipt
 }: CustomerPortalProps) {
+  const [remoteLogs, setRemoteLogs] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch('/api/tables/purchases_access_log')
+      .then(res => res.json())
+      .then(data => {
+        const list = data?.data || data?.rows || (Array.isArray(data) ? data : []);
+        if (Array.isArray(list)) {
+          setRemoteLogs(list);
+        }
+      })
+      .catch(err => console.warn('Supabase table fetch error:', err));
+  }, [currentUser?.id]);
+
+  const getItemGrantedTables = (item: any): string[] => {
+    if (!item) return ['none'];
+    let rawComps: any = item.components || item.granted_tables || item.granted_components;
+    if (!rawComps) {
+      const plan: any = db.subscription_plans?.find((p: any) => p.id === item.plan_id);
+      if (plan && plan.features) {
+        rawComps = plan.features;
+      }
+    }
+    const parsed = parseComponents(rawComps);
+    if (parsed.length === 0) {
+      const pid = String(item.plan_id || '').toLowerCase();
+      const ptitle = String(item.plan_purchased || item.item_name || '').toLowerCase();
+      if (pid.includes('weekly') || ptitle.includes('weekly')) {
+        return ['bet9ja', 'sportybet'];
+      }
+      if (pid.includes('monthly') || ptitle.includes('monthly')) {
+        return ['bet9ja', 'betking', 'sportybet'];
+      }
+      if (pid.includes('all') || ptitle.includes('all')) {
+        return ['all'];
+      }
+      return ['bet9ja', 'sportybet'];
+    }
+    return parsed;
+  };
+
   const userSubs = db.user_subscriptions.filter(s => 
     s && (s.user_id === currentUser.id || (s.username && s.username.toLowerCase() === currentUser.username.toLowerCase()))
   );
@@ -109,15 +152,34 @@ export default function CustomerPortal({
     ? [...userSubs].sort((a, b) => new Date(b.expires_at).getTime() - new Date(a.expires_at).getTime())[0]
     : undefined;
 
-  const isLoggedIn = currentUser && currentUser.id !== 'guest';
-  const isVerified = currentUser && currentUser.status !== 'suspended';
-  const isPaidUser = currentUser.role === 'admin' || (
-    activeSubscription && 
-    activeSubscription.status === 'active' && 
-    activePlan?.id !== 'plan-free'
+  const userActiveSubs = db.user_subscriptions.filter(s => 
+    s && 
+    (s.user_id === currentUser.id || (s.username && s.username.toLowerCase() === currentUser.username.toLowerCase())) && 
+    s.status === 'active' && 
+    new Date(s.expires_at) > new Date()
   );
 
-  const isSubscriptionExpired = latestSub && (
+  const isLoggedIn = currentUser && currentUser.id !== 'guest';
+  const isVerified = currentUser && currentUser.status !== 'suspended';
+
+  // Check active remote logs from Supabase purchases_access_log
+  const activeRemoteLogs = (remoteLogs || []).filter(item => {
+    if (!item) return false;
+    const matchesUser = 
+      (item.user_id && currentUser?.id && String(item.user_id).toLowerCase() === String(currentUser.id).toLowerCase()) ||
+      (item.username && currentUser?.username && String(item.username.toLowerCase()) === String(currentUser.username.toLowerCase()));
+    if (!matchesUser) return false;
+
+    const expDate = item.expiry_date || item.expires_at || item.access_expires_at;
+    const statusStr = item.access_status || item.status || 'active';
+    return (statusStr === 'active' || statusStr === 'successful') && (!expDate || new Date(expDate) > new Date());
+  });
+
+  const isPaidUser = currentUser.role === 'admin' || bypassPremium || activeRemoteLogs.length > 0 || (
+    userActiveSubs.length > 0 && userActiveSubs.some(s => s.plan_id !== 'plan-free')
+  );
+
+  const isSubscriptionExpired = !isPaidUser && latestSub && (
     latestSub.status === 'expired' || 
     new Date(latestSub.expires_at) < new Date()
   );
@@ -127,20 +189,42 @@ export default function CustomerPortal({
 
   const isBookieAllowed = (bookieName: string) => {
     if (currentUser.role === 'admin' || bypassPremium) return true;
-    if (!activeSubscription || activeSubscription.status !== 'active') return false;
-    if (!activePlan || activePlan.id === 'plan-free') return false;
 
     const targetSlug = (bookieName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-    const userComponents = activeSubscription.components || [];
 
-    if (userComponents.length === 0 || userComponents.includes('all') || (activePlan && activePlan.id.includes('yearly'))) {
-      return true;
+    // 1. Check active remote logs from Supabase purchases_access_log
+    for (const logItem of activeRemoteLogs) {
+      const granted = getItemGrantedTables(logItem);
+      if (granted.includes('all')) return true;
+      const match = granted.some((comp: string) => {
+        const cSlug = (comp || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        return cSlug === targetSlug || targetSlug.includes(cSlug) || cSlug.includes(targetSlug);
+      });
+      if (match) return true;
     }
 
-    return userComponents.some((comp: string) => {
-      const cSlug = (comp || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-      return cSlug === targetSlug || targetSlug.includes(cSlug) || cSlug.includes(targetSlug);
-    });
+    // 2. Check local active user subscriptions
+    for (const sub of userActiveSubs) {
+      const plan = db.subscription_plans.find(p => p.id === sub.plan_id);
+      if (plan && plan.id === 'plan-free') continue;
+
+      const userComponents = getItemGrantedTables(sub);
+      if (
+        userComponents.includes('all') || 
+        (plan && (plan.id.includes('yearly') || plan.id.includes('unlimited') || plan.id.includes('all')))
+      ) {
+        return true;
+      }
+
+      const match = userComponents.some((comp: string) => {
+        const cSlug = (comp || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        return cSlug === targetSlug || targetSlug.includes(cSlug) || cSlug.includes(targetSlug);
+      });
+
+      if (match) return true;
+    }
+
+    return false;
   };
 
   if (!currentUser || currentUser.id === 'guest') {
@@ -170,22 +254,11 @@ export default function CustomerPortal({
   const [activeSubTab, setActiveSubTab] = useState<'dashboard' | 'streaming' | 'results' | 'subscription' | 'profile'>('dashboard');
 
   // Component customization states for plans
-  const [selectedComponents, setSelectedComponents] = useState<Record<string, string[]>>({
-    'plan-weekly': ['bet9ja', 'sportybet', 'betking'],
-    'plan-monthly': ['bet9ja', 'sportybet', 'betking'],
-    'plan-quarterly': ['bet9ja', 'sportybet', 'betking'],
-    'plan-biannual': ['bet9ja', 'sportybet', 'betking'],
-    'plan-yearly': ['bet9ja', 'sportybet', 'betking'],
-    'plan-ghana-weekly': ['premierbet', 'betway', 'soccabet', 'sportybet'],
-    'plan-ghana': ['premierbet', 'betway', 'soccabet', 'sportybet'],
-    'plan-ghana-quarterly': ['premierbet', 'betway', 'soccabet', 'sportybet'],
-    'plan-ghana-biannual': ['premierbet', 'betway', 'soccabet', 'sportybet'],
-    'plan-ghana-yearly': ['premierbet', 'betway', 'soccabet', 'sportybet'],
-  });
+  const [selectedComponents, setSelectedComponents] = useState<Record<string, string[]>>({});
 
   const toggleComponentSelection = (planId: string, component: string) => {
     setSelectedComponents(prev => {
-      const current = prev[planId] || (planId.includes('ghana') ? ['premierbet', 'betway', 'soccabet', 'sportybet'] : ['bet9ja', 'sportybet', 'betking']);
+      const current = prev[planId] || [];
       const updated = current.includes(component)
         ? current.filter(c => c !== component)
         : [...current, component];
@@ -819,6 +892,8 @@ export default function CustomerPortal({
   const [dashboardBookmakerFilter, setDashboardBookmakerFilter] = useState('Bet9ja');
   const [dashboardTheme, setDashboardTheme] = useState<'paper' | 'dark'>('dark');
   const [pricingRegionFilter, setPricingRegionFilter] = useState<'nigeria' | 'ghana'>('nigeria');
+  const [vipViewMode, setVipViewMode] = useState<'standalone' | 'matrix' | 'custom'>('standalone');
+  const [vipBookmakerFilter, setVipBookmakerFilter] = useState<string>('all');
 
   // Admin form state for posting games
   const [adminPoolNo, setAdminPoolNo] = useState<string>('9');
@@ -1267,11 +1342,9 @@ export default function CustomerPortal({
     
     // Strict component-level subscription access filtering
     if (!bypassPremium && code.access_level === 'premium' && currentUser.role !== 'admin') {
-      if (!activeSubscription || activeSubscription.status !== 'active') return false;
-      if (activeSubscription.components) {
-        const compSlug = code.bookmaker_id.replace('bm-', '').toLowerCase();
-        if (!activeSubscription.components.includes(compSlug)) return false;
-      }
+      const bookie = db.bookmakers.find(b => b.id === code.bookmaker_id);
+      const bookieName = bookie?.name || code.bookmaker_id.replace('bm-', '');
+      if (!isBookieAllowed(bookieName)) return false;
     }
 
     // Search Term match
@@ -1304,9 +1377,9 @@ export default function CustomerPortal({
         </div>
         
         <div className="flex items-center gap-1.5 min-w-0 shrink">
-          <span className="text-[10px] font-mono text-slate-400 truncate max-w-[110px] sm:max-w-[200px]" title={currentUser.username}>@{currentUser.username}</span>
+          <span className="text-[10px] font-mono text-slate-400 truncate max-w-[110px] sm:max-w-[200px]" title={currentUser?.username}>@{currentUser?.username}</span>
           <div className="w-7 h-7 rounded-full bg-slate-900 border border-emerald-550 flex items-center justify-center font-bold text-emerald-400 text-xs shrink-0">
-            {currentUser.username[0].toUpperCase()}
+            {(currentUser?.username?.[0] || 'U').toUpperCase()}
           </div>
         </div>
       </div>
@@ -1360,11 +1433,10 @@ export default function CustomerPortal({
                 {/* User Profile identity Badge */}
                 <div className="p-3.5 bg-gradient-to-r from-[#172540]/80 to-[#121F38]/80 rounded-xl border border-emerald-600/20 flex items-center gap-3">
                   <div className="w-11 h-11 rounded-full bg-slate-900 border-2 border-emerald-400 flex items-center justify-center font-bold text-emerald-400 text-sm font-mono shadow-inner">
-                    {currentUser.username[0].toUpperCase()}
+                    {(currentUser?.username?.[0] || 'U').toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <span className="text-xs font-black text-slate-100 block truncate">@{currentUser.username}</span>
-                    <span className="text-[10px] text-slate-400 block truncate">{currentUser.email}</span>
+                    <span className="text-xs font-black text-slate-100 block truncate">@{currentUser?.username || 'user'}</span>
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <span className="inline-block w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></span>
                       <span className="text-[9.5px] font-mono text-emerald-350 tracking-wider uppercase font-semibold">
@@ -1525,16 +1597,12 @@ export default function CustomerPortal({
           {/* User Profile identity Badge */}
           <div className="p-3.5 bg-gradient-to-r from-[#172540]/80 to-[#121F38]/80 rounded-xl border border-emerald-600/20 flex items-center gap-3">
             <div className="w-11 h-11 rounded-full bg-slate-900 border-2 border-emerald-400 flex items-center justify-center font-bold text-emerald-400 text-sm font-mono shadow-inner">
-              {currentUser.username[0].toUpperCase()}
+              {(currentUser?.username?.[0] || 'U').toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
-              <span className="text-xs font-black text-slate-100 block truncate">@{currentUser.username}</span>
-              <span className="text-[10px] text-slate-400 block truncate">{currentUser.email}</span>
+              <span className="text-xs font-black text-slate-100 block truncate">@{currentUser?.username || 'user'}</span>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <span className="inline-block w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></span>
-                <span className="text-[9.5px] font-mono text-emerald-350 tracking-wider uppercase font-semibold">
-                  {bypassPremium ? '★ VIP Member (Test Mode)' : (activePlan?.id !== 'plan-free' ? '★ VIP Member' : 'Free Trial Tier')}
-                </span>
               </div>
             </div>
           </div>
@@ -2281,7 +2349,7 @@ export default function CustomerPortal({
                                                 ? 'bg-slate-200 text-slate-900 border border-slate-350' 
                                                 : 'bg-slate-900 text-slate-400 border border-slate-800'
                                             }`}>
-                                              {game.bookmaker[0].toUpperCase()}
+                                              {(game.bookmaker?.[0] || 'B').toUpperCase()}
                                             </span>
 
                                             {currentUser.role === 'admin' && (
@@ -2826,11 +2894,9 @@ export default function CustomerPortal({
                 const isPremium = associatedCode?.access_level === 'premium';
                 
                 const bookmakerSlug = (associatedCode?.bookmaker_id || '').replace('bm-', '').toLowerCase();
-                const hasComponentAccess = !isPremium || currentUser.role === 'admin' || (
-                  activeSubscription && 
-                  activeSubscription.status === 'active' &&
-                  (!activeSubscription.components || activeSubscription.components.includes(bookmakerSlug))
-                );
+                const bookieObj = associatedCode ? db.bookmakers.find(b => b.id === associatedCode.bookmaker_id) : null;
+                const targetBookieName = bookieObj?.name || bookmakerSlug;
+                const hasComponentAccess = !isPremium || currentUser.role === 'admin' || bypassPremium || isBookieAllowed(targetBookieName);
 
                 const isLocked = !bypassPremium && currentUser.role !== 'admin' && (
                   !isLoggedIn ||
@@ -3329,7 +3395,7 @@ export default function CustomerPortal({
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                                           <div className="p-3 bg-slate-900/30 border border-slate-800/60 rounded-xl text-left">
                                             <span className="text-[8.5px] text-slate-500 font-mono font-bold uppercase tracking-wider block">VERIFICATION KEY</span>
-                                            <span className="text-xs text-slate-100 font-mono font-black mt-1 block">A365-LNK-{associatedCode.id.toUpperCase()}</span>
+                                            <span className="text-xs text-slate-100 font-mono font-black mt-1 block">A365-LNK-{(associatedCode?.id || '').toUpperCase()}</span>
                                           </div>
                                           <div className="p-3 bg-slate-900/30 border border-slate-800/60 rounded-xl text-left">
                                             <span className="text-[8.5px] text-slate-500 font-mono font-bold uppercase tracking-wider block">ACCESSED LEVEL</span>
@@ -4950,89 +5016,6 @@ export default function CustomerPortal({
               {/* SUBTAB 4: SUBSCRIPTION BILLING MATRIX */}
               {activeSubTab === 'subscription' && (
                 <div className="flex flex-col gap-6">
-                  
-                  {/* Subscriber license identity & paid access duration card */}
-                  <div className="bg-[#111827] border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col gap-5">
-                    <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-800">
-                      <div>
-                        <span className="text-[10px] font-mono text-emerald-400 block uppercase tracking-wider font-extrabold flex items-center gap-1.5">
-                          <span>🛡️ VERIFIED SUBSCRIBER LICENSE</span>
-                        </span>
-                        <h4 className="text-base sm:text-lg font-black text-white mt-1 uppercase tracking-wide flex items-center gap-2">
-                          <span>Username:</span>
-                          <span className="text-emerald-400 font-mono bg-emerald-950/80 px-2.5 py-0.5 rounded border border-emerald-800">@{currentUser.username}</span>
-                          <span className="text-xs text-slate-400 font-normal">({currentUser.email})</span>
-                        </h4>
-                      </div>
-
-                      <div className="flex items-center gap-3">
-                        {activeSubscription ? (
-                          <div className="px-3.5 py-1.5 bg-emerald-950/90 text-emerald-400 rounded-xl border border-emerald-800/80 text-xs font-mono font-black uppercase tracking-wider flex items-center gap-2 shadow-inner">
-                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                            <span>🟢 PAID ACCESS ACTIVE</span>
-                          </div>
-                        ) : (
-                          <div className="px-3.5 py-1.5 bg-rose-950/90 text-rose-300 rounded-xl border border-rose-800/80 text-xs font-mono font-black uppercase tracking-wider flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full bg-rose-500"></span>
-                            <span>🔴 ACCESS EXPIRED / FREE TIER</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Paid Duration Details Grid */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 bg-slate-950/80 p-4 rounded-xl border border-slate-800/80 text-xs font-mono">
-                      <div>
-                        <span className="text-[9.5px] text-slate-500 uppercase font-bold block">ACTIVE SUBSCRIBED PLAN</span>
-                        <span className="text-amber-400 font-black text-sm block mt-0.5">{activePlan?.name || 'Free Plan'}</span>
-                      </div>
-                      <div>
-                        <span className="text-[9.5px] text-slate-500 uppercase font-bold block">UNLOCKED BOOKMAKERS</span>
-                        <span className="text-slate-200 font-extrabold block mt-0.5 uppercase">
-                          {activeSubscription?.components && activeSubscription.components.length > 0 
-                            ? activeSubscription.components.map(c => c.replace(/[^a-z0-9]/gi, '')).join(' + ')
-                            : 'All Bookmaker Codes'}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-[9.5px] text-slate-500 uppercase font-bold block">PAYMENT REFERENCE / RECEIPT</span>
-                        <span className="text-slate-300 font-bold block mt-0.5 break-all">
-                          {activeSubscription?.payment_ref || 'N/A'}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-[9.5px] text-slate-500 uppercase font-bold block">REMAINING PAID DURATION</span>
-                        <div className="mt-0.5">
-                          {activeSubscription ? (() => {
-                            const expiry = new Date(activeSubscription.expires_at).getTime();
-                            const now = new Date().getTime();
-                            const diff = expiry - now;
-                            if (diff <= 0) {
-                              return <span className="text-rose-400 font-black">Expired</span>;
-                            }
-                            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-                            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                            const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-                            return (
-                              <span className="text-emerald-400 font-black">
-                                {days}d {hours}h {mins}m remaining
-                              </span>
-                            );
-                          })() : (
-                            <span className="text-slate-500 italic">No Active Paid Access</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Start Date & Expiry Timestamps */}
-                    {activeSubscription && (
-                      <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-slate-400 pt-1">
-                        <span>Paid Date: <strong className="text-slate-200">{new Date(activeSubscription.starts_at).toLocaleString()}</strong></span>
-                        <span>Access Expires On: <strong className="text-emerald-400">{new Date(activeSubscription.expires_at).toLocaleString()}</strong></span>
-                      </div>
-                    )}
-                  </div>
 
                   {/* Purchases & Code Unlocks Audit Ledger for @username */}
                   <div className="bg-[#111827] border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
@@ -5047,7 +5030,7 @@ export default function CustomerPortal({
                         </p>
                       </div>
                       <span className="text-[10px] font-mono bg-slate-900 text-slate-300 px-2.5 py-1 rounded border border-slate-800">
-                        {userSubs.length} Subscription(s) Recorded
+                        {((db.user_payments || []).filter(p => p && (p.user_id === currentUser?.id || (p.username && currentUser?.username && p.username.toLowerCase() === currentUser.username.toLowerCase()))).length + userSubs.length)} Subscription(s) Recorded
                       </span>
                     </div>
 
@@ -5058,7 +5041,7 @@ export default function CustomerPortal({
                           <tr className="bg-slate-950 text-slate-400 text-[10px] uppercase border-b border-slate-800">
                             <th className="p-3">User Matched</th>
                             <th className="p-3">Plan Purchased</th>
-                            <th className="p-3">Enabled Bookmakers</th>
+                            <th className="p-3 text-emerald-400 font-extrabold">Granted Database Table(s) Access</th>
                             <th className="p-3">Payment Ref</th>
                             <th className="p-3">Paid Date</th>
                             <th className="p-3">Expiry Date</th>
@@ -5066,43 +5049,134 @@ export default function CustomerPortal({
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-800/60">
-                          {userSubs.length > 0 ? (
-                            userSubs.map((sub, idx) => {
-                              const plan = getMergedSubscriptionPlans(db.subscription_plans).find(p => p.id === sub.plan_id);
-                              const isSubActive = sub.status === 'active' && new Date(sub.expires_at) > new Date();
+                          {(() => {
+                            const matchUser = (item: any) => item && (
+                              currentUser?.role === 'admin' ||
+                              (item.user_id && currentUser?.id && String(item.user_id).toLowerCase() === String(currentUser.id).toLowerCase()) ||
+                              (item.username && currentUser?.username && String(item.username.toLowerCase()) === String(currentUser.username.toLowerCase()))
+                            );
+
+                            const combinedMap = new Map<string, any>();
+
+                            // 1. Direct Supabase Table remoteLogs
+                            (remoteLogs || []).filter(matchUser).forEach((item: any) => {
+                              const ref = item.payment_ref || item.payment_reference || item.id;
+                              combinedMap.set(ref, item);
+                            });
+
+                            // 2. Local Purchases Access Log
+                            (db.purchases_access_log || []).filter(matchUser).forEach((item: any) => {
+                              const ref = item.payment_ref || item.payment_reference || item.id;
+                              if (!combinedMap.has(ref)) {
+                                combinedMap.set(ref, item);
+                              }
+                            });
+
+                            // 3. User Payments
+                            (db.user_payments || []).filter(matchUser).forEach((item: any) => {
+                              const ref = item.payment_reference || item.payment_ref || item.id;
+                              if (!combinedMap.has(ref)) {
+                                combinedMap.set(ref, item);
+                              }
+                            });
+
+                            // 4. User Subscriptions
+                            (db.user_subscriptions || []).filter(matchUser).forEach((sub: any) => {
+                              const ref = sub.payment_reference || sub.payment_ref || sub.id;
+                              if (!combinedMap.has(ref)) {
+                                combinedMap.set(ref, {
+                                  id: sub.id,
+                                  user_id: sub.user_id,
+                                  username: sub.username || currentUser.username,
+                                  plan_id: sub.plan_id,
+                                  plan_purchased: sub.item_name || 'Subscription Plan',
+                                  payment_ref: ref,
+                                  amount: sub.amount_paid || 0,
+                                  currency: sub.currency || 'NGN',
+                                  access_status: sub.status,
+                                  paid_date: sub.starts_at,
+                                  expiry_date: sub.expires_at,
+                                  created_at: sub.starts_at || sub.created_at
+                                });
+                              }
+                            });
+
+                            const finalLogs = Array.from(combinedMap.values());
+                            const sortedLogs = finalLogs.sort((a, b) => 
+                              new Date(b.created_at || b.paid_date || b.access_start_at || b.starts_at || 0).getTime() - 
+                              new Date(a.created_at || a.paid_date || a.access_start_at || a.starts_at || 0).getTime()
+                            );
+
+                            if (sortedLogs.length === 0) {
                               return (
-                                <tr key={`sub_log_${sub.id}_${idx}`} className="hover:bg-slate-900/50">
-                                  <td className="p-3 font-bold text-emerald-400">@{sub.username || currentUser.username}</td>
-                                  <td className="p-3 font-bold text-white">{plan?.name || sub.plan_id}</td>
-                                  <td className="p-3 text-slate-300">
-                                    {sub.components && sub.components.length > 0 
-                                      ? sub.components.map(c => c.toUpperCase()).join(', ') 
-                                      : 'ALL'}
-                                  </td>
-                                  <td className="p-3 text-slate-400 text-[11px] font-mono">{sub.payment_ref || 'N/A'}</td>
-                                  <td className="p-3 text-slate-400 text-[11px]">{new Date(sub.starts_at).toLocaleDateString()}</td>
-                                  <td className="p-3 text-slate-400 text-[11px]">{new Date(sub.expires_at).toLocaleDateString()}</td>
-                                  <td className="p-3 text-right">
-                                    {isSubActive ? (
-                                      <span className="bg-emerald-950 text-emerald-400 px-2 py-0.5 rounded text-[9.5px] font-extrabold border border-emerald-800">
-                                        ACTIVE✓
-                                      </span>
-                                    ) : (
-                                      <span className="bg-rose-950 text-rose-400 px-2 py-0.5 rounded text-[9.5px] font-extrabold border border-rose-800">
-                                        EXPIRED
-                                      </span>
-                                    )}
+                                <tr>
+                                  <td colSpan={7} className="p-4 text-center text-slate-500 italic">
+                                    No purchase transactions recorded in purchases_access_log for @{currentUser.username}. Select a subscription plan below to subscribe.
                                   </td>
                                 </tr>
                               );
-                            })
-                          ) : (
-                            <tr>
-                              <td colSpan={7} className="p-4 text-center text-slate-500 italic">
-                                No purchase transactions recorded yet for @{currentUser.username}. Select a subscription plan below to subscribe.
-                              </td>
-                            </tr>
-                          )}
+                            }
+
+                            return sortedLogs.map((item: any, idx: number) => {
+                              const plan = getMergedSubscriptionPlans(db.subscription_plans).find(p => p.id === item.plan_id);
+                              const expDate = item.expiry_date || item.access_expires_at || item.expires_at;
+                              const startDate = item.paid_date || item.access_start_at || item.starts_at || item.created_at;
+                              const statusStr = item.access_status || item.status || 'active';
+                              const isSubActive = (statusStr === 'active' || statusStr === 'successful') && new Date(expDate) > new Date();
+                              const payRef = item.payment_ref || item.payment_reference || 'N/A';
+                              const planTitle = item.plan_purchased || item.item_name || plan?.name || item.plan_id;
+                              const uname = item.username || currentUser.username;
+                              const grantedTables = getItemGrantedTables(item);
+
+                              return (
+                                <tr key={`log_row_${item.id}_${idx}`} className="hover:bg-slate-900/50">
+                                  <td className="p-3 font-bold text-emerald-400">@{uname}</td>
+                                  <td className="p-3 font-bold text-white">{planTitle}</td>
+                                  <td className="p-3">
+                                    <div className="flex flex-wrap gap-1 items-center">
+                                      {grantedTables.map((gt: string, gIdx: number) => (
+                                        <span
+                                          key={`gt_${gt}_${gIdx}`}
+                                          className="bg-emerald-950/90 text-emerald-400 border border-emerald-800/80 font-mono text-[9.5px] font-bold px-2 py-0.5 rounded shadow-sm flex items-center gap-1 uppercase"
+                                        >
+                                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                                          <span>{gt}</span>
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </td>
+                                  <td className="p-3 text-slate-400 text-[11px] font-mono">{payRef}</td>
+                                  <td className="p-3 text-slate-400 text-[11px]">{startDate ? new Date(startDate).toLocaleDateString() : 'N/A'}</td>
+                                  <td className="p-3 text-slate-400 text-[11px]">{expDate ? new Date(expDate).toLocaleDateString() : 'N/A'}</td>
+                                  <td className="p-3 text-right">
+                                    <div className="flex items-center justify-end gap-2">
+                                      {isSubActive ? (
+                                        <span className="bg-emerald-950 text-emerald-400 px-2 py-0.5 rounded text-[9.5px] font-extrabold border border-emerald-800">
+                                          ACTIVE✓
+                                        </span>
+                                      ) : (
+                                        <span className="bg-rose-950 text-rose-400 px-2 py-0.5 rounded text-[9.5px] font-extrabold border border-rose-800">
+                                          EXPIRED
+                                        </span>
+                                      )}
+                                      <button
+                                        onClick={() => {
+                                          if (onDownloadReceipt) {
+                                            onDownloadReceipt(currentUser, item.plan_id, payRef);
+                                          }
+                                        }}
+                                        className="bg-slate-900 hover:bg-slate-800 border border-slate-700 text-emerald-400 hover:text-emerald-300 text-[10px] font-mono px-2 py-1 rounded transition flex items-center gap-1 cursor-pointer"
+                                        title="Download License Receipt & Codesheet (.txt)"
+                                      >
+                                        <Download className="w-3 h-3" />
+                                        <span>Receipt</span>
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            });
+                          })()}
                         </tbody>
                       </table>
                     </div>
@@ -5134,183 +5208,208 @@ export default function CustomerPortal({
                     )}
                   </div>
 
-                  {/* High fidelity pricing layout */}
-                  <div className="border border-slate-800/80 p-5 rounded-xl bg-[#111827] shadow-lg">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-800/60">
-                      <h3 className="font-extrabold text-[#10B981] text-xs uppercase tracking-wider font-mono flex items-center gap-1.5">
-                        ★ UPGRADE SUBSCRIPTION
-                      </h3>
+                  {/* Redesigned VIP Membership Section */}
+                  <div className="border border-slate-800/80 p-5 md:p-6 rounded-2xl bg-[#111827] shadow-xl flex flex-col gap-6">
+                    {/* Header Bar with Regional Switcher */}
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-5 border-b border-slate-800/80">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-emerald-400 font-mono text-xs font-black uppercase tracking-widest bg-emerald-950/80 border border-emerald-800/80 px-2.5 py-1 rounded-md">
+                            VIP ACCESS HUB
+                          </span>
+                          <span className="text-xs font-mono text-slate-400 font-bold uppercase">VIP BOOKMAKER SUBSCRIPTIONS</span>
+                        </div>
+                        <h3 className="font-extrabold text-white text-lg md:text-xl uppercase tracking-tight mt-1.5 flex items-center gap-2">
+                          👑 VIP Membership & Bookmaker Subscriptions
+                        </h3>
+                        <p className="text-xs text-slate-400 mt-1 max-w-2xl leading-relaxed">
+                          Select any bookmaker subscription plan using the comparison matrix below for instant automated access.
+                        </p>
+                      </div>
 
                       {/* Regional Tab Selector */}
-                      <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800/80 self-start sm:self-auto">
+                      <div className="flex bg-slate-950 p-1.5 rounded-xl border border-slate-800/80 self-start lg:self-auto shrink-0 shadow-inner">
                         <button
-                          onClick={() => setPricingRegionFilter('nigeria')}
-                          className={`px-4 py-1.5 text-xs font-mono font-bold uppercase rounded-lg transition-all duration-150 ${
+                          onClick={() => {
+                            setPricingRegionFilter('nigeria');
+                            setVipBookmakerFilter('all');
+                          }}
+                          className={`px-4 py-2 text-xs font-mono font-bold uppercase rounded-lg transition-all duration-150 flex items-center gap-2 ${
                             pricingRegionFilter === 'nigeria'
-                              ? 'bg-[#10B981] text-slate-950 font-black shadow shadow-emerald-500/20'
+                              ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-black shadow-lg shadow-emerald-500/20'
                               : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50'
                           }`}
                         >
-                          🇳🇬 Nigeria Plans
+                          <span>🇳🇬</span>
+                          <span>Nigeria Standalone Plans</span>
                         </button>
                         <button
-                          onClick={() => setPricingRegionFilter('ghana')}
-                          className={`px-4 py-1.5 text-xs font-mono font-bold uppercase rounded-lg transition-all duration-150 ${
+                          onClick={() => {
+                            setPricingRegionFilter('ghana');
+                            setVipBookmakerFilter('all');
+                          }}
+                          className={`px-4 py-2 text-xs font-mono font-bold uppercase rounded-lg transition-all duration-150 flex items-center gap-2 ${
                             pricingRegionFilter === 'ghana'
-                              ? 'bg-[#10B981] text-slate-950 font-black shadow shadow-emerald-500/20'
+                              ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-black shadow-lg shadow-emerald-500/20'
                               : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50'
                           }`}
                         >
-                          🇬🇭 Ghana Plans
+                          <span>🇬🇭</span>
+                          <span>Ghana Standalone Plans</span>
                         </button>
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                      {(() => {
-                        const rawPlans = getMergedSubscriptionPlans(db.subscription_plans).filter(p => p && p.id);
-                        const paidPlans = rawPlans.filter(p => p.price > 0 || p.id !== 'plan-free');
-                        const pool = paidPlans.length > 0 ? paidPlans : rawPlans;
-                        const regionMatches = pool.filter(p => pricingRegionFilter === 'ghana' ? isGhanaPlan(p) : !isGhanaPlan(p));
-                        const displayPlans = regionMatches.length > 0 ? regionMatches : pool;
+                    {/* View Controls & Bookmaker Filters */}
+                    {(() => {
+                      const isGhana = pricingRegionFilter === 'ghana';
+                      const currencySymbol = isGhana ? 'GH₵' : '₦';
+                      const countryKey = isGhana ? 'ghana' : 'nigeria';
 
-                        return displayPlans.map((p, pIdx) => {
-                          const isCurrentPlan = activePlan?.id === p.id;
-                          const isGhana = isGhanaPlan(p);
-                          const defaultComps = isGhana ? ['premierbet', 'betway', 'soccabet', 'sportybet'] : ['bet9ja', 'sportybet', 'betking'];
-                          const pComponents = selectedComponents[p.id] || defaultComps;
-                          const unitPrice = Number(p.price || 0);
-                          const calculatedCustomPrice = pComponents.length * unitPrice;
-                          const currencySymbol = isGhana ? 'GH₵' : '₦';
-                          const billingCycleStr = String(p.billing_cycle || 'period').toUpperCase();
-                          return (
-                            <div
-                              key={`portal_pricing_plan_${p.id}_${pIdx}`}
-                              className={`border rounded-2xl p-5 flex flex-col justify-between transition-all duration-200 ${
-                                isCurrentPlan
-                                  ? 'ring-2 ring-emerald-500 border-emerald-500 bg-[#122A1E]/30'
-                                  : 'border-slate-800 bg-[#070B14]/80 hover:border-slate-700'
-                              }`}
-                            >
+                      const countryBookies = getBookmakersByCountry(db.bookmakers, countryKey);
+                      const rawComps = countryBookies.length > 0
+                        ? countryBookies.map(b => ({
+                            slug: (b.slug || b.name || b.id).toLowerCase().trim(),
+                            name: b.name,
+                            id: b.id
+                          }))
+                        : (isGhana
+                            ? [
+                                { slug: 'premierbet', name: 'PremierBet', id: 'premierbet' },
+                                { slug: 'betway', name: 'Betway', id: 'betway' },
+                                { slug: 'soccabet', name: 'Soccabet', id: 'soccabet' },
+                                { slug: 'sportybet', name: 'SportyBet', id: 'sportybet' }
+                              ]
+                            : [
+                                { slug: 'bet9ja', name: 'Bet9ja', id: 'bet9ja' },
+                                { slug: 'sportybet', name: 'SportyBet', id: 'sportybet' },
+                                { slug: 'betking', name: 'BetKing', id: 'betking' },
+                                { slug: 'msport', name: 'MSport', id: 'msport' }
+                              ]
+                          );
+
+                      const bookmakersList = Array.from(
+                        new Map(rawComps.map(item => [item.slug, item])).values()
+                      );
+
+                      const rawPlans = getMergedSubscriptionPlans(db.subscription_plans).filter(p => p && p.id);
+                      const paidPlans = rawPlans.filter(p => p.price > 0 || p.id !== 'plan-free');
+                      const regionPlans = paidPlans.filter(p => isGhana ? isGhanaPlan(p) : !isGhanaPlan(p));
+                      const displayPlans = regionPlans.length > 0 ? regionPlans : paidPlans;
+
+                      const activeBookmakers = vipBookmakerFilter === 'all'
+                        ? bookmakersList
+                        : bookmakersList.filter(b => b.slug === vipBookmakerFilter.toLowerCase());
+
+                      const checkActiveSub = (bmkSlug: string, planId: string) => {
+                        return userActiveSubs.some(sub => {
+                          const comps = parseComponents(sub.components);
+                          const matchesComp = comps.includes('all') || comps.includes(bmkSlug.toLowerCase());
+                          return matchesComp && sub.plan_id === planId && new Date(sub.expires_at) > new Date();
+                        });
+                      };
+
+                      return (
+                        <div className="flex flex-col gap-5">
+                          {/* MASTER COMPARISON MATRIX */}
+                          <div className="border border-slate-800 bg-[#070B14] rounded-2xl overflow-hidden shadow-xl">
+                            <div className="bg-slate-950 p-4 border-b border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-3">
                               <div>
-                                <div className="flex justify-between items-start">
-                                  <span className="text-xs font-black text-white tracking-wide">{p.name || 'Subscription'}</span>
-                                  {isCurrentPlan && (
-                                    <span className="bg-emerald-950 text-emerald-400 text-[8.5px] font-black px-2.5 py-1 rounded border border-emerald-800 uppercase font-mono">
-                                      ACTIVE✓
-                                    </span>
-                                  )}
-                                </div>
-
-                                <p className="text-[11.5px] text-slate-350 mt-3 min-h-[40px] leading-relaxed">
-                                  {p.description || 'Full VIP features and live updates access.'}
+                                <h4 className="text-sm font-black text-white uppercase tracking-wider font-mono">
+                                  📊 Bookmaker x Billing Cycle Comparison Matrix
+                                </h4>
+                                <p className="text-xs text-slate-400 font-mono mt-0.5">
+                                  Pick any individual bookmaker and billing duration cell to initiate instant subscription checkout.
                                 </p>
-
-                                <div className="mt-5 pb-5 border-b border-slate-800 flex justify-between items-end">
-                                  <div>
-                                    <span className="text-[10px] text-slate-500 font-mono block uppercase">Unit Price</span>
-                                    <span className="text-xl font-mono font-black text-emerald-400">
-                                      {currencySymbol}{unitPrice.toLocaleString()}
-                                    </span>
-                                    <span className="text-[10.5px] text-slate-400 font-mono"> / {billingCycleStr}</span>
-                                  </div>
-                                  <div className="text-right">
-                                    <span className="text-[10px] text-slate-500 font-mono block uppercase">Components</span>
-                                    <span className="text-sm font-mono font-bold text-slate-200">{pComponents.length} Selected</span>
-                                  </div>
-                                </div>
-
-                                {/* Bookmaker Component Customization Selectors */}
-                                <div className="mt-5 pt-4 border-b border-slate-800/60 pb-5 text-left">
-                                  <span className="text-[10px] font-mono uppercase text-slate-400 block mb-2.5 tracking-wider">
-                                    Custom Plan Components:
-                                  </span>
-                                  <div className="space-y-2">
-                                    {(() => {
-                                      const countryKey = isGhana ? 'ghana' : 'nigeria';
-                                      const countryBookies = getBookmakersByCountry(db.bookmakers, countryKey);
-                                      const rawComps = countryBookies.length > 0
-                                        ? countryBookies.map(b => (b.slug || b.name || b.id).toLowerCase().trim())
-                                        : (isGhana ? ['premierbet', 'betway', 'soccabet', 'sportybet'] : ['bet9ja', 'sportybet', 'betking']);
-                                      
-                                      const comps = Array.from(new Set(rawComps));
-
-                                      return comps.map((comp, cIdx) => {
-                                        const isSel = pComponents.includes(comp);
-                                        const matchingBmk = countryBookies.find(b => (b.slug || b.name || b.id).toLowerCase().trim() === comp.toLowerCase());
-                                        const compLabel = matchingBmk ? matchingBmk.name : (comp === 'bet9ja' ? 'Bet9ja' : comp === 'sportybet' ? 'SportyBet' : comp === 'betking' ? 'BetKing' : comp === 'premierbet' ? 'PremierBet' : comp === 'betway' ? 'Betway' : comp === 'soccabet' ? 'Soccabet' : comp.toUpperCase());
-                                        return (
-                                          <label
-                                            key={`plan_comp_${p.id}_${comp}_${cIdx}`}
-                                            className={`flex items-center justify-between p-2 rounded-lg border transition cursor-pointer select-none ${
-                                              isSel 
-                                                ? 'border-emerald-800/40 bg-emerald-950/20 text-slate-100'
-                                                : 'border-slate-800/60 bg-[#030712] text-slate-500'
-                                            } hover:border-slate-700/60`}
-                                          >
-                                            <div className="flex items-center gap-2">
-                                              <input
-                                                type="checkbox"
-                                                checked={isSel}
-                                                disabled={isCurrentPlan}
-                                                onChange={() => toggleComponentSelection(p.id, comp)}
-                                                className="rounded bg-slate-900 border-slate-700 text-emerald-500 focus:ring-emerald-500 focus:ring-opacity-20 cursor-pointer shrink-0"
-                                              />
-                                              <span className="text-xs font-bold font-sans">{compLabel}</span>
-                                            </div>
-                                            <span className="text-[10.5px] font-mono">
-                                              {currencySymbol}{unitPrice.toLocaleString()}
-                                            </span>
-                                          </label>
-                                        );
-                                      });
-                                    })()}
-                                  </div>
-                                  <div className="mt-4 bg-slate-950/80 rounded-xl p-3 border border-slate-800/80 flex justify-between items-center">
-                                    <span className="text-[10px] text-slate-400 font-mono">Total Price:</span>
-                                    <span className="text-base font-mono font-black text-amber-400">
-                                      {currencySymbol}{calculatedCustomPrice.toLocaleString()}
-                                    </span>
-                                  </div>
-                                </div>
-
-                                {/* Pro perks specs indicators */}
-                                <div className="mt-5 flex flex-col gap-3.5 text-xs text-slate-300 font-mono">
-                                  <div className="flex items-center gap-1.5">
-                                    <Check className="w-4 h-4 text-emerald-400 shrink-0" />
-                                    <span>Premium decryption key: {p.has_premium_codes ? 'YES' : 'NO'}</span>
-                                  </div>
-                                  <div className="flex items-center gap-1.5">
-                                    <Check className="w-4 h-4 text-emerald-400 shrink-0" />
-                                    <span>Bookmakers capacity limits: max {p.max_bookmakers}</span>
-                                  </div>
-                                  <div className="flex items-center gap-1.5">
-                                    <Check className="w-4 h-4 text-emerald-400 shrink-0" />
-                                    <span>Automated Alerts Telecom: Yes</span>
-                                  </div>
-                                </div>
                               </div>
 
-                              <button
-                                onClick={() => buySubscription(p.id, pComponents)}
-                                disabled={isCurrentPlan || currentUser.role === 'admin' || pComponents.length === 0}
-                                className={`w-full mt-6 text-xs font-black uppercase py-3 rounded-lg transition-all ${
-                                  isCurrentPlan
-                                    ? 'bg-emerald-900/40 text-emerald-400 font-bold border border-emerald-800/40 pointer-events-none'
-                                    : pComponents.length === 0
-                                    ? 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'
-                                    : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-850/20 active:scale-95 cursor-pointer'
-                                }`}
-                              >
-                                {isCurrentPlan ? '✓ Subscribed Active' : pComponents.length === 0 ? 'Select Components' : `Buy ${p.name} • ${currencySymbol}${calculatedCustomPrice.toLocaleString()}`}
-                              </button>
+                              {/* Bookmaker Filter Pills */}
+                              <div className="flex items-center gap-1.5 overflow-x-auto pt-2 md:pt-0 border-t md:border-t-0 border-slate-800/80">
+                                <span className="text-[10px] font-mono uppercase text-slate-500 font-bold shrink-0 mr-1">Filter:</span>
+                                <button
+                                  onClick={() => setVipBookmakerFilter('all')}
+                                  className={`px-2.5 py-1 text-[11px] font-mono rounded-md font-bold transition shrink-0 ${
+                                    vipBookmakerFilter === 'all'
+                                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                                      : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
+                                  }`}
+                                >
+                                  ALL BOOKMAKERS
+                                </button>
+                                {bookmakersList.map((bmk, bIdx) => (
+                                  <button
+                                    key={`bmk_pill_${bmk.slug}_${bIdx}`}
+                                    onClick={() => setVipBookmakerFilter(bmk.slug)}
+                                    className={`px-2.5 py-1 text-[11px] font-mono rounded-md font-bold transition shrink-0 uppercase ${
+                                      vipBookmakerFilter === bmk.slug
+                                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                                        : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
+                                    }`}
+                                  >
+                                    {bmk.name}
+                                  </button>
+                                ))}
+                              </div>
                             </div>
-                          );
-                        });
-                      })()}
-                    </div>
 
-
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-left border-collapse">
+                                <thead>
+                                  <tr className="bg-slate-950 text-slate-400 text-[10px] uppercase font-mono font-bold border-b border-slate-800">
+                                    <th className="p-3 pl-4">Bookmaker</th>
+                                    {displayPlans.map((p, idx) => (
+                                      <th key={`matrix_head_${p.id}_${idx}`} className="p-3 text-center">
+                                        <div>{p.name}</div>
+                                        <div className="text-[9px] text-slate-500 lowercase font-normal">({p.billing_cycle})</div>
+                                      </th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-800/60 text-xs">
+                                  {activeBookmakers.map((bmk, bIdx) => (
+                                    <tr key={`matrix_row_${bmk.slug}_${bIdx}`} className="hover:bg-slate-900/50">
+                                      <td className="p-3 pl-4 font-bold text-white font-sans">
+                                        <div className="flex items-center gap-2">
+                                          <div className="w-6 h-6 rounded bg-emerald-950 text-emerald-400 font-mono font-black text-xs flex items-center justify-center border border-emerald-800">
+                                            {(bmk.name || 'B').charAt(0).toUpperCase()}
+                                          </div>
+                                          <span>{bmk.name}</span>
+                                        </div>
+                                      </td>
+                                      {displayPlans.map((p, pIdx) => {
+                                        const isActive = checkActiveSub(bmk.slug, p.id);
+                                        const unitPrice = Number(p.price || 0);
+                                        return (
+                                          <td key={`matrix_cell_${bmk.slug}_${p.id}_${pIdx}`} className="p-3 text-center font-mono">
+                                            <div className="flex flex-col items-center gap-1.5">
+                                              <span className="text-xs font-black text-emerald-400">
+                                                {currencySymbol}{unitPrice.toLocaleString()}
+                                              </span>
+                                              {isActive ? (
+                                                <span className="bg-emerald-950 text-emerald-400 text-[8.5px] font-black px-2 py-0.5 rounded border border-emerald-800 uppercase">
+                                                  ACTIVE ✓
+                                                </span>
+                                              ) : (
+                                                <button
+                                                  onClick={() => buySubscription(p.id, [bmk.slug])}
+                                                  className="bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black text-[9.5px] uppercase px-2.5 py-1 rounded transition cursor-pointer active:scale-95"
+                                                >
+                                                  BUY {(bmk.name || 'BOOKMAKER').toUpperCase()}
+                                                </button>
+                                              )}
+                                            </div>
+                                          </td>
+                                        );
+                                      })}
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               )}
@@ -5760,13 +5859,9 @@ export default function CustomerPortal({
                         <tbody className="divide-y divide-slate-200 border">
                           {(() => {
                             const pdfFilteredGames = postedGames.filter(game => {
-                              if (bypassPremium) return true;
-                              if (currentUser.role === 'admin') return true;
-                              if (!isLoggedIn || !isVerified || !isPaidUser) return false;
-                              if (!activeSubscription || activeSubscription.status !== 'active') return false;
-                              if (activePlan?.id === 'plan-free') return false;
-                              const userComponents = activeSubscription?.components || [];
-                              return userComponents.map(c => c.toLowerCase()).includes(game.bookmaker.toLowerCase());
+                              if (bypassPremium || currentUser.role === 'admin') return true;
+                              if (!isLoggedIn || !isVerified) return false;
+                              return isBookieAllowed(game.bookmaker);
                             });
 
                             if (pdfFilteredGames.length === 0) {
@@ -5962,13 +6057,15 @@ export default function CustomerPortal({
                     )}
                     <button
                       onClick={() => {
-                        // Triggers the standard text codesheet download as fallback
                         const planId = activePlan?.id || 'plan-monthly';
-                        buySubscription(planId); // mock trigger download
-                        triggerToast('Downloading copy of the weekly codes list...', 'success');
+                        if (onDownloadReceipt) {
+                          onDownloadReceipt(currentUser, planId, activeSubscription?.payment_ref || '');
+                        } else {
+                          buySubscription(planId);
+                        }
                       }}
-                      className="bg-slate-900 hover:bg-slate-850 border border-slate-800 text-slate-300 font-mono text-[10px] uppercase tracking-wider p-2 rounded-lg transition cursor-pointer flex items-center justify-center"
-                      title="Download Fallback text list"
+                      className="bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-mono text-[10px] uppercase tracking-wider p-2 rounded-lg transition cursor-pointer flex items-center justify-center"
+                      title="Download License Receipt & Codesheet (.txt)"
                     >
                       <Download className="w-3.5 h-3.5" />
                     </button>

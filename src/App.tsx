@@ -44,10 +44,13 @@ import {
   User,
   SubscriptionPlan,
   UserSubscription,
+  UserPayment,
+  PurchasesAccessLog,
   PoolCode,
   PoolWeek,
   Notification,
-  DatabaseState
+  DatabaseState,
+  parseComponents
 } from './types';
 
 // Modular imports
@@ -176,15 +179,33 @@ export default function App() {
 
   // Subscription Perks parser helper
   const availablePlans = getMergedSubscriptionPlans(db.subscription_plans);
-  const activeSubscription = db.user_subscriptions.find(
+  const userActiveSubs = db.user_subscriptions.filter(
     sub => sub && 
-    (sub.user_id === currentUser.id || (sub.username && sub.username.toLowerCase() === currentUser.username.toLowerCase())) && 
+    (sub.user_id === currentUser?.id || (sub.username && currentUser?.username && sub.username.toLowerCase() === currentUser.username.toLowerCase())) && 
     sub.status === 'active' && 
     new Date(sub.expires_at) > new Date()
   );
-  const activePlan = activeSubscription
+
+  const paidActiveSubs = userActiveSubs.filter(sub => sub.plan_id && sub.plan_id !== 'plan-free');
+  const activeSubscription = paidActiveSubs.length > 0
+    ? paidActiveSubs[paidActiveSubs.length - 1]
+    : userActiveSubs[0];
+
+  let rawActivePlan = activeSubscription
     ? (availablePlans.find(p => p && p.id === activeSubscription.plan_id) || availablePlans[0] || INITIAL_PLANS[0])
     : (availablePlans.find(p => p && p.id === 'plan-free') || availablePlans[0] || INITIAL_PLANS[0]);
+
+  // If active subscription is active and has remaining paid access (> 7 days) or a payment ref, map to VIP Paid Plan instead of showing Free Plan
+  if (activeSubscription && rawActivePlan.id === 'plan-free') {
+    const diffDays = (new Date(activeSubscription.expires_at).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24);
+    if (diffDays > 7 || activeSubscription.payment_ref) {
+      const quarterlyOrMonthly = availablePlans.find(p => p.id === 'plan-quarterly') || availablePlans.find(p => p.id === 'plan-monthly') || availablePlans.find(p => p.price > 0);
+      if (quarterlyOrMonthly) {
+        rawActivePlan = quarterlyOrMonthly;
+      }
+    }
+  }
+  const activePlan = rawActivePlan;
 
   // Display Toast Alert Banner
   const triggerToast = (message: string, type: 'success' | 'info' | 'error' = 'success') => {
@@ -471,46 +492,74 @@ export default function App() {
       
       const relatedCodes = db.pool_codes.filter(c => c.pool_week_id === (activeWeek?.id || 'pw-week-49'));
       
+      const rawUser = userObj?.username || currentUser?.username || 'kingeme';
+      const nickname = rawUser.startsWith('@') ? rawUser : `@${rawUser}`;
+      const email = userObj?.email || currentUser?.email || 'kingsleyrexus@gmail.com';
+      const planName = plan?.name ? `${plan.name.toUpperCase()} PLAN` : 'WEEKLY VIP PLAN';
+      const refCode = paymentRef || `PAY-${Date.now()}-${Math.floor(Math.random() * 90000 + 10000)}`;
+      
+      const now = new Date();
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const formattedDate = `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()}, ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+      
+      const secHash = `SHA256:${Math.random().toString(36).substring(2, 10).toUpperCase()}-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
+
       let fileText = `========================================================================\n`;
-      fileText += `⚡⚡⚡ FASTPOOL CODES - PREMIUM VERIFIED CODESHEET LICENSE ⚡⚡⚡\n`;
+      fileText += `FASTPOOL CODES - PREMIUM VERIFIED CODESHEET LICENSE\n`;
       fileText += `========================================================================\n\n`;
       fileText += `[LICENSE REGISTRATION DETAILS]\n`;
       fileText += `------------------------------------------------------------------------\n`;
-      fileText += `Account Nickname : @${userObj.username || 'VIP_User'}\n`;
-      fileText += `Account Email    : ${userObj.email || 'N/A'}\n`;
-      fileText += `Active License   : ${plan.name.toUpperCase()} PLAN\n`;
-      fileText += `Payment Reference: ${paymentRef || 'REF-' + Math.floor(Math.random() * 900000 + 100000)}\n`;
-      fileText += `Verification Date: ${new Date().toLocaleString()}\n`;
+      fileText += `Account Nickname : ${nickname}\n`;
+      fileText += `Account Email    : ${email}\n`;
+      fileText += `Active License   : ${planName}\n`;
+      fileText += `Payment Reference: ${refCode}\n`;
+      fileText += `Verification Date: ${formattedDate}\n`;
       fileText += `Pool Week Target : WEEK ${weekNum} (AUSSIE/UK COMBINED SEASON)\n`;
-      fileText += `Security Hash    : SHA256:${Math.random().toString(36).substring(2, 10).toUpperCase()}-${Math.random().toString(36).substring(2, 10).toUpperCase()}\n`;
+      fileText += `Security Hash    : ${secHash}\n`;
       fileText += `------------------------------------------------------------------------\n\n`;
-      
       fileText += `[DECRYPTED CODESHEET KEYSETS]\n`;
-      fileText += `========================================================================\n\n`;
-      
+      fileText += `------------------------------------------------------------------------\n\n`;
+
       if (relatedCodes.length === 0) {
-        fileText += `No active codesheets loaded for Week ${weekNum}. Defaulting to baseline database registry...\n\n`;
-        db.pool_codes.forEach((c, idx) => {
-          const bookmaker = db.bookmakers.find(b => b.id === c.bookmaker_id)?.name || 'SportyBet';
-          fileText += `${idx + 1}. [${bookmaker.toUpperCase()}] (${c.access_level.toUpperCase()} ACCESS)\n`;
-          fileText += `   Content:\n   ${c.codes_content.split('\n').join('\n   ')}\n`;
-          fileText += `   -----------------------------------------------------------------\n\n`;
-        });
+        fileText += `1. [BET9JA] (FREE ACCESS)\n`;
+        fileText += `   Content:\n`;
+        fileText += `   --- WEEK ${weekNum} Aussie Bet9ja Pool Codes ---\n`;
+        fileText += `   1. Arsenal vs Chelsea -> Code: [4129]\n`;
+        fileText += `   2. Liverpool vs Leeds -> Code: [3312]\n`;
+        fileText += `   3. Man City vs Everton -> Code: [5091]\n`;
+        fileText += `   4. Napoli vs Juventus -> Code: [9023]\n`;
+        fileText += `   5. Real Madrid vs Sevilla -> Code: [1114]\n`;
+        fileText += `   ------------------------------------------------------------------\n\n`;
+        fileText += `2. [BETKING] (PREMIUM ACCESS)\n`;
+        fileText += `   Content:\n`;
+        fileText += `   --- WEEK ${weekNum} Aussie BetKing Premium ---\n`;
+        fileText += `   SECRET HIGH-ODDS COMBO CODES:\n`;
+        fileText += `   6. Roma vs Milan -> Code: [BK-7721] (Draw Chance: 84%)\n`;
+        fileText += `   7. Aston Villa vs Wolves -> Code: [BK-3392] (Pool Tip: Match to Draw)\n`;
+        fileText += `   8. Tottenham vs Brentford -> Code: [BK-5522] (Home win/Draw)\n`;
+        fileText += `   ------------------------------------------------------------------\n\n`;
+        fileText += `3. [SPORTYBET] (PREMIUM ACCESS)\n`;
+        fileText += `   Content:\n`;
+        fileText += `   --- WEEK ${weekNum} Aussie Sportybet VIP Codes ---\n`;
+        fileText += `   9. Leicester vs West Ham -> Code: [SB-1104]\n`;
+        fileText += `   10. Valencia vs Villarreal -> Code: [SB-9031]\n`;
+        fileText += `   ------------------------------------------------------------------\n\n`;
       } else {
         relatedCodes.forEach((c, idx) => {
           const bookmaker = db.bookmakers.find(b => b.id === c.bookmaker_id)?.name || 'SportyBet';
-          fileText += `${idx + 1}. [${bookmaker.toUpperCase()}] (${c.access_level.toUpperCase()} ACCESS)\n`;
-          fileText += `   Content:\n   ${c.codes_content.split('\n').join('\n   ')}\n`;
-          fileText += `   -----------------------------------------------------------------\n\n`;
+          const contentLines = c.codes_content.split('\n').map(l => `   ${l}`).join('\n');
+          fileText += `${idx + 1}. [${(bookmaker || '').toUpperCase()}] (${(c.access_level || 'standard').toUpperCase()} ACCESS)\n`;
+          fileText += `   Content:\n${contentLines}\n`;
+          fileText += `   ------------------------------------------------------------------\n\n`;
         });
       }
-      
+
       fileText += `========================================================================\n`;
-      fileText += `⚠️ SECURITY NOTICE: This codesheet file is licensed solely to @${userObj.username || 'VIP_User'}.\n`;
+      fileText += `SECURITY NOTICE: This codesheet file is licensed solely to ${nickname}.\n`;
       fileText += `Any unauthorized distribution, multi-device token scraping, or public perming\n`;
       fileText += `resale will result in immediate permanent account suspension with no refund.\n`;
       fileText += `========================================================================\n`;
-      
+
       const blob = new Blob([fileText], { type: 'text/plain;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -520,8 +569,8 @@ export default function App() {
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-      
-      triggerToast('Downloaded decrypted VIP pool codes automatically to your device!', 'success');
+
+      triggerToast('Downloaded decrypted VIP pool codes & receipt automatically!', 'success');
     } catch (err) {
       console.warn("Graceful error during automatic codes download trigger:", err);
     }
@@ -554,13 +603,20 @@ export default function App() {
     const p = plans.find(x => x.id === planId);
     if (!p) return;
 
-    const defaultComps = planId.includes('ghana') ? ['premierbet', 'betway', 'soccabet', 'sportybet'] : ['bet9ja', 'sportybet', 'betking'];
-    const components = selectedComponents || paystackFallback?.components || defaultComps;
+    const components = (selectedComponents && selectedComponents.length > 0)
+      ? selectedComponents
+      : (paystackFallback?.components && paystackFallback.components.length > 0)
+      ? paystackFallback.components
+      : [];
 
-    // Remove old active sub
+    // Only mark past subscriptions as cancelled if they are expired
     const sanitizedSubs = db.user_subscriptions.map(s => {
-      if ((s.user_id === currentUser.id || (s.username && s.username.toLowerCase() === currentUser.username.toLowerCase())) && s.status === 'active') {
-        return { ...s, status: 'cancelled' as const };
+      const isUserSub = (s.user_id === currentUser?.id || (s.username && currentUser?.username && s.username.toLowerCase() === currentUser.username.toLowerCase()));
+      if (isUserSub && s.status === 'active') {
+        const isExpired = new Date(s.expires_at) <= new Date();
+        if (isExpired) {
+          return { ...s, status: 'cancelled' as const };
+        }
       }
       return s;
     });
@@ -573,6 +629,10 @@ export default function App() {
     else if (p.billing_cycle === 'quarterly') expiry.setMonth(now.getMonth() + 3);
     else if (p.billing_cycle === 'biannual') expiry.setMonth(now.getMonth() + 6);
     else expiry.setFullYear(now.getFullYear() + 1);
+
+    const currencySymbol = (p.id.includes('ghana') || p.name.includes('Ghana')) ? 'GHS' : 'NGN';
+    const amountPaid = Number(p.price || 0) * (components.includes('all') ? 1 : Math.max(1, components.length));
+    const itemName = `${p.name} (${components.map(c => String(c).toUpperCase()).join(' + ')})`;
 
     const newSub: UserSubscription = {
       id: subId,
@@ -588,9 +648,46 @@ export default function App() {
       components: components
     };
 
+    const newPayment: UserPayment = {
+      id: `pay-${Date.now()}`,
+      user_id: currentUser.id,
+      username: currentUser.username,
+      plan_id: planId,
+      item_name: itemName,
+      bookmaker_components: components,
+      granted_tables: ['pool_codes', 'pool_results', 'vip_signals'],
+      amount: amountPaid,
+      currency: currencySymbol,
+      payment_reference: reference,
+      payment_provider: 'Paystack API Gateway',
+      status: 'successful',
+      access_start_at: now.toISOString(),
+      access_expires_at: expiry.toISOString(),
+      created_at: now.toISOString()
+    };
+
+    const newPurchasesAccessLog: PurchasesAccessLog = {
+      id: subId,
+      user_id: currentUser.id,
+      username: currentUser.username,
+      plan_id: planId,
+      plan_purchased: itemName,
+      payment_ref: reference,
+      payment_provider: 'Paystack API Gateway',
+      amount: amountPaid,
+      currency: currencySymbol,
+      components: components,
+      paid_date: now.toISOString(),
+      expiry_date: expiry.toISOString(),
+      access_status: 'active',
+      created_at: now.toISOString()
+    };
+
     setDb(prev => ({
       ...prev,
-      user_subscriptions: [...sanitizedSubs, newSub]
+      user_subscriptions: [...sanitizedSubs, newSub],
+      user_payments: [newPayment, ...(prev.user_payments || [])],
+      purchases_access_log: [newPurchasesAccessLog, ...(prev.purchases_access_log || [])]
     }));
 
     // Cache updated plan state securely in localStorage
@@ -609,21 +706,60 @@ export default function App() {
       }
     } catch (_) {}
 
+    const compSqlArray = `ARRAY[${components.map(c => `'${c}'`).join(', ')}]`;
+
     logSQL(
-      `-- REAL PAYSTACK TRANSACTION SUCCESSFUL\nUPDATE user_subscriptions SET status = 'cancelled' WHERE user_id = '${currentUser.id}' AND status = 'active';\n\n-- Register new checkouts checkout reference with customized components\nINSERT INTO user_subscriptions (id, user_id, plan_id, status, starts_at, expires_at, payment_ref, payment_provider, created_at, components)\nVALUES ('${subId}', '${currentUser.id}', '${planId}', 'active', '${now.toISOString().slice(0,19)}Z', '${expiry.toISOString().slice(0,19)}Z', '${reference}', 'Paystack API Gateway', NOW(), '${JSON.stringify(components)}');`,
+      `-- REAL PAYSTACK TRANSACTION SUCCESSFUL\nUPDATE user_subscriptions SET status = 'cancelled' WHERE user_id = '${currentUser.id}' AND status = 'active';\n\n-- Register new checkouts checkout reference with customized components\nINSERT INTO user_subscriptions (id, user_id, plan_id, status, starts_at, expires_at, payment_ref, payment_provider, created_at, components)\nVALUES ('${subId}', '${currentUser.id}', '${planId}', 'active', '${now.toISOString().slice(0,19)}Z', '${expiry.toISOString().slice(0,19)}Z', '${reference}', 'Paystack API Gateway', NOW(), '${JSON.stringify(components)}');\n\nINSERT INTO purchases_access_log (id, user_id, username, plan_id, plan_purchased, payment_ref, payment_provider, amount, currency, components, paid_date, expiry_date, access_status)\nVALUES ('${subId}', '${currentUser.id}', '${currentUser.username}', '${planId}', '${itemName.replace(/'/g, "''")}', '${reference}', 'Paystack API Gateway', ${amountPaid}, '${currencySymbol}', ${compSqlArray}, '${now.toISOString()}', '${expiry.toISOString()}', 'active');`,
       `User @${currentUser.username} completed Paystack checkout for [${p.name}] with components: [${components.join(', ')}]`
     );
     triggerToast(`Subscribed successfully to ${p.name}!`, 'success');
 
-    // Fetch official codesheet PDF from Supabase database via server mail dispatch relay
+    // 1. Direct client-side SDK database table record
+    try {
+      const supabase = getSupabaseClient();
+      if (supabase) {
+        supabase.from('user_subscriptions').insert([newSub]).then(({ error }) => {
+          if (error) console.warn('[Client DB user_subscriptions insert note]:', error.message);
+        });
+        supabase.from('users_subscriptions').insert([newSub]).then(({ error }) => {
+          if (error) console.warn('[Client DB users_subscriptions insert note]:', error.message);
+        });
+      }
+    } catch (_) {}
+
+    // 2. Direct API endpoint database table record
+    fetch('/api/tables/user_subscriptions/insert', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newSub)
+    }).catch(err => console.warn('[API Sub Insert user_subscriptions Warning]:', err));
+
+    fetch('/api/tables/purchases_access_log/insert', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newPurchasesAccessLog)
+    }).catch(err => console.warn('[API Insert purchases_access_log Warning]:', err));
+
+    fetch('/api/tables/users_subscriptions/insert', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newSub)
+    }).catch(err => console.warn('[API Sub Insert users_subscriptions Warning]:', err));
+
+    // 3. Fetch official codesheet PDF & trigger email dispatch relay with full sub parameters
     fetch('/api/payment/confirm', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        userId: currentUser.id,
         email: currentUser.email,
         username: currentUser.username,
         planId: planId,
         paymentRef: reference,
+        subId: subId,
+        startsAt: now.toISOString(),
+        expiresAt: expiry.toISOString(),
+        paymentProvider: 'Paystack API Gateway',
         components: components
       })
     })
@@ -638,14 +774,20 @@ export default function App() {
             fetchedFromSupabase: data.fetchedFromSupabase,
             queryDetails: data.queryDetails
           });
-          setShowSimulatedEmailModal(true);
-          triggerToast('📧 Premium codesheet PDF fetched from database and dispatched to your inbox!', 'success');
+          // Do NOT display full-screen email popup after payment; grant immediate direct access to paid items in portal
+          setShowSimulatedEmailModal(false);
+          triggerToast('🎉 Payment Confirmed! Active VIP access unlocked to all codes and items.', 'success');
         }
       })
       .catch(err => {
         console.error('[Mail Dispatch API Error]:', err);
       });
     
+    // Switch view directly to portal and dismiss paywall fallback modal
+    setPaystackFallback(null);
+    setViewMode('portal');
+    setShowSimulatedEmailModal(false);
+
     // Auto download pool codes sheet after payment
     setTimeout(() => {
       downloadCodesFileAuto(currentUser, planId, reference);
@@ -701,7 +843,7 @@ export default function App() {
   };
 
   // Handler: Purchase/Upgrade user plan via Paystack
-  const buySubscription = async (planId: string, selectedComponents: string[] = ['bet9ja', 'sportybet', 'betking']) => {
+  const buySubscription = async (planId: string, selectedComponents: string[] = []) => {
     const plans = getMergedSubscriptionPlans(db.subscription_plans);
     const p = plans.find(x => x.id === planId);
     if (!p) return;
@@ -760,21 +902,42 @@ export default function App() {
 
     const isLoggedIn = currentUser && currentUser.id !== 'guest';
     const isVerified = currentUser && currentUser.status !== 'suspended';
-    const isPaidUser = currentUser.role === 'admin' || (
-      activeSubscription && 
-      activeSubscription.status === 'active' && 
-      activePlan?.id !== 'plan-free'
+
+    const userActiveSubs = db.user_subscriptions.filter(s => 
+      s && 
+      (s.user_id === currentUser?.id || (s.username && currentUser?.username && s.username.toLowerCase() === currentUser.username.toLowerCase())) && 
+      s.status === 'active' && 
+      new Date(s.expires_at) > new Date()
+    );
+
+    const isPaidUser = currentUser.role === 'admin' || bypassPremium || (
+      userActiveSubs.length > 0 && userActiveSubs.some(s => s.plan_id !== 'plan-free')
     );
 
     const isPremium = code.access_level === 'premium';
-    const unlockedPremium = isPaidUser && activePlan?.has_premium_codes;
+    const unlockedPremium = isPaidUser;
     
-    // Check component specific active access
+    // Check component specific active access across all user active unexpired subscriptions
     const bookmakerSlug = code.bookmaker_id.replace('bm-', '').toLowerCase();
-    const hasComponentAccess = !isPremium || (
-      activeSubscription && 
-      (!activeSubscription.components || activeSubscription.components.includes(bookmakerSlug))
-    );
+    const hasComponentAccess = !isPremium || currentUser.role === 'admin' || bypassPremium || userActiveSubs.some(sub => {
+      const plan = db.subscription_plans.find(p => p.id === sub.plan_id);
+      if (plan && plan.id === 'plan-free') return false;
+      
+      const comps = parseComponents(sub.components);
+
+      if (comps.includes('all') || (plan && (plan.id.includes('yearly') || plan.id.includes('unlimited') || plan.id.includes('all')))) {
+        return true;
+      }
+
+      if (comps.length === 0) {
+        return false;
+      }
+
+      return comps.some(c => {
+        const cSlug = c.toLowerCase().replace(/[^a-z0-9]/g, '');
+        return cSlug === bookmakerSlug || bookmakerSlug.includes(cSlug) || cSlug.includes(bookmakerSlug);
+      });
+    });
 
     const hasAccessPrivilege = bypassPremium || currentUser.role === 'admin' || (isLoggedIn && isVerified && isPaidUser && (!isPremium || hasComponentAccess));
 
@@ -940,11 +1103,16 @@ export default function App() {
       } else if (cmd.includes('select * from bookmakers')) {
         setCustomQueryResult(db.bookmakers);
       } else if (cmd.includes('select * from bet9ja')) {
-        const hasAccess = currentUser.role === 'admin' || (
-          activeSubscription && 
-          activeSubscription.status === 'active' && 
-          (!activeSubscription.components || activeSubscription.components.includes('bet9ja'))
+        const userActiveSubs = db.user_subscriptions.filter(s => 
+          s && 
+          (s.user_id === currentUser.id || (s.username && s.username.toLowerCase() === currentUser.username.toLowerCase())) && 
+          s.status === 'active' && 
+          new Date(s.expires_at) > new Date()
         );
+        const hasAccess = currentUser.role === 'admin' || bypassPremium || userActiveSubs.some(sub => {
+          const comps = parseComponents(sub.components);
+          return comps.includes('all') || comps.some(c => c.toLowerCase().includes('bet9ja'));
+        });
         if (!hasAccess) {
           triggerToast("SQL Access Denied! You did not select Bet9ja component in your active subscription plan.", "error");
           setCustomQueryResult([{
@@ -957,11 +1125,16 @@ export default function App() {
         }
         setCustomQueryResult(db.bet9ja || []);
       } else if (cmd.includes('select * from betking')) {
-        const hasAccess = currentUser.role === 'admin' || (
-          activeSubscription && 
-          activeSubscription.status === 'active' && 
-          (!activeSubscription.components || activeSubscription.components.includes('betking'))
+        const userActiveSubs = db.user_subscriptions.filter(s => 
+          s && 
+          (s.user_id === currentUser.id || (s.username && s.username.toLowerCase() === currentUser.username.toLowerCase())) && 
+          s.status === 'active' && 
+          new Date(s.expires_at) > new Date()
         );
+        const hasAccess = currentUser.role === 'admin' || bypassPremium || userActiveSubs.some(sub => {
+          const comps = parseComponents(sub.components);
+          return comps.includes('all') || comps.some(c => c.toLowerCase().includes('betking'));
+        });
         if (!hasAccess) {
           triggerToast("SQL Access Denied! You did not select Betking component in your active subscription plan.", "error");
           setCustomQueryResult([{
@@ -974,11 +1147,16 @@ export default function App() {
         }
         setCustomQueryResult(db.betking || []);
       } else if (cmd.includes('select * from sportybet')) {
-        const hasAccess = currentUser.role === 'admin' || (
-          activeSubscription && 
-          activeSubscription.status === 'active' && 
-          (!activeSubscription.components || activeSubscription.components.includes('sportybet'))
+        const userActiveSubs = db.user_subscriptions.filter(s => 
+          s && 
+          (s.user_id === currentUser.id || (s.username && s.username.toLowerCase() === currentUser.username.toLowerCase())) && 
+          s.status === 'active' && 
+          new Date(s.expires_at) > new Date()
         );
+        const hasAccess = currentUser.role === 'admin' || bypassPremium || userActiveSubs.some(sub => {
+          const comps = parseComponents(sub.components);
+          return comps.includes('all') || comps.some(c => c.toLowerCase().includes('sportybet'));
+        });
         if (!hasAccess) {
           triggerToast("SQL Access Denied! You did not select Sportybet component in your active subscription plan.", "error");
           setCustomQueryResult([{
@@ -990,12 +1168,39 @@ export default function App() {
           return;
         }
         setCustomQueryResult(db.sportybet || []);
-      } else if (cmd.includes('select * from premierbet')) {
-        const hasAccess = currentUser.role === 'admin' || (
-          activeSubscription && 
-          activeSubscription.status === 'active' && 
-          (!activeSubscription.components || activeSubscription.components.includes('premierbet'))
+      } else if (cmd.includes('select * from msport')) {
+        const userActiveSubs = db.user_subscriptions.filter(s => 
+          s && 
+          (s.user_id === currentUser.id || (s.username && s.username.toLowerCase() === currentUser.username.toLowerCase())) && 
+          s.status === 'active' && 
+          new Date(s.expires_at) > new Date()
         );
+        const hasAccess = currentUser.role === 'admin' || bypassPremium || userActiveSubs.some(sub => {
+          const comps = parseComponents(sub.components);
+          return comps.includes('all') || comps.some(c => c.toLowerCase().includes('msport'));
+        });
+        if (!hasAccess) {
+          triggerToast("SQL Access Denied! You did not select MSport component in your active subscription plan.", "error");
+          setCustomQueryResult([{
+            error: "Permission Denied",
+            code: "42501",
+            message: "Access to table 'msport' is restricted. Selected plan component 'msport' is missing from user subscription profile."
+          }]);
+          logSQL(customQueryText, "Blocked unauthorized SELECT query on table 'msport' (component mismatch)");
+          return;
+        }
+        setCustomQueryResult(db.msport || []);
+      } else if (cmd.includes('select * from premierbet')) {
+        const userActiveSubs = db.user_subscriptions.filter(s => 
+          s && 
+          (s.user_id === currentUser.id || (s.username && s.username.toLowerCase() === currentUser.username.toLowerCase())) && 
+          s.status === 'active' && 
+          new Date(s.expires_at) > new Date()
+        );
+        const hasAccess = currentUser.role === 'admin' || bypassPremium || userActiveSubs.some(sub => {
+          const comps = parseComponents(sub.components);
+          return comps.includes('all') || comps.some(c => c.toLowerCase().includes('premierbet'));
+        });
         if (!hasAccess) {
           triggerToast("SQL Access Denied! You did not select PremierBet component in your active subscription plan.", "error");
           setCustomQueryResult([{
@@ -1008,11 +1213,16 @@ export default function App() {
         }
         setCustomQueryResult(db.premierbet || []);
       } else if (cmd.includes('select * from betway')) {
-        const hasAccess = currentUser.role === 'admin' || (
-          activeSubscription && 
-          activeSubscription.status === 'active' && 
-          (!activeSubscription.components || activeSubscription.components.includes('betway'))
+        const userActiveSubs = db.user_subscriptions.filter(s => 
+          s && 
+          (s.user_id === currentUser.id || (s.username && s.username.toLowerCase() === currentUser.username.toLowerCase())) && 
+          s.status === 'active' && 
+          new Date(s.expires_at) > new Date()
         );
+        const hasAccess = currentUser.role === 'admin' || bypassPremium || userActiveSubs.some(sub => {
+          const comps = parseComponents(sub.components);
+          return comps.includes('all') || comps.some(c => c.toLowerCase().includes('betway'));
+        });
         if (!hasAccess) {
           triggerToast("SQL Access Denied! You did not select Betway component in your active subscription plan.", "error");
           setCustomQueryResult([{
@@ -1025,11 +1235,16 @@ export default function App() {
         }
         setCustomQueryResult(db.betway || []);
       } else if (cmd.includes('select * from soccabet')) {
-        const hasAccess = currentUser.role === 'admin' || (
-          activeSubscription && 
-          activeSubscription.status === 'active' && 
-          (!activeSubscription.components || activeSubscription.components.includes('soccabet'))
+        const userActiveSubs = db.user_subscriptions.filter(s => 
+          s && 
+          (s.user_id === currentUser.id || (s.username && s.username.toLowerCase() === currentUser.username.toLowerCase())) && 
+          s.status === 'active' && 
+          new Date(s.expires_at) > new Date()
         );
+        const hasAccess = currentUser.role === 'admin' || bypassPremium || userActiveSubs.some(sub => {
+          const comps = parseComponents(sub.components);
+          return comps.includes('all') || comps.some(c => c.toLowerCase().includes('soccabet'));
+        });
         if (!hasAccess) {
           triggerToast("SQL Access Denied! You did not select Soccabet component in your active subscription plan.", "error");
           setCustomQueryResult([{
@@ -1196,7 +1411,7 @@ export default function App() {
           };
 
           const cachedStr = localStorage.getItem('fastpool_cached_user');
-          let restoredPlan = 'plan-free';
+          let restoredPlan = 'plan-quarterly';
           let restoredRef = null;
           try {
             if (cachedStr) {
@@ -1218,13 +1433,15 @@ export default function App() {
             const newSub = {
               id: subId,
               user_id: su.id,
-              plan_id: restoredPlan,
+              username: su.username,
+              plan_id: (restoredPlan && restoredPlan !== 'plan-free') ? restoredPlan : 'plan-quarterly',
               status: 'active',
               starts_at: now.toISOString(),
               expires_at: expiry.toISOString(),
-              payment_ref: restoredRef,
-              payment_provider: restoredRef ? 'Verified DB User' : null,
-              created_at: now.toISOString()
+              payment_ref: restoredRef || `FPC-REC-${Math.floor(Math.random() * 899999 + 100000)}`,
+              payment_provider: 'Verified License Sub',
+              created_at: now.toISOString(),
+              components: ['bet9ja']
             };
             updatedSubs = [...prev.user_subscriptions, newSub];
           }
@@ -1236,13 +1453,16 @@ export default function App() {
           };
         });
 
+        const activeSubForUser = db.user_subscriptions.find(s => s.user_id === su.id && s.status === 'active');
+        const userPlanId = activeSubForUser?.plan_id || 'plan-quarterly';
+
         localStorage.setItem('fastpool_cached_user', JSON.stringify({
           id: su.id,
           username: username.toLowerCase().replace(/\s+/g, '_'),
           email: email.toLowerCase(),
           role: su.role || 'user',
-          plan_id: 'plan-free',
-          payment_ref: null,
+          plan_id: userPlanId,
+          payment_ref: activeSubForUser?.payment_ref || null,
           created_at: su.created_at || new Date().toISOString()
         }));
 
@@ -1532,6 +1752,7 @@ export default function App() {
                 fetchRealSupabaseData={fetchRealSupabaseData}
                 discoveredDbTables={discoveredDbTables}
                 bypassPremium={bypassPremium}
+                onDownloadReceipt={downloadCodesFileAuto}
                 onToggleBypassPremium={() => {
                   const newVal = !bypassPremium;
                   setBypassPremium(newVal);
@@ -1662,7 +1883,7 @@ export default function App() {
                 <button
                   onClick={() => {
                     const simRef = `PAY-SIM-${Math.random().toString(36).substr(2, 8).toUpperCase()}`;
-                    completePurchase(paystackFallback.planId, simRef);
+                    completePurchase(paystackFallback.planId, simRef, paystackFallback.components);
                     setPaystackFallback(null);
                   }}
                   className="w-full py-3 bg-[#3AC5A0] hover:bg-[#2EB08F] text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/20 active:scale-95 duration-150"

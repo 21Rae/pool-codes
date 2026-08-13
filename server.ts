@@ -300,6 +300,12 @@ app.use((req, res, next) => {
       return res.status(400).json({ success: false, error: "Insert payload must be a non-empty JSON object." });
     }
 
+    // Special handling for user_subscriptions / users_subscriptions / subscriptions tables
+    if (tableName === 'user_subscriptions' || tableName === 'users_subscriptions' || tableName === 'subscriptions') {
+      const rec = await recordSubscriptionInDatabase(rowPayload);
+      return res.json({ success: rec.success, table: tableName, recordedIn: rec.tables, data: rec.record, error: rec.error });
+    }
+
     const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
     const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
 
@@ -1836,14 +1842,163 @@ Please formulate a helpful response based on this information.`;
     });
   });
 
+  async function recordSubscriptionInDatabase(subRecord: any) {
+    const supabase = await getSupabase();
+    if (!supabase) {
+      console.warn("[Sub DB Record] Supabase client unavailable.");
+      return { success: false, reason: "Supabase unconfigured" };
+    }
+
+    const now = new Date();
+    const candidateTables = ['user_subscriptions', 'users_subscriptions', 'subscriptions'];
+
+    // Safely parse components into a native JS string array
+    let compsArray: string[] = [];
+    if (Array.isArray(subRecord.components)) {
+      compsArray = subRecord.components.map((c: any) => String(c).toLowerCase().trim()).filter(Boolean);
+    } else if (typeof subRecord.components === 'string') {
+      const trimmed = subRecord.components.trim();
+      if (trimmed) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (Array.isArray(parsed)) {
+            compsArray = parsed.map((c: any) => String(c).toLowerCase().trim()).filter(Boolean);
+          } else if (typeof parsed === 'string' && parsed.trim()) {
+            compsArray = [parsed.trim().toLowerCase()];
+          }
+        } catch (_) {
+          if (trimmed.includes(',')) {
+            compsArray = trimmed.split(',').map(c => c.toLowerCase().trim()).filter(Boolean);
+          } else {
+            const cleaned = trimmed.replace(/[\[\]"']/g, '').toLowerCase().trim();
+            compsArray = cleaned ? [cleaned] : [];
+          }
+        }
+      }
+    }
+
+    const basePayload: any = {
+      id: subRecord.id || subRecord.subId || `sub_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+      user_id: subRecord.user_id || subRecord.userId || 'usr-anon',
+      plan_id: subRecord.plan_id || subRecord.planId || 'plan-quarterly',
+      status: subRecord.status || 'active',
+      starts_at: subRecord.starts_at || subRecord.startsAt || now.toISOString(),
+      expires_at: subRecord.expires_at || subRecord.expiresAt || new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000).toISOString(),
+      payment_ref: subRecord.payment_ref || subRecord.paymentRef || `REF-${Date.now()}`,
+      payment_provider: subRecord.payment_provider || subRecord.paymentProvider || 'Paystack API Gateway',
+      created_at: subRecord.created_at || now.toISOString()
+    };
+
+    if (subRecord.username) {
+      basePayload.username = subRecord.username;
+    }
+
+    // Prepare candidate payloads: native array (for JSONB/JSON) & stringified (for TEXT)
+    const payloadNative = { ...basePayload, components: compsArray };
+    const payloadStringified = { ...basePayload, components: JSON.stringify(compsArray) };
+
+    const recordedIn: string[] = [];
+    let lastError: string | null = null;
+
+    for (const tableName of candidateTables) {
+      try {
+        // Attempt 1: Native Array (preferred for Supabase JS client and JSONB columns)
+        const { data, error } = await supabase.from(tableName).insert([payloadNative]).select();
+        if (!error && data && data.length > 0) {
+          console.log(`[DB Sub Record Success] Recorded native array in '${tableName}':`, data[0]);
+          recordedIn.push(tableName);
+          continue;
+        }
+
+        // Attempt 2: Stringified JSON string (for plain TEXT / VARCHAR columns)
+        const { data: dataStr, error: errorStr } = await supabase.from(tableName).insert([payloadStringified]).select();
+        if (!errorStr && dataStr && dataStr.length > 0) {
+          console.log(`[DB Sub Record Success] Recorded stringified components in '${tableName}':`, dataStr[0]);
+          recordedIn.push(tableName);
+          continue;
+        }
+
+        // Attempt 3: Upsert/Update existing record if insert failed due to duplicate key
+        const targetId = basePayload.id;
+        const targetRef = basePayload.payment_ref;
+        if (targetId || targetRef) {
+          const { data: dataUpd, error: errorUpd } = await supabase
+            .from(tableName)
+            .update({ components: compsArray })
+            .or(`id.eq.${targetId},payment_ref.eq.${targetRef}`)
+            .select();
+          if (!errorUpd && dataUpd && dataUpd.length > 0) {
+            console.log(`[DB Sub Record Updated] Updated existing record components in '${tableName}':`, dataUpd[0]);
+            recordedIn.push(tableName);
+            continue;
+          }
+
+          const { data: dataUpdStr, error: errorUpdStr } = await supabase
+            .from(tableName)
+            .update({ components: JSON.stringify(compsArray) })
+            .or(`id.eq.${targetId},payment_ref.eq.${targetRef}`)
+            .select();
+          if (!errorUpdStr && dataUpdStr && dataUpdStr.length > 0) {
+            console.log(`[DB Sub Record Updated] Updated existing record stringified components in '${tableName}':`, dataUpdStr[0]);
+            recordedIn.push(tableName);
+            continue;
+          }
+        }
+
+        if (error || errorStr) {
+          lastError = (error && error.message) || (errorStr && errorStr.message) || "Insert error";
+        }
+      } catch (err: any) {
+        lastError = err?.message || String(err);
+      }
+    }
+
+    return {
+      success: recordedIn.length > 0,
+      tables: recordedIn,
+      error: lastError,
+      record: payloadNative
+    };
+  }
+
+  // API Route - Record user subscription in database tables
+  app.post("/api/subscriptions/record", async (req, res) => {
+    const subRecord = req.body;
+    if (!subRecord || (!subRecord.user_id && !subRecord.userId) || (!subRecord.plan_id && !subRecord.planId)) {
+      return res.status(400).json({ success: false, error: "user_id and plan_id are required fields." });
+    }
+
+    const rec = await recordSubscriptionInDatabase(subRecord);
+    return res.json({
+      success: rec.success,
+      recordedIn: rec.tables,
+      data: rec.record,
+      error: rec.error
+    });
+  });
+
   // API Route - Confirm Payment and dispatch/fetch PDF from Supabase
   app.post("/api/payment/confirm", async (req, res) => {
-    const { email, username, planId, paymentRef } = req.body;
+    const { email, username, planId, paymentRef, userId, subId, startsAt, expiresAt, components, paymentProvider } = req.body;
     if (!email) {
       return res.status(400).json({ error: "Email address is required for PDF dispatch." });
     }
 
     console.log(`[Payment Mail Dispatch] Initializing payment confirmation for user: @${username || 'VIP'} (${email}), Plan: ${planId || 'premium'}, Ref: ${paymentRef || 'N/A'}`);
+
+    // Record payment subscription in user_subscriptions database tables
+    const dbSubResult = await recordSubscriptionInDatabase({
+      id: subId,
+      user_id: userId,
+      username,
+      plan_id: planId,
+      status: 'active',
+      starts_at: startsAt,
+      expires_at: expiresAt,
+      payment_ref: paymentRef,
+      payment_provider: paymentProvider || 'Paystack API Gateway',
+      components
+    });
 
     let pdfUrl = "https://storage.poolcodes.com/files/w49-betking-premium.pdf"; // robust default fallback
     let pdfName = "FastPoolCodes_Week_49_VIP_Codesheet.pdf";
