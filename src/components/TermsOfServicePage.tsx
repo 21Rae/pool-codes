@@ -70,34 +70,42 @@ export default function TermsOfServicePage({ onBack, triggerToast }: TermsOfServ
   );
 
   const handlePrint = () => {
+    // Purge any existing stale print elements
+    const staleDivs = document.querySelectorAll('.printable-dynamic-container, #printable-coupon-pdf, #printable-terms-sheet');
+    staleDivs.forEach(node => node.remove());
+    const staleStyles = document.querySelectorAll('#print-coupon-override, #print-terms-override');
+    staleStyles.forEach(style => style.remove());
+
     const printDiv = document.createElement('div');
-    printDiv.id = 'printable-terms-pdf';
+    printDiv.id = 'printable-terms-sheet';
+    printDiv.className = 'printable-dynamic-container';
     printDiv.style.position = 'fixed';
     printDiv.style.left = '0';
     printDiv.style.top = '0';
     printDiv.style.width = '100%';
+    printDiv.style.boxSizing = 'border-box';
     printDiv.style.backgroundColor = 'white';
     printDiv.style.color = 'black';
     printDiv.style.zIndex = '9999999';
-    printDiv.style.padding = '40px';
-    printDiv.style.fontFamily = 'sans-serif';
+    printDiv.style.padding = '20px';
+    printDiv.style.fontFamily = 'system-ui, -apple-system, sans-serif';
 
     printDiv.innerHTML = `
-      <div style="border-bottom: 3px solid #10b981; padding-bottom: 15px; margin-bottom: 25px; text-align: left;">
-        <h1 style="margin: 0; font-size: 22px; text-transform: uppercase; color: #0f172a; letter-spacing: -0.5px;">⚽ FASTPOOLCODES // LEGAL SERVICES</h1>
-        <h2 style="margin: 5px 0 0 0; text-transform: uppercase; font-size: 14px; color: #10b981;">OFFICIAL TERMS OF SERVICE AND COMPLIANCE CONTRACT</h2>
-        <p style="margin: 8px 0 0 0; font-size: 11px; color: #475569;">Document Classification: Public Secure / Verified for All Users | Date: ${new Date().toLocaleDateString()}</p>
+      <div style="border-bottom: 2px solid #059669; padding-bottom: 10px; margin-bottom: 12px; text-align: left;">
+        <h1 style="margin: 0; font-size: 16px; font-weight: 900; text-transform: uppercase; color: #0f172a; letter-spacing: -0.3px;">⚽ FASTPOOLCODES // LEGAL SERVICES</h1>
+        <h2 style="margin: 3px 0 0 0; text-transform: uppercase; font-size: 11px; font-weight: 700; color: #059669;">OFFICIAL TERMS OF SERVICE AND COMPLIANCE CONTRACT</h2>
+        <p style="margin: 4px 0 0 0; font-size: 9px; color: #475569; font-family: monospace;">Document Classification: Public Secure / Verified for All Users | Date: ${new Date().toLocaleDateString()}</p>
       </div>
-      <div style="font-size: 12px; line-height: 1.6; color: #1e293b; margin-bottom: 30px;">
-        <p style="font-weight: bold; margin-bottom: 15px;">Please read these terms carefully before registering your forecasting account on FastPoolCodes.</p>
+      <div style="font-size: 9.5px; line-height: 1.35; color: #1e293b; margin-bottom: 15px;">
+        <p style="font-weight: 700; margin-bottom: 8px;">Please read these terms carefully before registering your forecasting account on FastPoolCodes.</p>
         ${termsSections.map(s => `
-          <div style="margin-bottom: 20px;">
-            <h3 style="font-size: 13px; font-weight: bold; color: #0f172a; margin-bottom: 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 3px;">${s.title}</h3>
-            <p style="margin: 0;">${s.content}</p>
+          <div style="margin-bottom: 8px; page-break-inside: avoid; break-inside: avoid;">
+            <h3 style="font-size: 10px; font-weight: 800; color: #0f172a; margin-bottom: 2px; border-bottom: 1px solid #e2e8f0; padding-bottom: 1px;">${s.title}</h3>
+            <p style="margin: 0; text-align: justify;">${s.content}</p>
           </div>
         `).join('')}
       </div>
-      <div style="margin-top: 40px; border-top: 1px solid #cbd5e1; padding-top: 15px; font-size: 9px; color: #64748b; text-align: center;">
+      <div style="margin-top: 15px; border-top: 1px solid #cbd5e1; padding-top: 8px; font-size: 8px; color: #64748b; text-align: center;">
         © 2026 FastPoolCodes. All rights reserved. Secure legal terms valid worldwide.
       </div>
     `;
@@ -108,22 +116,54 @@ export default function TermsOfServicePage({ onBack, triggerToast }: TermsOfServ
     printStyle.id = 'print-terms-override';
     printStyle.innerHTML = `
       @media print {
+        @page {
+          size: A4 portrait;
+          margin: 8mm 10mm;
+        }
+        html, body {
+          margin: 0 !important;
+          padding: 0 !important;
+          background: #ffffff !important;
+          color: #000000 !important;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
         body * {
           visibility: hidden !important;
         }
-        #printable-terms-pdf, #printable-terms-pdf * {
+        #printable-terms-sheet, #printable-terms-sheet * {
           visibility: visible !important;
+        }
+        #printable-terms-sheet {
+          position: absolute !important;
+          left: 0 !important;
+          top: 0 !important;
+          width: 100% !important;
+          max-width: 190mm !important;
+          margin: 0 auto !important;
+          padding: 0 !important;
+          background: #ffffff !important;
+          color: #000000 !important;
+          box-shadow: none !important;
+          border: none !important;
+          page-break-after: avoid !important;
+          page-break-inside: avoid !important;
         }
       }
     `;
     document.head.appendChild(printStyle);
 
     setTimeout(() => {
-      window.print();
+      try {
+        window.print();
+      } catch (err) {
+        console.warn('window.print error:', err);
+      }
+
       setTimeout(() => {
         printDiv.remove();
         printStyle.remove();
-        triggerToast('Terms of Service document print dialog opened successfully.', 'success');
+        triggerToast('Terms of Service document print dialog launched.', 'success');
       }, 500);
     }, 100);
   };

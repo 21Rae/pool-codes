@@ -957,6 +957,12 @@ export default function OfficePoolStopHome({
                     );
                   });
 
+                  // Purge any stale print nodes first
+                  const staleDivs = document.querySelectorAll('.printable-dynamic-container, #printable-coupon-pdf, #printable-home-results-sheet');
+                  staleDivs.forEach(node => node.remove());
+                  const staleStyles = document.querySelectorAll('#print-coupon-override, #print-terms-override');
+                  staleStyles.forEach(style => style.remove());
+
                   const rows = filtered.map((row: any) => [
                     String(row.matchNo),
                     row.homeTeam || '',
@@ -966,40 +972,60 @@ export default function OfficePoolStopHome({
                     row.payoutStatus || ''
                   ]);
 
+                  const snapshotRows = [...rows];
+                  const rowCount = snapshotRows.length;
+                  const fontSize = rowCount > 25 ? '8px' : rowCount > 15 ? '9px' : '10px';
+                  const cellPadding = rowCount > 25 ? '3px 5px' : rowCount > 15 ? '4px 6px' : '5px 8px';
+
                   const printDiv = document.createElement('div');
-                  printDiv.id = 'printable-coupon-pdf';
+                  printDiv.id = 'printable-home-results-sheet';
+                  printDiv.className = 'printable-dynamic-container';
                   printDiv.style.position = 'fixed';
                   printDiv.style.left = '0';
                   printDiv.style.top = '0';
                   printDiv.style.width = '100%';
+                  printDiv.style.boxSizing = 'border-box';
                   printDiv.style.backgroundColor = 'white';
                   printDiv.style.color = 'black';
                   printDiv.style.zIndex = '9999999';
-                  printDiv.style.padding = '30px';
-                  printDiv.style.fontFamily = 'monospace';
+                  printDiv.style.padding = '20px';
+                  printDiv.style.fontFamily = 'system-ui, -apple-system, sans-serif';
 
                   printDiv.innerHTML = `
-                    <div style="border-bottom: 2px solid black; padding-bottom: 15px; margin-bottom: 20px; font-family: sans-serif; text-align: left;">
-                      <h2 style="margin: 0; text-transform: uppercase; font-size: 16px; letter-spacing: -0.5px;">⚽ FASTPOOLCODES // PRINT SERVICE</h2>
-                      <h3 style="margin: 5px 0 0 0; text-transform: uppercase; font-size: 12px; color: #10b981;">WEEK ${result.week_number} POOL RESULTS - ${result.title}</h3>
-                      <p style="margin: 5px 0 0 0; font-size: 10px; color: #555;">Generated on ${new Date().toLocaleDateString()}</p>
+                    <div style="position: absolute; inset: 0; overflow: hidden; pointer-events: none; opacity: 0.04; display: flex; flex-wrap: wrap; justify-content: space-around; align-content: space-around; z-index: 0; user-select: none;">
+                      ${Array.from({ length: 24 }).map(() => `
+                        <div style="font-family: monospace; font-weight: 900; font-size: 11px; text-transform: uppercase; color: #0f172a; white-space: nowrap; margin: 35px; transform: rotate(-25deg);">
+                          fastpoolcodes official result
+                        </div>
+                      `).join('')}
                     </div>
-                    <table style="width: 100%; border-collapse: collapse; font-size: 10px; text-align: left; font-family: monospace;">
-                      <thead>
-                        <tr style="background-color: #0f172a; color: white;">
-                          ${headers.map(h => `<th style="border: 1px solid #cbd5e1; padding: 6px; text-transform: uppercase;">${h}</th>`).join('')}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        ${rows.map((row, rIdx) => `
-                          <tr style="background-color: ${rIdx % 2 === 0 ? '#f8fafc' : '#ffffff'};">
-                            ${row.map(cell => `<td style="border: 1px solid #cbd5e1; padding: 6px; color: #0f172a;">${cell}</td>`).join('')}
+                    <div style="position: relative; z-index: 10; width: 100%; box-sizing: border-box;">
+                      <div style="border-bottom: 2px solid #0f172a; padding-bottom: 8px; margin-bottom: 12px; font-family: system-ui, -apple-system, sans-serif; text-align: left; display: flex; justify-content: space-between; align-items: flex-end;">
+                        <div>
+                          <h2 style="margin: 0; text-transform: uppercase; font-size: 14px; font-weight: 900; letter-spacing: -0.3px; color: #0f172a;">⚽ FASTPOOLCODES // PRINT SERVICE</h2>
+                          <h3 style="margin: 3px 0 0 0; text-transform: uppercase; font-size: 11px; font-weight: 700; color: #059669;">WEEK ${result.week_number} POOL RESULTS - ${result.title}</h3>
+                        </div>
+                        <div style="text-align: right; font-size: 9px; color: #475569; font-family: monospace;">
+                          <span>Generated: ${new Date().toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                      <table style="width: 100%; border-collapse: collapse; font-size: ${fontSize}; text-align: left; font-family: system-ui, -apple-system, sans-serif; line-height: 1.35; page-break-inside: avoid;">
+                        <thead>
+                          <tr style="background-color: #0f172a; color: white;">
+                            ${headers.map(h => `<th style="border: 1px solid #0f172a; padding: ${cellPadding}; text-transform: uppercase; font-size: ${fontSize}; font-weight: 800;">${h}</th>`).join('')}
                           </tr>
-                        `).join('')}
-                      </tbody>
-                    </table>
-                    <div style="margin-top: 30px; border-top: 1px solid #cbd5e1; padding-top: 10px; font-size: 8px; color: #64748b; text-align: center; font-family: sans-serif;">
-                      © 2026 FastPoolCodes. Secure printable document license.
+                        </thead>
+                        <tbody>
+                          ${snapshotRows.map((row, rIdx) => `
+                            <tr style="background-color: ${rIdx % 2 === 0 ? '#f8fafc' : '#ffffff'}; page-break-inside: avoid; break-inside: avoid;">
+                              ${row.map(cell => `<td style="border: 1px solid #cbd5e1; padding: ${cellPadding}; color: #0f172a; font-weight: 500; word-break: break-word;">${cell}</td>`).join('')}
+                            </tr>
+                          `).join('')}
+                        </tbody>
+                      </table>
+                      <div style="margin-top: 15px; border-top: 1px solid #cbd5e1; padding-top: 8px; font-size: 8px; color: #64748b; text-align: center; font-family: system-ui, -apple-system, sans-serif;">
+                        © 2026 FastPoolCodes. Secure printable document license.
+                      </div>
                     </div>
                   `;
 
@@ -1009,18 +1035,48 @@ export default function OfficePoolStopHome({
                   printStyle.id = 'print-coupon-override';
                   printStyle.innerHTML = `
                     @media print {
+                      @page {
+                        size: A4 portrait;
+                        margin: 8mm 10mm;
+                      }
+                      html, body {
+                        margin: 0 !important;
+                        padding: 0 !important;
+                        background: #ffffff !important;
+                        color: #000000 !important;
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                      }
                       body * {
                         visibility: hidden !important;
                       }
-                      #printable-coupon-pdf, #printable-coupon-pdf * {
+                      #printable-home-results-sheet, #printable-home-results-sheet * {
                         visibility: visible !important;
+                      }
+                      #printable-home-results-sheet {
+                        position: absolute !important;
+                        left: 0 !important;
+                        top: 0 !important;
+                        width: 100% !important;
+                        max-width: 190mm !important;
+                        margin: 0 auto !important;
+                        padding: 0 !important;
+                        background: #ffffff !important;
+                        color: #000000 !important;
+                        box-shadow: none !important;
+                        border: none !important;
+                        border-radius: 0 !important;
+                        page-break-after: avoid !important;
+                        page-break-inside: avoid !important;
                       }
                     }
                   `;
                   document.head.appendChild(printStyle);
 
                   setTimeout(() => {
-                    window.print();
+                    try {
+                      window.print();
+                    } catch (e) {}
                     setTimeout(() => {
                       printDiv.remove();
                       printStyle.remove();

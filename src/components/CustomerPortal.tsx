@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import {
   Home,
   Check,
@@ -327,6 +329,7 @@ export default function CustomerPortal({
     showTips: true,
     showOdds: true,
     showVerificationStamp: true,
+    bookmakerFilter: 'Bet9ja',
     theme: 'classic', // 'classic' | 'emerald' | 'compact'
     customNote: 'Decrypted with Premium VIP Authorization. FastPoolCodes All rights reserved.'
   });
@@ -453,75 +456,136 @@ export default function CustomerPortal({
     }
   };
 
+  // Helper to clean up any previous print containers or style overrides to prevent duplicates
+  const cleanupExistingPrintNodes = () => {
+    const staleDivs = document.querySelectorAll('.printable-dynamic-container, #printable-coupon-pdf, #printable-dynamic-table-sheet, #printable-coupon-modal-sheet');
+    staleDivs.forEach(node => node.remove());
+    const staleStyles = document.querySelectorAll('#print-coupon-override, #print-terms-override');
+    staleStyles.forEach(style => style.remove());
+  };
+
   // Reusable lightweight PDF/Print generation engine for data tables
   const printTable = (title: string, headers: string[], rows: any[][]) => {
+    // 1. Immediately purge any existing dynamic print nodes to guarantee a clean single-snapshot print
+    cleanupExistingPrintNodes();
+
     const printDiv = document.createElement('div');
-    printDiv.id = 'printable-coupon-pdf';
+    printDiv.id = 'printable-dynamic-table-sheet';
+    printDiv.className = 'printable-dynamic-container';
     printDiv.style.position = 'fixed';
     printDiv.style.left = '0';
     printDiv.style.top = '0';
     printDiv.style.width = '100%';
+    printDiv.style.boxSizing = 'border-box';
     printDiv.style.backgroundColor = 'white';
     printDiv.style.color = 'black';
     printDiv.style.zIndex = '9999999';
-    printDiv.style.padding = '30px';
-    printDiv.style.fontFamily = 'monospace';
+    printDiv.style.padding = '20px';
+    printDiv.style.fontFamily = 'system-ui, -apple-system, sans-serif';
 
-    printDiv.innerHTML = `
-      <div style="position: absolute; inset: 0; overflow: hidden; pointer-events: none; opacity: 0.18; display: flex; flex-wrap: wrap; justify-content: space-around; align-content: space-around; z-index: 0; pointer-events: none; user-select: none;">
-        ${Array.from({ length: 40 }).map(() => `
-          <div style="font-family: monospace; font-weight: 950; font-size: 13px; text-transform: uppercase; color: #0f172a; white-space: nowrap; margin: 25px; transform: rotate(-30deg); transform-origin: center;">
-            fastpoolcodes ${currentUser.email}
+    // Snapshot rows to ensure pure single-state snapshot without array mutation
+    const snapshotRows = Array.isArray(rows) ? [...rows] : [];
+    const rowCount = snapshotRows.length;
+    const fontSize = rowCount > 25 ? '8px' : rowCount > 15 ? '9px' : '10px';
+    const cellPadding = rowCount > 25 ? '3px 5px' : rowCount > 15 ? '4px 6px' : '5px 8px';
+
+    const innerContentHtml = `
+      <div style="position: absolute; inset: 0; overflow: hidden; pointer-events: none; opacity: 0.04; display: flex; flex-wrap: wrap; justify-content: space-around; align-content: space-around; z-index: 0; user-select: none;">
+        ${Array.from({ length: 24 }).map(() => `
+          <div style="font-family: monospace; font-weight: 900; font-size: 11px; text-transform: uppercase; color: #0f172a; white-space: nowrap; margin: 35px; transform: rotate(-25deg);">
+            fastpoolcodes • ${currentUser.email}
           </div>
         `).join('')}
       </div>
-      <div style="position: relative; z-index: 10;">
-        <div style="border-bottom: 2px solid black; padding-bottom: 15px; margin-bottom: 20px; font-family: sans-serif; text-align: left;">
-          <h2 style="margin: 0; text-transform: uppercase; font-size: 16px; letter-spacing: -0.5px;">⚽ FASTPOOLCODES // PRINT SERVICE</h2>
-          <h3 style="margin: 5px 0 0 0; text-transform: uppercase; font-size: 12px; color: #10b981;">${title}</h3>
-          <p style="margin: 5px 0 0 0; font-size: 10px; color: #555;">Generated for: @${currentUser.username} (${currentUser.email}) on ${new Date().toLocaleDateString()}</p>
+      <div style="position: relative; z-index: 10; width: 100%; box-sizing: border-box;">
+        <div style="border-bottom: 2px solid #0f172a; padding-bottom: 8px; margin-bottom: 12px; font-family: system-ui, -apple-system, sans-serif; text-align: left;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-end;">
+            <div>
+              <h2 style="margin: 0; text-transform: uppercase; font-size: 14px; font-weight: 900; letter-spacing: -0.3px; color: #0f172a;">⚽ FASTPOOLCODES // OFFICIAL REPORT</h2>
+              <h3 style="margin: 3px 0 0 0; text-transform: uppercase; font-size: 11px; font-weight: 700; color: #059669;">${title}</h3>
+            </div>
+            <div style="text-align: right; font-size: 9px; color: #475569; font-family: monospace;">
+              <span>User: @${currentUser.username} (${currentUser.email})</span><br/>
+              <span>Date: ${new Date().toLocaleDateString()}</span>
+            </div>
+          </div>
         </div>
-        <table style="width: 100%; border-collapse: collapse; font-size: 10px; text-align: left; font-family: monospace;">
+        <table style="width: 100%; border-collapse: collapse; font-size: ${fontSize}; text-align: left; font-family: system-ui, -apple-system, sans-serif; line-height: 1.35; page-break-inside: avoid;">
           <thead>
             <tr style="background-color: #0f172a; color: white;">
-              ${headers.map(h => `<th style="border: 1px solid #cbd5e1; padding: 6px; text-transform: uppercase;">${h}</th>`).join('')}
+              ${headers.map(h => `<th style="border: 1px solid #0f172a; padding: ${cellPadding}; text-transform: uppercase; font-size: ${fontSize}; font-weight: 800; letter-spacing: 0.3px;">${h}</th>`).join('')}
             </tr>
           </thead>
           <tbody>
-            ${rows.map((row, rIdx) => `
-              <tr style="background-color: ${rIdx % 2 === 0 ? '#f8fafc' : '#ffffff'};">
-                ${row.map(cell => `<td style="border: 1px solid #cbd5e1; padding: 6px; color: #0f172a;">${cell}</td>`).join('')}
+            ${snapshotRows.map((row, rIdx) => `
+              <tr style="background-color: ${rIdx % 2 === 0 ? '#f8fafc' : '#ffffff'}; page-break-inside: avoid; break-inside: avoid;">
+                ${row.map(cell => `<td style="border: 1px solid #cbd5e1; padding: ${cellPadding}; color: #0f172a; font-weight: 500; word-break: break-word;">${cell}</td>`).join('')}
               </tr>
             `).join('')}
           </tbody>
         </table>
-        <div style="margin-top: 30px; border-top: 1px solid #cbd5e1; padding-top: 10px; font-size: 8px; color: #64748b; text-align: center; font-family: sans-serif;">
-          © 2026 FastPoolCodes. Secure printable document license for @${currentUser.username}.
+        <div style="margin-top: 15px; border-top: 1px solid #cbd5e1; padding-top: 8px; font-size: 8px; color: #64748b; text-align: center; font-family: system-ui, -apple-system, sans-serif;">
+          © 2026 FastPoolCodes. Verified A4 Printable Document License for @${currentUser.username}.
         </div>
       </div>
     `;
 
+    printDiv.innerHTML = innerContentHtml;
     document.body.appendChild(printDiv);
 
     const printStyle = document.createElement('style');
     printStyle.id = 'print-coupon-override';
     printStyle.innerHTML = `
       @media print {
+        @page {
+          size: A4 portrait;
+          margin: 8mm 10mm;
+        }
+        html, body {
+          margin: 0 !important;
+          padding: 0 !important;
+          background: #ffffff !important;
+          color: #000000 !important;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
         body * {
           visibility: hidden !important;
         }
-        #printable-coupon-pdf, #printable-coupon-pdf * {
+        #printable-dynamic-table-sheet, #printable-dynamic-table-sheet * {
           visibility: visible !important;
+        }
+        #printable-dynamic-table-sheet {
+          position: absolute !important;
+          left: 0 !important;
+          top: 0 !important;
+          width: 100% !important;
+          max-width: 190mm !important;
+          margin: 0 auto !important;
+          padding: 0 !important;
+          background: #ffffff !important;
+          color: #000000 !important;
+          box-shadow: none !important;
+          border: none !important;
+          border-radius: 0 !important;
+          page-break-after: avoid !important;
+          page-break-inside: avoid !important;
         }
       }
     `;
     document.head.appendChild(printStyle);
 
     setTimeout(() => {
-      window.print();
+      try {
+        window.print();
+      } catch (err) {
+        console.warn('window.print blocked or failed:', err);
+      }
+
+      triggerToast('Report print dialog launched.', 'success');
+
       setTimeout(() => {
-        printDiv.remove();
-        printStyle.remove();
+        cleanupExistingPrintNodes();
       }, 500);
     }, 100);
   };
@@ -2093,12 +2157,19 @@ export default function CustomerPortal({
                         {/* Download PDF Customizer Button */}
                         <button
                           onClick={() => {
+                            setPdfConfig(prev => ({
+                              ...prev,
+                              bookmakerFilter: dashboardBookmakerFilter || 'Bet9ja'
+                            }));
                             setShowPdfPrintModal(true);
                           }}
-                          className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 shadow shadow-emerald-500/10 shrink-0 font-mono animate-pulse"
+                          className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 shrink-0 font-mono"
                         >
-                          <span>📄 Download PDF</span>
+                          <Download className="w-4 h-4" />
+                          <span>Download PDF</span>
                         </button>
+
+
                       </div>
                     </div>
 
@@ -5661,6 +5732,22 @@ export default function CustomerPortal({
                     </p>
                     <div className="border-t border-slate-900 pt-4 space-y-2.5">
                       <div className="flex items-center justify-between text-[10px] font-mono text-slate-500">
+                        <span>BOOKMAKER TABLE:</span>
+                        <select
+                          value={pdfConfig.bookmakerFilter || 'Bet9ja'}
+                          onChange={(e) => setPdfConfig(prev => ({ ...prev, bookmakerFilter: e.target.value }))}
+                          className="bg-slate-900 text-emerald-400 font-bold border border-slate-800 rounded px-2 py-1 text-[11px] focus:outline-none focus:border-emerald-500"
+                        >
+                          <option value="Bet9ja">Bet9ja Table</option>
+                          <option value="BetKing">BetKing Table</option>
+                          <option value="SportyBet">SportyBet Table</option>
+                          <option value="PremierBet">PremierBet Table</option>
+                          <option value="Betway">Betway Table</option>
+                          <option value="Soccabet">Soccabet Table</option>
+                          <option value="MSport">MSport Table</option>
+                        </select>
+                      </div>
+                      <div className="flex items-center justify-between text-[10px] font-mono text-slate-500">
                         <span>FORMAT TYPE:</span>
                         <span className="text-white font-bold uppercase">A4 PDF Print-Ready</span>
                       </div>
@@ -5670,63 +5757,235 @@ export default function CustomerPortal({
                       </div>
                       <div className="flex items-center justify-between text-[10px] font-mono text-slate-500">
                         <span>LICENSED SUBSCRIBER:</span>
-                        <span className="text-amber-400 font-bold truncate max-w-[130px]">@{currentUser.username}</span>
+                        <span className="text-amber-400 font-bold truncate max-w-[130px]">@{currentUser?.username || 'user'}</span>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Print Trigger block */}
-                <div className="p-5 border-t border-slate-800/85 bg-slate-950 flex flex-col gap-3 shrink-0">
+                {/* Print & PDF Export Action Controls */}
+                <div className="p-5 border-t border-slate-800/85 bg-slate-950 flex flex-col gap-2.5 shrink-0">
+                  {/* Primary PDF Download Button */}
                   <button
                     onClick={() => {
-                      // Dynamically create temporary style sheet for printing to isolate our specific printable sheet
-                      const printStyle = document.createElement('style');
-                      printStyle.id = 'print-coupon-override';
-                      printStyle.innerHTML = `
-                        @media print {
-                          body * {
-                            visibility: hidden !important;
+                      triggerToast('Generating official PDF document...', 'info');
+
+                      try {
+                        const activeBookmaker = pdfConfig.bookmakerFilter || dashboardBookmakerFilter || 'Bet9ja';
+                        const normStr = (s: string) => (s || '').replace(/\s+/g, '').toLowerCase();
+                        const targetNorm = normStr(activeBookmaker);
+
+                        const rawList = postedGames.filter(game => {
+                          if (activeBookmaker === 'all') return true;
+                          const gameBookieNorm = normStr(game.bookmaker);
+                          const gameSourceNorm = normStr(game.sourceTable || '');
+                          return gameBookieNorm === targetNorm || gameSourceNorm === targetNorm;
+                        });
+
+                        const seenPools = new Map<string, typeof rawList[0]>();
+                        rawList.forEach(game => {
+                          const key = game.poolNo !== undefined && game.poolNo !== null && String(game.poolNo).trim() !== ''
+                            ? String(game.poolNo)
+                            : game.id;
+                          if (!seenPools.has(key)) {
+                            seenPools.set(key, game);
                           }
-                          #printable-coupon-pdf, #printable-coupon-pdf * {
-                            visibility: visible !important;
-                          }
-                          #printable-coupon-pdf {
-                            position: fixed !important;
-                            left: 0 !important;
-                            top: 0 !important;
-                            width: 100% !important;
-                            height: auto !important;
-                            background: white !important;
-                            color: black !important;
-                            z-index: 9999999 !important;
-                            padding: 20px !important;
-                            margin: 0 !important;
-                          }
+                        });
+
+                        const pdfFilteredGames = Array.from(seenPools.values());
+                        pdfFilteredGames.sort((a, b) => (Number(a.poolNo) || 0) - (Number(b.poolNo) || 0));
+
+                        const doc = new jsPDF({
+                          orientation: 'portrait',
+                          unit: 'mm',
+                          format: 'a4',
+                        });
+
+                        const pageWidth = doc.internal.pageSize.getWidth();
+                        const pageHeight = doc.internal.pageSize.getHeight();
+
+                        let currentY = 14;
+
+                        // Header Banner
+                        doc.setFillColor(15, 23, 42); // slate-900
+                        doc.rect(14, currentY, pageWidth - 28, 16, 'F');
+                        
+                        doc.setTextColor(255, 255, 255);
+                        doc.setFontSize(13);
+                        doc.setFont('helvetica', 'bold');
+                        doc.text('FASTPOOLCODES', 19, currentY + 10.5);
+                        
+                        doc.setTextColor(52, 211, 153); // emerald-400
+                        doc.setFontSize(8.5);
+                        doc.setFont('helvetica', 'bold');
+                        doc.text(`[${activeBookmaker.toUpperCase()}] OFFICIAL WEEK ${activeWeekNumber || 43} SHEET`, pageWidth - 19, currentY + 10.5, { align: 'right' });
+                        
+                        currentY += 21;
+
+                        // Title & Subtitle
+                        doc.setTextColor(15, 23, 42);
+                        doc.setFontSize(12);
+                        doc.setFont('helvetica', 'bold');
+                        doc.text(pdfConfig.title || `Week ${activeWeekNumber || 43} Classified Coupon Codes`, 14, currentY);
+                        
+                        currentY += 4.5;
+                        doc.setTextColor(100, 116, 139);
+                        doc.setFontSize(8.5);
+                        doc.setFont('helvetica', 'normal');
+                        doc.text(pdfConfig.subtitle || 'Automated Cryptographic Coupon Signatures & Verification Records', 14, currentY);
+
+                        currentY += 6.5;
+
+                        // Metadata Card Box
+                        doc.setFillColor(248, 250, 252);
+                        doc.setDrawColor(203, 213, 225);
+                        doc.roundedRect(14, currentY, pageWidth - 28, 17, 2, 2, 'FD');
+
+                        doc.setFontSize(7.5);
+                        doc.setTextColor(100, 116, 139);
+                        doc.text('LICENSEE NICK:', 18, currentY + 5.5);
+                        doc.setTextColor(15, 23, 42);
+                        doc.setFont('helvetica', 'bold');
+                        doc.text(`@${currentUser?.username || 'user'}`, 18, currentY + 12);
+
+                        doc.setFont('helvetica', 'normal');
+                        doc.setTextColor(100, 116, 139);
+                        doc.text('REGISTERED EMAIL:', 65, currentY + 5.5);
+                        doc.setTextColor(15, 23, 42);
+                        doc.setFont('helvetica', 'bold');
+                        doc.text(currentUser?.email || 'user@fastpoolcodes.com', 65, currentY + 12);
+
+                        doc.setFont('helvetica', 'normal');
+                        doc.setTextColor(100, 116, 139);
+                        doc.text('ACTIVE SEASON:', 125, currentY + 5.5);
+                        doc.setTextColor(5, 150, 105);
+                        doc.setFont('helvetica', 'bold');
+                        doc.text(`WEEK ${activeWeekNumber || 43} (2026)`, 125, currentY + 12);
+
+                        doc.setFont('helvetica', 'normal');
+                        doc.setTextColor(100, 116, 139);
+                        doc.text('COMPLIANCE KEY:', 160, currentY + 5.5);
+                        doc.setTextColor(15, 23, 42);
+                        doc.setFont('helvetica', 'bold');
+                        doc.text(`SHA256:FPC-${(currentUser?.id || 'guest').slice(0, 5).toUpperCase()}`, 160, currentY + 12);
+
+                        currentY += 21;
+
+                        // Warning Clause Box
+                        doc.setFillColor(254, 252, 232);
+                        doc.setDrawColor(254, 240, 138);
+                        doc.roundedRect(14, currentY, pageWidth - 28, 10, 1, 1, 'FD');
+                        doc.setFontSize(7);
+                        doc.setTextColor(133, 77, 14);
+                        doc.setFont('helvetica', 'bold');
+                        doc.text('VIP PRINT LICENSE CLAUSE:', 18, currentY + 4.2);
+                        doc.setFont('helvetica', 'normal');
+                        doc.text(`Generated specifically for @${currentUser?.username || 'user'}. Distribution or scanning is trace-monitored.`, 18, currentY + 7.8);
+
+                        currentY += 13;
+
+                        // Table Columns Setup
+                        const tableHeaders: string[] = ['Pool No', 'Bet Code', 'Match Details (Home vs Away)'];
+                        if (pdfConfig.showOdds) {
+                          tableHeaders.push('1', 'X', '2');
                         }
-                      `;
-                      document.head.appendChild(printStyle);
-                      
-                      setTimeout(() => {
-                        window.print();
-                        setTimeout(() => {
-                          const styleNode = document.getElementById('print-coupon-override');
-                          if (styleNode) {
-                            styleNode.remove();
+                        if (pdfConfig.showTips) {
+                          tableHeaders.push('Expert Tip');
+                        }
+                        if (pdfConfig.showBookmaker) {
+                          tableHeaders.push('Bookmaker');
+                        }
+
+                        const tableData = pdfFilteredGames.map(game => {
+                          const row: string[] = [
+                            String(game.poolNo || '-'),
+                            String(game.betCode || '-'),
+                            `${game.home || ''} vs ${game.away || ''}`,
+                          ];
+                          if (pdfConfig.showOdds) {
+                            row.push(String(game.homeWin || '-'), String(game.draw || '-'), String(game.awayWin || '-'));
                           }
-                        }, 500);
-                      }, 100);
-                      
-                      triggerToast('Opening printer preferences to save PDF...', 'success');
+                          if (pdfConfig.showTips) {
+                            row.push(String(game.betTips || 'DRAW (X)'));
+                          }
+                          if (pdfConfig.showBookmaker) {
+                            row.push(String(game.bookmaker || '-'));
+                          }
+                          return row;
+                        });
+
+                        autoTable(doc, {
+                          startY: currentY,
+                          head: [tableHeaders],
+                          body: tableData.length > 0 ? tableData : [['-', '-', 'No classified fixtures found', ...tableHeaders.slice(3).map(() => '-')]],
+                          theme: 'grid',
+                          margin: { left: 14, right: 14 },
+                          headStyles: {
+                            fillColor: [15, 23, 42],
+                            textColor: [255, 255, 255],
+                            fontSize: 8,
+                            fontStyle: 'bold',
+                            halign: 'center',
+                          },
+                          bodyStyles: {
+                            fontSize: 7.5,
+                            textColor: [15, 23, 42],
+                            cellPadding: 2,
+                          },
+                          alternateRowStyles: {
+                            fillColor: [248, 250, 252],
+                          },
+                          columnStyles: {
+                            0: { halign: 'center', fontStyle: 'bold', cellWidth: 16 },
+                            1: { halign: 'center', fontStyle: 'bold', cellWidth: 20 },
+                            2: { halign: 'left', fontStyle: 'bold' },
+                          },
+                          didDrawPage: (data) => {
+                            // Footer on every page
+                            doc.setFontSize(7);
+                            doc.setTextColor(148, 163, 184);
+                            doc.text(
+                              `FastPoolCodes Official Classified Coupon • Week ${activeWeekNumber || 43} • Licensed to ${currentUser?.email || 'user'} • Page ${data.pageNumber}`,
+                              14,
+                              pageHeight - 7
+                            );
+                          }
+                        });
+
+                        // Faint watermark across all pages
+                        const totalPages = (doc as any).internal.getNumberOfPages();
+                        for (let p = 1; p <= totalPages; p++) {
+                          doc.setPage(p);
+                          doc.saveGraphicsState();
+                          doc.setTextColor(235, 240, 245);
+                          doc.setFontSize(12);
+                          doc.setFont('helvetica', 'bold');
+                          
+                          const watermarkText = `FASTPOOLCODES • ${currentUser?.email || 'user@fastpoolcodes.com'}`;
+                          for (let y = 35; y < pageHeight - 10; y += 45) {
+                            for (let x = 15; x < pageWidth; x += 90) {
+                              doc.text(watermarkText, x, y, { angle: -25 });
+                            }
+                          }
+                          doc.restoreGraphicsState();
+                        }
+
+                        const filename = `FastPoolCodes_${activeBookmaker}_Week_${activeWeekNumber || 43}.pdf`;
+                        doc.save(filename);
+                        triggerToast('PDF document downloaded successfully!', 'success');
+                      } catch (err) {
+                        console.error('PDF generation error:', err);
+                        triggerToast('Failed to generate PDF document.', 'error');
+                      }
                     }}
-                    className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/10 font-mono"
+                    className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 font-mono"
                   >
-                    <Printer className="w-4 h-4" />
-                    <span>Print or Save PDF</span>
+                    <Download className="w-4 h-4" />
+                    <span>Download PDF File (.pdf)</span>
                   </button>
 
-                  <p className="text-[10px] text-slate-500 font-mono leading-relaxed text-center">
-                    💡 <span className="text-emerald-400 font-extrabold">Pro Tip:</span> In the printing dialogue, set your destination to <span className="text-white font-extrabold">"Save as PDF"</span> to download this customized coupon directly.
+                  <p className="text-[10px] text-slate-500 font-mono leading-relaxed text-center mt-1">
+                    💡 <span className="text-emerald-400 font-extrabold">Pro Tip:</span> Click <span className="text-white font-extrabold">"Download PDF File (.pdf)"</span> to immediately save your coupon sheet as a standalone PDF file on your device.
                   </p>
                 </div>
               </div>
@@ -5734,23 +5993,23 @@ export default function CustomerPortal({
               {/* Right Column: Live Sheet Preview (Scrollable wrapper mimicking A4) */}
               <div className="flex-1 overflow-y-auto p-4 sm:p-8 bg-slate-900/90 flex justify-center items-start scrollbar-thin scrollbar-thumb-slate-800 select-text">
                 <div
-                  id="printable-coupon-pdf"
-                  className={`w-full max-w-[210mm] min-h-[297mm] bg-white text-slate-950 p-6 sm:p-10 shadow-2xl rounded border flex flex-col justify-between font-sans relative ${
+                  id="printable-coupon-modal-sheet"
+                  className={`w-full max-w-[210mm] min-h-[297mm] bg-white text-slate-950 p-5 sm:p-8 shadow-2xl rounded border flex flex-col justify-between font-sans relative ${
                     pdfConfig.theme === 'emerald' ? 'border-t-8 border-t-emerald-700' : ''
                   }`}
                 >
                   {/* Decorative background grid overlay for print preview (removed during print automatically via CSS) */}
                   <div className="absolute inset-0 bg-grid opacity-[0.01] pointer-events-none print:hidden"></div>
 
-                  {/* Watermark layer: "fastpoolcodes" and user email repeating all over */}
-                  <div className="absolute inset-0 overflow-hidden pointer-events-none select-none opacity-[0.18] print:opacity-[0.24] z-0 flex flex-wrap justify-around items-center content-around">
-                    {Array.from({ length: 48 }).map((_, i) => (
+                  {/* Watermark layer: "fastpoolcodes" and user email repeating faintly */}
+                  <div className="absolute inset-0 overflow-hidden pointer-events-none select-none opacity-[0.04] print:opacity-[0.05] z-0 flex flex-wrap justify-around items-center content-around">
+                    {Array.from({ length: 32 }).map((_, i) => (
                       <div
                         key={i}
-                        className="text-[12px] sm:text-[14px] font-mono font-black text-slate-950 uppercase tracking-widest whitespace-nowrap select-none p-6 rotate-[-30deg]"
-                        style={{ transform: 'rotate(-30deg)' }}
+                        className="text-[12px] sm:text-[13px] font-mono font-black text-slate-950 uppercase tracking-widest whitespace-nowrap select-none p-6 rotate-[-25deg]"
+                        style={{ transform: 'rotate(-25deg)' }}
                       >
-                        fastpoolcodes • {currentUser.email}
+                        fastpoolcodes • {currentUser?.email || 'user@fastpoolcodes.com'}
                       </div>
                     ))}
                   </div>
@@ -5791,11 +6050,11 @@ export default function CustomerPortal({
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 border-t border-slate-200 mt-4 pt-3 text-[10.5px] font-mono text-slate-700">
                         <div>
                           <span className="text-slate-400 block text-[9px] uppercase">LICENSEE NICK:</span>
-                          <span className="font-extrabold text-slate-900">@{currentUser.username}</span>
+                          <span className="font-extrabold text-slate-900">@{currentUser?.username || 'user'}</span>
                         </div>
                         <div>
                           <span className="text-slate-400 block text-[9px] uppercase">EMAIL REGISTERED:</span>
-                          <span className="font-extrabold text-slate-900 truncate block max-w-[150px]">{currentUser.email}</span>
+                          <span className="font-extrabold text-slate-900 truncate block max-w-[150px]">{currentUser?.email || 'user@fastpoolcodes.com'}</span>
                         </div>
                         <div>
                           <span className="text-slate-400 block text-[9px] uppercase">VERIFIED ACTIVE:</span>
@@ -5810,7 +6069,7 @@ export default function CustomerPortal({
 
                     {/* Warning Notice Box */}
                     <div className="bg-slate-50 border border-slate-200 p-3 rounded text-[10px] text-slate-600 leading-relaxed font-mono">
-                      <strong>⚠️ VIP PRINT LICENSE CLAUSE:</strong> This classified match coupon is generated and optimized specifically for subscriber <strong>@{currentUser.username}</strong> ({currentUser.email}). Distributing, photocopying, digital scanning, or public uploading of this document is fully trace-monitored. Infringements will violate Terms of Service Clause 6 (Intellectual Property) and lead to direct account closure without appeal.
+                      <strong>⚠️ VIP PRINT LICENSE CLAUSE:</strong> This classified match coupon is generated and optimized specifically for subscriber <strong>@{currentUser?.username || 'user'}</strong> ({currentUser?.email || 'user@fastpoolcodes.com'}). Distributing, photocopying, digital scanning, or public uploading of this document is fully trace-monitored. Infringements will violate Terms of Service Clause 6 (Intellectual Property) and lead to direct account closure without appeal.
                     </div>
 
                     {/* Classified Coupon Table */}
@@ -5845,17 +6104,38 @@ export default function CustomerPortal({
                         </thead>
                         <tbody className="divide-y divide-slate-200 border">
                           {(() => {
-                            const pdfFilteredGames = postedGames.filter(game => {
-                              if (bypassPremium || currentUser.role === 'admin') return true;
-                              if (!isLoggedIn || !isVerified) return false;
-                              return isBookieAllowed(game.bookmaker);
+                            const activeBookmaker = pdfConfig.bookmakerFilter || dashboardBookmakerFilter || 'Bet9ja';
+                            const normStr = (s: string) => (s || '').replace(/\s+/g, '').toLowerCase();
+                            const targetNorm = normStr(activeBookmaker);
+
+                            // Filter games according to selected bookmaker table
+                            const rawList = postedGames.filter(game => {
+                              if (activeBookmaker === 'all') return true;
+
+                              const gameBookieNorm = normStr(game.bookmaker);
+                              const gameSourceNorm = normStr(game.sourceTable || '');
+                              return gameBookieNorm === targetNorm || gameSourceNorm === targetNorm;
                             });
+
+                            // Deduplicate strictly by pool number so pool numbers (1 to 50) are NEVER repeated
+                            const seenPools = new Map<string, typeof rawList[0]>();
+                            rawList.forEach(game => {
+                              const key = game.poolNo !== undefined && game.poolNo !== null && String(game.poolNo).trim() !== ''
+                                ? String(game.poolNo)
+                                : game.id;
+                              if (!seenPools.has(key)) {
+                                seenPools.set(key, game);
+                              }
+                            });
+
+                            const pdfFilteredGames = Array.from(seenPools.values());
+                            pdfFilteredGames.sort((a, b) => (Number(a.poolNo) || 0) - (Number(b.poolNo) || 0));
 
                             if (pdfFilteredGames.length === 0) {
                               return (
                                 <tr>
                                   <td colSpan={7} className="p-8 text-center text-slate-400 font-mono italic">
-                                    No classified fixtures match your subscribed bookmaker components.
+                                    No classified fixtures found for the selected bookmaker ({activeBookmaker}).
                                   </td>
                                 </tr>
                               );
