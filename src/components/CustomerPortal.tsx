@@ -13,6 +13,7 @@ import {
   Lock,
   Unlock,
   ChevronRight,
+  ChevronLeft,
   ShieldAlert,
   Calendar,
   Layers,
@@ -268,20 +269,50 @@ export default function CustomerPortal({
   const [streamSubscribed, setStreamSubscribed] = useState(false);
   const [streamReminders, setStreamReminders] = useState<Record<string, boolean>>({});
 
-  // Dashboard Header Post / Cover Story states
-  const [dashboardHeaderPost, setDashboardHeaderPost] = useState<any>({
-    id: 'week-7-sportybet-header-post',
-    title: 'Download Week 7 Sportybet Pool Codes (Nigeria): UK Pool Fixtures – 15th August, 2026 [PREMIUM CONTENT]',
-    summary: 'These are Sportybet pool codes for week 7. Log in to download it',
-    content: `### Download Week 7 Sportybet Pool Codes (Nigeria): UK Pool Fixtures – 15th August, 2026 [PREMIUM CONTENT]\n\nWelcome to FastPoolCodes official decrypted Sportybet pool codes for Week 7 (15th August, 2026). Below you will find key numbers, match numbers, odds, and predictions for this week's UK Pool fixtures on Sportybet Nigeria.\n\n#### Key Features & Highlights:\n- **Official UK Fixtures**: Decrypted directly from primary UK football pool papers.\n- **Sportybet Booking Codes**: Instant access to verified Sportybet booking codes for fast placement.\n- **High Precision Odds**: Comprehensive odds analysis across all 49 matches.\n\nLog in or subscribe to your SportyBet pool code table to download the full decrypted codesheet in your dashboard below!`,
-    date: 'Aug 10, 2026',
-    readTime: '2 mins',
-    image_url: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=1200&q=80',
-    category: 'ARTICLE',
-    badge: '★ COVER STORY',
-    bookmaker: 'SportyBet',
-    week_number: 7
-  });
+  // Dashboard Header Posts Carousel (Top 3 Blogs)
+  const [dashboardBlogs, setDashboardBlogs] = useState<any[]>([
+    {
+      id: 'week-7-sportybet-header-post',
+      title: 'Download Week 7 Sportybet Pool Codes (Nigeria): UK Pool Fixtures – 15th August, 2026 [PREMIUM CONTENT]',
+      summary: 'These are Sportybet pool codes for week 7. Log in to download it',
+      content: `### Download Week 7 Sportybet Pool Codes (Nigeria): UK Pool Fixtures – 15th August, 2026 [PREMIUM CONTENT]\n\nWelcome to FastPoolCodes official decrypted Sportybet pool codes for Week 7 (15th August, 2026). Below you will find key numbers, match numbers, odds, and predictions for this week's UK Pool fixtures on Sportybet Nigeria.\n\n#### Key Features & Highlights:\n- **Official UK Fixtures**: Decrypted directly from primary UK football pool papers.\n- **Sportybet Booking Codes**: Instant access to verified Sportybet booking codes for fast placement.\n- **High Precision Odds**: Comprehensive odds analysis across all 49 matches.\n\nLog in or subscribe to your SportyBet pool code table to download the full decrypted codesheet in your dashboard below!`,
+      date: 'Aug 10, 2026',
+      readTime: '2 mins',
+      image_url: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=1200&q=80',
+      category: 'ARTICLE',
+      badge: '★ COVER STORY',
+      bookmaker: 'SportyBet',
+      week_number: 7
+    },
+    {
+      id: 'week-7-bet9ja-header-post',
+      title: 'Decrypted Week 7 Bet9ja Pool Codes & Banker Pairings – UK Pool Fixtures 2026',
+      summary: 'Verified Week 7 Bet9ja coupon codes, dead games, and high-probability bankers for coupon players.',
+      content: `### Decrypted Week 7 Bet9ja Pool Codes & Banker Pairings\n\nOfficial decrypted Bet9ja table fixtures with high confidence draw probabilities, key codes, and banker pairings.\n\n- **100% Validated Codes**: Matched with Saturday pool sheets.\n- **Instant Bet9ja Booking**: Copy codes directly into your ticket.`,
+      date: 'Aug 12, 2026',
+      readTime: '3 mins',
+      image_url: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=1200&q=80',
+      category: 'ANALYSIS',
+      badge: '★ TRENDING',
+      bookmaker: 'Bet9ja',
+      week_number: 7
+    },
+    {
+      id: 'week-7-betking-header-post',
+      title: 'Week 7 BetKing Pool Codes & Telegraph Matrix Summary (Classified)',
+      summary: 'Complete BetKing UK pools fixture breakdown with telegraph matrix analysis and verified odds.',
+      content: `### Week 7 BetKing Pool Codes & Telegraph Matrix Summary\n\nAccess our classified BetKing codes and analysis for this week's coupon games.`,
+      date: 'Aug 13, 2026',
+      readTime: '2 mins',
+      image_url: 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?auto=format&fit=crop&w=1200&q=80',
+      category: 'PREDICTION',
+      badge: '★ EXCLUSIVE',
+      bookmaker: 'BetKing',
+      week_number: 7
+    }
+  ]);
+  const [activeCarouselIdx, setActiveCarouselIdx] = useState(0);
+  const [isCarouselHovered, setIsCarouselHovered] = useState(false);
   const [selectedDashboardArticle, setSelectedDashboardArticle] = useState<any | null>(null);
 
   useEffect(() => {
@@ -291,24 +322,22 @@ export default function CustomerPortal({
         if (res.ok) {
           const json = await res.json();
           if (json.success && Array.isArray(json.data) && json.data.length > 0) {
-            const heroBlog = json.data.find((b: any) => 
-              b.is_hero || b.featured || b.is_featured || (b.title && b.title.toLowerCase().includes('week 7'))
-            ) || json.data[0];
+            const parsedBlogs = json.data.slice(0, 3).map((b: any, idx: number) => ({
+              id: b.id || `blog-${idx}`,
+              title: b.title || b.heading || `Week 7 Classified Pool Codes & Analysis #${idx + 1}`,
+              summary: b.summary || b.description || 'Verified pool codes and expert match predictions. Log in to download the full decrypted codesheet.',
+              content: b.content || b.body || 'Classified pool codes details and predictions.',
+              date: b.date || (b.created_at ? new Date(b.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Aug 14, 2026'),
+              readTime: b.read_time || b.readTime || '2 mins',
+              image_url: b.image_url || b.cover || b.banner || (idx === 0 ? 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=1200&q=80' : idx === 1 ? 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=1200&q=80' : 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?auto=format&fit=crop&w=1200&q=80'),
+              category: b.category || (idx === 0 ? 'ARTICLE' : idx === 1 ? 'ANALYSIS' : 'PREDICTION'),
+              badge: idx === 0 ? '★ COVER STORY' : idx === 1 ? '★ TRENDING' : '★ EXCLUSIVE',
+              bookmaker: b.bookmaker || (idx === 0 ? 'SportyBet' : idx === 1 ? 'Bet9ja' : 'BetKing'),
+              week_number: b.week_number || 7
+            }));
 
-            if (heroBlog) {
-              setDashboardHeaderPost({
-                id: heroBlog.id || 'blog-hero',
-                title: heroBlog.title || heroBlog.heading || 'Download Week 7 Sportybet Pool Codes (Nigeria): UK Pool Fixtures – 15th August, 2026 [PREMIUM CONTENT]',
-                summary: heroBlog.summary || heroBlog.description || 'These are Sportybet pool codes for week 7. Log in to download it',
-                content: heroBlog.content || heroBlog.body || 'Logged in to download week 7 Sportybet pool codes.',
-                date: heroBlog.date || (heroBlog.created_at ? new Date(heroBlog.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Aug 10, 2026'),
-                readTime: heroBlog.read_time || heroBlog.readTime || '2 mins',
-                image_url: heroBlog.image_url || heroBlog.cover || heroBlog.banner || 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=1200&q=80',
-                category: 'ARTICLE',
-                badge: '★ COVER STORY',
-                bookmaker: 'SportyBet',
-                week_number: 7
-              });
+            if (parsedBlogs.length > 0) {
+              setDashboardBlogs(parsedBlogs);
             }
           }
         }
@@ -316,6 +345,17 @@ export default function CustomerPortal({
     };
     loadDashboardBlogs();
   }, []);
+
+  // Auto-scroll carousel every 5 seconds (paused when hovered)
+  useEffect(() => {
+    if (dashboardBlogs.length <= 1 || isCarouselHovered) return;
+
+    const timer = setInterval(() => {
+      setActiveCarouselIdx((prev) => (prev + 1) % dashboardBlogs.length);
+    }, 5000);
+
+    return () => clearInterval(timer);
+  }, [dashboardBlogs.length, isCarouselHovered]);
 
   // PDF Customization & Printing states
   const [showPdfPrintModal, setShowPdfPrintModal] = useState(false);
@@ -1885,109 +1925,179 @@ export default function CustomerPortal({
                     </div>
                   )}
 
-                  {/* COVER STORY HEADER POST CARD IN USER DASHBOARD */}
-                  {dashboardHeaderPost && (
-                    <div className="bg-white dark:bg-[#111827] border border-zinc-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl transition duration-300 group">
-                      {/* Banner Image Container */}
+                  {/* AUTO-SCROLLING BLOGS CAROUSEL (TOP 3 BLOGS) */}
+                  {dashboardBlogs.length > 0 && (() => {
+                    const currentBlog = dashboardBlogs[activeCarouselIdx] || dashboardBlogs[0];
+                    return (
                       <div 
-                        onClick={() => setSelectedDashboardArticle(dashboardHeaderPost)}
-                        className="h-64 sm:h-80 w-full relative bg-gradient-to-br from-indigo-950 via-slate-900 to-emerald-950 overflow-hidden cursor-pointer"
+                        onMouseEnter={() => setIsCarouselHovered(true)}
+                        onMouseLeave={() => setIsCarouselHovered(false)}
+                        className="bg-white dark:bg-[#111827] border border-zinc-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl transition duration-300 group relative"
                       >
-                        <img 
-                          src={dashboardHeaderPost.image_url} 
-                          alt={dashboardHeaderPost.title}
-                          referrerPolicy="no-referrer"
-                          onError={(e) => {
-                            (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=1200&q=80';
-                          }}
-                          className="w-full h-full object-cover absolute inset-0 transition-transform duration-500 group-hover:scale-105 opacity-85"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/50 to-black/20"></div>
+                        {/* Banner Image Container with Animated Transition */}
+                        <div 
+                          onClick={() => setSelectedDashboardArticle(currentBlog)}
+                          className="h-64 sm:h-80 w-full relative bg-gradient-to-br from-indigo-950 via-slate-900 to-emerald-950 overflow-hidden cursor-pointer select-none"
+                        >
+                          <AnimatePresence mode="wait">
+                            <motion.img 
+                              key={`carousel_img_${currentBlog.id || activeCarouselIdx}`}
+                              src={currentBlog.image_url} 
+                              alt={currentBlog.title}
+                              referrerPolicy="no-referrer"
+                              initial={{ opacity: 0, scale: 1.05 }}
+                              animate={{ opacity: 0.88, scale: 1 }}
+                              exit={{ opacity: 0 }}
+                              transition={{ duration: 0.5, ease: 'easeOut' }}
+                              onError={(e) => {
+                                (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=1200&q=80';
+                              }}
+                              className="w-full h-full object-cover absolute inset-0 group-hover:scale-105 transition-transform duration-700"
+                            />
+                          </AnimatePresence>
 
-                        {/* Center Overlay Graphics matching uploaded image design */}
-                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none p-4 text-center">
-                          <div className="bg-black/75 backdrop-blur-md border border-white/15 px-6 py-3.5 rounded-2xl shadow-2xl flex flex-col items-center max-w-xs sm:max-w-md">
-                            <span className="text-white text-2xl sm:text-4xl font-black uppercase tracking-tight font-sans drop-shadow">
-                              Week 7
-                            </span>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                              <span className="text-slate-100 text-2xl sm:text-3xl font-black tracking-tight drop-shadow">FastPool</span>
-                              <span className="text-[#FA3E65] text-2xl sm:text-3xl font-black tracking-tight drop-shadow">Codes</span>
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/50 to-black/20 pointer-events-none"></div>
+
+                          {/* Center Overlay Graphics matching uploaded image design */}
+                          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none p-4 text-center">
+                            <div className="bg-black/75 backdrop-blur-md border border-white/15 px-6 py-3.5 rounded-2xl shadow-2xl flex flex-col items-center max-w-xs sm:max-w-md">
+                              <span className="text-white text-2xl sm:text-4xl font-black uppercase tracking-tight font-sans drop-shadow">
+                                Week {currentBlog.week_number || 7}
+                              </span>
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <span className="text-slate-100 text-2xl sm:text-3xl font-black tracking-tight drop-shadow">FastPool</span>
+                                <span className="text-[#FA3E65] text-2xl sm:text-3xl font-black tracking-tight drop-shadow">Codes</span>
+                              </div>
+                              <span className="text-slate-300 text-[10px] sm:text-xs font-mono tracking-widest mt-1 opacity-90">
+                                fastpoolcodes.com
+                              </span>
                             </div>
-                            <span className="text-slate-300 text-[10px] sm:text-xs font-mono tracking-widest mt-1 opacity-90">
-                              fastpoolcodes.com
-                            </span>
+                          </div>
+
+                          {/* Floating Cover Story Badge Top Left */}
+                          <div className="absolute top-4 left-4 bg-[#fa3e65] text-white text-[10px] font-black px-2.5 py-1 rounded shadow-lg tracking-widest uppercase flex items-center gap-1">
+                            <span>{currentBlog.badge || '★ FEATURED'}</span>
+                          </div>
+
+                          {/* Carousel Navigation Arrows */}
+                          {dashboardBlogs.length > 1 && (
+                            <>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveCarouselIdx((prev) => (prev - 1 + dashboardBlogs.length) % dashboardBlogs.length);
+                                }}
+                                aria-label="Previous Blog"
+                                className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/60 hover:bg-black/85 text-white flex items-center justify-center border border-white/20 backdrop-blur-md opacity-0 group-hover:opacity-100 transition duration-200 cursor-pointer shadow-lg active:scale-95"
+                              >
+                                <ChevronLeft className="w-5 h-5" />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveCarouselIdx((prev) => (prev + 1) % dashboardBlogs.length);
+                                }}
+                                aria-label="Next Blog"
+                                className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/60 hover:bg-black/85 text-white flex items-center justify-center border border-white/20 backdrop-blur-md opacity-0 group-hover:opacity-100 transition duration-200 cursor-pointer shadow-lg active:scale-95"
+                              >
+                                <ChevronRight className="w-5 h-5" />
+                              </button>
+                            </>
+                          )}
+
+                          {/* Meta Stamp Bottom Left + Carousel Step Indicators Bottom Right */}
+                          <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-white">
+                            <div className="flex items-center gap-2">
+                              <span className="bg-emerald-500 text-slate-950 text-[10px] font-black px-2.5 py-0.5 rounded uppercase tracking-wide">
+                                {currentBlog.category || 'ARTICLE'}
+                              </span>
+                              <span className="text-neutral-200 text-xs font-bold font-mono">
+                                {currentBlog.date}
+                              </span>
+                            </div>
+
+                            {/* Carousel Step Indicators / Dots */}
+                            {dashboardBlogs.length > 1 && (
+                              <div className="flex items-center gap-1.5 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/10">
+                                {dashboardBlogs.map((b: any, idx: number) => (
+                                  <button
+                                    key={`dot_${b.id || idx}`}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setActiveCarouselIdx(idx);
+                                    }}
+                                    className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${
+                                      activeCarouselIdx === idx ? 'w-5 bg-[#FA3E65]' : 'w-1.5 bg-white/40 hover:bg-white/70'
+                                    }`}
+                                    title={`Go to Blog ${idx + 1}`}
+                                  />
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </div>
 
-                        {/* Floating Cover Story Badge Top Left */}
-                        <div className="absolute top-4 left-4 bg-[#fa3e65] text-white text-[10px] font-black px-2.5 py-1 rounded shadow-lg tracking-widest uppercase flex items-center gap-1">
-                          <span>★</span>
-                          <span>COVER STORY</span>
-                        </div>
+                        {/* Textual Body Block */}
+                        <div className="p-5 sm:p-6 space-y-3 text-left">
+                          <AnimatePresence mode="wait">
+                            <motion.div
+                              key={`carousel_text_${currentBlog.id || activeCarouselIdx}`}
+                              initial={{ opacity: 0, y: 6 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -6 }}
+                              transition={{ duration: 0.3 }}
+                              className="space-y-2"
+                            >
+                              <h2 
+                                onClick={() => setSelectedDashboardArticle(currentBlog)}
+                                className="font-sans font-black text-zinc-900 dark:text-white text-xl sm:text-2xl tracking-tight leading-tight group-hover:text-[#fa3e65] transition cursor-pointer"
+                              >
+                                {currentBlog.title}
+                              </h2>
+                              <p 
+                                onClick={() => setSelectedDashboardArticle(currentBlog)}
+                                className="text-zinc-600 dark:text-slate-300 font-medium text-xs sm:text-sm leading-relaxed cursor-pointer line-clamp-2 sm:line-clamp-none"
+                              >
+                                {currentBlog.summary}
+                              </p>
+                            </motion.div>
+                          </AnimatePresence>
 
-                        {/* Meta Stamp Bottom Left */}
-                        <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-white">
-                          <div className="flex items-center gap-2">
-                            <span className="bg-emerald-500 text-slate-950 text-[10px] font-black px-2.5 py-0.5 rounded uppercase tracking-wide">
-                              {dashboardHeaderPost.category || 'ARTICLE'}
-                            </span>
-                            <span className="text-neutral-200 text-xs font-bold font-mono">
-                              {dashboardHeaderPost.date}
-                            </span>
+                          {/* Footer Controls */}
+                          <div className="pt-3 border-t border-zinc-100 dark:border-slate-800 flex items-center justify-between text-xs font-bold text-zinc-500 dark:text-slate-400">
+                            <div 
+                              onClick={() => setSelectedDashboardArticle(currentBlog)}
+                              className="flex items-center gap-2 cursor-pointer hover:text-zinc-800 dark:hover:text-white transition"
+                            >
+                              <span className="flex items-center gap-1.5 text-zinc-700 dark:text-slate-300 font-bold">
+                                <BookOpen className="w-4 h-4 text-emerald-500" />
+                                <span>Read Full Article</span>
+                              </span>
+                              <span>•</span>
+                              <span className="text-rose-500 font-black">{currentBlog.readTime}</span>
+                            </div>
+
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (navigator.clipboard) {
+                                  navigator.clipboard.writeText(window.location.href);
+                                  triggerToast('Article link copied to clipboard!', 'success');
+                                } else {
+                                  triggerToast(`Share: ${currentBlog.title}`, 'info');
+                                }
+                              }}
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-100 hover:bg-rose-50 hover:text-rose-600 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 text-zinc-700 rounded-lg transition text-xs font-bold uppercase cursor-pointer border border-zinc-200 dark:border-slate-700 shadow-xs active:scale-95"
+                              title="Share Article"
+                            >
+                              <Share2 className="w-3.5 h-3.5 text-rose-500" />
+                              <span>SHARE</span>
+                            </button>
                           </div>
                         </div>
                       </div>
-
-                      {/* Textual Body Block */}
-                      <div className="p-5 sm:p-6 space-y-3 text-left">
-                        <h2 
-                          onClick={() => setSelectedDashboardArticle(dashboardHeaderPost)}
-                          className="font-sans font-black text-zinc-900 dark:text-white text-xl sm:text-2xl tracking-tight leading-tight group-hover:text-[#fa3e65] transition cursor-pointer"
-                        >
-                          {dashboardHeaderPost.title}
-                        </h2>
-                        <p 
-                          onClick={() => setSelectedDashboardArticle(dashboardHeaderPost)}
-                          className="text-zinc-600 dark:text-slate-300 font-medium text-xs sm:text-sm leading-relaxed cursor-pointer"
-                        >
-                          {dashboardHeaderPost.summary}
-                        </p>
-
-                        {/* Footer Controls */}
-                        <div className="pt-3 border-t border-zinc-100 dark:border-slate-800 flex items-center justify-between text-xs font-bold text-zinc-500 dark:text-slate-400">
-                          <div 
-                            onClick={() => setSelectedDashboardArticle(dashboardHeaderPost)}
-                            className="flex items-center gap-2 cursor-pointer hover:text-zinc-800 dark:hover:text-white transition"
-                          >
-                            <span className="flex items-center gap-1.5 text-zinc-700 dark:text-slate-300 font-bold">
-                              <BookOpen className="w-4 h-4 text-emerald-500" />
-                              <span>Read Full Article</span>
-                            </span>
-                            <span>•</span>
-                            <span className="text-rose-500 font-black">{dashboardHeaderPost.readTime}</span>
-                          </div>
-
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (navigator.clipboard) {
-                                navigator.clipboard.writeText(window.location.href);
-                                triggerToast('Article link copied to clipboard!', 'success');
-                              } else {
-                                triggerToast(`Share: ${dashboardHeaderPost.title}`, 'info');
-                              }
-                            }}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-100 hover:bg-rose-50 hover:text-rose-600 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 text-zinc-700 rounded-lg transition text-xs font-bold uppercase cursor-pointer border border-zinc-200 dark:border-slate-700 shadow-xs active:scale-95"
-                            title="Share Article"
-                          >
-                            <Share2 className="w-3.5 h-3.5 text-rose-500" />
-                            <span>SHARE</span>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                    );
+                  })()}
 
                   {/* LIVE ARENA SPORTS SCORE TICKER (FULLY RESPONSIVE & MOBILE SWEET SWIPER) */}
                   <div className="bg-[#111827] rounded-2xl border border-slate-800 p-4 shadow-xl flex flex-col gap-3">
