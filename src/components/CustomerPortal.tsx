@@ -110,46 +110,91 @@ export default function CustomerPortal({
   const [remoteLogs, setRemoteLogs] = useState<any[]>([]);
 
   useEffect(() => {
-    fetch('/api/tables/purchases_access_log')
-      .then(res => res.json())
-      .then(data => {
-        const list = data?.data || data?.rows || (Array.isArray(data) ? data : []);
-        if (Array.isArray(list)) {
-          setRemoteLogs(list);
-        }
-      })
-      .catch(err => console.warn('Supabase table fetch error:', err));
-  }, [currentUser?.id]);
+    // Fetch purchase and subscription records across potential tables (purchases_access_log, plan_purchased, plans_purchased, user_subscriptions, subscriptions)
+    const tablesToQuery = [
+      'purchases_access_log',
+      'plan_purchased',
+      'plans_purchased',
+      'user_subscriptions',
+      'users_subscriptions',
+      'subscriptions'
+    ];
+
+    Promise.all(
+      tablesToQuery.map(tbl =>
+        fetch(`/api/tables/${tbl}`)
+          .then(res => res.json())
+          .then(data => {
+            const list = data?.data || data?.rows || (Array.isArray(data) ? data : []);
+            return Array.isArray(list) ? list : [];
+          })
+          .catch(() => [])
+      )
+    ).then(results => {
+      const combined = results.flat().filter(Boolean);
+      setRemoteLogs(combined);
+    }).catch(err => console.warn('Purchases table fetch error:', err));
+  }, [currentUser?.id, currentUser?.username, currentUser?.email]);
 
   const getItemGrantedTables = (item: any): string[] => {
-    if (!item) return ['none'];
-    let rawComps: any = item.components || item.granted_tables || item.granted_components;
-    if (!rawComps) {
+    if (!item) return [];
+    
+    // 1. Direct components / tables field
+    const rawComps: any = item.components || item.granted_tables || item.granted_components || item.tables;
+    const parsed = parseComponents(rawComps);
+
+    const granted = new Set<string>(parsed.map(p => String(p).toLowerCase().trim().replace(/[^a-z0-9]/g, '')));
+
+    // 2. Inspect plan_purchased, item_name, plan_title, plan_name, plan_id text strings
+    const ptitle = String(item.plan_purchased || item.item_name || item.plan_name || item.plan_title || '').toLowerCase();
+    const pid = String(item.plan_id || '').toLowerCase();
+    const fullText = `${ptitle} ${pid}`.trim();
+
+    // Check for explicit "all" / "vip" / "unlimited"
+    if (
+      granted.has('all') ||
+      fullText.includes('all bookmaker') ||
+      fullText.includes('all table') ||
+      fullText.includes('vip unlimited') ||
+      fullText.includes('unlimited') ||
+      fullText.includes('all-tables') ||
+      fullText.includes('yearly')
+    ) {
+      return ['all'];
+    }
+
+    // Check for specific bookmaker names in plan_purchased or title
+    const KNOWN_BOOKIES = ['bet9ja', 'betking', 'sportybet', 'premierbet', 'betway', 'soccabet', 'msport'];
+    for (const b of KNOWN_BOOKIES) {
+      if (fullText.includes(b)) {
+        granted.add(b);
+      }
+    }
+
+    // 3. If still empty, check features from subscription_plans definition
+    if (granted.size === 0 && item.plan_id) {
       const plan: any = db.subscription_plans?.find((p: any) => p.id === item.plan_id);
       if (plan && plan.features) {
-        rawComps = plan.features;
+        const planFeatures = parseComponents(plan.features);
+        planFeatures.forEach(f => {
+          const fSlug = String(f).toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+          if (fSlug === 'all') granted.add('all');
+          for (const b of KNOWN_BOOKIES) {
+            if (fSlug.includes(b)) granted.add(b);
+          }
+        });
       }
     }
-    const parsed = parseComponents(rawComps);
-    if (parsed.length === 0) {
-      const pid = String(item.plan_id || '').toLowerCase();
-      const ptitle = String(item.plan_purchased || item.item_name || '').toLowerCase();
-      if (pid.includes('weekly') || ptitle.includes('weekly')) {
-        return ['bet9ja', 'sportybet'];
-      }
-      if (pid.includes('monthly') || ptitle.includes('monthly')) {
-        return ['bet9ja', 'betking', 'sportybet'];
-      }
-      if (pid.includes('all') || ptitle.includes('all')) {
-        return ['all'];
-      }
-      return ['bet9ja', 'sportybet'];
-    }
-    return parsed;
+
+    return Array.from(granted);
   };
 
   const userSubs = db.user_subscriptions.filter(s => 
-    s && (s.user_id === currentUser.id || (s.username && s.username.toLowerCase() === currentUser.username.toLowerCase()))
+    s && (
+      (s.user_id && currentUser?.id && String(s.user_id).toLowerCase() === String(currentUser.id).toLowerCase()) ||
+      (s.username && currentUser?.username && s.username.toLowerCase() === currentUser.username.toLowerCase()) ||
+      ((s as any).email && currentUser?.email && (s as any).email.toLowerCase() === currentUser.email.toLowerCase())
+    )
   );
   const latestSub = userSubs.length > 0 
     ? [...userSubs].sort((a, b) => new Date(b.expires_at).getTime() - new Date(a.expires_at).getTime())[0]
@@ -157,7 +202,11 @@ export default function CustomerPortal({
 
   const userActiveSubs = db.user_subscriptions.filter(s => 
     s && 
-    (s.user_id === currentUser.id || (s.username && s.username.toLowerCase() === currentUser.username.toLowerCase())) && 
+    (
+      (s.user_id && currentUser?.id && String(s.user_id).toLowerCase() === String(currentUser.id).toLowerCase()) ||
+      (s.username && currentUser?.username && s.username.toLowerCase() === currentUser.username.toLowerCase()) ||
+      ((s as any).email && currentUser?.email && (s as any).email.toLowerCase() === currentUser.email.toLowerCase())
+    ) && 
     s.status === 'active' && 
     new Date(s.expires_at) > new Date()
   );
@@ -165,17 +214,19 @@ export default function CustomerPortal({
   const isLoggedIn = currentUser && currentUser.id !== 'guest';
   const isVerified = currentUser && currentUser.status !== 'suspended';
 
-  // Check active remote logs from Supabase purchases_access_log
+  // Check active remote logs from Supabase purchases_access_log & plan_purchased tables
   const activeRemoteLogs = (remoteLogs || []).filter(item => {
     if (!item) return false;
     const matchesUser = 
       (item.user_id && currentUser?.id && String(item.user_id).toLowerCase() === String(currentUser.id).toLowerCase()) ||
-      (item.username && currentUser?.username && String(item.username.toLowerCase()) === String(currentUser.username.toLowerCase()));
+      (item.username && currentUser?.username && String(item.username).toLowerCase() === String(currentUser.username).toLowerCase()) ||
+      (item.email && currentUser?.email && String(item.email).toLowerCase() === String(currentUser.email).toLowerCase());
     if (!matchesUser) return false;
 
     const expDate = item.expiry_date || item.expires_at || item.access_expires_at;
-    const statusStr = item.access_status || item.status || 'active';
-    return (statusStr === 'active' || statusStr === 'successful') && (!expDate || new Date(expDate) > new Date());
+    const statusStr = String(item.access_status || item.status || 'active').toLowerCase();
+    const isStatusActive = statusStr === 'active' || statusStr === 'successful' || statusStr === 'completed' || statusStr === 'paid';
+    return isStatusActive && (!expDate || new Date(expDate) > new Date());
   });
 
   const isPaidUser = currentUser.role === 'admin' || bypassPremium || activeRemoteLogs.length > 0 || (
@@ -192,10 +243,11 @@ export default function CustomerPortal({
 
   const isBookieAllowed = (bookieName: string) => {
     if (currentUser.role === 'admin' || bypassPremium) return true;
+    if (!bookieName) return false;
 
     const targetSlug = (bookieName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
-    // 1. Check active remote logs from Supabase purchases_access_log
+    // 1. Check active remote logs from Supabase purchases_access_log / plan_purchased
     for (const logItem of activeRemoteLogs) {
       const granted = getItemGrantedTables(logItem);
       if (granted.includes('all')) return true;
@@ -2264,20 +2316,41 @@ export default function CustomerPortal({
                           )}
                         </div>
 
-                        {/* Download PDF Customizer Button */}
-                        <button
-                          onClick={() => {
-                            setPdfConfig(prev => ({
-                              ...prev,
-                              bookmakerFilter: dashboardBookmakerFilter || 'Bet9ja'
-                            }));
-                            setShowPdfPrintModal(true);
-                          }}
-                          className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 shrink-0 font-mono"
-                        >
-                          <Download className="w-4 h-4" />
-                          <span>Download PDF</span>
-                        </button>
+                        {/* Download PDF Customizer Button with Strict Table Access Check */}
+                        {(() => {
+                          const isTableAllowed = isBookieAllowed(dashboardBookmakerFilter);
+                          if (isTableAllowed) {
+                            return (
+                              <button
+                                onClick={() => {
+                                  setPdfConfig(prev => ({
+                                    ...prev,
+                                    bookmakerFilter: dashboardBookmakerFilter || 'Bet9ja'
+                                  }));
+                                  setShowPdfPrintModal(true);
+                                }}
+                                className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 shrink-0 font-mono"
+                                title={`Download official ${dashboardBookmakerFilter} PDF`}
+                              >
+                                <Download className="w-4 h-4" />
+                                <span>Download PDF</span>
+                              </button>
+                            );
+                          }
+                          return (
+                            <button
+                              onClick={() => {
+                                triggerToast(`Access Restricted: @${currentUser.username} (ID: ${currentUser.id}) has not purchased access to the ${dashboardBookmakerFilter} Table in plan_purchased.`, 'error');
+                                setActiveSubTab('subscription');
+                              }}
+                              className="px-4 py-2.5 bg-slate-900 hover:bg-slate-850 active:scale-95 text-amber-400 border border-amber-500/30 hover:border-amber-500/60 font-bold text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-2 shadow-lg shrink-0 font-mono"
+                              title={`Subscription required to download ${dashboardBookmakerFilter} PDF`}
+                            >
+                              <Lock className="w-3.5 h-3.5 text-amber-400" />
+                              <span>Download PDF (Locked)</span>
+                            </button>
+                          );
+                        })()}
 
 
                       </div>
@@ -5787,302 +5860,376 @@ export default function CustomerPortal({
 
       {/* PDF PRINT CUSTOMIZER & GENERATOR MODAL */}
       <AnimatePresence>
-        {showPdfPrintModal && (
-          <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-[9999] flex items-center justify-center p-2 sm:p-4 select-none">
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-slate-950 border border-slate-800 rounded-3xl w-full max-w-6xl h-[95vh] sm:h-[90vh] flex flex-col md:flex-row overflow-hidden shadow-2xl relative text-left"
-            >
-              {/* Close button */}
-              <button
-                onClick={() => setShowPdfPrintModal(false)}
-                className="absolute top-4 right-4 text-slate-400 hover:text-white transition p-1.5 hover:bg-slate-900 rounded-xl z-20 cursor-pointer"
-                title="Close Customizer"
+        {showPdfPrintModal && (() => {
+          const activeBookmaker = pdfConfig.bookmakerFilter || dashboardBookmakerFilter || 'Bet9ja';
+          const isTableAllowed = isBookieAllowed(activeBookmaker);
+
+          return (
+            <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-[9999] flex items-center justify-center p-2 sm:p-4 select-none">
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                className="bg-slate-950 border border-slate-800 rounded-3xl w-full max-w-6xl h-[95vh] sm:h-[90vh] flex flex-col md:flex-row overflow-hidden shadow-2xl relative text-left"
               >
-                <X className="w-5 h-5" />
-              </button>
-
-              {/* Left Column: Secure Premium Document Details */}
-              <div className="w-full md:w-[38%] border-b md:border-b-0 md:border-r border-slate-800 flex flex-col h-1/2 md:h-full bg-[#090E1A]/60 shrink-0">
-                <div className="p-5 border-b border-slate-800/80 bg-slate-950 shrink-0">
-                  <div className="flex items-center gap-2">
-                    <div className="p-1.5 bg-emerald-500/15 rounded-lg text-emerald-400">
-                      <Printer className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-mono font-black text-emerald-400 tracking-wider uppercase">PDF Export</h4>
-                      <h3 className="text-sm font-sans font-black text-white uppercase tracking-tight">Secure Document</h3>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex-1 overflow-y-auto p-5 flex flex-col justify-center scrollbar-thin scrollbar-thumb-slate-800">
-                  <div className="space-y-4 bg-slate-950/80 border border-slate-850/60 p-5 rounded-2xl">
-                    <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 mx-auto mb-2">
-                      <CheckCircle className="w-6 h-6" />
-                    </div>
-                    <h4 className="text-center text-xs font-mono font-black text-white uppercase tracking-wider">Verified Premium Layout</h4>
-                    <p className="text-[11px] text-slate-450 leading-relaxed text-center">
-                      This document is automatically compiled using secure, official high-fidelity premium styles, licensing footers, and a personalized anti-piracy trace watermark.
-                    </p>
-                    <div className="border-t border-slate-900 pt-4 space-y-2.5">
-                      <div className="flex items-center justify-between text-[10px] font-mono text-slate-500">
-                        <span>BOOKMAKER TABLE:</span>
-                        <span className="text-emerald-400 font-bold uppercase">{pdfConfig.bookmakerFilter || dashboardBookmakerFilter || 'Bet9ja'} Table</span>
-                      </div>
-                      <div className="flex items-center justify-between text-[10px] font-mono text-slate-500">
-                        <span>FORMAT TYPE:</span>
-                        <span className="text-white font-bold uppercase">A4 PDF Print-Ready</span>
-                      </div>
-                      <div className="flex items-center justify-between text-[10px] font-mono text-slate-500">
-                        <span>ANTI-PIRACY TRACE:</span>
-                        <span className="text-emerald-400 font-bold uppercase">Active Watermark</span>
-                      </div>
-                      <div className="flex items-center justify-between text-[10px] font-mono text-slate-500">
-                        <span>LICENSED SUBSCRIBER:</span>
-                        <span className="text-amber-400 font-bold truncate max-w-[130px]">@{currentUser?.username || 'user'}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Print & PDF Export Action Controls */}
-                <div className="p-5 border-t border-slate-800/85 bg-slate-950 flex flex-col gap-2.5 shrink-0">
-                  {/* Primary PDF Download Button */}
-                  <button
-                    onClick={() => {
-                      triggerToast('Generating official PDF document...', 'info');
-
-                      try {
-                        const activeBookmaker = pdfConfig.bookmakerFilter || dashboardBookmakerFilter || 'Bet9ja';
-                        const normStr = (s: string) => (s || '').replace(/\s+/g, '').toLowerCase();
-                        const targetNorm = normStr(activeBookmaker);
-
-                        const rawList = postedGames.filter(game => {
-                          if (activeBookmaker === 'all') return true;
-                          const gameBookieNorm = normStr(game.bookmaker);
-                          const gameSourceNorm = normStr(game.sourceTable || '');
-                          return gameBookieNorm === targetNorm || gameSourceNorm === targetNorm;
-                        });
-
-                        const seenPools = new Map<string, typeof rawList[0]>();
-                        rawList.forEach(game => {
-                          const key = game.poolNo !== undefined && game.poolNo !== null && String(game.poolNo).trim() !== ''
-                            ? String(game.poolNo)
-                            : game.id;
-                          if (!seenPools.has(key)) {
-                            seenPools.set(key, game);
-                          }
-                        });
-
-                        const pdfFilteredGames = Array.from(seenPools.values());
-                        pdfFilteredGames.sort((a, b) => (Number(a.poolNo) || 0) - (Number(b.poolNo) || 0));
-
-                        const doc = new jsPDF({
-                          orientation: 'portrait',
-                          unit: 'mm',
-                          format: 'a4',
-                        });
-
-                        const pageWidth = doc.internal.pageSize.getWidth();
-                        const pageHeight = doc.internal.pageSize.getHeight();
-
-                        let currentY = 14;
-
-                        // Header Banner
-                        doc.setFillColor(15, 23, 42); // slate-900
-                        doc.rect(14, currentY, pageWidth - 28, 16, 'F');
-                        
-                        doc.setTextColor(255, 255, 255);
-                        doc.setFontSize(13);
-                        doc.setFont('helvetica', 'bold');
-                        doc.text('FASTPOOLCODES', 19, currentY + 10.5);
-                        
-                        doc.setTextColor(52, 211, 153); // emerald-400
-                        doc.setFontSize(8.5);
-                        doc.setFont('helvetica', 'bold');
-                        doc.text(`[${activeBookmaker.toUpperCase()}] OFFICIAL WEEK ${activeWeekNumber || 43} SHEET`, pageWidth - 19, currentY + 10.5, { align: 'right' });
-                        
-                        currentY += 21;
-
-                        // Title & Subtitle
-                        doc.setTextColor(15, 23, 42);
-                        doc.setFontSize(12);
-                        doc.setFont('helvetica', 'bold');
-                        doc.text(pdfConfig.title || `Week ${activeWeekNumber || 43} Classified Coupon Codes`, 14, currentY);
-                        
-                        currentY += 4.5;
-                        doc.setTextColor(100, 116, 139);
-                        doc.setFontSize(8.5);
-                        doc.setFont('helvetica', 'normal');
-                        doc.text(pdfConfig.subtitle || 'Automated Cryptographic Coupon Signatures & Verification Records', 14, currentY);
-
-                        currentY += 6.5;
-
-                        // Metadata Card Box
-                        doc.setFillColor(248, 250, 252);
-                        doc.setDrawColor(203, 213, 225);
-                        doc.roundedRect(14, currentY, pageWidth - 28, 17, 2, 2, 'FD');
-
-                        doc.setFontSize(7.5);
-                        doc.setTextColor(100, 116, 139);
-                        doc.text('LICENSEE NICK:', 18, currentY + 5.5);
-                        doc.setTextColor(15, 23, 42);
-                        doc.setFont('helvetica', 'bold');
-                        doc.text(`@${currentUser?.username || 'user'}`, 18, currentY + 12);
-
-                        doc.setFont('helvetica', 'normal');
-                        doc.setTextColor(100, 116, 139);
-                        doc.text('REGISTERED EMAIL:', 65, currentY + 5.5);
-                        doc.setTextColor(15, 23, 42);
-                        doc.setFont('helvetica', 'bold');
-                        doc.text(currentUser?.email || 'user@fastpoolcodes.com', 65, currentY + 12);
-
-                        doc.setFont('helvetica', 'normal');
-                        doc.setTextColor(100, 116, 139);
-                        doc.text('ACTIVE SEASON:', 125, currentY + 5.5);
-                        doc.setTextColor(5, 150, 105);
-                        doc.setFont('helvetica', 'bold');
-                        doc.text(`WEEK ${activeWeekNumber || 43} (2026)`, 125, currentY + 12);
-
-                        doc.setFont('helvetica', 'normal');
-                        doc.setTextColor(100, 116, 139);
-                        doc.text('COMPLIANCE KEY:', 160, currentY + 5.5);
-                        doc.setTextColor(15, 23, 42);
-                        doc.setFont('helvetica', 'bold');
-                        doc.text(`SHA256:FPC-${(currentUser?.id || 'guest').slice(0, 5).toUpperCase()}`, 160, currentY + 12);
-
-                        currentY += 21;
-
-                        // Warning Clause Box
-                        doc.setFillColor(254, 252, 232);
-                        doc.setDrawColor(254, 240, 138);
-                        doc.roundedRect(14, currentY, pageWidth - 28, 10, 1, 1, 'FD');
-                        doc.setFontSize(7);
-                        doc.setTextColor(133, 77, 14);
-                        doc.setFont('helvetica', 'bold');
-                        doc.text('VIP PRINT LICENSE CLAUSE:', 18, currentY + 4.2);
-                        doc.setFont('helvetica', 'normal');
-                        doc.text(`Generated specifically for @${currentUser?.username || 'user'}. Distribution or scanning is trace-monitored.`, 18, currentY + 7.8);
-
-                        currentY += 13;
-
-                        // Table Columns Setup
-                        const tableHeaders: string[] = ['Pool No', 'Bet Code', 'Match Details (Home vs Away)'];
-                        if (pdfConfig.showOdds) {
-                          tableHeaders.push('1', 'X', '2');
-                        }
-                        if (pdfConfig.showTips) {
-                          tableHeaders.push('Expert Tip');
-                        }
-                        if (pdfConfig.showBookmaker) {
-                          tableHeaders.push('Bookmaker');
-                        }
-
-                        const tableData = pdfFilteredGames.map(game => {
-                          const row: string[] = [
-                            String(game.poolNo || '-'),
-                            String(game.betCode || '-'),
-                            `${game.home || ''} vs ${game.away || ''}`,
-                          ];
-                          if (pdfConfig.showOdds) {
-                            row.push(String(game.homeWin || '-'), String(game.draw || '-'), String(game.awayWin || '-'));
-                          }
-                          if (pdfConfig.showTips) {
-                            row.push(String(game.betTips || 'DRAW (X)'));
-                          }
-                          if (pdfConfig.showBookmaker) {
-                            row.push(String(game.bookmaker || '-'));
-                          }
-                          return row;
-                        });
-
-                        autoTable(doc, {
-                          startY: currentY,
-                          head: [tableHeaders],
-                          body: tableData.length > 0 ? tableData : [['-', '-', 'No classified fixtures found', ...tableHeaders.slice(3).map(() => '-')]],
-                          theme: 'grid',
-                          margin: { left: 14, right: 14 },
-                          headStyles: {
-                            fillColor: [15, 23, 42],
-                            textColor: [255, 255, 255],
-                            fontSize: 8,
-                            fontStyle: 'bold',
-                            halign: 'center',
-                          },
-                          bodyStyles: {
-                            fontSize: 7.5,
-                            textColor: [15, 23, 42],
-                            cellPadding: 2,
-                          },
-                          alternateRowStyles: {
-                            fillColor: [248, 250, 252],
-                          },
-                          columnStyles: {
-                            0: { halign: 'center', fontStyle: 'bold', cellWidth: 16 },
-                            1: { halign: 'center', fontStyle: 'bold', cellWidth: 20 },
-                            2: { halign: 'left', fontStyle: 'bold' },
-                          },
-                          didDrawPage: (data) => {
-                            // Footer on every page
-                            doc.setFontSize(7);
-                            doc.setTextColor(148, 163, 184);
-                            doc.text(
-                              `FastPoolCodes Official Classified Coupon • Week ${activeWeekNumber || 43} • Licensed to ${currentUser?.email || 'user'} • Page ${data.pageNumber}`,
-                              14,
-                              pageHeight - 7
-                            );
-                          }
-                        });
-
-                        // Faint watermark across all pages
-                        const totalPages = (doc as any).internal.getNumberOfPages();
-                        for (let p = 1; p <= totalPages; p++) {
-                          doc.setPage(p);
-                          doc.saveGraphicsState();
-                          doc.setTextColor(235, 240, 245);
-                          doc.setFontSize(12);
-                          doc.setFont('helvetica', 'bold');
-                          
-                          const watermarkText = `FASTPOOLCODES • ${currentUser?.email || 'user@fastpoolcodes.com'}`;
-                          for (let y = 35; y < pageHeight - 10; y += 45) {
-                            for (let x = 15; x < pageWidth; x += 90) {
-                              doc.text(watermarkText, x, y, { angle: -25 });
-                            }
-                          }
-                          doc.restoreGraphicsState();
-                        }
-
-                        const filename = `FastPoolCodes_${activeBookmaker}_Week_${activeWeekNumber || 43}.pdf`;
-                        doc.save(filename);
-                        triggerToast('PDF document downloaded successfully!', 'success');
-                      } catch (err) {
-                        console.error('PDF generation error:', err);
-                        triggerToast('Failed to generate PDF document.', 'error');
-                      }
-                    }}
-                    className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 font-mono"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>Download PDF File (.pdf)</span>
-                  </button>
-
-                  <p className="text-[10px] text-slate-500 font-mono leading-relaxed text-center mt-1">
-                    💡 <span className="text-emerald-400 font-extrabold">Pro Tip:</span> Click <span className="text-white font-extrabold">"Download PDF File (.pdf)"</span> to immediately save your coupon sheet as a standalone PDF file on your device.
-                  </p>
-                </div>
-              </div>
-
-              {/* Right Column: Live Sheet Preview (Scrollable wrapper mimicking A4) */}
-              <div className="flex-1 overflow-y-auto p-4 sm:p-8 bg-slate-900/90 flex justify-center items-start scrollbar-thin scrollbar-thumb-slate-800 select-text">
-                <div
-                  id="printable-coupon-modal-sheet"
-                  className={`w-full max-w-[210mm] min-h-[297mm] bg-white text-slate-950 p-5 sm:p-8 shadow-2xl rounded border flex flex-col justify-between font-sans relative ${
-                    pdfConfig.theme === 'emerald' ? 'border-t-8 border-t-emerald-700' : ''
-                  }`}
+                {/* Close button */}
+                <button
+                  onClick={() => setShowPdfPrintModal(false)}
+                  className="absolute top-4 right-4 text-slate-400 hover:text-white transition p-1.5 hover:bg-slate-900 rounded-xl z-20 cursor-pointer"
+                  title="Close Customizer"
                 >
+                  <X className="w-5 h-5" />
+                </button>
+
+                {/* Left Column: Secure Premium Document Details */}
+                <div className="w-full md:w-[38%] border-b md:border-b-0 md:border-r border-slate-800 flex flex-col h-1/2 md:h-full bg-[#090E1A]/60 shrink-0">
+                  <div className="p-5 border-b border-slate-800/80 bg-slate-950 shrink-0">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 bg-emerald-500/15 rounded-lg text-emerald-400">
+                        <Printer className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-mono font-black text-emerald-400 tracking-wider uppercase">PDF Export</h4>
+                        <h3 className="text-sm font-sans font-black text-white uppercase tracking-tight">Secure Document</h3>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto p-5 flex flex-col justify-center scrollbar-thin scrollbar-thumb-slate-800">
+                    {isTableAllowed ? (
+                      <div className="space-y-4 bg-slate-950/80 border border-slate-850/60 p-5 rounded-2xl">
+                        <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 mx-auto mb-2">
+                          <CheckCircle className="w-6 h-6" />
+                        </div>
+                        <h4 className="text-center text-xs font-mono font-black text-white uppercase tracking-wider">Verified Premium Layout</h4>
+                        <p className="text-[11px] text-slate-450 leading-relaxed text-center">
+                          This document is automatically compiled using secure, official high-fidelity premium styles, licensing footers, and a personalized anti-piracy trace watermark.
+                        </p>
+                        <div className="border-t border-slate-900 pt-4 space-y-2.5">
+                          <div className="flex items-center justify-between text-[10px] font-mono text-slate-500">
+                            <span>BOOKMAKER TABLE:</span>
+                            <span className="text-emerald-400 font-bold uppercase">{activeBookmaker} Table</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px] font-mono text-slate-500">
+                            <span>FORMAT TYPE:</span>
+                            <span className="text-white font-bold uppercase">A4 PDF Print-Ready</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px] font-mono text-slate-500">
+                            <span>ANTI-PIRACY TRACE:</span>
+                            <span className="text-emerald-400 font-bold uppercase">Active Watermark</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px] font-mono text-slate-500">
+                            <span>LICENSED SUBSCRIBER:</span>
+                            <span className="text-amber-400 font-bold truncate max-w-[130px]">@{currentUser?.username || 'user'}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-4 bg-slate-950/90 border border-amber-500/30 p-5 rounded-2xl">
+                        <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 mx-auto mb-2">
+                          <Lock className="w-6 h-6 text-amber-400" />
+                        </div>
+                        <h4 className="text-center text-xs font-mono font-black text-amber-400 uppercase tracking-wider">Table Access Restricted</h4>
+                        <p className="text-[11px] text-slate-300 leading-relaxed text-center">
+                          User <strong className="text-white font-bold">@{currentUser?.username || 'user'}</strong> (ID: <code className="text-amber-400">{currentUser?.id || 'guest'}</code>) has not purchased access to the <strong className="text-amber-400 font-bold">{activeBookmaker}</strong> table in the <strong>plan_purchased</strong> log.
+                        </p>
+                        <div className="border-t border-slate-900 pt-3 space-y-2">
+                          <button
+                            onClick={() => {
+                              setShowPdfPrintModal(false);
+                              setActiveSubTab('subscription');
+                            }}
+                            className="w-full py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg transition cursor-pointer flex items-center justify-center gap-2 font-mono"
+                          >
+                            <CreditCard className="w-4 h-4" />
+                            <span>Subscribe to {activeBookmaker} Table</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Print & PDF Export Action Controls */}
+                  <div className="p-5 border-t border-slate-800/85 bg-slate-950 flex flex-col gap-2.5 shrink-0">
+                    {/* Primary PDF Download Button */}
+                    {isTableAllowed ? (
+                      <button
+                        onClick={() => {
+                          if (!isBookieAllowed(activeBookmaker)) {
+                            triggerToast(`Access Denied: @${currentUser?.username || 'user'} (ID: ${currentUser?.id}) is not licensed for ${activeBookmaker} table in plan_purchased.`, 'error');
+                            return;
+                          }
+
+                          triggerToast('Generating official PDF document...', 'info');
+
+                          try {
+                            const normStr = (s: string) => (s || '').replace(/\s+/g, '').toLowerCase();
+                            const targetNorm = normStr(activeBookmaker);
+
+                            const rawList = postedGames.filter(game => {
+                              if (activeBookmaker === 'all') return true;
+                              const gameBookieNorm = normStr(game.bookmaker);
+                              const gameSourceNorm = normStr(game.sourceTable || '');
+                              return gameBookieNorm === targetNorm || gameSourceNorm === targetNorm;
+                            });
+
+                            const seenPools = new Map<string, typeof rawList[0]>();
+                            rawList.forEach(game => {
+                              const key = game.poolNo !== undefined && game.poolNo !== null && String(game.poolNo).trim() !== ''
+                                ? String(game.poolNo)
+                                : game.id;
+                              if (!seenPools.has(key)) {
+                                seenPools.set(key, game);
+                              }
+                            });
+
+                            const pdfFilteredGames = Array.from(seenPools.values());
+                            pdfFilteredGames.sort((a, b) => (Number(a.poolNo) || 0) - (Number(b.poolNo) || 0));
+
+                            const doc = new jsPDF({
+                              orientation: 'portrait',
+                              unit: 'mm',
+                              format: 'a4',
+                            });
+
+                            const pageWidth = doc.internal.pageSize.getWidth();
+                            const pageHeight = doc.internal.pageSize.getHeight();
+
+                            let currentY = 14;
+
+                            // Header Banner
+                            doc.setFillColor(15, 23, 42); // slate-900
+                            doc.rect(14, currentY, pageWidth - 28, 16, 'F');
+                            
+                            doc.setTextColor(255, 255, 255);
+                            doc.setFontSize(13);
+                            doc.setFont('helvetica', 'bold');
+                            doc.text('FASTPOOLCODES', 19, currentY + 10.5);
+                            
+                            doc.setTextColor(52, 211, 153); // emerald-400
+                            doc.setFontSize(8.5);
+                            doc.setFont('helvetica', 'bold');
+                            doc.text(`[${activeBookmaker.toUpperCase()}] OFFICIAL WEEK ${activeWeekNumber || 43} SHEET`, pageWidth - 19, currentY + 10.5, { align: 'right' });
+                            
+                            currentY += 21;
+
+                            // Title & Subtitle
+                            doc.setTextColor(15, 23, 42);
+                            doc.setFontSize(12);
+                            doc.setFont('helvetica', 'bold');
+                            doc.text(pdfConfig.title || `Week ${activeWeekNumber || 43} Classified Coupon Codes`, 14, currentY);
+                            
+                            currentY += 4.5;
+                            doc.setTextColor(100, 116, 139);
+                            doc.setFontSize(8.5);
+                            doc.setFont('helvetica', 'normal');
+                            doc.text(pdfConfig.subtitle || 'Automated Cryptographic Coupon Signatures & Verification Records', 14, currentY);
+
+                            currentY += 6.5;
+
+                            // Metadata Card Box
+                            doc.setFillColor(248, 250, 252);
+                            doc.setDrawColor(203, 213, 225);
+                            doc.roundedRect(14, currentY, pageWidth - 28, 17, 2, 2, 'FD');
+
+                            doc.setFontSize(7.5);
+                            doc.setTextColor(100, 116, 139);
+                            doc.text('LICENSEE NICK:', 18, currentY + 5.5);
+                            doc.setTextColor(15, 23, 42);
+                            doc.setFont('helvetica', 'bold');
+                            doc.text(`@${currentUser?.username || 'user'}`, 18, currentY + 12);
+
+                            doc.setFont('helvetica', 'normal');
+                            doc.setTextColor(100, 116, 139);
+                            doc.text('REGISTERED EMAIL:', 65, currentY + 5.5);
+                            doc.setTextColor(15, 23, 42);
+                            doc.setFont('helvetica', 'bold');
+                            doc.text(currentUser?.email || 'user@fastpoolcodes.com', 65, currentY + 12);
+
+                            doc.setFont('helvetica', 'normal');
+                            doc.setTextColor(100, 116, 139);
+                            doc.text('ACTIVE SEASON:', 125, currentY + 5.5);
+                            doc.setTextColor(5, 150, 105);
+                            doc.setFont('helvetica', 'bold');
+                            doc.text(`WEEK ${activeWeekNumber || 43} (2026)`, 125, currentY + 12);
+
+                            doc.setFont('helvetica', 'normal');
+                            doc.setTextColor(100, 116, 139);
+                            doc.text('COMPLIANCE KEY:', 160, currentY + 5.5);
+                            doc.setTextColor(15, 23, 42);
+                            doc.setFont('helvetica', 'bold');
+                            doc.text(`SHA256:FPC-${(currentUser?.id || 'guest').slice(0, 5).toUpperCase()}`, 160, currentY + 12);
+
+                            currentY += 21;
+
+                            // Warning Clause Box
+                            doc.setFillColor(254, 252, 232);
+                            doc.setDrawColor(254, 240, 138);
+                            doc.roundedRect(14, currentY, pageWidth - 28, 10, 1, 1, 'FD');
+                            doc.setFontSize(7);
+                            doc.setTextColor(133, 77, 14);
+                            doc.setFont('helvetica', 'bold');
+                            doc.text('VIP PRINT LICENSE CLAUSE:', 18, currentY + 4.2);
+                            doc.setFont('helvetica', 'normal');
+                            doc.text(`Generated specifically for @${currentUser?.username || 'user'}. Distribution or scanning is trace-monitored.`, 18, currentY + 7.8);
+
+                            currentY += 13;
+
+                            // Table Columns Setup
+                            const tableHeaders: string[] = ['Pool No', 'Bet Code', 'Match Details (Home vs Away)'];
+                            if (pdfConfig.showOdds) {
+                              tableHeaders.push('1', 'X', '2');
+                            }
+                            if (pdfConfig.showTips) {
+                              tableHeaders.push('Expert Tip');
+                            }
+                            if (pdfConfig.showBookmaker) {
+                              tableHeaders.push('Bookmaker');
+                            }
+
+                            const tableData = pdfFilteredGames.map(game => {
+                              const row: string[] = [
+                                String(game.poolNo || '-'),
+                                String(game.betCode || '-'),
+                                `${game.home || ''} vs ${game.away || ''}`,
+                              ];
+                              if (pdfConfig.showOdds) {
+                                row.push(String(game.homeWin || '-'), String(game.draw || '-'), String(game.awayWin || '-'));
+                              }
+                              if (pdfConfig.showTips) {
+                                row.push(String(game.betTips || 'DRAW (X)'));
+                              }
+                              if (pdfConfig.showBookmaker) {
+                                row.push(String(game.bookmaker || '-'));
+                              }
+                              return row;
+                            });
+
+                            autoTable(doc, {
+                              startY: currentY,
+                              head: [tableHeaders],
+                              body: tableData.length > 0 ? tableData : [['-', '-', 'No classified fixtures found', ...tableHeaders.slice(3).map(() => '-')]],
+                              theme: 'grid',
+                              margin: { left: 14, right: 14 },
+                              headStyles: {
+                                fillColor: [15, 23, 42],
+                                textColor: [255, 255, 255],
+                                fontSize: 8,
+                                fontStyle: 'bold',
+                                halign: 'center',
+                              },
+                              bodyStyles: {
+                                fontSize: 7.5,
+                                textColor: [15, 23, 42],
+                                cellPadding: 2,
+                              },
+                              alternateRowStyles: {
+                                fillColor: [248, 250, 252],
+                              },
+                              columnStyles: {
+                                0: { halign: 'center', fontStyle: 'bold', cellWidth: 16 },
+                                1: { halign: 'center', fontStyle: 'bold', cellWidth: 20 },
+                                2: { halign: 'left', fontStyle: 'bold' },
+                              },
+                              didDrawPage: (data) => {
+                                // Footer on every page
+                                doc.setFontSize(7);
+                                doc.setTextColor(148, 163, 184);
+                                doc.text(
+                                  `FastPoolCodes Official Classified Coupon • Week ${activeWeekNumber || 43} • Licensed to ${currentUser?.email || 'user'} • Page ${data.pageNumber}`,
+                                  14,
+                                  pageHeight - 7
+                                );
+                              }
+                            });
+
+                            // Faint watermark across all pages
+                            const totalPages = (doc as any).internal.getNumberOfPages();
+                            for (let p = 1; p <= totalPages; p++) {
+                              doc.setPage(p);
+                              doc.saveGraphicsState();
+                              doc.setTextColor(235, 240, 245);
+                              doc.setFontSize(12);
+                              doc.setFont('helvetica', 'bold');
+                              
+                              const watermarkText = `FASTPOOLCODES • ${currentUser?.email || 'user@fastpoolcodes.com'}`;
+                              for (let y = 35; y < pageHeight - 10; y += 45) {
+                                for (let x = 15; x < pageWidth; x += 90) {
+                                  doc.text(watermarkText, x, y, { angle: -25 });
+                                }
+                              }
+                              doc.restoreGraphicsState();
+                            }
+
+                            const filename = `FastPoolCodes_${activeBookmaker}_Week_${activeWeekNumber || 43}.pdf`;
+                            doc.save(filename);
+                            triggerToast('PDF document downloaded successfully!', 'success');
+                          } catch (err) {
+                            console.error('PDF generation error:', err);
+                            triggerToast('Failed to generate PDF document.', 'error');
+                          }
+                        }}
+                        className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 font-mono"
+                      >
+                        <Download className="w-4 h-4" />
+                        <span>Download PDF File (.pdf)</span>
+                      </button>
+                    ) : (
+                      <button
+                        disabled
+                        className="w-full py-3.5 bg-slate-900 text-amber-400 border border-amber-500/30 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg opacity-80 cursor-not-allowed font-mono"
+                      >
+                        <Lock className="w-4 h-4 text-amber-400" />
+                        <span>Subscription Required to Download ({activeBookmaker})</span>
+                      </button>
+                    )}
+
+                    <p className="text-[10px] text-slate-500 font-mono leading-relaxed text-center mt-1">
+                      {isTableAllowed ? (
+                        <>💡 <span className="text-emerald-400 font-extrabold">Pro Tip:</span> Click <span className="text-white font-extrabold">"Download PDF File (.pdf)"</span> to immediately save your coupon sheet as a standalone PDF file on your device.</>
+                      ) : (
+                        <span className="text-amber-400/90 font-semibold">🔒 Table access is restricted. Please purchase a plan for this bookmaker table to unlock PDF downloads.</span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Right Column: Live Sheet Preview (Scrollable wrapper mimicking A4) */}
+                <div className="flex-1 overflow-y-auto p-4 sm:p-8 bg-slate-900/90 flex justify-center items-start scrollbar-thin scrollbar-thumb-slate-800 select-text relative">
+                  <div
+                    id="printable-coupon-modal-sheet"
+                    className={`w-full max-w-[210mm] min-h-[297mm] bg-white text-slate-950 p-5 sm:p-8 shadow-2xl rounded border flex flex-col justify-between font-sans relative ${
+                      pdfConfig.theme === 'emerald' ? 'border-t-8 border-t-emerald-700' : ''
+                    }`}
+                  >
+                    {/* Locked Watermark Overlay for Unlicensed Tables */}
+                    {!isTableAllowed && (
+                      <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-sm z-30 flex flex-col items-center justify-center p-6 text-center space-y-4 rounded">
+                        <div className="w-16 h-16 bg-amber-500/15 border border-amber-500/30 rounded-2xl flex items-center justify-center text-amber-400 shadow-xl">
+                          <Lock className="w-8 h-8 text-amber-400 animate-pulse" />
+                        </div>
+                        <span className="text-[10px] font-mono font-black text-amber-400 uppercase tracking-widest px-3 py-1 bg-amber-950/60 border border-amber-900/60 rounded-full">
+                          PDF EXPORT RESTRICTED
+                        </span>
+                        <h3 className="text-xl font-black text-white uppercase tracking-tight font-mono">
+                          {activeBookmaker} Pool Sheet Locked
+                        </h3>
+                        <p className="text-xs text-slate-300 max-w-sm leading-relaxed font-sans">
+                          User <strong className="text-emerald-400 font-bold">@{currentUser?.username || 'user'}</strong> (ID: <code className="text-slate-200">{currentUser?.id || 'guest'}</code>) has not purchased access to the <strong className="text-amber-400 font-bold">{activeBookmaker}</strong> table in the <strong>plan_purchased</strong> record.
+                        </p>
+                        <button
+                          onClick={() => {
+                            setShowPdfPrintModal(false);
+                            setActiveSubTab('subscription');
+                            triggerToast(`Subscribe to ${activeBookmaker} Table to download this PDF.`, 'info');
+                          }}
+                          className="mt-2 px-6 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg transition cursor-pointer flex items-center gap-2 font-mono"
+                        >
+                          <CreditCard className="w-4 h-4" />
+                          <span>Purchase Access to {activeBookmaker} Table</span>
+                        </button>
+                      </div>
+                    )}
                   {/* Decorative background grid overlay for print preview (removed during print automatically via CSS) */}
                   <div className="absolute inset-0 bg-grid opacity-[0.01] pointer-events-none print:hidden"></div>
 
@@ -6284,7 +6431,8 @@ export default function CustomerPortal({
               </div>
             </motion.div>
           </div>
-        )}
+        );
+      })()}
       </AnimatePresence>
 
       {/* SIMULATED INBOX EMAIL PREVIEW MODAL */}
