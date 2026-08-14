@@ -2543,19 +2543,6 @@ export default function CustomerPortal({
                             />
                           </div>
 
-                          <div>
-                            <label className="block text-slate-400 mb-1">STATUS DAY</label>
-                            <select
-                              value={adminStatus}
-                              onChange={(e) => setAdminStatus(e.target.value)}
-                              className="w-full bg-slate-950 border border-slate-850 rounded px-2.5 py-1.5 text-white"
-                            >
-                              <option value="Friday">Friday</option>
-                              <option value="Saturday">Saturday</option>
-                              <option value="Sunday">Sunday</option>
-                              <option value="Completed">Completed</option>
-                            </select>
-                          </div>
 
                           <div>
                             <label className="block text-slate-400 mb-1">KICK OFF TIME</label>
@@ -5733,19 +5720,7 @@ export default function CustomerPortal({
                     <div className="border-t border-slate-900 pt-4 space-y-2.5">
                       <div className="flex items-center justify-between text-[10px] font-mono text-slate-500">
                         <span>BOOKMAKER TABLE:</span>
-                        <select
-                          value={pdfConfig.bookmakerFilter || 'Bet9ja'}
-                          onChange={(e) => setPdfConfig(prev => ({ ...prev, bookmakerFilter: e.target.value }))}
-                          className="bg-slate-900 text-emerald-400 font-bold border border-slate-800 rounded px-2 py-1 text-[11px] focus:outline-none focus:border-emerald-500"
-                        >
-                          <option value="Bet9ja">Bet9ja Table</option>
-                          <option value="BetKing">BetKing Table</option>
-                          <option value="SportyBet">SportyBet Table</option>
-                          <option value="PremierBet">PremierBet Table</option>
-                          <option value="Betway">Betway Table</option>
-                          <option value="Soccabet">Soccabet Table</option>
-                          <option value="MSport">MSport Table</option>
-                        </select>
+                        <span className="text-emerald-400 font-bold uppercase">{pdfConfig.bookmakerFilter || dashboardBookmakerFilter || 'Bet9ja'} Table</span>
                       </div>
                       <div className="flex items-center justify-between text-[10px] font-mono text-slate-500">
                         <span>FORMAT TYPE:</span>
