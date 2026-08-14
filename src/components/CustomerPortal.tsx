@@ -56,7 +56,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { DatabaseState, User, SubscriptionPlan, UserSubscription, PoolCode, parseComponents } from '../types';
 import { getSupabaseClient } from '../lib/supabase';
 import GoogleAdBanner from './GoogleAdBanner';
-import { INITIAL_PLANS, isGhanaPlan, getMergedSubscriptionPlans, isGhanaBookmaker, getMergedBookmakers, getBookmakersByCountry } from '../initialData';
+import { INITIAL_PLANS, isGhanaPlan, getMergedSubscriptionPlans, getSortedComparisonPlans, isGhanaBookmaker, getMergedBookmakers, getBookmakersByCountry } from '../initialData';
 
 interface CustomerPortalProps {
   db: DatabaseState;
@@ -5520,10 +5520,28 @@ export default function CustomerPortal({
                         new Map(rawComps.map(item => [item.slug, item])).values()
                       );
 
-                      const rawPlans = getMergedSubscriptionPlans(db.subscription_plans).filter(p => p && p.id);
-                      const paidPlans = rawPlans.filter(p => p.price > 0 || p.id !== 'plan-free');
-                      const regionPlans = paidPlans.filter(p => isGhana ? isGhanaPlan(p) : !isGhanaPlan(p));
-                      const displayPlans = regionPlans.length > 0 ? regionPlans : paidPlans;
+                      const displayPlans = getSortedComparisonPlans(db.subscription_plans, isGhana);
+
+                      const getPlanDisplayMeta = (p: SubscriptionPlan) => {
+                        const cycle = (p.billing_cycle || '').toLowerCase();
+                        const name = (p.name || '').toLowerCase();
+                        if (cycle === 'weekly' || name.includes('weekly')) {
+                          return { title: 'Weekly Plan', cycleName: 'Weekly', duration: '1 Week Access', bonus: '1 Week', highlight: false };
+                        }
+                        if (cycle === 'monthly' || name.includes('monthly')) {
+                          return { title: 'Monthly Plan', cycleName: 'Monthly', duration: '4 Wks + 1 Wk Bonus', bonus: '+1 Wk Free', highlight: false };
+                        }
+                        if (cycle === 'quarterly' || name.includes('quarterly')) {
+                          return { title: 'Quarterly Plan', cycleName: 'Quarterly', duration: '12 Wks + 1 Wk Bonus', bonus: '+1 Wk Free', highlight: true };
+                        }
+                        if (cycle === 'biannual' || cycle === 'bi-annual' || (name.includes('annual') && name.includes('bi'))) {
+                          return { title: 'Bi-Annual Plan', cycleName: 'Bi-Annual', duration: '24 Wks + 2 Wks Bonus', bonus: '+2 Wks Free', highlight: false };
+                        }
+                        if (cycle === 'yearly' || name.includes('yearly') || name.includes('annual')) {
+                          return { title: 'Yearly Plan', cycleName: 'Yearly', duration: '48 Wks + 4 Wks Bonus', bonus: '+4 Wks Free', highlight: false };
+                        }
+                        return { title: p.name, cycleName: p.billing_cycle || 'Custom', duration: p.description || 'Standard Access', bonus: '', highlight: false };
+                      };
 
                       const activeBookmakers = vipBookmakerFilter === 'all'
                         ? bookmakersList
@@ -5541,24 +5559,25 @@ export default function CustomerPortal({
                         <div className="flex flex-col gap-5">
                           {/* MASTER COMPARISON MATRIX */}
                           <div className="border border-slate-800 bg-[#070B14] rounded-2xl overflow-hidden shadow-xl">
-                            <div className="bg-slate-950 p-4 border-b border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                            <div className="bg-slate-950 p-4 sm:p-5 border-b border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-3">
                               <div>
-                                <h4 className="text-sm font-black text-white uppercase tracking-wider font-mono">
-                                  📊 Bookmaker x Billing Cycle Comparison Matrix
+                                <h4 className="text-sm font-black text-white uppercase tracking-wider font-mono flex items-center gap-2">
+                                  <span>📊</span>
+                                  <span>Bookmaker x Billing Cycle Comparison Matrix</span>
                                 </h4>
-                                <p className="text-xs text-slate-400 font-mono mt-0.5">
-                                  Pick any individual bookmaker and billing duration cell to initiate instant subscription checkout.
+                                <p className="text-xs text-slate-400 font-mono mt-1">
+                                  Pick any bookmaker and billing duration cell starting from Weekly up to Yearly to activate instant access.
                                 </p>
                               </div>
 
                               {/* Bookmaker Filter Pills */}
-                              <div className="flex items-center gap-1.5 overflow-x-auto pt-2 md:pt-0 border-t md:border-t-0 border-slate-800/80">
+                              <div className="flex items-center gap-1.5 overflow-x-auto pt-2 md:pt-0 border-t md:border-t-0 border-slate-800/80 scrollbar-thin">
                                 <span className="text-[10px] font-mono uppercase text-slate-500 font-bold shrink-0 mr-1">Filter:</span>
                                 <button
                                   onClick={() => setVipBookmakerFilter('all')}
-                                  className={`px-2.5 py-1 text-[11px] font-mono rounded-md font-bold transition shrink-0 ${
+                                  className={`px-3 py-1 text-[11px] font-mono rounded-lg font-bold transition shrink-0 ${
                                     vipBookmakerFilter === 'all'
-                                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
                                       : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
                                   }`}
                                 >
@@ -5568,9 +5587,9 @@ export default function CustomerPortal({
                                   <button
                                     key={`bmk_pill_${bmk.slug}_${bIdx}`}
                                     onClick={() => setVipBookmakerFilter(bmk.slug)}
-                                    className={`px-2.5 py-1 text-[11px] font-mono rounded-md font-bold transition shrink-0 uppercase ${
+                                    className={`px-3 py-1 text-[11px] font-mono rounded-lg font-bold transition shrink-0 uppercase ${
                                       vipBookmakerFilter === bmk.slug
-                                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
                                         : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
                                     }`}
                                   >
@@ -5580,49 +5599,62 @@ export default function CustomerPortal({
                               </div>
                             </div>
 
-                            <div className="overflow-x-auto">
-                              <table className="w-full text-left border-collapse">
+                            <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-800">
+                              <table className="w-full text-left border-collapse min-w-[700px]">
                                 <thead>
                                   <tr className="bg-slate-950 text-slate-400 text-[10px] uppercase font-mono font-bold border-b border-slate-800">
-                                    <th className="p-3 pl-4">Bookmaker</th>
-                                    {displayPlans.map((p, idx) => (
-                                      <th key={`matrix_head_${p.id}_${idx}`} className="p-3 text-center">
-                                        <div>{p.name}</div>
-                                        <div className="text-[9px] text-slate-500 lowercase font-normal">({p.billing_cycle})</div>
-                                      </th>
-                                    ))}
+                                    <th className="p-3.5 pl-4 w-44">Bookmaker</th>
+                                    {displayPlans.map((p, idx) => {
+                                      const meta = getPlanDisplayMeta(p);
+                                      return (
+                                        <th key={`matrix_head_${p.id}_${idx}`} className="p-3 text-center border-l border-slate-900">
+                                          <div className="flex flex-col items-center gap-0.5">
+                                            <span className="text-xs font-black text-white uppercase tracking-wider font-mono">
+                                              {meta.cycleName}
+                                            </span>
+                                            <span className="text-[9.5px] text-emerald-400/90 font-medium lowercase font-mono">
+                                              {meta.duration}
+                                            </span>
+                                          </div>
+                                        </th>
+                                      );
+                                    })}
                                   </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-800/60 text-xs">
                                   {activeBookmakers.map((bmk, bIdx) => (
-                                    <tr key={`matrix_row_${bmk.slug}_${bIdx}`} className="hover:bg-slate-900/50">
-                                      <td className="p-3 pl-4 font-bold text-white font-sans">
-                                        <div className="flex items-center gap-2">
-                                          <div className="w-6 h-6 rounded bg-emerald-950 text-emerald-400 font-mono font-black text-xs flex items-center justify-center border border-emerald-800">
+                                    <tr key={`matrix_row_${bmk.slug}_${bIdx}`} className="hover:bg-slate-900/50 transition-colors">
+                                      <td className="p-3.5 pl-4 font-bold text-white font-sans">
+                                        <div className="flex items-center gap-2.5">
+                                          <div className="w-7 h-7 rounded-lg bg-emerald-950/80 text-emerald-400 font-mono font-black text-xs flex items-center justify-center border border-emerald-800/80 shadow-sm shrink-0">
                                             {(bmk.name || 'B').charAt(0).toUpperCase()}
                                           </div>
-                                          <span>{bmk.name}</span>
+                                          <div className="flex flex-col">
+                                            <span className="font-bold text-slate-100">{bmk.name}</span>
+                                            <span className="text-[10px] font-mono text-slate-500 uppercase">Single Table</span>
+                                          </div>
                                         </div>
                                       </td>
                                       {displayPlans.map((p, pIdx) => {
                                         const isActive = checkActiveSub(bmk.slug, p.id);
                                         const unitPrice = Number(p.price || 0);
                                         return (
-                                          <td key={`matrix_cell_${bmk.slug}_${p.id}_${pIdx}`} className="p-3 text-center font-mono">
+                                          <td key={`matrix_cell_${bmk.slug}_${p.id}_${pIdx}`} className="p-3 text-center font-mono border-l border-slate-900/60">
                                             <div className="flex flex-col items-center gap-1.5">
-                                              <span className="text-xs font-black text-emerald-400">
+                                              <span className="text-sm font-black text-emerald-400">
                                                 {currencySymbol}{unitPrice.toLocaleString()}
                                               </span>
                                               {isActive ? (
-                                                <span className="bg-emerald-950 text-emerald-400 text-[8.5px] font-black px-2 py-0.5 rounded border border-emerald-800 uppercase">
+                                                <span className="bg-emerald-950 text-emerald-400 text-[9px] font-black px-2.5 py-1 rounded-md border border-emerald-800 uppercase tracking-wider shadow-sm">
                                                   ACTIVE ✓
                                                 </span>
                                               ) : (
                                                 <button
                                                   onClick={() => buySubscription(p.id, [bmk.slug])}
-                                                  className="bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black text-[9.5px] uppercase px-2.5 py-1 rounded transition cursor-pointer active:scale-95"
+                                                  className="bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-black text-[10px] uppercase px-3 py-1.5 rounded-lg transition shadow-md shadow-emerald-500/10 cursor-pointer whitespace-nowrap"
+                                                  title={`Subscribe to ${bmk.name} for ${currencySymbol}${unitPrice.toLocaleString()}`}
                                                 >
-                                                  BUY {(bmk.name || 'BOOKMAKER').toUpperCase()}
+                                                  BUY {bmk.name.toUpperCase()}
                                                 </button>
                                               )}
                                             </div>

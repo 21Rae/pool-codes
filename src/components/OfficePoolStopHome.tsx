@@ -35,7 +35,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import ExpertBlogView from './ExpertBlogView';
 import GoogleAdBanner from './GoogleAdBanner';
 import { getSupabaseClient } from '../lib/supabase';
-import { INITIAL_PLANS, isGhanaPlan, getMergedSubscriptionPlans, getBookmakersByCountry, isGhanaBookmaker } from '../initialData';
+import { INITIAL_PLANS, isGhanaPlan, getMergedSubscriptionPlans, getSortedComparisonPlans, getBookmakersByCountry, isGhanaBookmaker } from '../initialData';
 
 interface OfficePoolStopHomeProps {
   onSignIn: () => void;
@@ -1809,10 +1809,28 @@ export default function OfficePoolStopHome({
                   new Map(rawComps.map(item => [item.slug, item])).values()
                 );
 
-                const rawPlans = getMergedSubscriptionPlans(db.subscription_plans).filter((p: any) => p && p.id);
-                const paidPlans = rawPlans.filter((p: any) => Number(p.price || 0) > 0 || p.id !== 'plan-free');
-                const regionPlans = paidPlans.filter((p: any) => isGhana ? isGhanaPlan(p) : !isGhanaPlan(p));
-                const displayPlans = regionPlans.length > 0 ? regionPlans : paidPlans;
+                const displayPlans = getSortedComparisonPlans(db.subscription_plans, isGhana);
+
+                const getPlanDisplayMeta = (p: any) => {
+                  const cycle = (p.billing_cycle || '').toLowerCase();
+                  const name = (p.name || '').toLowerCase();
+                  if (cycle === 'weekly' || name.includes('weekly')) {
+                    return { cycleName: 'Weekly', duration: '1 Week Access' };
+                  }
+                  if (cycle === 'monthly' || name.includes('monthly')) {
+                    return { cycleName: 'Monthly', duration: '4 Wks + 1 Wk Bonus' };
+                  }
+                  if (cycle === 'quarterly' || name.includes('quarterly')) {
+                    return { cycleName: 'Quarterly', duration: '12 Wks + 1 Wk Bonus' };
+                  }
+                  if (cycle === 'biannual' || cycle === 'bi-annual' || (name.includes('annual') && name.includes('bi'))) {
+                    return { cycleName: 'Bi-Annual', duration: '24 Wks + 2 Wks Bonus' };
+                  }
+                  if (cycle === 'yearly' || name.includes('yearly') || name.includes('annual')) {
+                    return { cycleName: 'Yearly', duration: '48 Wks + 4 Wks Bonus' };
+                  }
+                  return { cycleName: p.billing_cycle || p.name, duration: p.description || 'Standard Access' };
+                };
 
                 const activeBookmakers = vipBookmakerFilter === 'all'
                   ? bookmakersList
@@ -1823,23 +1841,24 @@ export default function OfficePoolStopHome({
                     <div className="border border-slate-800 bg-[#070B14] rounded-2xl overflow-hidden shadow-xl">
                       <div className="bg-slate-950 p-4 border-b border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-3">
                         <div>
-                          <h4 className="text-xs font-black text-white uppercase tracking-wider font-mono">
-                            📊 Bookmaker x Billing Cycle Comparison Matrix
+                          <h4 className="text-xs font-black text-white uppercase tracking-wider font-mono flex items-center gap-2">
+                            <span>📊</span>
+                            <span>Bookmaker x Billing Cycle Comparison Matrix</span>
                           </h4>
                           <p className="text-[11px] text-slate-400 font-mono mt-0.5">
-                            Select any bookmaker cell to select access package.
+                            Select any duration cell from Weekly to Yearly to activate access for that bookmaker table.
                           </p>
                         </div>
 
                         {/* Bookmaker Filter Pills */}
-                        <div className="flex items-center gap-1.5 overflow-x-auto pt-2 md:pt-0">
+                        <div className="flex items-center gap-1.5 overflow-x-auto pt-2 md:pt-0 scrollbar-thin">
                           <span className="text-[10px] font-mono uppercase text-slate-500 font-bold shrink-0 mr-1">Filter:</span>
                           <button
                             type="button"
                             onClick={() => setVipBookmakerFilter('all')}
-                            className={`px-2 py-1 text-[10px] font-mono rounded font-bold transition shrink-0 ${
+                            className={`px-2.5 py-1 text-[10px] font-mono rounded-lg font-bold transition shrink-0 ${
                               vipBookmakerFilter === 'all'
-                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
                                 : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
                             }`}
                           >
@@ -1850,9 +1869,9 @@ export default function OfficePoolStopHome({
                               key={`pw_bmk_pill_${bmk.slug}_${bIdx}`}
                               type="button"
                               onClick={() => setVipBookmakerFilter(bmk.slug)}
-                              className={`px-2 py-1 text-[10px] font-mono rounded font-bold transition shrink-0 uppercase ${
+                              className={`px-2.5 py-1 text-[10px] font-mono rounded-lg font-bold transition shrink-0 uppercase ${
                                 vipBookmakerFilter === bmk.slug
-                                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
                                   : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
                               }`}
                             >
@@ -1862,35 +1881,44 @@ export default function OfficePoolStopHome({
                         </div>
                       </div>
 
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
+                      <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-800">
+                        <table className="w-full text-left border-collapse min-w-[650px]">
                           <thead>
                             <tr className="bg-slate-950 text-slate-400 text-[10px] uppercase font-mono font-bold border-b border-slate-800">
-                              <th className="p-3 pl-4">Bookmaker</th>
-                              {displayPlans.map((p, idx) => (
-                                <th key={`pw_matrix_head_${p.id}_${idx}`} className="p-3 text-center">
-                                  <div>{p.name}</div>
-                                  <div className="text-[9px] text-slate-500 lowercase font-normal">({p.billing_cycle})</div>
-                                </th>
-                              ))}
+                              <th className="p-3 pl-4 w-44">Bookmaker</th>
+                              {displayPlans.map((p, idx) => {
+                                const meta = getPlanDisplayMeta(p);
+                                return (
+                                  <th key={`pw_matrix_head_${p.id}_${idx}`} className="p-3 text-center border-l border-slate-900">
+                                    <div className="flex flex-col items-center gap-0.5">
+                                      <span className="text-[11px] font-black text-white uppercase tracking-wider font-mono">
+                                        {meta.cycleName}
+                                      </span>
+                                      <span className="text-[9px] text-emerald-400/90 font-medium lowercase font-mono">
+                                        {meta.duration}
+                                      </span>
+                                    </div>
+                                  </th>
+                                );
+                              })}
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-800/60 text-xs">
                             {activeBookmakers.map((bmk, bIdx) => (
-                              <tr key={`pw_matrix_row_${bmk.slug}_${bIdx}`} className="hover:bg-slate-900/50">
+                              <tr key={`pw_matrix_row_${bmk.slug}_${bIdx}`} className="hover:bg-slate-900/50 transition-colors">
                                 <td className="p-3 pl-4 font-bold text-white font-sans">
                                   <div className="flex items-center gap-2">
-                                    <div className="w-5 h-5 rounded bg-emerald-950 text-emerald-400 font-mono font-black text-[10px] flex items-center justify-center border border-emerald-800">
+                                    <div className="w-6 h-6 rounded-md bg-emerald-950 text-emerald-400 font-mono font-black text-[10px] flex items-center justify-center border border-emerald-800">
                                       {(bmk.name || 'B').charAt(0).toUpperCase()}
                                     </div>
-                                    <span>{bmk.name}</span>
+                                    <span className="font-bold text-slate-200">{bmk.name}</span>
                                   </div>
                                 </td>
                                 {displayPlans.map((p, pIdx) => {
                                   const isSelected = paywallPlan === p.id && selectedPaywallBookmaker === bmk.slug;
                                   const unitPrice = Number(p.price || 0);
                                   return (
-                                    <td key={`pw_matrix_cell_${bmk.slug}_${p.id}_${pIdx}`} className="p-3 text-center font-mono">
+                                    <td key={`pw_matrix_cell_${bmk.slug}_${p.id}_${pIdx}`} className="p-3 text-center font-mono border-l border-slate-900/60">
                                       <div className="flex flex-col items-center gap-1.5">
                                         <span className="text-xs font-black text-emerald-400">
                                           {currencySymbol}{unitPrice.toLocaleString()}
@@ -1901,7 +1929,7 @@ export default function OfficePoolStopHome({
                                             setPaywallPlan(p.id);
                                             setSelectedPaywallBookmaker(bmk.slug);
                                           }}
-                                          className={`font-black text-[9.5px] uppercase px-2.5 py-1 rounded transition cursor-pointer active:scale-95 ${
+                                          className={`font-black text-[9.5px] uppercase px-2.5 py-1 rounded-md transition cursor-pointer active:scale-95 whitespace-nowrap ${
                                             isSelected
                                               ? 'bg-amber-400 text-slate-950 shadow-md shadow-amber-400/30'
                                               : 'bg-emerald-600 hover:bg-emerald-500 text-slate-950'

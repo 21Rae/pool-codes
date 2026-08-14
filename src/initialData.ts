@@ -187,6 +187,66 @@ export function getMergedSubscriptionPlans(dbPlans?: SubscriptionPlan[]): Subscr
   return INITIAL_PLANS || [];
 }
 
+export function getSortedComparisonPlans(dbPlans?: SubscriptionPlan[], isGhana = false): SubscriptionPlan[] {
+  const allPlans = getMergedSubscriptionPlans(dbPlans).filter(p => p && p.id);
+  const paidPlans = allPlans.filter(p => Number(p.price || 0) > 0 || p.id !== 'plan-free');
+  const regionPlans = paidPlans.filter(p => isGhana ? isGhanaPlan(p) : !isGhanaPlan(p));
+  const candidatePlans = regionPlans.length > 0 ? regionPlans : paidPlans;
+
+  const cycleRank = (cycleStr: string, nameStr: string): number => {
+    const combined = `${cycleStr || ''} ${nameStr || ''}`.toLowerCase();
+    if (combined.includes('weekly') || combined.includes('week') && !combined.includes('bonus') && !combined.includes('weeks')) return 1;
+    if (combined.includes('monthly') || combined.includes('month') && !combined.includes('bonus')) return 2;
+    if (combined.includes('quarterly') || combined.includes('quarter')) return 3;
+    if (combined.includes('biannual') || combined.includes('bi-annual') || combined.includes('bi - annual') || combined.includes('half')) return 4;
+    if (combined.includes('yearly') || combined.includes('annual') || combined.includes('year')) return 5;
+    return 6;
+  };
+
+  const getCycleKey = (p: SubscriptionPlan): string => {
+    const r = cycleRank(p.billing_cycle || '', p.name || '');
+    if (r === 1) return 'weekly';
+    if (r === 2) return 'monthly';
+    if (r === 3) return 'quarterly';
+    if (r === 4) return 'biannual';
+    if (r === 5) return 'yearly';
+    return p.billing_cycle || p.id;
+  };
+
+  // Map to hold single deduplicated plan per billing cycle
+  const planByCycle = new Map<string, SubscriptionPlan>();
+  candidatePlans.forEach(plan => {
+    const key = getCycleKey(plan);
+    const existing = planByCycle.get(key);
+    if (!existing) {
+      planByCycle.set(key, plan);
+    } else {
+      // Prefer cleaner non-empty descriptions or newer plans
+      if (plan.id.includes('new') || plan.name.includes('(New)') || Number(plan.price) > 0) {
+        planByCycle.set(key, plan);
+      }
+    }
+  });
+
+  // Ensure default plans exist for missing cycles
+  const defaultList = (INITIAL_PLANS || []).filter(p => isGhana ? isGhanaPlan(p) : !isGhanaPlan(p) && p.id !== 'plan-free');
+  defaultList.forEach(defPlan => {
+    const key = getCycleKey(defPlan);
+    if (!planByCycle.has(key)) {
+      planByCycle.set(key, defPlan);
+    }
+  });
+
+  const uniquePlans = Array.from(planByCycle.values());
+
+  return uniquePlans.sort((a, b) => {
+    const rankA = cycleRank(a.billing_cycle || '', a.name || '');
+    const rankB = cycleRank(b.billing_cycle || '', b.name || '');
+    if (rankA !== rankB) return rankA - rankB;
+    return Number(a.price || 0) - Number(b.price || 0);
+  });
+}
+
 export function isGhanaBookmaker(b: any): boolean {
   if (!b) return false;
   const country = String(b.country || '').toLowerCase();
