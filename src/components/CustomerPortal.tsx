@@ -6107,6 +6107,13 @@ export default function CustomerPortal({
 
                             currentY += 13;
 
+                            // Compiled By & Contact Enquiries Header
+                            doc.setFontSize(8);
+                            doc.setTextColor(15, 23, 42);
+                            doc.setFont('helvetica', 'bold');
+                            doc.text('Compiled by Fastpoolcodes.com. For Enquiries Call or WhatsApp: +234 8030587933, +234 9037595705)', 14, currentY);
+                            currentY += 4.5;
+
                             // Table Columns Setup
                             const tableHeaders: string[] = ['Pool No', 'Bet Code', 'Match Details (Home vs Away)'];
                             if (pdfConfig.showOdds) {
@@ -6339,7 +6346,7 @@ export default function CustomerPortal({
                     {/* Classified Coupon Table */}
                     <div className="space-y-2">
                       <h3 className="text-xs font-mono font-black uppercase text-slate-900 tracking-wide">
-                        📋 Compiled Weekly Classified Coupon Match-ups
+                        📋 Compiled by Fastpoolcodes.com.  For Enquiries Call or WhatsApp: +234 8030587933, +234 9037595705)
                       </h3>
 
                       <table className="w-full text-left font-sans text-xs border-collapse">
