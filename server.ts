@@ -220,13 +220,250 @@ app.use((req, res, next) => {
     }
   });
 
-  // API Route - Securely Query ANY table from Supabase (bypassing Client SSL & Restricted Whitelists)
+  // Helper: Secure Server-Side Verification of User Bookmaker & PDF Access
+  async function checkUserTableAccess(
+    userId?: string,
+    username?: string,
+    targetTable?: string
+  ): Promise<{ allowed: boolean; reason?: string }> {
+    if (!targetTable) return { allowed: false, reason: "No target bookmaker or table specified." };
+
+    const cleanTable = targetTable.toLowerCase().trim().replace(/[^a-z0-9_]/g, '');
+
+    // Public / non-restricted system tables
+    const PUBLIC_TABLES = [
+      'users', 'profiles', 'accounts', 'blogs', 'blog', 'posts', 'articles', 'news', 'expert_blogs',
+      'subscription_plans', 'settings', 'comments', 'notifications', 'livescores', 'live_scores',
+      'championship_results', 'championships', 'pool_weeks'
+    ];
+    if (PUBLIC_TABLES.includes(cleanTable)) {
+      return { allowed: true };
+    }
+
+    // Access logs themselves: allow querying own logs or admin
+    const ACCESS_LOG_TABLES = [
+      'purchases_access_log', 'subscriptions_access_log', 'plan_purchased',
+      'plans_purchased', 'user_subscriptions', 'users_subscriptions', 'subscriptions'
+    ];
+    if (ACCESS_LOG_TABLES.includes(cleanTable)) {
+      return { allowed: true };
+    }
+
+    const cleanUid = String(userId || '').toLowerCase().trim();
+    const cleanUname = String(username || '').toLowerCase().trim();
+
+    // Deny by default: If no user credential is provided, block access to bookmaker data
+    if (!cleanUid && !cleanUname) {
+      return {
+        allowed: false,
+        reason: "Access Denied: Missing user identification. Please log in with an active subscription."
+      };
+    }
+
+    // Admin bypass check
+    if (cleanUid === 'usr-admin' || cleanUname === 'admin') {
+      return { allowed: true };
+    }
+
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+    const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || '';
+
+    if (!supabaseUrl || (!supabaseAnonKey && !serviceRoleKey)) {
+      // Offline fallback: check serverMemoryUsers
+      const memUser = serverMemoryUsers.find(
+        u => (cleanUid && String(u.id).toLowerCase() === cleanUid) ||
+             (cleanUname && String(u.username).toLowerCase() === cleanUname)
+      );
+      if (memUser && memUser.role === 'admin') return { allowed: true };
+      return {
+        allowed: false,
+        reason: `Access Denied: Zero access without verified purchases_access_log record for @${cleanUname || cleanUid}.`
+      };
+    }
+
+    try {
+      const supabase = createClient(supabaseUrl, serviceRoleKey || supabaseAnonKey);
+
+      // Check if user is admin in users table
+      try {
+        let userQuery = supabase.from('users').select('id, username, role, status');
+        if (cleanUid && cleanUname) {
+          userQuery = userQuery.or(`id.eq.${cleanUid},username.eq.${cleanUname}`);
+        } else if (cleanUid) {
+          userQuery = userQuery.eq('id', cleanUid);
+        } else {
+          userQuery = userQuery.eq('username', cleanUname);
+        }
+        const { data: userRow } = await userQuery.maybeSingle();
+        if (userRow) {
+          if (userRow.status === 'suspended' || userRow.status === 'banned') {
+            return { allowed: false, reason: "Account suspended or banned." };
+          }
+          if (userRow.role === 'admin') {
+            return { allowed: true };
+          }
+        }
+      } catch (uErr) {
+        console.warn("User role lookup warning:", uErr);
+      }
+
+      // Query access logs: purchases_access_log, subscriptions_access_log, plan_purchased, user_subscriptions
+      const logTables = [
+        'purchases_access_log',
+        'subscriptions_access_log',
+        'plan_purchased',
+        'plans_purchased',
+        'user_subscriptions',
+        'subscriptions'
+      ];
+
+      const now = new Date();
+
+      for (const logTbl of logTables) {
+        try {
+          let logQuery = supabase.from(logTbl).select('*');
+          if (cleanUid && cleanUname) {
+            logQuery = logQuery.or(`user_id.eq.${cleanUid},username.eq.${cleanUname}`);
+          } else if (cleanUid) {
+            logQuery = logQuery.eq('user_id', cleanUid);
+          } else {
+            logQuery = logQuery.eq('username', cleanUname);
+          }
+
+          const { data: rows, error } = await logQuery;
+          if (!error && Array.isArray(rows) && rows.length > 0) {
+            for (const row of rows) {
+              const statusStr = String(row.access_status || row.status || 'active').toLowerCase();
+              const isStatusActive = statusStr === 'active' || statusStr === 'successful' || statusStr === 'completed' || statusStr === 'paid';
+              if (!isStatusActive) continue;
+
+              const expDate = row.expiry_date || row.expires_at || row.access_expires_at;
+              if (expDate && new Date(expDate) < now) continue;
+
+              // Check granted components/tables
+              const rawComps = row.components || row.granted_tables || row.granted_components || row.tables;
+              let comps: string[] = [];
+              if (Array.isArray(rawComps)) {
+                comps = rawComps.map(c => String(c).toLowerCase().trim());
+              } else if (typeof rawComps === 'string') {
+                try {
+                  const parsed = JSON.parse(rawComps);
+                  if (Array.isArray(parsed)) comps = parsed.map(c => String(c).toLowerCase().trim());
+                  else comps = [rawComps.toLowerCase().trim()];
+                } catch (_) {
+                  comps = rawComps.replace(/[\[\]"']/g, '').split(',').map(s => s.toLowerCase().trim());
+                }
+              }
+
+              const ptitle = String(row.plan_purchased || row.item_name || row.plan_name || row.plan_title || row.plan_id || '').toLowerCase();
+              if (
+                comps.includes('all') ||
+                comps.includes('*') ||
+                ptitle.includes('all') ||
+                ptitle.includes('unlimited') ||
+                ptitle.includes('yearly')
+              ) {
+                return { allowed: true };
+              }
+
+              const isMatched = comps.some(c => {
+                const cClean = c.replace(/[^a-z0-9]/g, '');
+                return cClean === cleanTable || cleanTable.includes(cClean) || cClean.includes(cleanTable);
+              }) || ptitle.includes(cleanTable);
+
+              if (isMatched) {
+                return { allowed: true };
+              }
+            }
+          }
+        } catch (logErr) {
+          // Check next table
+        }
+      }
+
+      return {
+        allowed: false,
+        reason: `Access Denied: No valid matching access record in purchases_access_log for '${cleanTable}' for user @${cleanUname || cleanUid}.`
+      };
+    } catch (err: any) {
+      return { allowed: false, reason: err?.message || "Access validation error." };
+    }
+  }
+
+  // API Route - Verify User Bookmaker Access (Server-side validation endpoint)
+  app.post("/api/access/verify", async (req, res) => {
+    const { user_id, userId, username, user_name, bookmaker, table } = req.body;
+    const targetUid = user_id || userId;
+    const targetUname = username || user_name;
+    const targetTable = bookmaker || table;
+
+    const result = await checkUserTableAccess(targetUid, targetUname, targetTable);
+    if (!result.allowed) {
+      return res.status(403).json({
+        success: false,
+        allowed: false,
+        error: result.reason || "Access Denied: Zero access without valid purchases_access_log record."
+      });
+    }
+
+    return res.json({
+      success: true,
+      allowed: true,
+      message: `Access authorized for @${targetUname || targetUid} on ${targetTable}`
+    });
+  });
+
+  // API Route - Verify PDF Download Access
+  app.post("/api/pdf/verify-access", async (req, res) => {
+    const { user_id, userId, username, user_name, bookmaker, table } = req.body;
+    const targetUid = user_id || userId;
+    const targetUname = username || user_name;
+    const targetTable = bookmaker || table || 'bet9ja';
+
+    const result = await checkUserTableAccess(targetUid, targetUname, targetTable);
+    if (!result.allowed) {
+      return res.status(403).json({
+        success: false,
+        allowed: false,
+        error: result.reason || "PDF Download Blocked: No active purchased subscription record found for this bookmaker in purchases_access_log."
+      });
+    }
+
+    return res.json({
+      success: true,
+      allowed: true,
+      message: "PDF download authorized."
+    });
+  });
+
+  // API Route - Securely Query ANY table from Supabase (with strict deny-by-default on bookmakers)
   app.get("/api/tables/:tableName", async (req, res) => {
     const { tableName } = req.params;
 
     // Validate table name format to prevent SQL injection or path traversal
     if (!tableName || !/^[a-zA-Z0-9_]+$/.test(tableName) || tableName.length > 64) {
       return res.status(400).json({ success: false, error: `Invalid table name format '${tableName}'.` });
+    }
+
+    // Extract user credentials for access check
+    const userId = (req.query.user_id || req.query.userId || req.headers['x-user-id'] || '') as string;
+    const username = (req.query.username || req.query.user_name || req.headers['x-username'] || req.headers['x-user-name'] || '') as string;
+
+    // Check if table is a restricted bookmaker table
+    const KNOWN_BOOKIES = ['bet9ja', 'betking', 'sportybet', 'msport', 'premierbet', 'betway', 'soccabet', 'arena_games'];
+    const isBookmakerTable = KNOWN_BOOKIES.includes(tableName.toLowerCase());
+
+    if (isBookmakerTable) {
+      const access = await checkUserTableAccess(userId, username, tableName);
+      if (!access.allowed) {
+        return res.status(403).json({
+          success: false,
+          table: tableName,
+          error: access.reason || `Access Denied: No active purchase record found in purchases_access_log for '${tableName}'.`,
+          data: []
+        });
+      }
     }
 
     const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';

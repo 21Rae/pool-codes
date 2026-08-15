@@ -1311,18 +1311,19 @@ export default function App() {
         const expiry = new Date();
         expiry.setMonth(now.getMonth() + 3);
 
-        const hasPaid = planId && planId !== 'plan-free';
-        const newSub = {
+        const hasPaid = Boolean(planId && planId !== 'plan-free');
+        const newSub: UserSubscription = {
           id: subId,
           user_id: su.id,
-          plan_id: planId || 'plan-free',
-          status: 'active',
+          username: newUser.username,
+          plan_id: hasPaid ? planId : 'plan-free',
+          status: hasPaid ? 'active' : 'inactive',
           starts_at: now.toISOString(),
-          expires_at: expiry.toISOString(),
+          expires_at: hasPaid ? expiry.toISOString() : now.toISOString(),
           payment_ref: hasPaid ? `REF-PAY-${Math.floor(Math.random() * 9000000 + 1000000)}` : null,
           payment_provider: hasPaid ? 'Direct Verified Payment' : null,
           created_at: now.toISOString(),
-          components: hasPaid ? ['bet9ja', 'sportybet', 'betking'] : []
+          components: []
         };
 
         localStorage.setItem('fastpool_cached_user', JSON.stringify({
@@ -1330,7 +1331,7 @@ export default function App() {
           username: newUser.username,
           email: newUser.email,
           role: newUser.role,
-          plan_id: planId || 'plan-free',
+          plan_id: newSub.plan_id,
           payment_ref: newSub.payment_ref,
           created_at: newUser.created_at
         }));
@@ -1428,20 +1429,18 @@ export default function App() {
           if (!existingSub) {
             const subId = `sub-sb-${Math.floor(Math.random() * 90000 + 10000)}`;
             const now = new Date();
-            const expiry = new Date();
-            expiry.setMonth(now.getMonth() + 3);
-            const newSub = {
+            const newSub: UserSubscription = {
               id: subId,
               user_id: su.id,
               username: su.username,
-              plan_id: (restoredPlan && restoredPlan !== 'plan-free') ? restoredPlan : 'plan-quarterly',
-              status: 'active',
+              plan_id: 'plan-free',
+              status: 'inactive',
               starts_at: now.toISOString(),
-              expires_at: expiry.toISOString(),
-              payment_ref: restoredRef || `FPC-REC-${Math.floor(Math.random() * 899999 + 100000)}`,
-              payment_provider: 'Verified License Sub',
+              expires_at: now.toISOString(),
+              payment_ref: null,
+              payment_provider: null,
               created_at: now.toISOString(),
-              components: ['bet9ja']
+              components: []
             };
             updatedSubs = [...prev.user_subscriptions, newSub];
           }
@@ -1454,7 +1453,7 @@ export default function App() {
         });
 
         const activeSubForUser = db.user_subscriptions.find(s => s.user_id === su.id && s.status === 'active');
-        const userPlanId = activeSubForUser?.plan_id || 'plan-quarterly';
+        const userPlanId = activeSubForUser?.plan_id || 'plan-free';
 
         localStorage.setItem('fastpool_cached_user', JSON.stringify({
           id: su.id,

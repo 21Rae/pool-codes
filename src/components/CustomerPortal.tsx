@@ -110,9 +110,10 @@ export default function CustomerPortal({
   const [remoteLogs, setRemoteLogs] = useState<any[]>([]);
 
   useEffect(() => {
-    // Fetch purchase and subscription records across potential tables (purchases_access_log, plan_purchased, plans_purchased, user_subscriptions, subscriptions)
+    // Fetch purchase and subscription records across access logs (purchases_access_log, subscriptions_access_log, plan_purchased, user_subscriptions)
     const tablesToQuery = [
       'purchases_access_log',
+      'subscriptions_access_log',
       'plan_purchased',
       'plans_purchased',
       'user_subscriptions',
@@ -120,9 +121,17 @@ export default function CustomerPortal({
       'subscriptions'
     ];
 
+    const uid = currentUser?.id || '';
+    const uname = currentUser?.username || '';
+
     Promise.all(
       tablesToQuery.map(tbl =>
-        fetch(`/api/tables/${tbl}`)
+        fetch(`/api/tables/${tbl}?user_id=${encodeURIComponent(uid)}&username=${encodeURIComponent(uname)}`, {
+          headers: {
+            'x-user-id': uid,
+            'x-username': uname
+          }
+        })
           .then(res => res.json())
           .then(data => {
             const list = data?.data || data?.rows || (Array.isArray(data) ? data : []);
@@ -5986,10 +5995,37 @@ export default function CustomerPortal({
                     {/* Primary PDF Download Button */}
                     {isTableAllowed ? (
                       <button
-                        onClick={() => {
+                        onClick={async () => {
                           if (!isBookieAllowed(activeBookmaker)) {
-                            triggerToast(`Access Denied: @${currentUser?.username || 'user'} (ID: ${currentUser?.id}) is not licensed for ${activeBookmaker} table in plan_purchased.`, 'error');
+                            triggerToast(`Access Denied: @${currentUser?.username || 'user'} (ID: ${currentUser?.id}) has zero access records for ${activeBookmaker} in purchases_access_log.`, 'error');
                             return;
+                          }
+
+                          // Server-Side Verification before generating or downloading PDF
+                          try {
+                            const verifyRes = await fetch('/api/pdf/verify-access', {
+                              method: 'POST',
+                              headers: {
+                                'Content-Type': 'application/json',
+                                'x-user-id': currentUser?.id || '',
+                                'x-username': currentUser?.username || ''
+                              },
+                              body: JSON.stringify({
+                                user_id: currentUser?.id,
+                                username: currentUser?.username,
+                                bookmaker: activeBookmaker
+                              })
+                            });
+                            const verifyData = await verifyRes.json();
+                            if (!verifyRes.ok || !verifyData.allowed) {
+                              triggerToast(verifyData.error || `PDF Download Rejected: No active purchases_access_log entry found for @${currentUser?.username}.`, 'error');
+                              return;
+                            }
+                          } catch (vErr) {
+                            if (currentUser.role !== 'admin' && !bypassPremium) {
+                              triggerToast('PDF Access check failed. Please check your purchases_access_log record.', 'error');
+                              return;
+                            }
                           }
 
                           triggerToast('Generating official PDF document...', 'info');
@@ -6254,7 +6290,7 @@ export default function CustomerPortal({
                           {activeBookmaker} Pool Sheet Locked
                         </h3>
                         <p className="text-xs text-slate-300 max-w-sm leading-relaxed font-sans">
-                          User <strong className="text-emerald-400 font-bold">@{currentUser?.username || 'user'}</strong> (ID: <code className="text-slate-200">{currentUser?.id || 'guest'}</code>) has not purchased access to the <strong className="text-amber-400 font-bold">{activeBookmaker}</strong> table in the <strong>plan_purchased</strong> record.
+                          User <strong className="text-emerald-400 font-bold">@{currentUser?.username || 'user'}</strong> (ID: <code className="text-slate-200">{currentUser?.id || 'guest'}</code>) has no active access record for the <strong className="text-amber-400 font-bold">{activeBookmaker}</strong> table in the <strong>purchases_access_log</strong> or <strong>subscriptions_access_log</strong> database.
                         </p>
                         <button
                           onClick={() => {
