@@ -8,7 +8,8 @@ import {
   PoolResult,
   Notification,
   UserDownload,
-  BookmakerTableRecord
+  BookmakerTableRecord,
+  PoolCodesComparisonRecord
 } from './types';
 
 export const INITIAL_USERS: User[] = [];
@@ -1307,4 +1308,56 @@ export const INITIAL_MSPORT: BookmakerTableRecord[] = [
     status: 'PENDING',
     kickoff: '20:00 WAT'
   }
+];
+
+export const INITIAL_POOL_CODES_COMPARISON: PoolCodesComparisonRecord[] = [
+  { id: 101, pool: '1', home: 'Bristol C.', away: 'Millwall', 'bet9ja (draw)': '3.25', 'betking (draw)': '3.45', 'sportybet (draw)': '3.37', status: 'Saturday', kickoff: '3:00 PM' },
+  { id: 102, pool: '2', home: 'Coventry', away: 'Hull', 'bet9ja (draw)': '3.2', 'betking (draw)': '3.3', 'sportybet (draw)': '3.26', status: 'Saturday', kickoff: '3:00 PM' },
+  { id: 103, pool: '3', home: 'Middlesbro', away: 'Lincoln', 'bet9ja (draw)': '5.1', 'betking (draw)': '5.3', 'sportybet (draw)': '5.26', status: 'Saturday', kickoff: '3:00 PM' },
+  { id: 104, pool: '4', home: 'Norwich', away: 'West Brom', 'bet9ja (draw)': '3.35', 'betking (draw)': '3.45', 'sportybet (draw)': '3.49', status: 'Saturday', kickoff: '3:00 PM' },
+  { id: 105, pool: '5', home: 'Portsmouth', away: 'Q.P.R.', 'bet9ja (draw)': '3.3', 'betking (draw)': '3.45', 'sportybet (draw)': '3.44', status: 'Saturday', kickoff: '3:00 PM' },
+  { id: 106, pool: '6', home: 'Stoke', away: 'Swansea', 'bet9ja (draw)': '3.15', 'betking (draw)': '3.3', 'sportybet (draw)': '3.3', status: 'Saturday', kickoff: '3:00 PM' },
+  { id: 107, pool: '7', home: 'Sheff Utd.', away: 'Birmingham', 'bet9ja (draw)': '3.15', 'betking (draw)': '3.3', 'sportybet (draw)': '3.3', status: 'LKO', kickoff: '5:30 PM' },
+  { id: 108, pool: '8', home: 'Watford', away: 'Southampton', 'bet9ja (draw)': '3.35', 'betking (draw)': '3.55', 'sportybet (draw)': '3.51', status: 'Sunday', kickoff: '1:30 PM' },
+  { id: 109, pool: '9', home: 'Burnley', away: 'West Ham', 'bet9ja (draw)': '3.35', 'betking (draw)': '3.5', 'sportybet (draw)': '3.48', status: 'Sunday', kickoff: '4:00 PM' },
+  { id: 110, pool: '10', home: 'Barnsley', away: 'Bromley', 'bet9ja (draw)': '3.4', 'betking (draw)': '3.45', 'sportybet (draw)': '3.6', status: 'saturday', kickoff: '3:00 PM' },
+  { id: 111, pool: '11', home: 'Blackpool', away: 'Wycombe', 'bet9ja (draw)': '3.15', 'betking (draw)': '3.25', 'sportybet (draw)': '3.33', status: 'Saturday', kickoff: '3:00 PM' },
+  { id: 112, pool: '12', home: 'Bradford C.', away: 'Peterboro', 'bet9ja (draw)': '3.65', 'betking (draw)': '3.65', 'sportybet (draw)': '3.75', status: 'saturday', kickoff: '3:00 PM' },
+  { id: 113, pool: '13', home: 'Burton A.', away: 'Stevenage', 'bet9ja (draw)': '2.96', 'betking (draw)': '3.05', 'sportybet (draw)': '3.2', status: 'saturday', kickoff: '3:00 PM' },
+  { id: 114, pool: '14', home: 'Cambridge U.', away: 'Wigan', 'bet9ja (draw)': '2.98', 'betking (draw)': '3.05', 'sportybet (draw)': '3.2', status: 'saturday', kickoff: '3:00 PM' },
+  { id: 115, pool: '15', home: 'Huddersfield', away: 'Wimbledon', 'bet9ja (draw)': '3.8', 'betking (draw)': '3.85', 'sportybet (draw)': '4', status: 'saturday', kickoff: '3:00 PM' },
+  { id: 116, pool: '16', home: 'Leyton O.', away: 'Sheff Wed.', 'bet9ja (draw)': '3.2', 'betking (draw)': '3.3', 'sportybet (draw)': '3.4', status: 'saturday', kickoff: '3:00 PM' },
+  { id: 117, pool: '17', home: 'Mansfield', away: 'Doncaster', 'bet9ja (draw)': '3.25', 'betking (draw)': '3.3', 'sportybet (draw)': '3.4', status: 'saturday', kickoff: '3:00 PM' },
+  { id: 118, pool: '18', home: 'Plymouth', away: 'Stockport', 'bet9ja (draw)': '3.3', 'betking (draw)': '3.35', 'sportybet (draw)': '3.5', status: 'saturday', kickoff: '3:00 PM' },
+  { id: 119, pool: '19', home: 'Dep. Alaves', away: 'Getafe', 'bet9ja (draw)': '2.77', 'betking (draw)': '2.8', 'sportybet (draw)': '2.92', status: 'LKO', kickoff: '6:30 PM' },
+  { id: 120, pool: '20', home: 'Sevilla', away: 'R. Vallecano', 'bet9ja (draw)': '3.15', 'betking (draw)': '3.15', 'sportybet (draw)': '3.3', status: 'LKO', kickoff: '8:30 PM' },
+  { id: 121, pool: '21', home: 'R. Santander', away: 'Villarreal', 'bet9ja (draw)': '3.4', 'betking (draw)': '3.4', 'sportybet (draw)': '3.54', status: 'Sunday', kickoff: '4:00 PM' },
+  { id: 122, pool: '22', home: 'Espanyol', away: 'Levante', 'bet9ja (draw)': '3.25', 'betking (draw)': '3.3', 'sportybet (draw)': '3.44', status: 'Sunday', kickoff: '6:00 PM' },
+  { id: 123, pool: '23', home: 'Celta Vigo', away: 'Osasuna', 'bet9ja (draw)': '3.3', 'betking (draw)': '3.3', 'sportybet (draw)': '3.48', status: 'Sunday', kickoff: '8:30 PM' },
+  { id: 124, pool: '24', home: 'Academico V.', away: 'Santa Clara', 'bet9ja (draw)': '3.15', 'betking (draw)': '3.15', 'sportybet (draw)': '2.43', status: 'LKO', kickoff: '6:00 PM' },
+  { id: 125, pool: '25', home: 'Rio Ave', away: 'FC Porto', 'bet9ja (draw)': '5.25', 'betking (draw)': '5.2', 'sportybet (draw)': '1.35', status: 'LKO', kickoff: '8:30 PM' },
+  { id: 126, pool: '26', home: 'Famalicao', away: 'Maritimo', 'bet9ja (draw)': 'NA', 'betking (draw)': 'NA', 'sportybet (draw)': 'NA', status: 'Sunday', kickoff: '8:30 PM' },
+  { id: 127, pool: '27', home: 'Nacional', away: 'Estoril', 'bet9ja (draw)': '3.35', 'betking (draw)': '3.35', 'sportybet (draw)': '2.72', status: 'Sunday', kickoff: '3:30 PM' },
+  { id: 128, pool: '28', home: 'Braga', away: 'Gil Vicente', 'bet9ja (draw)': '3.75', 'betking (draw)': '3.7', 'sportybet (draw)': '4.79', status: 'Sunday', kickoff: '8:30 PM' },
+  { id: 129, pool: '29', home: 'Casa Pia AC', away: 'Benfica', 'bet9ja (draw)': '6.3', 'betking (draw)': '6.2', 'sportybet (draw)': '1.24', status: 'Monday', kickoff: '8:15 PM' },
+  { id: 130, pool: '30', home: 'FC Utrecht', away: 'AZ Alkmaar', 'bet9ja (draw)': '3.8', 'betking (draw)': '3.75', 'sportybet (draw)': '3.61', status: 'LKO', kickoff: '5:45 PM' },
+  { id: 131, pool: '31', home: 'Excelsior', away: 'PSV', 'bet9ja (draw)': '4.3', 'betking (draw)': '4.25', 'sportybet (draw)': '4.38', status: 'LKO', kickoff: '7:00 PM' },
+  { id: 132, pool: '32', home: 'FC Twente', away: 'PEC Zwolle', 'bet9ja (draw)': '6.25', 'betking (draw)': '6.2', 'sportybet (draw)': '6.13', status: 'Sunday', kickoff: '1:30 PM' },
+  { id: 133, pool: '33', home: 'Feyenoord', away: 'G.A. Eagles', 'bet9ja (draw)': '5.2', 'betking (draw)': '5.1', 'sportybet (draw)': '5.03', status: 'Sunday', kickoff: '1:30 PM' },
+  { id: 134, pool: '34', home: 'Ajax', away: 'Heerenveen', 'bet9ja (draw)': '4.6', 'betking (draw)': '4.5', 'sportybet (draw)': '4.41', status: 'Sunday', kickoff: '3:45 PM' },
+  { id: 135, pool: '35', home: 'Union SG', away: 'Z. Waregem', 'bet9ja (draw)': '4.75', 'betking (draw)': '4.8', 'sportybet (draw)': '4.89', status: 'Saturday', kickoff: '3:00 PM' },
+  { id: 136, pool: '36', home: 'Genk', away: 'Westerlo', 'bet9ja (draw)': '4', 'betking (draw)': '4.05', 'sportybet (draw)': '4.07', status: 'LKO', kickoff: '7:45 PM' },
+  { id: 137, pool: '37', home: 'OH Leuven', away: 'Club Brugge', 'bet9ja (draw)': '4.1', 'betking (draw)': '4.15', 'sportybet (draw)': '4.24', status: 'LKO', kickoff: '7:45 PM' },
+  { id: 138, pool: '38', home: 'SK Beveren', away: 'Anderlecht', 'bet9ja (draw)': '3.35', 'betking (draw)': '3.35', 'sportybet (draw)': '3.39', status: 'Sunday', kickoff: '12:30 PM' },
+  { id: 139, pool: '39', home: 'RAAL Louviere', away: 'Gent', 'bet9ja (draw)': '3.4', 'betking (draw)': '3.4', 'sportybet (draw)': '3.4', status: 'Sunday', kickoff: '3:00 PM' },
+  { id: 140, pool: '40', home: 'KV Mechelen', away: "St'd Liege", 'bet9ja (draw)': '3.2', 'betking (draw)': '3.2', 'sportybet (draw)': '3.21', status: 'Sunday', kickoff: '5:30 PM' },
+  { id: 141, pool: '41', home: 'A. Lustenau', away: 'Wolfsberger', 'bet9ja (draw)': '3.45', 'betking (draw)': '3.5', 'sportybet (draw)': '3.5', status: 'LKO', kickoff: '4:00 PM' },
+  { id: 142, pool: '42', home: 'Hartberg', away: 'Austria Wien', 'bet9ja (draw)': '3.45', 'betking (draw)': '3.4', 'sportybet (draw)': '3.33', status: 'Sunday', kickoff: '4:00 PM' },
+  { id: 143, pool: '43', home: 'WSG Tirol', away: 'Salzburg', 'bet9ja (draw)': '3.8', 'betking (draw)': '3.85', 'sportybet (draw)': '3.8', status: 'Sunday', kickoff: '4:00 PM' },
+  { id: 144, pool: '44', home: 'Rapid Wien', away: 'Grazer AK', 'bet9ja (draw)': '3.4', 'betking (draw)': '3.35', 'sportybet (draw)': '3.3', status: 'Sunday', kickoff: '6:00 PM' },
+  { id: 145, pool: '45', home: 'Kasimpasa', away: 'Trabzonspor', 'bet9ja (draw)': '3.8', 'betking (draw)': '3.75', 'sportybet (draw)': '3.71', status: 'LKO', kickoff: '5:00 PM' },
+  { id: 146, pool: '46', home: 'Konyaspor', away: 'Rizespor', 'bet9ja (draw)': '3.35', 'betking (draw)': '3.2', 'sportybet (draw)': '3.38', status: 'LKO', kickoff: '5:00 PM' },
+  { id: 147, pool: '47', home: 'Genclerbirligi', away: 'Fenerbahce', 'bet9ja (draw)': '4.55', 'betking (draw)': '4.5', 'sportybet (draw)': '4.47', status: 'LKO', kickoff: '7:30 PM' },
+  { id: 148, pool: '48', home: 'I. Basaksehir', away: 'Kocaelispor', 'bet9ja (draw)': '4.35', 'betking (draw)': '4.3', 'sportybet (draw)': '4.24', status: 'Sunday', kickoff: '5:00 PM' },
+  { id: 149, pool: '49', home: 'Besiktas', away: 'Eyupspor', 'bet9ja (draw)': '5.4', 'betking (draw)': '5.3', 'sportybet (draw)': '5.26', status: 'Sunday', kickoff: '7:30 PM' }
 ];

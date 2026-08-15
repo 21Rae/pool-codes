@@ -4,7 +4,7 @@ export type BillingCycle = 'weekly' | 'monthly' | 'quarterly' | 'biannual' | 'ye
 export type PoolType = 'uk' | 'aussie' | 'international';
 export type WeekStatus = 'upcoming' | 'active' | 'closed';
 export type AccessLevel = 'free' | 'premium';
-export type SubscriptionStatus = 'active' | 'expired' | 'cancelled';
+export type SubscriptionStatus = 'active' | 'expired' | 'cancelled' | 'inactive';
 export type NotificationType = 'new_codes' | 'results_out' | 'subscription_expiring' | 'system';
 
 export interface User {
@@ -209,6 +209,20 @@ export interface BookmakerTableRecord {
   created_at?: string;
 }
 
+export interface PoolCodesComparisonRecord {
+  id: number | string;
+  pool: string | number;
+  home: string;
+  away: string;
+  'bet9ja (draw)'?: string | number;
+  'betking (draw)'?: string | number;
+  'sportybet (draw)'?: string | number;
+  status?: string;
+  kickoff?: string;
+  created_at?: string;
+  [key: string]: any;
+}
+
 export interface DatabaseState {
   users: User[];
   subscription_plans: SubscriptionPlan[];
@@ -229,4 +243,5 @@ export interface DatabaseState {
   soccabet?: BookmakerTableRecord[];
   msport?: BookmakerTableRecord[];
   arena_games?: BookmakerTableRecord[];
+  pool_codes_comparison?: PoolCodesComparisonRecord[];
 }

@@ -38,7 +38,8 @@ import {
   INITIAL_PREMIERBET,
   INITIAL_BETWAY,
   INITIAL_SOCCABET,
-  INITIAL_MSPORT
+  INITIAL_MSPORT,
+  INITIAL_POOL_CODES_COMPARISON
 } from './initialData';
 import {
   User,
@@ -81,7 +82,8 @@ export default function App() {
     premierbet: [],
     betway: [],
     soccabet: [],
-    msport: []
+    msport: [],
+    pool_codes_comparison: INITIAL_POOL_CODES_COMPARISON
   });
 
   // Simulator Domain Router: toggles independent application instances
@@ -379,7 +381,8 @@ export default function App() {
       logAndSetTable('betway', 'betway', 'SELECT * FROM betway;'),
       logAndSetTable('soccabet', 'soccabet', 'SELECT * FROM soccabet;'),
       logAndSetTable('arena_games', 'arena_games' as any, 'SELECT * FROM arena_games;'),
-      logAndSetTable('championship_results', 'championship_results' as any, 'SELECT * FROM championship_results;')
+      logAndSetTable('championship_results', 'championship_results' as any, 'SELECT * FROM championship_results;'),
+      logAndSetTable('pool codes comparison', 'pool_codes_comparison', 'SELECT * FROM "pool codes comparison";')
     ]);
 
     setIsSyncingSupabase(false);

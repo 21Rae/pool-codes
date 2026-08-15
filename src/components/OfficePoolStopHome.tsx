@@ -29,11 +29,13 @@ import {
   Phone,
   Share2,
   Copy,
-  KeyRound
+  KeyRound,
+  Layers
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import ExpertBlogView from './ExpertBlogView';
 import GoogleAdBanner from './GoogleAdBanner';
+import PoolCodesComparisonTable from './PoolCodesComparisonTable';
 import { getSupabaseClient } from '../lib/supabase';
 import { INITIAL_PLANS, isGhanaPlan, getMergedSubscriptionPlans, getSortedComparisonPlans, getBookmakersByCountry, isGhanaBookmaker } from '../initialData';
 
@@ -186,7 +188,7 @@ export default function OfficePoolStopHome({
   onResetAutoOpenAuth
 }: OfficePoolStopHomeProps) {
   // Navigation & interaction states
-  const [currentView, setCurrentView] = useState<'blog' | 'livescores' | 'results' | 'about' | 'contact'>('blog');
+  const [currentView, setCurrentView] = useState<'blog' | 'comparison' | 'livescores' | 'results' | 'about' | 'contact'>('blog');
   const [selectedResultId, setSelectedResultId] = useState<string | null>(null);
   const [resultsSearchQuery, setResultsSearchQuery] = useState('');
   const [resultsTableSearch, setResultsTableSearch] = useState('');
@@ -672,6 +674,7 @@ export default function OfficePoolStopHome({
           <nav className="flex items-center gap-1 overflow-x-auto scrollbar-none py-1 border-y lg:border-none border-emerald-950/50">
             {[
               { id: 'blog', label: 'HOME', icon: Home },
+              { id: 'comparison', label: 'CODES COMPARISON', icon: Layers },
               { id: 'livescores', label: 'LIVE SCORES', icon: Activity },
               { id: 'results', label: 'POOL RESULTS', icon: Trophy },
               { id: 'about', label: 'ABOUT US', icon: Info },
@@ -812,6 +815,21 @@ export default function OfficePoolStopHome({
                   onNavigateToCodes={onNavigateToCodes}
                   db={db}
                 />
+              );
+
+            case 'comparison':
+              return (
+                <div className="max-w-[1360px] mx-auto px-4 py-8 text-left">
+                  <PoolCodesComparisonTable
+                    comparisonRows={db?.pool_codes_comparison}
+                    triggerToast={triggerToast}
+                    currentUser={currentUser}
+                    onOpenVipSubscription={() => {
+                      setShowSystemAuth(true);
+                      setAuthMode('signup');
+                    }}
+                  />
+                </div>
               );
 
             case 'livescores': {

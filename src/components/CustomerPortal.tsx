@@ -70,8 +70,10 @@ import {
   INITIAL_PREMIERBET,
   INITIAL_BETWAY,
   INITIAL_SOCCABET,
-  INITIAL_MSPORT
+  INITIAL_MSPORT,
+  INITIAL_POOL_CODES_COMPARISON
 } from '../initialData';
+import PoolCodesComparisonTable from './PoolCodesComparisonTable';
 
 interface CustomerPortalProps {
   db: DatabaseState;
@@ -271,6 +273,16 @@ export default function CustomerPortal({
 
     const targetSlug = (bookieName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
+    // FREE ACCESS TABLE: "Pool Codes Comparison" is open to all users (free tier, guests, and registered users)
+    if (
+      targetSlug.includes('poolcodescomparison') ||
+      targetSlug.includes('poolcodecomparison') ||
+      targetSlug.includes('poolcomparison') ||
+      targetSlug === 'comparison'
+    ) {
+      return true;
+    }
+
     // 1. Check active remote logs from Supabase purchases_access_log / plan_purchased
     for (const logItem of activeRemoteLogs) {
       const granted = getItemGrantedTables(logItem);
@@ -330,7 +342,7 @@ export default function CustomerPortal({
     );
   }
 
-  const [activeSubTab, setActiveSubTab] = useState<'dashboard' | 'streaming' | 'results' | 'subscription' | 'profile'>('dashboard');
+  const [activeSubTab, setActiveSubTab] = useState<'dashboard' | 'comparison' | 'streaming' | 'results' | 'subscription' | 'profile'>('dashboard');
 
   const [codeTypeFilter, setCodeTypeFilter] = useState<'all' | 'uk' | 'aussie' | 'international'>('all');
   const [bookmakerFilter, setBookmakerFilter] = useState<string>('all');
@@ -1637,6 +1649,26 @@ export default function CustomerPortal({
 
                   <button
                     onClick={() => {
+                      setActiveSubTab('comparison');
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className={`flex items-center justify-between px-3.5 py-3 rounded-lg text-xs font-bold tracking-wide transition duration-150 ${
+                      activeSubTab === 'comparison'
+                        ? 'bg-gradient-to-r from-emerald-555/15 to-emerald-500/5 text-emerald-400 border-l-4 border-emerald-500 pl-2.5'
+                        : 'hover:bg-slate-800/60 text-slate-400 hover:text-slate-150'
+                    }`}
+                  >
+                    <span className="flex items-center gap-3">
+                      <Layers className="w-4 h-4 text-amber-400" />
+                      <span>CODES COMPARISON</span>
+                    </span>
+                    <span className="text-[8.5px] bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 px-2 py-0.5 rounded font-black font-mono tracking-widest leading-none uppercase">
+                      FREE
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => {
                       if (onNavigateToLiveScores) {
                         onNavigateToLiveScores();
                       } else {
@@ -1791,6 +1823,23 @@ export default function CustomerPortal({
               {activePlan?.id === 'plan-free' && !bypassPremium && (
                 <Lock className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
               )}
+            </button>
+
+            <button
+              onClick={() => setActiveSubTab('comparison')}
+              className={`flex items-center justify-between px-3.5 py-3 rounded-lg text-xs font-bold tracking-wide transition duration-150 ${
+                activeSubTab === 'comparison'
+                  ? 'bg-gradient-to-r from-emerald-550/15 to-emerald-500/5 text-emerald-400 border-l-4 border-emerald-500 pl-2.5'
+                  : 'hover:bg-slate-800/60 text-slate-400 hover:text-slate-150'
+              }`}
+            >
+              <span className="flex items-center gap-3">
+                <Layers className="w-4 h-4 text-amber-400" />
+                <span>CODES COMPARISON</span>
+              </span>
+              <span className="text-[8.5px] bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 px-2 py-0.5 rounded font-black font-mono tracking-widest leading-none uppercase">
+                FREE
+              </span>
             </button>
 
             <button
@@ -2286,35 +2335,57 @@ export default function CustomerPortal({
                           if (allBookies.length === 0) {
                             allBookies = ['Bet9ja', 'BetKing', 'SportyBet', 'PremierBet', 'Betway', 'Soccabet', 'MSport'];
                           }
-                          return allBookies.map((bookie, bIdx) => {
-                            const isSelected = dashboardBookmakerFilter.toLowerCase().trim() === bookie.toLowerCase().trim();
-                            const isSubscribed = isBookieAllowed(bookie);
-                            return (
+                          return (
+                            <>
                               <button
-                                key={`bookie_filter_tab_${bookie.toLowerCase().replace(/[^a-z0-9]/g, '')}_${bIdx}`}
+                                key="bookie_filter_tab_pool_codes_comparison"
                                 disabled={isSyncingSupabase}
                                 onClick={async () => {
-                                  setDashboardBookmakerFilter(bookie);
+                                  setDashboardBookmakerFilter('Pool Codes Comparison');
                                   if (fetchRealSupabaseData) {
                                     await fetchRealSupabaseData(true);
                                   }
                                 }}
                                 className={`px-3 py-1.5 text-xs font-bold font-mono uppercase tracking-wide rounded-lg transition duration-150 flex items-center gap-1.5 cursor-pointer ${
-                                  isSelected
+                                  dashboardBookmakerFilter.toLowerCase().includes('comparison')
                                     ? 'bg-amber-500 text-slate-950 font-black shadow-md'
-                                    : isSubscribed
-                                    ? 'bg-slate-900 text-emerald-400 hover:bg-slate-800 border border-emerald-500/30'
-                                    : 'bg-slate-900 text-slate-400 hover:bg-slate-800 border border-slate-800 opacity-90'
-                                } ${isSyncingSupabase ? 'opacity-80' : ''}`}
+                                    : 'bg-slate-900 text-amber-400 hover:bg-slate-800 border border-amber-500/30'
+                                }`}
                               >
-                                {isSyncingSupabase && isSelected && (
-                                  <span className="w-2.5 h-2.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                                )}
-                                <span className="text-[11px]">{isSubscribed ? '🔓' : '🔒'}</span>
-                                <span>{bookie}</span>
+                                <span className="text-[11px]">⚡</span>
+                                <span>Comparison (Free)</span>
                               </button>
-                            );
-                          });
+                              {allBookies.map((bookie, bIdx) => {
+                                const isSelected = dashboardBookmakerFilter.toLowerCase().trim() === bookie.toLowerCase().trim();
+                                const isSubscribed = isBookieAllowed(bookie);
+                                return (
+                                  <button
+                                    key={`bookie_filter_tab_${bookie.toLowerCase().replace(/[^a-z0-9]/g, '')}_${bIdx}`}
+                                    disabled={isSyncingSupabase}
+                                    onClick={async () => {
+                                      setDashboardBookmakerFilter(bookie);
+                                      if (fetchRealSupabaseData) {
+                                        await fetchRealSupabaseData(true);
+                                      }
+                                    }}
+                                    className={`px-3 py-1.5 text-xs font-bold font-mono uppercase tracking-wide rounded-lg transition duration-150 flex items-center gap-1.5 cursor-pointer ${
+                                      isSelected
+                                        ? 'bg-amber-500 text-slate-950 font-black shadow-md'
+                                        : isSubscribed
+                                        ? 'bg-slate-900 text-emerald-400 hover:bg-slate-800 border border-emerald-500/30'
+                                        : 'bg-slate-900 text-slate-400 hover:bg-slate-800 border border-slate-800 opacity-90'
+                                    } ${isSyncingSupabase ? 'opacity-80' : ''}`}
+                                  >
+                                    {isSyncingSupabase && isSelected && (
+                                      <span className="w-2.5 h-2.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                                    )}
+                                    <span className="text-[11px]">{isSubscribed ? '🔓' : '🔒'}</span>
+                                    <span>{bookie}</span>
+                                  </button>
+                                );
+                              })}
+                            </>
+                          );
                         })()}
                       </div>
 
@@ -2383,6 +2454,19 @@ export default function CustomerPortal({
                     {/* THE TABLE CANVAS CONTAINER (COUPON RENDERER) */}
                     <div>
                       {(() => {
+                        if (dashboardBookmakerFilter.toLowerCase().includes('comparison')) {
+                          return (
+                            <div className="pt-1">
+                              <PoolCodesComparisonTable
+                                comparisonRows={db.pool_codes_comparison}
+                                triggerToast={triggerToast}
+                                currentUser={currentUser}
+                                onOpenVipSubscription={() => setActiveSubTab('subscription')}
+                              />
+                            </div>
+                          );
+                        }
+
                         const isTabAllowed = isBookieAllowed(dashboardBookmakerFilter);
 
                         if (!isTabAllowed) {
@@ -4315,6 +4399,18 @@ export default function CustomerPortal({
                   </div>
                 );
               })()}
+
+              {/* SUBTAB: POOL CODES COMPARISON (FREE TO ALL USERS) */}
+              {activeSubTab === 'comparison' && (
+                <div className="flex flex-col gap-6" id="pool-codes-comparison-section">
+                  <PoolCodesComparisonTable
+                    comparisonRows={db.pool_codes_comparison}
+                    triggerToast={triggerToast}
+                    currentUser={currentUser}
+                    onOpenVipSubscription={() => setActiveSubTab('subscription')}
+                  />
+                </div>
+              )}
 
               {/* SUBTAB: LIVE MATCH CAST */}
               {activeSubTab === 'streaming' && (

@@ -134,8 +134,9 @@ app.use((req, res, next) => {
   app.get("/api/database/tables", async (req, res) => {
     const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
     const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || '';
 
-    if (!supabaseUrl || !supabaseAnonKey) {
+    if (!supabaseUrl || (!supabaseAnonKey && !serviceRoleKey)) {
       return res.status(500).json({ 
         success: false, 
         error: "Supabase connection parameters are missing or not configured in settings." 
@@ -143,13 +144,14 @@ app.use((req, res, next) => {
     }
 
     try {
-      const supabase = createClient(supabaseUrl, supabaseAnonKey);
+      const supabase = createClient(supabaseUrl, serviceRoleKey || supabaseAnonKey);
 
       const CANDIDATE_TABLES = [
         'blogs', 'blog', 'posts', 'articles', 'news', 'expert_blogs',
         'users', 'profiles', 'accounts',
         'livescores', 'live_scores', 'matches', 'fixtures', 'predictions',
         'championship_results', 'championships',
+        'pool codes comparison', 'pool_codes_comparison',
         'pool_codes', 'pool_results', 'pool_weeks', 'bookmakers',
         'subscription_plans', 'user_subscriptions', 'notifications', 'user_downloads',
         'bet9ja', 'betking', 'sportybet', 'msport', 'premierbet', 'betway', 'soccabet', 'arena_games',
@@ -234,7 +236,8 @@ app.use((req, res, next) => {
     const PUBLIC_TABLES = [
       'users', 'profiles', 'accounts', 'blogs', 'blog', 'posts', 'articles', 'news', 'expert_blogs',
       'subscription_plans', 'settings', 'comments', 'notifications', 'livescores', 'live_scores',
-      'championship_results', 'championships', 'pool_weeks'
+      'championship_results', 'championships', 'pool_weeks', 'bookmakers',
+      'pool_codes_comparison', 'pool codes comparison', 'pool_code_comparison', 'pool_comparison', 'poolcodes_comparison', 'pool_codes_comparisons'
     ];
     if (PUBLIC_TABLES.includes(cleanTable)) {
       return { allowed: true };
@@ -452,6 +455,15 @@ app.use((req, res, next) => {
     const targetUname = username || user_name;
     const targetTable = bookmaker || table || 'bet9ja';
 
+    const cleanTbl = String(targetTable || '').toLowerCase().trim().replace(/[\s_\-]+/g, '_');
+    if (cleanTbl === 'pool_codes_comparison' || cleanTbl === 'pool_code_comparison' || cleanTbl === 'pool_comparison' || cleanTbl === 'poolcodes_comparison') {
+      return res.json({
+        success: true,
+        allowed: true,
+        message: "PDF download authorized for Pool Codes Comparison."
+      });
+    }
+
     const result = await checkUserTableAccess(targetUid, targetUname, targetTable);
     if (!result.allowed) {
       return res.status(403).json({
@@ -470,11 +482,24 @@ app.use((req, res, next) => {
 
   // API Route - Securely Query ANY table from Supabase (with strict deny-by-default on bookmakers)
   app.get("/api/tables/:tableName", async (req, res) => {
-    const { tableName } = req.params;
+    const rawParam = req.params.tableName || '';
+    let decodedName = '';
+    try {
+      decodedName = decodeURIComponent(rawParam).trim();
+    } catch (_) {
+      decodedName = rawParam.trim();
+    }
 
     // Validate table name format to prevent SQL injection or path traversal
-    if (!tableName || !/^[a-zA-Z0-9_]+$/.test(tableName) || tableName.length > 64) {
-      return res.status(400).json({ success: false, error: `Invalid table name format '${tableName}'.` });
+    if (!decodedName || !/^[a-zA-Z0-9_\- %]+$/.test(decodedName) || decodedName.length > 64) {
+      return res.status(400).json({ success: false, error: `Invalid table name format '${rawParam}'.` });
+    }
+
+    // Normalize alias mapping
+    let actualTableName = decodedName;
+    const normalizedKey = decodedName.toLowerCase().replace(/[\s_\-]+/g, '_');
+    if (normalizedKey === 'pool_codes_comparison' || normalizedKey === 'pool_code_comparison' || normalizedKey === 'pool_comparison' || normalizedKey === 'poolcodes_comparison') {
+      actualTableName = 'pool codes comparison';
     }
 
     // Extract user credentials for access check
@@ -483,15 +508,15 @@ app.use((req, res, next) => {
 
     // Check if table is a restricted bookmaker table
     const KNOWN_BOOKIES = ['bet9ja', 'betking', 'sportybet', 'msport', 'premierbet', 'betway', 'soccabet', 'arena_games'];
-    const isBookmakerTable = KNOWN_BOOKIES.includes(tableName.toLowerCase());
+    const isBookmakerTable = KNOWN_BOOKIES.includes(normalizedKey);
 
     if (isBookmakerTable) {
-      const access = await checkUserTableAccess(userId, username, tableName);
+      const access = await checkUserTableAccess(userId, username, actualTableName);
       if (!access.allowed) {
         return res.status(403).json({
           success: false,
-          table: tableName,
-          error: access.reason || `Access Denied: No active purchase record found in purchases_access_log for '${tableName}'.`,
+          table: actualTableName,
+          error: access.reason || `Access Denied: No active purchase record found in purchases_access_log for '${actualTableName}'.`,
           data: []
         });
       }
@@ -499,9 +524,10 @@ app.use((req, res, next) => {
 
     const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
     const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || '';
 
-    if (!supabaseUrl || !supabaseAnonKey) {
-      if (tableName === 'users') {
+    if (!supabaseUrl || (!supabaseAnonKey && !serviceRoleKey)) {
+      if (actualTableName === 'users') {
         return res.json({ success: true, table: 'users', count: serverMemoryUsers.length, data: serverMemoryUsers });
       }
       return res.status(500).json({ 
@@ -511,18 +537,18 @@ app.use((req, res, next) => {
     }
 
     try {
-      const supabase = createClient(supabaseUrl, supabaseAnonKey);
+      const supabase = createClient(supabaseUrl, serviceRoleKey || supabaseAnonKey);
 
       const runQuery = async () => {
-        const { data, error, count } = await supabase.from(tableName).select('*', { count: 'exact' });
+        const { data, error, count } = await supabase.from(actualTableName).select('*', { count: 'exact' });
         if (error) {
-          if (tableName === 'users') {
+          if (actualTableName === 'users') {
             return { success: true, table: 'users', count: serverMemoryUsers.length, data: serverMemoryUsers };
           }
-          return { success: false, table: tableName, error: error.message, data: [] };
+          return { success: false, table: actualTableName, error: error.message, data: [] };
         }
         let rows = data || [];
-        if (tableName === 'users' && serverMemoryUsers.length > 0) {
+        if (actualTableName === 'users' && serverMemoryUsers.length > 0) {
           const map = new Map(rows.map((r: any) => [r.id, r]));
           for (const u of serverMemoryUsers) {
             if (!map.has(u.id)) {
@@ -530,7 +556,7 @@ app.use((req, res, next) => {
             }
           }
         }
-        return { success: true, table: tableName, count: rows.length, data: rows };
+        return { success: true, table: actualTableName, count: rows.length, data: rows };
       };
 
       const timeoutPromise = new Promise((_, reject) =>
@@ -541,17 +567,17 @@ app.use((req, res, next) => {
         const result = await Promise.race([runQuery(), timeoutPromise]);
         return res.json(result);
       } catch (timeoutErr) {
-        if (tableName === 'users') {
+        if (actualTableName === 'users') {
           return res.json({ success: true, table: 'users', count: serverMemoryUsers.length, data: serverMemoryUsers });
         }
-        return res.json({ success: false, table: tableName, error: "Network query timeout", data: [] });
+        return res.json({ success: false, table: actualTableName, error: "Network query timeout", data: [] });
       }
     } catch (err: any) {
-      console.error(`Supabase proxy query failure for table ${tableName}:`, err);
-      if (tableName === 'users') {
+      console.error(`Supabase proxy query failure for table ${actualTableName}:`, err);
+      if (actualTableName === 'users') {
         return res.json({ success: true, table: 'users', count: serverMemoryUsers.length, data: serverMemoryUsers });
       }
-      return res.status(500).json({ success: false, table: tableName, error: err?.message || String(err), data: [] });
+      return res.status(500).json({ success: false, table: actualTableName, error: err?.message || String(err), data: [] });
     }
   });
 
