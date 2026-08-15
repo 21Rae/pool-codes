@@ -16,63 +16,14 @@ export const INITIAL_USERS: User[] = [];
 
 export const INITIAL_PLANS: SubscriptionPlan[] = [
   {
-    id: 'plan-free',
-    name: 'Free Access',
-    description: 'Access public fixture codes and results with standard limits.',
-    price: 0.00,
-    billing_cycle: 'weekly',
-    has_premium_codes: false,
-    has_odds_comparison: false,
-    has_results: true,
-    has_notifications: false,
-    max_bookmakers: 1,
-    created_at: '2026-01-01T00:00:00Z'
-  },
-  {
-    id: 'plan-weekly',
-    name: 'Weekly Plan',
-    description: '1 Week Only. Ideal for temporary coupon verification.',
-    price: 300.00,
-    billing_cycle: 'weekly',
-    has_premium_codes: true,
-    has_odds_comparison: true,
-    has_results: true,
-    has_notifications: true,
-    max_bookmakers: 4,
-    created_at: '2026-01-01T00:00:00Z'
-  },
-  {
-    id: 'plan-monthly',
-    name: 'Monthly Plan',
-    description: '4 Weeks + 1 Week Bonus. Active perming suite access.',
-    price: 1200.00,
-    billing_cycle: 'monthly',
-    has_premium_codes: true,
-    has_odds_comparison: true,
-    has_results: true,
-    has_notifications: true,
-    max_bookmakers: 6,
-    created_at: '2026-01-01T00:00:00Z'
-  },
-  {
-    id: 'plan-quarterly',
-    name: 'Quarterly Plan (New)',
-    description: '12 Weeks + 1 Week Bonus. Standard season length.',
-    price: 3600.00,
-    billing_cycle: 'quarterly',
-    has_premium_codes: true,
-    has_odds_comparison: true,
-    has_results: true,
-    has_notifications: true,
-    max_bookmakers: 8,
-    created_at: '2026-01-01T00:00:00Z'
-  },
-  {
-    id: 'plan-biannual',
-    name: 'BI - Annual Plan (New)',
-    description: '24 Weeks + 2 Weeks Bonus. Half-year coverage of draw sequences.',
+    id: 'BI - Annual plan (New)',
+    name: 'BI - Annual plan',
+    description: '24 Weeks + 2 Weeks Bonus (182 days). Half-year coverage of draw sequences.',
     price: 7800.00,
     billing_cycle: 'biannual',
+    duration_days: 182,
+    currency: 'NGN',
+    aliases: ['plan-biannual', 'BI - Annual plan (New)', 'BI - Annual plan', 'BI - Annual Plan (New)', 'biannual'],
     has_premium_codes: true,
     has_odds_comparison: true,
     has_results: true,
@@ -81,11 +32,146 @@ export const INITIAL_PLANS: SubscriptionPlan[] = [
     created_at: '2026-01-01T00:00:00Z'
   },
   {
-    id: 'plan-yearly',
-    name: 'Yearly Plan (New)',
-    description: '48 Weeks + 4 Weeks Bonus. Elite multi-season VIP privileges.',
+    id: 'BI - Annual plan (New) Ghana',
+    name: 'BI - Annual plan (New) Ghana',
+    description: '24 weeks + 2 weeks bonus (182 days coverage).',
+    price: 104.00,
+    billing_cycle: 'biannual',
+    duration_days: 182,
+    currency: 'GHS',
+    region: 'ghana',
+    aliases: ['plan-ghana-biannual', 'BI - Annual plan (New) Ghana', 'Ghana BI - Annual Plan (New)', 'Ghana BI - Annual plan'],
+    has_premium_codes: true,
+    has_odds_comparison: true,
+    has_results: true,
+    has_notifications: true,
+    max_bookmakers: 4,
+    created_at: '2026-01-01T00:00:00Z'
+  },
+  {
+    id: 'Monthly plan Ghana',
+    name: 'Monthly plan Ghana',
+    description: '4 weeks + 1 week bonus (35 days total).',
+    price: 16.00,
+    billing_cycle: 'monthly',
+    duration_days: 35,
+    currency: 'GHS',
+    region: 'ghana',
+    aliases: ['plan-ghana', 'plan-ghana-monthly', 'Monthly plan Ghana', 'Ghana Monthly Plan'],
+    has_premium_codes: true,
+    has_odds_comparison: true,
+    has_results: true,
+    has_notifications: true,
+    max_bookmakers: 4,
+    created_at: '2026-01-01T00:00:00Z'
+  },
+  {
+    id: 'plan-free',
+    name: 'Free Pass',
+    description: '7 Days Access. Public fixture codes and results with standard limits.',
+    price: 0.00,
+    billing_cycle: 'weekly',
+    duration_days: 7,
+    currency: 'NGN',
+    aliases: ['plan-free', 'Free Pass', 'Free Access', 'free'],
+    has_premium_codes: false,
+    has_odds_comparison: false,
+    has_results: true,
+    has_notifications: false,
+    max_bookmakers: 1,
+    created_at: '2026-01-01T00:00:00Z'
+  },
+  {
+    id: 'plan-monthly',
+    name: 'Monthly Pro',
+    description: '30 Days Access (4 Weeks + 1 Week Bonus). Active perming suite access.',
+    price: 1200.00,
+    billing_cycle: 'monthly',
+    duration_days: 30,
+    currency: 'NGN',
+    aliases: ['plan-monthly', 'Monthly Pro', 'Monthly Plan', 'Monthly Plan (New)', 'monthly'],
+    has_premium_codes: true,
+    has_odds_comparison: true,
+    has_results: true,
+    has_notifications: true,
+    max_bookmakers: 6,
+    created_at: '2026-01-01T00:00:00Z'
+  },
+  {
+    id: 'plan-weekly',
+    name: 'Weekly VIP',
+    description: '7 Days Access (1 Week Only). Ideal for temporary coupon verification.',
+    price: 300.00,
+    billing_cycle: 'weekly',
+    duration_days: 7,
+    currency: 'NGN',
+    aliases: ['plan-weekly', 'Weekly VIP', 'Weekly Plan', 'weekly'],
+    has_premium_codes: true,
+    has_odds_comparison: true,
+    has_results: true,
+    has_notifications: true,
+    max_bookmakers: 4,
+    created_at: '2026-01-01T00:00:00Z'
+  },
+  {
+    id: 'Quarterly',
+    name: 'Quarterly',
+    description: '12 Weeks + 1 Week Bonus (91 days). Standard season length.',
+    price: 3600.00,
+    billing_cycle: 'quarterly',
+    duration_days: 91,
+    currency: 'NGN',
+    aliases: ['plan-quarterly', 'Quarterly', 'Quarterly Plan (New)', 'Quarterly Plan', 'quarterly'],
+    has_premium_codes: true,
+    has_odds_comparison: true,
+    has_results: true,
+    has_notifications: true,
+    max_bookmakers: 8,
+    created_at: '2026-01-01T00:00:00Z'
+  },
+  {
+    id: 'Quarterly plan (New) Ghana',
+    name: 'Quarterly plan (New) Ghana',
+    description: '12 weeks + 1 week bonus (91 days total).',
+    price: 48.00,
+    billing_cycle: 'quarterly',
+    duration_days: 91,
+    currency: 'GHS',
+    region: 'ghana',
+    aliases: ['plan-ghana-quarterly', 'Quarterly plan (New) Ghana', 'Ghana Quarterly Plan (New)', 'Ghana Quarterly Plan'],
+    has_premium_codes: true,
+    has_odds_comparison: true,
+    has_results: true,
+    has_notifications: true,
+    max_bookmakers: 4,
+    created_at: '2026-01-01T00:00:00Z'
+  },
+  {
+    id: 'Weekly plan Ghana',
+    name: 'Weekly plan Ghana',
+    description: '7 Days Access (1 week only).',
+    price: 1.00,
+    billing_cycle: 'weekly',
+    duration_days: 7,
+    currency: 'GHS',
+    region: 'ghana',
+    aliases: ['plan-ghana-weekly', 'Weekly plan Ghana', 'Ghana Weekly Plan'],
+    has_premium_codes: true,
+    has_odds_comparison: true,
+    has_results: true,
+    has_notifications: true,
+    max_bookmakers: 4,
+    created_at: '2026-01-01T00:00:00Z'
+  },
+  {
+    id: 'Yearly plan (New)',
+    name: 'Yearly plan',
+    description: '48 Weeks + 4 Weeks Bonus (364 days). Elite multi-season VIP privileges.',
     price: 15600.00,
     billing_cycle: 'yearly',
+    duration_days: 364,
+    currency: 'NGN',
+    aliases: ['plan-yearly', 'Yearly plan (New)', 'Yearly plan', 'Yearly Plan (New)', 'Yearly Plan', 'yearly'],
     has_premium_codes: true,
     has_odds_comparison: true,
     has_results: true,
@@ -94,63 +180,15 @@ export const INITIAL_PLANS: SubscriptionPlan[] = [
     created_at: '2026-01-01T00:00:00Z'
   },
   {
-    id: 'plan-ghana-weekly',
-    name: 'Ghana Weekly Plan',
-    description: '1 week Only',
-    price: 4.00,
-    billing_cycle: 'weekly',
-    has_premium_codes: true,
-    has_odds_comparison: true,
-    has_results: true,
-    has_notifications: true,
-    max_bookmakers: 4,
-    created_at: '2026-01-01T00:00:00Z'
-  },
-  {
-    id: 'plan-ghana',
-    name: 'Ghana Monthly Plan',
-    description: '4 weeks + 1 week bonus',
-    price: 16.00,
-    billing_cycle: 'monthly',
-    has_premium_codes: true,
-    has_odds_comparison: true,
-    has_results: true,
-    has_notifications: true,
-    max_bookmakers: 4,
-    created_at: '2026-01-01T00:00:00Z'
-  },
-  {
-    id: 'plan-ghana-quarterly',
-    name: 'Ghana Quarterly Plan (New)',
-    description: '12 weeks + 1 week bonus',
-    price: 48.00,
-    billing_cycle: 'quarterly',
-    has_premium_codes: true,
-    has_odds_comparison: true,
-    has_results: true,
-    has_notifications: true,
-    max_bookmakers: 4,
-    created_at: '2026-01-01T00:00:00Z'
-  },
-  {
-    id: 'plan-ghana-biannual',
-    name: 'Ghana BI - Annual Plan (New)',
-    description: '24 weeks + 2 weeks bonus',
-    price: 104.00,
-    billing_cycle: 'biannual',
-    has_premium_codes: true,
-    has_odds_comparison: true,
-    has_results: true,
-    has_notifications: true,
-    max_bookmakers: 4,
-    created_at: '2026-01-01T00:00:00Z'
-  },
-  {
-    id: 'plan-ghana-yearly',
-    name: 'Ghana Yearly Plan (New)',
-    description: '48 weeks + 4 weeks bonus',
+    id: 'Yearly plan (New) Ghana',
+    name: 'Yearly plan (New) Ghana',
+    description: '48 weeks + 4 weeks bonus (364 days coverage).',
     price: 208.00,
     billing_cycle: 'yearly',
+    duration_days: 364,
+    currency: 'GHS',
+    region: 'ghana',
+    aliases: ['plan-ghana-yearly', 'Yearly plan (New) Ghana', 'Ghana Yearly Plan (New)', 'Ghana Yearly Plan'],
     has_premium_codes: true,
     has_odds_comparison: true,
     has_results: true,
@@ -159,6 +197,54 @@ export const INITIAL_PLANS: SubscriptionPlan[] = [
     created_at: '2026-01-01T00:00:00Z'
   }
 ];
+
+export function findSubscriptionPlan(plans: SubscriptionPlan[] | undefined, planIdOrName: string): SubscriptionPlan | undefined {
+  if (!planIdOrName) return undefined;
+  const list = (plans && plans.length > 0) ? plans : INITIAL_PLANS;
+  const target = String(planIdOrName).trim().toLowerCase();
+
+  // 1. Direct exact id match
+  const exactId = list.find(p => p && String(p.id).trim().toLowerCase() === target);
+  if (exactId) return exactId;
+
+  // 2. Direct exact name match
+  const exactName = list.find(p => p && String(p.name).trim().toLowerCase() === target);
+  if (exactName) return exactName;
+
+  // 3. Alias match
+  const aliasMatch = list.find(p => p && Array.isArray(p.aliases) && p.aliases.some(a => String(a).trim().toLowerCase() === target));
+  if (aliasMatch) return aliasMatch;
+
+  // 4. Fuzzy contains match
+  return list.find(p => {
+    if (!p) return false;
+    const pid = String(p.id).toLowerCase();
+    const pname = String(p.name).toLowerCase();
+    return pid.includes(target) || target.includes(pid) || pname.includes(target) || target.includes(pname);
+  });
+}
+
+export function getPlanDurationDays(plan: Partial<SubscriptionPlan> | undefined): number {
+  if (!plan) return 7;
+  if (typeof plan.duration_days === 'number' && plan.duration_days > 0) {
+    return plan.duration_days;
+  }
+  const cycle = String(plan.billing_cycle || '').toLowerCase();
+  const name = String(plan.name || '').toLowerCase();
+  if (cycle === 'yearly' || name.includes('year')) return 364;
+  if (cycle === 'biannual' || name.includes('bi-annual') || name.includes('bi - annual')) return 182;
+  if (cycle === 'quarterly' || name.includes('quarter')) return 91;
+  if (name.includes('ghana') && (cycle === 'monthly' || name.includes('month'))) return 35;
+  if (cycle === 'monthly' || name.includes('month')) return 30;
+  return 7;
+}
+
+export function calculateSubscriptionExpiry(plan: Partial<SubscriptionPlan> | undefined, startDate: Date = new Date()): { startedAt: Date; expiresAt: Date; durationDays: number } {
+  const startedAt = new Date(startDate.getTime());
+  const durationDays = getPlanDurationDays(plan);
+  const expiresAt = new Date(startedAt.getTime() + durationDays * 24 * 60 * 60 * 1000);
+  return { startedAt, expiresAt, durationDays };
+}
 
 export function isGhanaPlan(p: any): boolean {
   if (!p) return false;

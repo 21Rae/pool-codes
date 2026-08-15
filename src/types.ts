@@ -5,7 +5,14 @@ export type PoolType = 'uk' | 'aussie' | 'international';
 export type WeekStatus = 'upcoming' | 'active' | 'closed';
 export type AccessLevel = 'free' | 'premium';
 export type SubscriptionStatus = 'active' | 'expired' | 'cancelled' | 'inactive';
-export type NotificationType = 'new_codes' | 'results_out' | 'subscription_expiring' | 'system';
+export type NotificationType = 
+  | 'subscription_activated'
+  | 'subscription_expiring'
+  | 'subscription_expired'
+  | 'payment_failed'
+  | 'new_codes' 
+  | 'results_out' 
+  | 'system';
 
 export interface User {
   id: string;
@@ -25,6 +32,10 @@ export interface SubscriptionPlan {
   description: string;
   price: number;
   billing_cycle: BillingCycle;
+  duration_days: number;
+  currency?: string;
+  region?: string;
+  aliases?: string[];
   has_premium_codes: boolean;
   has_odds_comparison: boolean;
   has_results: boolean;
@@ -38,8 +49,10 @@ export interface UserSubscription {
   user_id: string;
   username?: string;
   plan_id: string;
+  plan_name?: string;
   status: SubscriptionStatus;
   starts_at: string;
+  started_at?: string;
   expires_at: string;
   payment_ref?: string | null;
   payment_reference?: string | null;
@@ -49,7 +62,9 @@ export interface UserSubscription {
   amount_paid?: number;
   granted_tables?: string | string[];
   created_at?: string;
+  updated_at?: string;
   components?: string[] | string;
+  alert_milestones_sent?: string[];
 }
 
 export interface UserPayment {
@@ -177,13 +192,16 @@ export interface PoolResult {
 export interface Notification {
   id: string;
   user_id: string;
-  pool_code_id: string | null;
+  pool_code_id?: string | null;
+  subscription_id?: string | null;
   type: NotificationType;
   title: string;
-  body: string;
+  message?: string;
+  body?: string;
   is_read: boolean;
   read_at: string | null;
   created_at: string;
+  days_remaining?: number;
 }
 
 export interface UserDownload {

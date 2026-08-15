@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import {
@@ -6,6 +6,10 @@ import {
   Check,
   Download,
   Bell,
+  BellRing,
+  Clock,
+  Timer,
+  AlertTriangle,
   User as UserIcon,
   CreditCard,
   Target,
@@ -618,9 +622,9 @@ export default function CustomerPortal({
     const cellPadding = rowCount > 25 ? '3px 5px' : rowCount > 15 ? '4px 6px' : '5px 8px';
 
     const innerContentHtml = `
-      <div style="position: absolute; inset: 0; overflow: hidden; pointer-events: none; opacity: 0.04; display: flex; flex-wrap: wrap; justify-content: space-around; align-content: space-around; z-index: 0; user-select: none;">
+      <div style="position: absolute; inset: 0; overflow: hidden; pointer-events: none; opacity: 0.025; display: flex; flex-wrap: wrap; justify-content: space-around; align-content: space-around; z-index: 0; user-select: none;">
         ${Array.from({ length: 24 }).map(() => `
-          <div style="font-family: monospace; font-weight: 900; font-size: 11px; text-transform: uppercase; color: #0f172a; white-space: nowrap; margin: 35px; transform: rotate(-25deg);">
+          <div style="font-family: monospace; font-weight: 800; font-size: 13px; text-transform: uppercase; color: #94a3b8; white-space: nowrap; margin: 35px; transform: rotate(-25deg);">
             fastpoolcodes • ${currentUser.email}
           </div>
         `).join('')}
@@ -1498,9 +1502,249 @@ export default function CustomerPortal({
 
 
 
+  // Interactive Notification Drawer & Expiry Alerts State
+  const [isNotificationDrawerOpen, setIsNotificationDrawerOpen] = useState(false);
+  const [isExpiryBannerDismissed, setIsExpiryBannerDismissed] = useState(false);
+  const [activeExpiryDetailsModal, setActiveExpiryDetailsModal] = useState<any | null>(null);
+
+  // Calculate detailed subscription expiration & days remaining
+  const subscriptionExpiries = useMemo(() => {
+    const list: Array<{
+      id: string;
+      planName: string;
+      bookmakers: string[];
+      expiresAt: Date;
+      startDate: Date;
+      daysRemaining: number;
+      hoursRemaining: number;
+      totalDays: number;
+      percentRemaining: number;
+      status: 'active' | 'expiring_soon' | 'critical' | 'expired';
+      paymentRef: string;
+      amount?: number;
+      currency?: string;
+      source: 'supabase' | 'local';
+    }> = [];
+
+    const seenRefs = new Set<string>();
+
+    const matchUser = (item: any) => item && (
+      currentUser?.role === 'admin' ||
+      (item.user_id && currentUser?.id && String(item.user_id).toLowerCase() === String(currentUser.id).toLowerCase()) ||
+      (item.username && currentUser?.username && String(item.username).toLowerCase() === String(currentUser.username).toLowerCase()) ||
+      (item.email && currentUser?.email && String(item.email).toLowerCase() === String(currentUser.email).toLowerCase())
+    );
+
+    // 1. Check remote Supabase logs
+    (remoteLogs || []).filter(matchUser).forEach((item: any) => {
+      const expDateStr = item.expiry_date || item.expires_at || item.access_expires_at;
+      if (!expDateStr) return;
+      const expDate = new Date(expDateStr);
+      if (isNaN(expDate.getTime())) return;
+
+      const ref = item.payment_ref || item.payment_reference || item.id || `remote-${item.id}`;
+      if (seenRefs.has(ref)) return;
+      seenRefs.add(ref);
+
+      const startDateStr = item.paid_date || item.access_start_at || item.starts_at || item.created_at;
+      const startDate = startDateStr ? new Date(startDateStr) : new Date(expDate.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+      const now = new Date();
+      const diffMs = expDate.getTime() - now.getTime();
+      const daysRemaining = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+      const hoursRemaining = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60)));
+      const totalMs = Math.max(1, expDate.getTime() - startDate.getTime());
+      const totalDays = Math.max(1, Math.round(totalMs / (1000 * 60 * 60 * 24)));
+      const percentRemaining = Math.min(100, Math.max(0, Math.round((diffMs / totalMs) * 100)));
+
+      let status: 'active' | 'expiring_soon' | 'critical' | 'expired' = 'active';
+      const statusStr = String(item.access_status || item.status || 'active').toLowerCase();
+      if (diffMs <= 0 || statusStr === 'expired') {
+        status = 'expired';
+      } else if (daysRemaining <= 2) {
+        status = 'critical';
+      } else if (daysRemaining <= 7) {
+        status = 'expiring_soon';
+      }
+
+      const plan = getMergedSubscriptionPlans(db.subscription_plans).find(p => p.id === item.plan_id);
+      const planName = item.plan_purchased || item.item_name || plan?.name || 'VIP Subscription';
+      const bookmakers = getItemGrantedTables(item);
+
+      list.push({
+        id: ref,
+        planName,
+        bookmakers,
+        expiresAt: expDate,
+        startDate,
+        daysRemaining,
+        hoursRemaining,
+        totalDays,
+        percentRemaining,
+        status,
+        paymentRef: ref,
+        amount: item.amount,
+        currency: item.currency || 'NGN',
+        source: 'supabase'
+      });
+    });
+
+    // 2. Check local user_subscriptions
+    (db.user_subscriptions || []).filter(matchUser).forEach((sub: any) => {
+      const expDateStr = sub.expires_at;
+      if (!expDateStr) return;
+      const expDate = new Date(expDateStr);
+      if (isNaN(expDate.getTime())) return;
+
+      const ref = sub.payment_reference || sub.payment_ref || sub.id;
+      if (seenRefs.has(ref)) return;
+      seenRefs.add(ref);
+
+      const startDateStr = sub.starts_at || sub.created_at;
+      const startDate = startDateStr ? new Date(startDateStr) : new Date(expDate.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+      const now = new Date();
+      const diffMs = expDate.getTime() - now.getTime();
+      const daysRemaining = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+      const hoursRemaining = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60)));
+      const totalMs = Math.max(1, expDate.getTime() - startDate.getTime());
+      const totalDays = Math.max(1, Math.round(totalMs / (1000 * 60 * 60 * 24)));
+      const percentRemaining = Math.min(100, Math.max(0, Math.round((diffMs / totalMs) * 100)));
+
+      let status: 'active' | 'expiring_soon' | 'critical' | 'expired' = 'active';
+      if (diffMs <= 0 || sub.status === 'expired') {
+        status = 'expired';
+      } else if (daysRemaining <= 2) {
+        status = 'critical';
+      } else if (daysRemaining <= 7) {
+        status = 'expiring_soon';
+      }
+
+      const plan = getMergedSubscriptionPlans(db.subscription_plans).find(p => p.id === sub.plan_id);
+      const planName = sub.item_name || plan?.name || (sub.plan_id === 'plan-free' ? 'Free Trial' : 'VIP Subscription');
+      const bookmakers = getItemGrantedTables(sub);
+
+      list.push({
+        id: ref,
+        planName,
+        bookmakers,
+        expiresAt: expDate,
+        startDate,
+        daysRemaining,
+        hoursRemaining,
+        totalDays,
+        percentRemaining,
+        status,
+        paymentRef: ref,
+        amount: sub.amount_paid,
+        currency: sub.currency || 'NGN',
+        source: 'local'
+      });
+    });
+
+    return list.sort((a, b) => {
+      // Active/expiring ones first, sorted by days remaining ascending
+      if (a.status !== 'expired' && b.status === 'expired') return -1;
+      if (a.status === 'expired' && b.status !== 'expired') return 1;
+      return a.daysRemaining - b.daysRemaining;
+    });
+  }, [remoteLogs, db.user_subscriptions, db.subscription_plans, currentUser]);
+
+  // Primary active subscription with the closest expiry date
+  const activeSubsList = subscriptionExpiries.filter(s => s.status !== 'expired' && s.daysRemaining > 0);
+  const primaryActiveSub = activeSubsList.length > 0 ? activeSubsList[0] : undefined;
+  const soonestExpiringSub = activeSubsList.find(s => s.status === 'critical' || s.status === 'expiring_soon') || primaryActiveSub;
+
+  // Dynamic notifications enriched with subscription alerts
+  const subscriptionAlertNotifs = useMemo(() => {
+    const alerts: Array<{
+      id: string;
+      user_id: string;
+      title: string;
+      message: string;
+      type: 'subscription_expiring' | 'system' | 'new_codes';
+      created_at: string;
+      is_read: boolean;
+      daysRemaining?: number;
+      subId?: string;
+    }> = [];
+
+    activeSubsList.forEach(sub => {
+      if (sub.status === 'critical') {
+        alerts.push({
+          id: `notif-sub-crit-${sub.id}`,
+          user_id: currentUser.id,
+          title: `🚨 Urgent: ${sub.planName} Expiring in ${sub.daysRemaining} Day(s)`,
+          message: `Your VIP access for ${sub.bookmakers.join(', ')} expires on ${sub.expiresAt.toLocaleDateString()} (${sub.hoursRemaining} hours left). Renew today to maintain uninterrupted access.`,
+          type: 'subscription_expiring',
+          created_at: new Date().toISOString(),
+          is_read: false,
+          daysRemaining: sub.daysRemaining,
+          subId: sub.id
+        });
+      } else if (sub.status === 'expiring_soon') {
+        alerts.push({
+          id: `notif-sub-warn-${sub.id}`,
+          user_id: currentUser.id,
+          title: `⚠️ ${sub.planName} Expires in ${sub.daysRemaining} Days`,
+          message: `You have ${sub.daysRemaining} days of VIP membership remaining. Valid until ${sub.expiresAt.toLocaleDateString()}.`,
+          type: 'subscription_expiring',
+          created_at: new Date().toISOString(),
+          is_read: false,
+          daysRemaining: sub.daysRemaining,
+          subId: sub.id
+        });
+      } else if (sub.status === 'active') {
+        alerts.push({
+          id: `notif-sub-act-${sub.id}`,
+          user_id: currentUser.id,
+          title: `🛡️ VIP Access Active (${sub.daysRemaining} Days Left)`,
+          message: `Your subscription for ${sub.planName} (${sub.bookmakers.join(', ')}) is active and valid until ${sub.expiresAt.toLocaleDateString()}.`,
+          type: 'subscription_expiring',
+          created_at: new Date().toISOString(),
+          is_read: false,
+          daysRemaining: sub.daysRemaining,
+          subId: sub.id
+        });
+      }
+    });
+
+    return alerts;
+  }, [activeSubsList, currentUser]);
+
   // Notifications logic
   const myNotifications = db.notifications.filter(n => n.user_id === currentUser.id);
+  const allCombinedNotifications = useMemo(() => {
+    return [...subscriptionAlertNotifs, ...myNotifications];
+  }, [subscriptionAlertNotifs, myNotifications]);
+  const totalUnreadCount = allCombinedNotifications.filter(n => !n.is_read).length;
   const unreadCount = myNotifications.filter(n => !n.is_read).length;
+
+  // Session toast notification alerting user on login / mount
+  const hasTriggeredExpiryToastRef = useRef(false);
+  useEffect(() => {
+    if (hasTriggeredExpiryToastRef.current || !currentUser || currentUser.id === 'guest') return;
+    hasTriggeredExpiryToastRef.current = true;
+
+    if (soonestExpiringSub) {
+      if (soonestExpiringSub.status === 'critical') {
+        triggerToast(
+          `🚨 URGENT: Only ${soonestExpiringSub.daysRemaining} day(s) (${soonestExpiringSub.hoursRemaining} hrs) remaining on your ${soonestExpiringSub.planName}! Renew now to maintain uninterrupted access.`,
+          'error'
+        );
+      } else if (soonestExpiringSub.status === 'expiring_soon') {
+        triggerToast(
+          `⚠️ Subscription Notice: You have ${soonestExpiringSub.daysRemaining} days remaining on your ${soonestExpiringSub.planName}.`,
+          'info'
+        );
+      } else if (soonestExpiringSub.status === 'active') {
+        triggerToast(
+          `🛡️ VIP Access Active: ${soonestExpiringSub.daysRemaining} days remaining on your subscription.`,
+          'success'
+        );
+      }
+    }
+  }, [soonestExpiringSub, currentUser, triggerToast]);
 
   // Downloads history
   const myDownloads = db.user_downloads.filter(d => 
@@ -1555,8 +1799,26 @@ export default function CustomerPortal({
           </div>
         </div>
         
-        <div className="flex items-center gap-1.5 min-w-0 shrink">
-          <span className="text-[10px] font-mono text-slate-400 truncate max-w-[110px] sm:max-w-[200px]" title={currentUser?.username}>@{currentUser?.username}</span>
+        <div className="flex items-center gap-2 min-w-0 shrink">
+          {/* Mobile Notification Bell button */}
+          <button
+            onClick={() => setIsNotificationDrawerOpen(true)}
+            className="relative p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:border-emerald-500/50 transition cursor-pointer"
+            title="Subscription Notifications & Days Remaining"
+          >
+            {totalUnreadCount > 0 ? (
+              <BellRing className="w-4 h-4 text-amber-400 animate-pulse" />
+            ) : (
+              <Bell className="w-4 h-4 text-slate-400" />
+            )}
+            {totalUnreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center border border-slate-950">
+                {totalUnreadCount}
+              </span>
+            )}
+          </button>
+
+          <span className="text-[10px] font-mono text-slate-400 truncate max-w-[80px] sm:max-w-[150px]" title={currentUser?.username}>@{currentUser?.username}</span>
           <div className="w-7 h-7 rounded-full bg-slate-900 border border-emerald-550 flex items-center justify-center font-bold text-emerald-400 text-xs shrink-0">
             {(currentUser?.username?.[0] || 'U').toUpperCase()}
           </div>
@@ -1937,8 +2199,95 @@ export default function CustomerPortal({
       {/* Main Panel View Area */}
       <main className="flex-1 p-3 sm:p-5 md:p-8 bg-[#070B14] flex flex-col gap-4 sm:gap-6 overflow-x-hidden overflow-y-auto min-h-0">
         
+        {/* Top Desktop Action & Notification Bar */}
+        <div className="hidden md:flex items-center justify-between bg-slate-900/70 border border-slate-800/80 rounded-2xl px-5 py-3.5 backdrop-blur-md shadow-lg">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center text-emerald-400 font-bold text-xs">
+              {activeSubTab === 'dashboard' ? <Home className="w-4 h-4" /> : activeSubTab === 'comparison' ? <Layers className="w-4 h-4" /> : activeSubTab === 'results' ? <Trophy className="w-4 h-4" /> : activeSubTab === 'subscription' ? <CreditCard className="w-4 h-4" /> : <UserIcon className="w-4 h-4" />}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-black text-white uppercase tracking-wider">
+                  {activeSubTab === 'dashboard' ? 'Codes Arena Dashboard' : activeSubTab === 'comparison' ? 'Codes Comparison Matrix' : activeSubTab === 'streaming' ? 'Live Scores Arena' : activeSubTab === 'results' ? 'Pool Results Archive' : activeSubTab === 'subscription' ? 'VIP Membership & Billing' : 'Account Profile'}
+                </span>
+                <span className="text-[10px] bg-slate-800 text-slate-400 font-mono px-2 py-0.5 rounded font-bold border border-slate-700/50">
+                  WEEK {activeWeekNumber}
+                </span>
+              </div>
+              <p className="text-[10px] text-slate-400 font-mono">
+                Decrypted Football Pool Fixtures & Official Banker Pairings
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {/* Days Remaining Pill Trigger */}
+            {primaryActiveSub ? (
+              <button
+                onClick={() => setIsNotificationDrawerOpen(true)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-mono font-bold transition shadow-sm cursor-pointer ${
+                  primaryActiveSub.status === 'critical'
+                    ? 'bg-rose-950/60 border-rose-500/50 text-rose-300 hover:bg-rose-900/60 animate-pulse'
+                    : primaryActiveSub.status === 'expiring_soon'
+                    ? 'bg-amber-950/60 border-amber-500/50 text-amber-300 hover:bg-amber-900/60'
+                    : 'bg-emerald-950/60 border-emerald-500/40 text-emerald-300 hover:bg-emerald-900/60'
+                }`}
+                title="Click to view subscription days remaining breakdown & alerts"
+              >
+                <Clock className="w-3.5 h-3.5" />
+                <span>
+                  {primaryActiveSub.daysRemaining > 0
+                    ? `${primaryActiveSub.daysRemaining} Days VIP Left`
+                    : 'VIP Expired'}
+                </span>
+                <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
+              </button>
+            ) : (
+              <button
+                onClick={() => setActiveSubTab('subscription')}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-950 border border-amber-500/30 text-amber-300 hover:bg-slate-900 text-xs font-mono font-bold transition cursor-pointer"
+                title="Upgrade to VIP membership"
+              >
+                <Star className="w-3.5 h-3.5 text-amber-400" />
+                <span>Free Trial Tier</span>
+              </button>
+            )}
+
+            {/* Notification Bell Button with Glow & Unread Count */}
+            <button
+              onClick={() => setIsNotificationDrawerOpen(true)}
+              className="relative p-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-300 hover:text-white hover:border-emerald-500/50 hover:bg-slate-900 transition cursor-pointer flex items-center justify-center shadow-sm"
+              title="Notifications & Subscription Center"
+            >
+              {totalUnreadCount > 0 ? (
+                <BellRing className="w-4 h-4 text-amber-400 animate-pulse" />
+              ) : (
+                <Bell className="w-4 h-4 text-slate-400" />
+              )}
+              {totalUnreadCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center border-2 border-slate-950 shadow-md">
+                  {totalUnreadCount}
+                </span>
+              )}
+            </button>
+
+            {/* VIP Quick Upgrade CTA */}
+            {(!primaryActiveSub || primaryActiveSub.status === 'critical' || primaryActiveSub.status === 'expired') && (
+              <button
+                onClick={() => setActiveSubTab('subscription')}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-black text-xs uppercase tracking-wider transition shadow-md shadow-emerald-500/20 cursor-pointer"
+              >
+                <Zap className="w-3.5 h-3.5 fill-slate-950" />
+                <span>{primaryActiveSub?.status === 'critical' ? 'Renew VIP' : 'Upgrade VIP'}</span>
+              </button>
+            )}
+          </div>
+        </div>
+
         {/* Google AdSense Banner */}
         <GoogleAdBanner className="bg-slate-900/60 border border-slate-800 rounded-xl p-2" />
+
+
 
         {/* Revocation Warning Alert */}
         {currentUser.status === 'suspended' && (
@@ -5365,8 +5714,164 @@ export default function CustomerPortal({
               {activeSubTab === 'subscription' && (
                 <div className="flex flex-col gap-6">
 
+                  {/* Active Subscriptions & Days Remaining Live Countdown Dashboard */}
+                  <div className="bg-gradient-to-b from-[#0F172A] to-[#0A101D] border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-bold">
+                          <Timer className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h3 className="font-extrabold text-white text-sm sm:text-base uppercase tracking-tight flex items-center gap-2">
+                            <span>Active Subscription Days Remaining</span>
+                            <span className="text-[10px] font-mono bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold">
+                              LIVE COUNTER
+                            </span>
+                          </h3>
+                          <p className="text-[11px] text-slate-400 font-mono">
+                            Real-time countdown and expiration tracker for @{currentUser.username}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-mono text-slate-400 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl">
+                          {activeSubsList.length} Active Plan(s)
+                        </span>
+                      </div>
+                    </div>
+
+                    {activeSubsList.length === 0 ? (
+                      <div className="p-6 bg-slate-950/60 border border-dashed border-slate-800 rounded-2xl text-center space-y-2">
+                        <Clock className="w-8 h-8 text-slate-500 mx-auto" />
+                        <p className="text-xs font-mono text-slate-400">
+                          No active VIP subscription currently found for @{currentUser.username}.
+                        </p>
+                        <p className="text-[11px] text-slate-500 font-mono">
+                          Select one of the VIP plans below to unlock immediate access to decrypted fixture codes.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {activeSubsList.map((sub, sIdx) => {
+                          const isCrit = sub.status === 'critical';
+                          const isWarn = sub.status === 'expiring_soon';
+
+                          return (
+                            <div
+                              key={`active_sub_card_${sub.id}_${sIdx}`}
+                              className={`p-4 rounded-2xl border transition shadow-lg relative overflow-hidden flex flex-col justify-between gap-3 ${
+                                isCrit
+                                  ? 'bg-gradient-to-br from-rose-950/50 via-slate-950 to-slate-900 border-rose-500/40'
+                                  : isWarn
+                                  ? 'bg-gradient-to-br from-amber-950/40 via-slate-950 to-slate-900 border-amber-500/40'
+                                  : 'bg-gradient-to-br from-emerald-950/40 via-slate-950 to-slate-900 border-emerald-500/40'
+                              }`}
+                            >
+                              <div>
+                                <div className="flex items-start justify-between gap-2">
+                                  <div>
+                                    <span className="text-xs font-black text-white uppercase tracking-tight block">
+                                      {sub.planName}
+                                    </span>
+                                    <span className="text-[9.5px] font-mono text-slate-400 block mt-0.5">
+                                      Ref: {sub.paymentRef}
+                                    </span>
+                                  </div>
+                                  <span
+                                    className={`text-[9px] font-mono font-black px-2 py-0.5 rounded-full uppercase tracking-wider border ${
+                                      isCrit
+                                        ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 animate-pulse'
+                                        : isWarn
+                                        ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                                        : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                                    }`}
+                                  >
+                                    {isCrit ? 'CRITICAL' : isWarn ? 'EXPIRING SOON' : 'ACTIVE'}
+                                  </span>
+                                </div>
+
+                                {/* Large Days Remaining Gauge */}
+                                <div className="my-3 flex items-baseline gap-2 bg-slate-950/70 border border-slate-800/80 rounded-xl p-3">
+                                  <span
+                                    className={`text-3xl font-black font-mono tracking-tight ${
+                                      isCrit
+                                        ? 'text-rose-400'
+                                        : isWarn
+                                        ? 'text-amber-400'
+                                        : 'text-emerald-400'
+                                    }`}
+                                  >
+                                    {sub.daysRemaining}
+                                  </span>
+                                  <div className="flex flex-col">
+                                    <span className="text-[10px] font-mono font-bold uppercase text-slate-300">
+                                      Days Remaining
+                                    </span>
+                                    <span className="text-[9px] font-mono text-slate-500">
+                                      ({sub.hoursRemaining} hours total)
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Progress meter */}
+                                <div className="space-y-1">
+                                  <div className="flex justify-between text-[9.5px] font-mono text-slate-400">
+                                    <span>Time Left: {sub.percentRemaining}%</span>
+                                    <span>Total: {sub.totalDays} days</span>
+                                  </div>
+                                  <div className="w-full bg-slate-900 rounded-full h-1.5 overflow-hidden border border-slate-800">
+                                    <div
+                                      className={`h-full rounded-full transition-all duration-500 ${
+                                        isCrit
+                                          ? 'bg-rose-500'
+                                          : isWarn
+                                          ? 'bg-amber-500'
+                                          : 'bg-emerald-500'
+                                      }`}
+                                      style={{ width: `${sub.percentRemaining}%` }}
+                                    />
+                                  </div>
+                                </div>
+
+                                {/* Bookmaker chips */}
+                                <div className="mt-3 flex flex-wrap gap-1">
+                                  {sub.bookmakers.map((bm, bIdx) => (
+                                    <span
+                                      key={`card_bm_${bm}_${bIdx}`}
+                                      className="text-[9px] font-mono font-bold bg-slate-900 border border-slate-800 text-slate-300 px-1.5 py-0.5 rounded uppercase"
+                                    >
+                                      {bm}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+
+                              <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[10px] font-mono">
+                                <span className="text-slate-400">
+                                  Expires: <strong className="text-white">{sub.expiresAt.toLocaleDateString()}</strong>
+                                </span>
+                                <button
+                                  onClick={() => {
+                                    const planEl = document.getElementById('pricing-matrix-section');
+                                    if (planEl) {
+                                      planEl.scrollIntoView({ behavior: 'smooth' });
+                                    }
+                                  }}
+                                  className="text-emerald-400 hover:text-emerald-300 font-bold hover:underline cursor-pointer"
+                                >
+                                  + Extend Access
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
                   {/* Purchases & Code Unlocks Audit Ledger for @username */}
-                  <div className="bg-[#111827] border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+                  <div id="pricing-matrix-section" className="bg-[#111827] border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
                     <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                       <div>
                         <h3 className="font-extrabold text-white text-xs uppercase tracking-wider font-mono flex items-center gap-2">
@@ -6315,9 +6820,9 @@ export default function CustomerPortal({
                             for (let p = 1; p <= totalPages; p++) {
                               doc.setPage(p);
                               doc.saveGraphicsState();
-                              // Soft refined cool-slate tint with balanced subtle visibility
-                              doc.setTextColor(212, 220, 230);
-                              doc.setFontSize(10.5);
+                              // Soft refined cool-slate tint with reduced color intensity & slightly increased font
+                              doc.setTextColor(232, 237, 243);
+                              doc.setFontSize(11.5);
                               doc.setFont('helvetica', 'bold');
                               
                               const watermarkText = `FASTPOOLCODES • ${currentUser?.email || 'user@fastpoolcodes.com'}`;
@@ -6402,11 +6907,11 @@ export default function CustomerPortal({
                   <div className="absolute inset-0 bg-grid opacity-[0.01] pointer-events-none print:hidden"></div>
 
                   {/* Watermark layer: "fastpoolcodes" and user email repeating softly */}
-                  <div className="absolute inset-0 overflow-hidden pointer-events-none select-none opacity-[0.08] print:opacity-[0.08] z-0 flex flex-wrap justify-around items-center content-around">
+                  <div className="absolute inset-0 overflow-hidden pointer-events-none select-none opacity-[0.035] print:opacity-[0.035] z-0 flex flex-wrap justify-around items-center content-around">
                     {Array.from({ length: 24 }).map((_, i) => (
                       <div
                         key={i}
-                        className="text-[12px] font-mono font-black text-slate-500 uppercase tracking-widest whitespace-nowrap select-none p-4 rotate-[-25deg]"
+                        className="text-[13px] font-mono font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap select-none p-4 rotate-[-25deg]"
                         style={{ transform: 'rotate(-25deg)' }}
                       >
                         fastpoolcodes • {currentUser?.email || 'user@fastpoolcodes.com'}
@@ -6744,6 +7249,263 @@ export default function CustomerPortal({
                   className="bg-slate-900 hover:bg-slate-800 text-slate-300 font-mono text-[10px] uppercase tracking-wider px-4 py-2 rounded-lg transition border border-slate-800 cursor-pointer"
                 >
                   Close Preview
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+      {/* NOTIFICATIONS & SUBSCRIPTION DAYS REMAINING CENTER MODAL / DRAWER */}
+      <AnimatePresence>
+        {isNotificationDrawerOpen && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[9999] flex items-center justify-center p-2 sm:p-4 select-none">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 10 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 10 }}
+              className="bg-[#0b101d] border border-slate-800 rounded-3xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl relative text-left text-slate-100"
+            >
+              {/* Header */}
+              <div className="p-5 border-b border-slate-800 bg-[#0F172A] flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                    <BellRing className="w-5 h-5 animate-pulse" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-extrabold text-white uppercase tracking-tight flex items-center gap-2">
+                      <span>Notifications & Subscriptions</span>
+                      {totalUnreadCount > 0 && (
+                        <span className="text-[10px] font-mono bg-rose-500 text-white px-2 py-0.5 rounded-full font-bold">
+                          {totalUnreadCount} New
+                        </span>
+                      )}
+                    </h3>
+                    <p className="text-xs text-slate-400 font-mono">
+                      Subscription days remaining, access alerts, and pool updates for @{currentUser.username}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setIsNotificationDrawerOpen(false)}
+                  className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+                  title="Close Notifications Center"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Scrollable Body */}
+              <div className="flex-1 overflow-y-auto p-5 space-y-6 scrollbar-thin scrollbar-thumb-slate-800">
+                {/* 1. Subscription Expiration & Days Remaining Live Gauge */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-mono font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Active Subscriptions & Days Remaining</span>
+                    </span>
+                    <button
+                      onClick={() => {
+                        setIsNotificationDrawerOpen(false);
+                        setActiveSubTab('subscription');
+                      }}
+                      className="text-[11px] font-mono font-bold text-emerald-400 hover:text-emerald-300 transition"
+                    >
+                      + Manage Plans
+                    </button>
+                  </div>
+
+                  {activeSubsList.length === 0 ? (
+                    <div className="p-4 rounded-2xl bg-slate-900/60 border border-dashed border-slate-800 text-center space-y-1.5">
+                      <p className="text-xs text-slate-300 font-mono">
+                        No active VIP membership found.
+                      </p>
+                      <button
+                        onClick={() => {
+                          setIsNotificationDrawerOpen(false);
+                          setActiveSubTab('subscription');
+                        }}
+                        className="text-xs font-black text-emerald-400 hover:underline uppercase font-mono"
+                      >
+                        Upgrade to VIP to unlock full fixtures
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {activeSubsList.map((sub, sIdx) => {
+                        const isCrit = sub.status === 'critical';
+                        const isWarn = sub.status === 'expiring_soon';
+
+                        return (
+                          <div
+                            key={`modal_sub_${sub.id}_${sIdx}`}
+                            className={`p-4 rounded-2xl border transition relative overflow-hidden space-y-3 ${
+                              isCrit
+                                ? 'bg-gradient-to-r from-rose-950/40 via-slate-950 to-slate-900 border-rose-500/40'
+                                : isWarn
+                                ? 'bg-gradient-to-r from-amber-950/40 via-slate-950 to-slate-900 border-amber-500/40'
+                                : 'bg-gradient-to-r from-emerald-950/40 via-slate-950 to-slate-900 border-emerald-500/40'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-black text-white uppercase tracking-tight">
+                                    {sub.planName}
+                                  </span>
+                                  <span
+                                    className={`text-[9px] font-mono font-black px-2 py-0.5 rounded-full uppercase tracking-wider border ${
+                                      isCrit
+                                        ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 animate-pulse'
+                                        : isWarn
+                                        ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                                        : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                                    }`}
+                                  >
+                                    {isCrit
+                                      ? `🚨 ${sub.daysRemaining} DAY(S) LEFT`
+                                      : isWarn
+                                      ? `⚠️ ${sub.daysRemaining} DAYS LEFT`
+                                      : `🛡️ ${sub.daysRemaining} DAYS LEFT`}
+                                  </span>
+                                </div>
+                                <p className="text-[10px] text-slate-400 font-mono mt-0.5">
+                                  Valid until {sub.expiresAt.toLocaleDateString()} ({sub.hoursRemaining} hours remaining)
+                                </p>
+                              </div>
+
+                              <button
+                                onClick={() => {
+                                  setIsNotificationDrawerOpen(false);
+                                  setActiveSubTab('subscription');
+                                }}
+                                className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-[10px] uppercase font-mono rounded-lg transition cursor-pointer shrink-0"
+                              >
+                                Extend
+                              </button>
+                            </div>
+
+                            {/* Progress bar */}
+                            <div className="space-y-1">
+                              <div className="flex justify-between text-[9px] font-mono text-slate-400">
+                                <span>{sub.percentRemaining}% Validity Remaining</span>
+                                <span>{sub.bookmakers.join(', ')}</span>
+                              </div>
+                              <div className="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden border border-slate-800">
+                                <div
+                                  className={`h-full rounded-full transition-all duration-500 ${
+                                    isCrit
+                                      ? 'bg-rose-500'
+                                      : isWarn
+                                      ? 'bg-amber-500'
+                                      : 'bg-emerald-500'
+                                  }`}
+                                  style={{ width: `${sub.percentRemaining}%` }}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. Notification Alerts List */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-mono font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                      <Inbox className="w-3.5 h-3.5 text-blue-400" />
+                      <span>Activity & Access Alerts ({allCombinedNotifications.length})</span>
+                    </span>
+                    {totalUnreadCount > 0 && (
+                      <button
+                        onClick={markAllNotificationsRead}
+                        className="text-[11px] font-mono font-bold text-slate-400 hover:text-white transition underline"
+                      >
+                        Mark All Read
+                      </button>
+                    )}
+                  </div>
+
+                  {allCombinedNotifications.length === 0 ? (
+                    <div className="p-4 rounded-2xl bg-slate-900/40 border border-slate-800 text-center text-xs font-mono text-slate-500">
+                      No notifications yet for @{currentUser.username}.
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {allCombinedNotifications.map((notif, nIdx) => {
+                        const isSubNotif = notif.type === 'subscription_expiring';
+
+                        return (
+                          <div
+                            key={`notif_item_${notif.id}_${nIdx}`}
+                            className={`p-3.5 rounded-2xl border transition flex items-start gap-3 ${
+                              !notif.is_read
+                                ? notif.type === 'subscription_expired' || notif.type === 'payment_failed'
+                                  ? 'bg-slate-900/90 border-rose-500/30'
+                                  : notif.type === 'subscription_expiring'
+                                  ? 'bg-slate-900/90 border-amber-500/30'
+                                  : 'bg-slate-900/80 border-emerald-500/30'
+                                : 'bg-slate-950/60 border-slate-800 opacity-85'
+                            }`}
+                          >
+                            <div
+                              className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 text-xs font-bold ${
+                                notif.type === 'subscription_expired' || notif.type === 'payment_failed'
+                                  ? 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
+                                  : notif.type === 'subscription_expiring'
+                                  ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+                                  : notif.type === 'subscription_activated'
+                                  ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                                  : 'bg-blue-500/15 text-blue-400 border border-blue-500/30'
+                              }`}
+                            >
+                              {notif.type === 'subscription_activated' ? '🎉' : notif.type === 'subscription_expiring' ? <Clock className="w-4 h-4" /> : notif.type === 'subscription_expired' ? '⏳' : notif.type === 'payment_failed' ? '⚠️' : <Sparkles className="w-4 h-4" />}
+                            </div>
+
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-2">
+                                <h4 className="text-xs font-bold text-white truncate">
+                                  {notif.title}
+                                </h4>
+                                {!notif.is_read && (
+                                  <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
+                                )}
+                              </div>
+                              <p className="text-[11px] text-slate-300 font-mono mt-1 leading-relaxed">
+                                {notif.message || notif.body}
+                              </p>
+                              <span className="text-[9.5px] font-mono text-slate-500 mt-1 block">
+                                {notif.created_at ? new Date(notif.created_at).toLocaleString() : 'Recent'}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="p-4 border-t border-slate-800 bg-[#0F172A] flex items-center justify-between">
+                <button
+                  onClick={() => {
+                    setIsNotificationDrawerOpen(false);
+                    setActiveSubTab('subscription');
+                  }}
+                  className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center gap-1.5 shadow-md font-mono"
+                >
+                  <CreditCard className="w-4 h-4" />
+                  <span>VIP Subscriptions & Pricing</span>
+                </button>
+
+                <button
+                  onClick={() => setIsNotificationDrawerOpen(false)}
+                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-mono font-bold rounded-xl border border-slate-800 transition cursor-pointer"
+                >
+                  Close
                 </button>
               </div>
             </motion.div>

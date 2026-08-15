@@ -296,9 +296,9 @@ export default function PoolCodesComparisonTable({
       for (let p = 1; p <= totalPages; p++) {
         doc.setPage(p);
         doc.saveGraphicsState();
-        // Soft refined cool-slate tint with balanced subtle visibility
-        doc.setTextColor(212, 220, 230);
-        doc.setFontSize(10.5);
+        // Soft refined cool-slate tint with reduced color intensity & slightly increased font
+        doc.setTextColor(232, 237, 243);
+        doc.setFontSize(11.5);
         doc.setFont('helvetica', 'bold');
         
         const watermarkText = `FASTPOOLCODES • ${currentUser?.email || 'FREE ACCESS'}`;

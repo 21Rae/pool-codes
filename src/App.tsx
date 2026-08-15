@@ -24,6 +24,9 @@ import {
   INITIAL_USERS,
   INITIAL_PLANS,
   getMergedSubscriptionPlans,
+  findSubscriptionPlan,
+  getPlanDurationDays,
+  calculateSubscriptionExpiry,
   INITIAL_SUBSCRIPTIONS,
   INITIAL_BOOKMAKERS,
   INITIAL_POOL_WEEKS,
@@ -151,6 +154,17 @@ export default function App() {
     price: number;
     name: string;
     components?: string[];
+  } | null>(null);
+
+  // Subscription Activation & Expiry Alert Success Modal State
+  const [subscriptionSuccessAlert, setSubscriptionSuccessAlert] = useState<{
+    open: boolean;
+    planName: string;
+    durationDays: number;
+    expiresAtFormatted: string;
+    reference: string;
+    amount: number;
+    currency: string;
   } | null>(null);
 
   // Dynamic Paystack Public Key from runtime environment variables via server-side config API
@@ -610,9 +624,21 @@ export default function App() {
   };
 
   const completePurchase = (planId: string, reference: string, selectedComponents?: string[]) => {
-    const plans = getMergedSubscriptionPlans(db.subscription_plans);
-    const p = plans.find(x => x.id === planId);
+    // 1. Identify plan directly from database source of truth
+    const p = findSubscriptionPlan(db.subscription_plans, planId) || INITIAL_PLANS[0];
     if (!p) return;
+
+    // 2. Idempotency Check: Prevent duplicate activations or double-logging for the same payment reference
+    if (reference) {
+      const existingRefSub = db.user_subscriptions.find(
+        s => s && (s.payment_ref === reference || s.payment_reference === reference)
+      );
+      if (existingRefSub) {
+        console.log(`[Subscription Idempotency] Payment reference ${reference} has already been activated for @${currentUser.username}.`);
+        triggerToast(`Payment reference ${reference} already processed and active.`, 'info');
+        return;
+      }
+    }
 
     const components = (selectedComponents && selectedComponents.length > 0)
       ? selectedComponents
@@ -634,36 +660,61 @@ export default function App() {
 
     const subId = `sub-paystack-${Math.floor(Math.random() * 90000 + 10000)}`;
     const now = new Date();
-    const expiry = new Date();
-    if (p.billing_cycle === 'weekly') expiry.setDate(now.getDate() + 7);
-    else if (p.billing_cycle === 'monthly') expiry.setMonth(now.getMonth() + 1);
-    else if (p.billing_cycle === 'quarterly') expiry.setMonth(now.getMonth() + 3);
-    else if (p.billing_cycle === 'biannual') expiry.setMonth(now.getMonth() + 6);
-    else expiry.setFullYear(now.getFullYear() + 1);
+    // Calculate exact duration and expiration from plan data
+    const { expiresAt, durationDays } = calculateSubscriptionExpiry(p, now);
 
-    const currencySymbol = (p.id.includes('ghana') || p.name.includes('Ghana')) ? 'GHS' : 'NGN';
+    const currencySymbol = (p.id.includes('ghana') || p.name.includes('Ghana') || (p as any).currency === 'GHS') ? 'GHS' : 'NGN';
     const amountPaid = Number(p.price || 0) * (components.includes('all') ? 1 : Math.max(1, components.length));
     const itemName = `${p.name} (${components.map(c => String(c).toUpperCase()).join(' + ')})`;
+    const formattedExpiry = expiresAt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
+    // 3. Create Subscription Record
     const newSub: UserSubscription = {
       id: subId,
       user_id: currentUser.id,
       username: currentUser.username,
-      plan_id: planId,
+      plan_id: p.id,
+      plan_name: p.name,
       status: 'active',
       starts_at: now.toISOString(),
-      expires_at: expiry.toISOString(),
+      started_at: now.toISOString(),
+      expires_at: expiresAt.toISOString(),
       payment_ref: reference,
+      payment_reference: reference,
       payment_provider: 'Paystack API Gateway',
+      amount_paid: amountPaid,
+      currency: currencySymbol,
+      item_name: itemName,
+      components: components,
       created_at: now.toISOString(),
-      components: components
+      updated_at: now.toISOString(),
+      alert_milestones_sent: ['activated']
+    };
+
+    // 4. Create In-App Activation Notification
+    const notifId = `notif-sub-act-${Date.now()}-${Math.floor(Math.random() * 9000 + 1000)}`;
+    const activationMessage = `Your ${p.name} plan is now active. You have access for ${durationDays} days and your subscription expires on ${formattedExpiry}. You now have access to your Pool Codes.`;
+
+    const newNotification: Notification = {
+      id: notifId,
+      user_id: currentUser.id,
+      subscription_id: subId,
+      pool_code_id: null,
+      type: 'subscription_activated',
+      title: 'Pool Code Subscription Activated 🎉',
+      message: activationMessage,
+      body: activationMessage,
+      is_read: false,
+      read_at: null,
+      created_at: now.toISOString(),
+      days_remaining: durationDays
     };
 
     const newPayment: UserPayment = {
       id: `pay-${Date.now()}`,
       user_id: currentUser.id,
       username: currentUser.username,
-      plan_id: planId,
+      plan_id: p.id,
       item_name: itemName,
       bookmaker_components: components,
       granted_tables: ['pool_codes', 'pool_results', 'vip_signals'],
@@ -673,7 +724,7 @@ export default function App() {
       payment_provider: 'Paystack API Gateway',
       status: 'successful',
       access_start_at: now.toISOString(),
-      access_expires_at: expiry.toISOString(),
+      access_expires_at: expiresAt.toISOString(),
       created_at: now.toISOString()
     };
 
@@ -681,7 +732,7 @@ export default function App() {
       id: subId,
       user_id: currentUser.id,
       username: currentUser.username,
-      plan_id: planId,
+      plan_id: p.id,
       plan_purchased: itemName,
       payment_ref: reference,
       payment_provider: 'Paystack API Gateway',
@@ -689,17 +740,30 @@ export default function App() {
       currency: currencySymbol,
       components: components,
       paid_date: now.toISOString(),
-      expiry_date: expiry.toISOString(),
+      expiry_date: expiresAt.toISOString(),
       access_status: 'active',
       created_at: now.toISOString()
     };
 
+    // Update global and persistent client-side states
     setDb(prev => ({
       ...prev,
       user_subscriptions: [...sanitizedSubs, newSub],
       user_payments: [newPayment, ...(prev.user_payments || [])],
-      purchases_access_log: [newPurchasesAccessLog, ...(prev.purchases_access_log || [])]
+      purchases_access_log: [newPurchasesAccessLog, ...(prev.purchases_access_log || [])],
+      notifications: [newNotification, ...(prev.notifications || [])]
     }));
+
+    // Trigger instant activation modal alert
+    setSubscriptionSuccessAlert({
+      open: true,
+      planName: p.name,
+      durationDays: durationDays,
+      expiresAtFormatted: formattedExpiry,
+      reference: reference,
+      amount: amountPaid,
+      currency: currencySymbol
+    });
 
     // Cache updated plan state securely in localStorage
     try {
@@ -708,9 +772,9 @@ export default function App() {
         const cached = JSON.parse(cachedStr);
         localStorage.setItem('fastpool_cached_user', JSON.stringify({
           ...cached,
-          plan_id: planId,
+          plan_id: p.id,
           payment_ref: reference,
-          expires_at: expiry.toISOString(),
+          expires_at: expiresAt.toISOString(),
           status: 'active',
           components: components
         }));
@@ -720,10 +784,10 @@ export default function App() {
     const compSqlArray = `ARRAY[${components.map(c => `'${c}'`).join(', ')}]`;
 
     logSQL(
-      `-- REAL PAYSTACK TRANSACTION SUCCESSFUL\nUPDATE user_subscriptions SET status = 'cancelled' WHERE user_id = '${currentUser.id}' AND status = 'active';\n\n-- Register new checkouts checkout reference with customized components\nINSERT INTO user_subscriptions (id, user_id, plan_id, status, starts_at, expires_at, payment_ref, payment_provider, created_at, components)\nVALUES ('${subId}', '${currentUser.id}', '${planId}', 'active', '${now.toISOString().slice(0,19)}Z', '${expiry.toISOString().slice(0,19)}Z', '${reference}', 'Paystack API Gateway', NOW(), '${JSON.stringify(components)}');\n\nINSERT INTO purchases_access_log (id, user_id, username, plan_id, plan_purchased, payment_ref, payment_provider, amount, currency, components, paid_date, expiry_date, access_status)\nVALUES ('${subId}', '${currentUser.id}', '${currentUser.username}', '${planId}', '${itemName.replace(/'/g, "''")}', '${reference}', 'Paystack API Gateway', ${amountPaid}, '${currencySymbol}', ${compSqlArray}, '${now.toISOString()}', '${expiry.toISOString()}', 'active');`,
-      `User @${currentUser.username} completed Paystack checkout for [${p.name}] with components: [${components.join(', ')}]`
+      `-- REAL PAYSTACK TRANSACTION SUCCESSFUL\nUPDATE user_subscriptions SET status = 'cancelled' WHERE user_id = '${currentUser.id}' AND status = 'active';\n\n-- Register new subscription with duration (${durationDays} days)\nINSERT INTO user_subscriptions (id, user_id, plan_id, status, starts_at, expires_at, payment_ref, payment_provider, created_at, components)\nVALUES ('${subId}', '${currentUser.id}', '${p.id}', 'active', '${now.toISOString().slice(0,19)}Z', '${expiresAt.toISOString().slice(0,19)}Z', '${reference}', 'Paystack API Gateway', NOW(), '${JSON.stringify(components)}');\n\nINSERT INTO purchases_access_log (id, user_id, username, plan_id, plan_purchased, payment_ref, payment_provider, amount, currency, components, paid_date, expiry_date, access_status)\nVALUES ('${subId}', '${currentUser.id}', '${currentUser.username}', '${p.id}', '${itemName.replace(/'/g, "''")}', '${reference}', 'Paystack API Gateway', ${amountPaid}, '${currencySymbol}', ${compSqlArray}, '${now.toISOString()}', '${expiresAt.toISOString()}', 'active');\n\n-- Record In-App Activation Notification\nINSERT INTO notifications (id, user_id, subscription_id, type, title, message, is_read, created_at)\nVALUES ('${notifId}', '${currentUser.id}', '${subId}', 'subscription_activated', 'Pool Code Subscription Activated 🎉', '${activationMessage.replace(/'/g, "''")}', FALSE, NOW());`,
+      `User @${currentUser.username} completed Paystack checkout for [${p.name}] with ${durationDays} days access`
     );
-    triggerToast(`Subscribed successfully to ${p.name}!`, 'success');
+    triggerToast(`🎉 ${p.name} Activated! ${durationDays} days of Pool Codes access unlocked. Expires ${formattedExpiry}.`, 'success');
 
     // 1. Direct client-side SDK database table record
     try {
@@ -734,6 +798,9 @@ export default function App() {
         });
         supabase.from('users_subscriptions').insert([newSub]).then(({ error }) => {
           if (error) console.warn('[Client DB users_subscriptions insert note]:', error.message);
+        });
+        supabase.from('notifications').insert([newNotification]).then(({ error }) => {
+          if (error) console.warn('[Client DB notifications insert note]:', error.message);
         });
       }
     } catch (_) {}
@@ -757,6 +824,12 @@ export default function App() {
       body: JSON.stringify(newSub)
     }).catch(err => console.warn('[API Sub Insert users_subscriptions Warning]:', err));
 
+    fetch('/api/tables/notifications/insert', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newNotification)
+    }).catch(err => console.warn('[API Insert notifications Warning]:', err));
+
     // 3. Fetch official codesheet PDF & trigger email dispatch relay with full sub parameters
     fetch('/api/payment/confirm', {
       method: 'POST',
@@ -765,11 +838,11 @@ export default function App() {
         userId: currentUser.id,
         email: currentUser.email,
         username: currentUser.username,
-        planId: planId,
+        planId: p.id,
         paymentRef: reference,
         subId: subId,
         startsAt: now.toISOString(),
-        expiresAt: expiry.toISOString(),
+        expiresAt: expiresAt.toISOString(),
         paymentProvider: 'Paystack API Gateway',
         components: components
       })
@@ -787,7 +860,6 @@ export default function App() {
           });
           // Do NOT display full-screen email popup after payment; grant immediate direct access to paid items in portal
           setShowSimulatedEmailModal(false);
-          triggerToast('🎉 Payment Confirmed! Active VIP access unlocked to all codes and items.', 'success');
         }
       })
       .catch(err => {
@@ -801,9 +873,129 @@ export default function App() {
 
     // Auto download pool codes sheet after payment
     setTimeout(() => {
-      downloadCodesFileAuto(currentUser, planId, reference);
+      downloadCodesFileAuto(currentUser, p.id, reference);
     }, 1000);
   };
+
+  // Automated Subscription Expiration & Milestone Alert Checker
+  useEffect(() => {
+    if (!currentUser || currentUser.id === 'guest') return;
+
+    const now = new Date();
+    let updatedAny = false;
+    const newNotifications: Notification[] = [];
+
+    const updatedSubs = db.user_subscriptions.map(sub => {
+      const isUserSub = (
+        sub.user_id === currentUser.id ||
+        (sub.username && currentUser.username && sub.username.toLowerCase() === currentUser.username.toLowerCase())
+      );
+      if (!isUserSub) return sub;
+
+      const expDate = new Date(sub.expires_at);
+      if (isNaN(expDate.getTime())) return sub;
+
+      const diffMs = expDate.getTime() - now.getTime();
+      const daysRemaining = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+      const plan = findSubscriptionPlan(db.subscription_plans, sub.plan_id);
+      const planName = sub.plan_name || sub.item_name || plan?.name || 'VIP Pool Codes';
+      const milestones = Array.isArray(sub.alert_milestones_sent) ? [...sub.alert_milestones_sent] : [];
+
+      // Milestone 1: Expired (0 days or past expiration timestamp)
+      if (diffMs <= 0 || sub.status === 'expired') {
+        let subStatus = sub.status;
+        if (sub.status === 'active') {
+          subStatus = 'expired';
+          updatedAny = true;
+        }
+        if (!milestones.includes('expired')) {
+          milestones.push('expired');
+          updatedAny = true;
+          const notifId = `notif-exp-${sub.id}-${Date.now()}`;
+          const expMessage = `Your ${planName} subscription has expired. Renew your subscription to regain access to Pool Codes.`;
+          newNotifications.push({
+            id: notifId,
+            user_id: currentUser.id,
+            subscription_id: sub.id,
+            pool_code_id: null,
+            type: 'subscription_expired',
+            title: 'Pool Code Subscription Expired',
+            message: expMessage,
+            body: expMessage,
+            is_read: false,
+            read_at: null,
+            created_at: now.toISOString(),
+            days_remaining: 0
+          });
+        }
+        return { ...sub, status: subStatus, alert_milestones_sent: milestones };
+      }
+
+      // Milestone 2: 1 Day before Expiry
+      if (daysRemaining <= 1 && daysRemaining > 0 && sub.status === 'active') {
+        if (!milestones.includes('1_day')) {
+          milestones.push('1_day');
+          updatedAny = true;
+          const notifId = `notif-exp1d-${sub.id}-${Date.now()}`;
+          const warn1Day = `Your ${planName} subscription expires tomorrow. Renew now to avoid losing access.`;
+          newNotifications.push({
+            id: notifId,
+            user_id: currentUser.id,
+            subscription_id: sub.id,
+            pool_code_id: null,
+            type: 'subscription_expiring',
+            title: 'Your Pool Code Subscription Expires Tomorrow ⚠️',
+            message: warn1Day,
+            body: warn1Day,
+            is_read: false,
+            read_at: null,
+            created_at: now.toISOString(),
+            days_remaining: daysRemaining
+          });
+        }
+        return { ...sub, alert_milestones_sent: milestones };
+      }
+
+      // Milestone 3: 3 Days before Expiry
+      if (daysRemaining <= 3 && daysRemaining > 1 && sub.status === 'active') {
+        if (!milestones.includes('3_days')) {
+          milestones.push('3_days');
+          updatedAny = true;
+          const notifId = `notif-exp3d-${sub.id}-${Date.now()}`;
+          const warn3Days = `Your ${planName} subscription expires in 3 days. Renew your subscription to continue accessing Pool Codes.`;
+          newNotifications.push({
+            id: notifId,
+            user_id: currentUser.id,
+            subscription_id: sub.id,
+            pool_code_id: null,
+            type: 'subscription_expiring',
+            title: 'Your Pool Code Subscription Expires Soon ⚠️',
+            message: warn3Days,
+            body: warn3Days,
+            is_read: false,
+            read_at: null,
+            created_at: now.toISOString(),
+            days_remaining: daysRemaining
+          });
+        }
+        return { ...sub, alert_milestones_sent: milestones };
+      }
+
+      return sub;
+    });
+
+    if (updatedAny || newNotifications.length > 0) {
+      setDb(prev => {
+        const existingKeys = new Set(prev.notifications.map(n => `${n.user_id}-${n.type}-${n.title}`));
+        const dedupedNew = newNotifications.filter(n => !existingKeys.has(`${n.user_id}-${n.type}-${n.title}`));
+        return {
+          ...prev,
+          user_subscriptions: updatedSubs,
+          notifications: [...dedupedNew, ...prev.notifications]
+        };
+      });
+    }
+  }, [currentUser, db.user_subscriptions.length]);
 
   const simulatePlanExpiration = () => {
     // Find any subscription of the current user to mark as expired
@@ -855,8 +1047,7 @@ export default function App() {
 
   // Handler: Purchase/Upgrade user plan via Paystack
   const buySubscription = async (planId: string, selectedComponents: string[] = []) => {
-    const plans = getMergedSubscriptionPlans(db.subscription_plans);
-    const p = plans.find(x => x.id === planId);
+    const p = findSubscriptionPlan(db.subscription_plans, planId) || INITIAL_PLANS[0];
     if (!p) return;
 
     if (selectedComponents.length === 0) {
@@ -883,7 +1074,24 @@ export default function App() {
           completePurchase(planId, ref, selectedComponents);
         },
         onClose: function() {
-          triggerToast('Paystack payment cancelled by user.', 'info');
+          const failNotif: Notification = {
+            id: `notif-fail-${Date.now()}`,
+            user_id: currentUser.id,
+            subscription_id: null,
+            pool_code_id: null,
+            type: 'payment_failed',
+            title: 'Payment Incomplete or Cancelled',
+            message: 'We could not complete your Pool Code subscription payment. Please try again.',
+            body: 'We could not complete your Pool Code subscription payment. Please try again.',
+            is_read: false,
+            read_at: null,
+            created_at: new Date().toISOString()
+          };
+          setDb(prev => ({
+            ...prev,
+            notifications: [failNotif, ...(prev.notifications || [])]
+          }));
+          triggerToast('Paystack payment cancelled or incomplete. You can retry whenever you are ready.', 'info');
         }
       });
       handler.openIframe();
@@ -1914,6 +2122,92 @@ export default function App() {
               <span>🔒 256-Bit SSL Encryption Active</span>
               <span>•</span>
               <span>Licensed by Central Bank of Nigeria</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Subscription Activation Success Alert Modal */}
+      {subscriptionSuccessAlert && subscriptionSuccessAlert.open && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-fadeIn">
+          <div className="w-full max-w-lg bg-[#0F172A] border border-emerald-500/40 rounded-3xl shadow-2xl overflow-hidden flex flex-col relative text-left">
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-slate-900 border-b border-emerald-800/40 px-6 py-5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 text-xl font-bold shadow-inner">
+                  🎉
+                </div>
+                <div>
+                  <span className="text-[10px] font-mono font-black text-emerald-400 tracking-widest uppercase block">
+                    Payment Successful
+                  </span>
+                  <h3 className="text-base font-extrabold text-white tracking-tight">
+                    Pool Code Subscription Activated
+                  </h3>
+                </div>
+              </div>
+              <button
+                onClick={() => setSubscriptionSuccessAlert(null)}
+                className="w-8 h-8 rounded-full bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition cursor-pointer text-sm font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4 text-slate-200">
+              <div className="p-4 bg-emerald-950/30 border border-emerald-800/40 rounded-2xl space-y-2">
+                <p className="text-sm font-medium text-emerald-200 leading-relaxed">
+                  Your <strong className="text-white font-bold">{subscriptionSuccessAlert.planName}</strong> plan is now active! You have access for <strong className="text-emerald-400 font-bold">{subscriptionSuccessAlert.durationDays} days</strong> and your subscription expires on <strong className="text-white font-bold">{subscriptionSuccessAlert.expiresAtFormatted}</strong>.
+                </p>
+                <div className="flex items-center gap-2 text-xs font-mono text-emerald-400/90 pt-1 border-t border-emerald-900/40">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span>Full access granted to Pool Codes, Fixtures, and Results</span>
+                </div>
+              </div>
+
+              {/* Transaction details card */}
+              <div className="bg-[#020617] border border-slate-800 rounded-xl p-3.5 space-y-2 text-xs font-mono">
+                <div className="flex justify-between text-slate-400">
+                  <span>Plan:</span>
+                  <span className="text-white font-bold">{subscriptionSuccessAlert.planName}</span>
+                </div>
+                <div className="flex justify-between text-slate-400">
+                  <span>Duration:</span>
+                  <span className="text-emerald-400 font-bold">{subscriptionSuccessAlert.durationDays} Days</span>
+                </div>
+                <div className="flex justify-between text-slate-400">
+                  <span>Expires On:</span>
+                  <span className="text-slate-200">{subscriptionSuccessAlert.expiresAtFormatted}</span>
+                </div>
+                <div className="flex justify-between text-slate-400">
+                  <span>Reference:</span>
+                  <span className="text-slate-300 truncate max-w-[200px]">{subscriptionSuccessAlert.reference}</span>
+                </div>
+                <div className="flex justify-between text-slate-400 border-t border-slate-800/60 pt-1.5">
+                  <span>Status:</span>
+                  <span className="text-emerald-400 font-bold uppercase">Active✓</span>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2 pt-2">
+                <button
+                  onClick={() => {
+                    setSubscriptionSuccessAlert(null);
+                    setViewMode('portal');
+                  }}
+                  className="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition cursor-pointer shadow-lg shadow-emerald-950/40 flex items-center justify-center gap-2"
+                >
+                  <span>Go to Pool Codes Arena</span>
+                  <span>→</span>
+                </button>
+                <button
+                  onClick={() => setSubscriptionSuccessAlert(null)}
+                  className="w-full py-2 bg-transparent text-slate-400 hover:text-white font-mono text-xs transition cursor-pointer"
+                >
+                  Dismiss Notification
+                </button>
+              </div>
             </div>
           </div>
         </div>
