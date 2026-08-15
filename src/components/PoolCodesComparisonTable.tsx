@@ -182,7 +182,7 @@ export default function PoolCodesComparisonTable({
     setTimeout(() => setCopiedFixtureId(null), 2000);
   };
 
-  // Download PDF (Free Access for All Users)
+  // Download PDF (Free Access for All Users) - Compact Single-Page Layout
   const handleDownloadPdf = async () => {
     setIsGeneratingPdf(true);
     try {
@@ -192,38 +192,35 @@ export default function PoolCodesComparisonTable({
         format: 'a4'
       });
 
-      // Background header
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+
+      // Top compact header banner (Height: 8mm)
       doc.setFillColor(15, 23, 42); // slate-900
-      doc.rect(0, 0, 297, 28, 'F');
+      doc.rect(6, 4, pageWidth - 12, 8, 'F');
 
       // Golden accent line
       doc.setFillColor(245, 158, 11); // amber-500
-      doc.rect(0, 28, 297, 2, 'F');
+      doc.rect(6, 12, pageWidth - 12, 0.8, 'F');
 
-      // Title & Branding
+      // Title & Branding inside banner
       doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(14);
-      doc.text('POOL CODES COMPARISON - MULTI-BOOKMAKER DRAW ODDS MATRIX', 14, 12);
+      doc.setFontSize(8.5);
+      doc.text('FASTPOOLCODES • POOL CODES COMPARISON (DRAW ODDS MATRIX)', 9, 9.2);
 
-      // Contact & compilation footer note in header
-      doc.setTextColor(226, 232, 240); // slate-200
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      doc.text('Compiled by Fastpoolcodes.com. For Enquiries Call or WhatsApp: +234 8030587933, +234 9037595705', 14, 19);
-
-      // Free Access Badge
+      // Free badge & date on right side of banner
       doc.setTextColor(52, 211, 153); // emerald-400
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8.5);
-      doc.text('OFFICIAL FREE ACCESS SHEET • 100% VERIFIED ODDS', 14, 25);
-
-      // Date / User note
-      doc.setTextColor(148, 163, 184); // slate-400
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8);
+      doc.setFontSize(7);
       const generatedTime = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-      doc.text(`Generated: ${generatedTime} | Fastpoolcodes.com`, 220, 25);
+      doc.text(`FREE ACCESS SHEET • ${generatedTime}`, pageWidth - 9, 9.2, { align: 'right' });
+
+      // Contact & Notice subheader line (Height: 3.5mm)
+      doc.setTextColor(30, 41, 59); // slate-800
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6.5);
+      doc.text('Compiled by Fastpoolcodes.com. For Enquiries Call or WhatsApp: +234 8030587933, +234 9037595705)', 6, 15.8);
 
       // Table columns & data
       const tableHeaders = [
@@ -244,52 +241,74 @@ export default function PoolCodesComparisonTable({
       autoTable(doc, {
         head: tableHeaders,
         body: tableRows,
-        startY: 33,
-        margin: { left: 14, right: 14 },
+        startY: 17.5,
+        margin: { top: 17.5, bottom: 6, left: 6, right: 6 },
         theme: 'grid',
+        tableWidth: 'auto',
         headStyles: {
           fillColor: [15, 23, 42],
           textColor: [255, 255, 255],
           fontStyle: 'bold',
-          fontSize: 8.5,
+          fontSize: 7.2,
           halign: 'center',
-          cellPadding: 2.5
+          cellPadding: [0.8, 1],
+          minCellHeight: 3.5
         },
         bodyStyles: {
-          fontSize: 8,
+          fontSize: 6.5,
           textColor: [30, 41, 59],
-          cellPadding: 2
+          cellPadding: [0.45, 0.8],
+          minCellHeight: 3.0,
         },
         alternateRowStyles: {
           fillColor: [248, 250, 252]
         },
         columnStyles: {
-          0: { cellWidth: 16, halign: 'center', fontStyle: 'bold' },
-          1: { cellWidth: 50, fontStyle: 'bold' },
-          2: { cellWidth: 50, fontStyle: 'bold' },
-          3: { cellWidth: 32, halign: 'center', textColor: [180, 83, 9] },
-          4: { cellWidth: 32, halign: 'center', textColor: [3, 105, 161] },
-          5: { cellWidth: 34, halign: 'center', textColor: [190, 24, 93] },
-          6: { cellWidth: 26, halign: 'center' },
-          7: { cellWidth: 26, halign: 'center' }
+          0: { cellWidth: 12, halign: 'center', fontStyle: 'bold' },
+          1: { cellWidth: 52, fontStyle: 'bold' },
+          2: { cellWidth: 52, fontStyle: 'bold' },
+          3: { cellWidth: 32, halign: 'center', textColor: [180, 83, 9], fontStyle: 'bold' },
+          4: { cellWidth: 32, halign: 'center', textColor: [3, 105, 161], fontStyle: 'bold' },
+          5: { cellWidth: 34, halign: 'center', textColor: [190, 24, 93], fontStyle: 'bold' },
+          6: { cellWidth: 35, halign: 'center' },
+          7: { cellWidth: 36, halign: 'center' }
         },
-        didDrawPage: (data) => {
-          // Footer
-          const pageCount = (doc as any).internal.getNumberOfPages();
-          doc.setFontSize(8);
+        didDrawPage: () => {
+          // Compact footer on page bottom
+          doc.setFontSize(5.8);
           doc.setTextColor(100, 116, 139);
           doc.text(
-            'Compiled by Fastpoolcodes.com. For Enquiries Call or WhatsApp: +234 8030587933, +234 9037595705',
-            14,
-            doc.internal.pageSize.height - 6
+            'Compiled by Fastpoolcodes.com. For Enquiries Call or WhatsApp: +234 8030587933, +234 9037595705) • Single Page Official Print',
+            6,
+            pageHeight - 2.5
           );
           doc.text(
-            `Page ${data.pageNumber} of ${pageCount}`,
-            doc.internal.pageSize.width - 30,
-            doc.internal.pageSize.height - 6
+            'Page 1 of 1',
+            pageWidth - 6,
+            pageHeight - 2.5,
+            { align: 'right' }
           );
         }
       });
+
+      // Softened, subtle security watermark across page
+      const totalPages = (doc as any).internal.getNumberOfPages();
+      for (let p = 1; p <= totalPages; p++) {
+        doc.setPage(p);
+        doc.saveGraphicsState();
+        // Soft refined cool-slate tint with balanced subtle visibility
+        doc.setTextColor(212, 220, 230);
+        doc.setFontSize(10.5);
+        doc.setFont('helvetica', 'bold');
+        
+        const watermarkText = `FASTPOOLCODES • ${currentUser?.email || 'FREE ACCESS'}`;
+        for (let y = 30; y < pageHeight; y += 40) {
+          for (let x = 5; x < pageWidth + 30; x += 85) {
+            doc.text(watermarkText, x, y, { angle: -25 });
+          }
+        }
+        doc.restoreGraphicsState();
+      }
 
       doc.save(`Pool_Codes_Comparison_Fastpoolcodes_${new Date().toISOString().split('T')[0]}.pdf`);
       triggerToast('✅ Pool Codes Comparison PDF downloaded successfully!', 'success');

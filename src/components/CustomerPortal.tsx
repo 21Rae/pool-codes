@@ -6174,92 +6174,59 @@ export default function CustomerPortal({
                             const pageWidth = doc.internal.pageSize.getWidth();
                             const pageHeight = doc.internal.pageSize.getHeight();
 
-                            let currentY = 14;
-
-                            // Header Banner
+                            // Top compact header banner (Height: 8mm)
                             doc.setFillColor(15, 23, 42); // slate-900
-                            doc.rect(14, currentY, pageWidth - 28, 16, 'F');
+                            doc.rect(6, 4, pageWidth - 12, 8, 'F');
                             
                             doc.setTextColor(255, 255, 255);
-                            doc.setFontSize(13);
+                            doc.setFontSize(9);
                             doc.setFont('helvetica', 'bold');
-                            doc.text('FASTPOOLCODES', 19, currentY + 10.5);
+                            doc.text('FASTPOOLCODES', 9, 9.2);
                             
                             doc.setTextColor(52, 211, 153); // emerald-400
-                            doc.setFontSize(8.5);
+                            doc.setFontSize(7);
                             doc.setFont('helvetica', 'bold');
-                            doc.text(`[${activeBookmaker.toUpperCase()}] OFFICIAL WEEK ${activeWeekNumber || 43} SHEET`, pageWidth - 19, currentY + 10.5, { align: 'right' });
-                            
-                            currentY += 21;
+                            doc.text(`[${activeBookmaker.toUpperCase()}] OFFICIAL WEEK ${activeWeekNumber || 43} SHEET`, pageWidth - 9, 9.2, { align: 'right' });
 
-                            // Title & Subtitle
-                            doc.setTextColor(15, 23, 42);
-                            doc.setFontSize(12);
-                            doc.setFont('helvetica', 'bold');
-                            doc.text(pdfConfig.title || `Week ${activeWeekNumber || 43} Classified Coupon Codes`, 14, currentY);
-                            
-                            currentY += 4.5;
-                            doc.setTextColor(100, 116, 139);
-                            doc.setFontSize(8.5);
-                            doc.setFont('helvetica', 'normal');
-                            doc.text(pdfConfig.subtitle || 'Automated Cryptographic Coupon Signatures & Verification Records', 14, currentY);
-
-                            currentY += 6.5;
-
-                            // Metadata Card Box
+                            // Metadata 1-line bar (Height: 4mm)
                             doc.setFillColor(248, 250, 252);
-                            doc.setDrawColor(203, 213, 225);
-                            doc.roundedRect(14, currentY, pageWidth - 28, 17, 2, 2, 'FD');
+                            doc.setDrawColor(226, 232, 240);
+                            doc.rect(6, 12.5, pageWidth - 12, 4, 'FD');
 
-                            doc.setFontSize(7.5);
+                            doc.setFontSize(5.8);
                             doc.setTextColor(100, 116, 139);
-                            doc.text('LICENSEE NICK:', 18, currentY + 5.5);
+                            doc.setFont('helvetica', 'normal');
+                            doc.text('LICENSEE:', 8, 15.3);
                             doc.setTextColor(15, 23, 42);
                             doc.setFont('helvetica', 'bold');
-                            doc.text(`@${currentUser?.username || 'user'}`, 18, currentY + 12);
+                            doc.text(`@${currentUser?.username || 'user'}`, 20, 15.3);
 
                             doc.setFont('helvetica', 'normal');
                             doc.setTextColor(100, 116, 139);
-                            doc.text('REGISTERED EMAIL:', 65, currentY + 5.5);
+                            doc.text('EMAIL:', 48, 15.3);
                             doc.setTextColor(15, 23, 42);
                             doc.setFont('helvetica', 'bold');
-                            doc.text(currentUser?.email || 'user@fastpoolcodes.com', 65, currentY + 12);
+                            doc.text(currentUser?.email || 'user@fastpoolcodes.com', 57, 15.3);
 
                             doc.setFont('helvetica', 'normal');
                             doc.setTextColor(100, 116, 139);
-                            doc.text('ACTIVE SEASON:', 125, currentY + 5.5);
+                            doc.text('SEASON:', 115, 15.3);
                             doc.setTextColor(5, 150, 105);
                             doc.setFont('helvetica', 'bold');
-                            doc.text(`WEEK ${activeWeekNumber || 43} (2026)`, 125, currentY + 12);
+                            doc.text(`WEEK ${activeWeekNumber || 43} (2026)`, 127, 15.3);
 
                             doc.setFont('helvetica', 'normal');
                             doc.setTextColor(100, 116, 139);
-                            doc.text('COMPLIANCE KEY:', 160, currentY + 5.5);
+                            doc.text('KEY:', 158, 15.3);
                             doc.setTextColor(15, 23, 42);
                             doc.setFont('helvetica', 'bold');
-                            doc.text(`SHA256:FPC-${(currentUser?.id || 'guest').slice(0, 5).toUpperCase()}`, 160, currentY + 12);
+                            doc.text(`SHA256:FPC-${(currentUser?.id || 'guest').slice(0, 5).toUpperCase()}`, 164, 15.3);
 
-                            currentY += 21;
-
-                            // Warning Clause Box
-                            doc.setFillColor(254, 252, 232);
-                            doc.setDrawColor(254, 240, 138);
-                            doc.roundedRect(14, currentY, pageWidth - 28, 10, 1, 1, 'FD');
-                            doc.setFontSize(7);
-                            doc.setTextColor(133, 77, 14);
-                            doc.setFont('helvetica', 'bold');
-                            doc.text('VIP PRINT LICENSE CLAUSE:', 18, currentY + 4.2);
-                            doc.setFont('helvetica', 'normal');
-                            doc.text(`Generated specifically for @${currentUser?.username || 'user'}. Distribution or scanning is trace-monitored.`, 18, currentY + 7.8);
-
-                            currentY += 13;
-
-                            // Compiled By & Contact Enquiries Header
-                            doc.setFontSize(8);
+                            // Compiled By & Contact Enquiries Header Line (Height: 3.5mm)
+                            doc.setFontSize(6.2);
                             doc.setTextColor(15, 23, 42);
                             doc.setFont('helvetica', 'bold');
-                            doc.text('Compiled by Fastpoolcodes.com. For Enquiries Call or WhatsApp: +234 8030587933, +234 9037595705)', 14, currentY);
-                            currentY += 4.5;
+                            doc.text('Compiled by Fastpoolcodes.com. For Enquiries Call or WhatsApp: +234 8030587933, +234 9037595705)', 6, 19.5);
 
                             // Table Columns Setup
                             const tableHeaders: string[] = ['Pool No', 'Bet Code', 'Match Details (Home vs Away)'];
@@ -6292,55 +6259,70 @@ export default function CustomerPortal({
                             });
 
                             autoTable(doc, {
-                              startY: currentY,
+                              startY: 21,
                               head: [tableHeaders],
                               body: tableData.length > 0 ? tableData : [['-', '-', 'No classified fixtures found', ...tableHeaders.slice(3).map(() => '-')]],
                               theme: 'grid',
-                              margin: { left: 14, right: 14 },
+                              margin: { top: 21, bottom: 6, left: 6, right: 6 },
                               headStyles: {
                                 fillColor: [15, 23, 42],
                                 textColor: [255, 255, 255],
-                                fontSize: 8,
+                                fontSize: 7.2,
                                 fontStyle: 'bold',
                                 halign: 'center',
+                                cellPadding: [0.8, 1],
+                                minCellHeight: 3.5,
                               },
                               bodyStyles: {
-                                fontSize: 7.5,
+                                fontSize: 6.5,
                                 textColor: [15, 23, 42],
-                                cellPadding: 2,
+                                cellPadding: [0.45, 0.8],
+                                minCellHeight: 3.0,
                               },
                               alternateRowStyles: {
                                 fillColor: [248, 250, 252],
                               },
                               columnStyles: {
-                                0: { halign: 'center', fontStyle: 'bold', cellWidth: 16 },
-                                1: { halign: 'center', fontStyle: 'bold', cellWidth: 20 },
+                                0: { halign: 'center', fontStyle: 'bold', cellWidth: 12 },
+                                1: { halign: 'center', fontStyle: 'bold', cellWidth: 16 },
                                 2: { halign: 'left', fontStyle: 'bold' },
+                                3: { halign: 'center', cellWidth: 11 },
+                                4: { halign: 'center', cellWidth: 11 },
+                                5: { halign: 'center', cellWidth: 11 },
+                                6: { halign: 'center', cellWidth: 18 },
+                                7: { halign: 'center', cellWidth: 20 },
                               },
                               didDrawPage: (data) => {
-                                // Footer on every page
-                                doc.setFontSize(7);
+                                // Footer on page
+                                doc.setFontSize(5.8);
                                 doc.setTextColor(148, 163, 184);
                                 doc.text(
-                                  `FastPoolCodes Official Classified Coupon • Week ${activeWeekNumber || 43} • Licensed to ${currentUser?.email || 'user'} • Page ${data.pageNumber}`,
-                                  14,
-                                  pageHeight - 7
+                                  `FastPoolCodes Official Classified Coupon • Week ${activeWeekNumber || 43} • Licensed to ${currentUser?.email || 'user'} • Page 1 of 1`,
+                                  6,
+                                  pageHeight - 2.5
+                                );
+                                doc.text(
+                                  'Compiled by Fastpoolcodes.com (Call/WhatsApp: +234 8030587933, +234 9037595705)',
+                                  pageWidth - 6,
+                                  pageHeight - 2.5,
+                                  { align: 'right' }
                                 );
                               }
                             });
 
-                            // Faint watermark across all pages
+                            // Softened, subtle security watermark across page
                             const totalPages = (doc as any).internal.getNumberOfPages();
                             for (let p = 1; p <= totalPages; p++) {
                               doc.setPage(p);
                               doc.saveGraphicsState();
-                              doc.setTextColor(235, 240, 245);
-                              doc.setFontSize(12);
+                              // Soft refined cool-slate tint with balanced subtle visibility
+                              doc.setTextColor(212, 220, 230);
+                              doc.setFontSize(10.5);
                               doc.setFont('helvetica', 'bold');
                               
                               const watermarkText = `FASTPOOLCODES • ${currentUser?.email || 'user@fastpoolcodes.com'}`;
-                              for (let y = 35; y < pageHeight - 10; y += 45) {
-                                for (let x = 15; x < pageWidth; x += 90) {
+                              for (let y = 30; y < pageHeight; y += 40) {
+                                for (let x = 5; x < pageWidth + 30; x += 85) {
                                   doc.text(watermarkText, x, y, { angle: -25 });
                                 }
                               }
@@ -6372,7 +6354,7 @@ export default function CustomerPortal({
 
                     <p className="text-[10px] text-slate-500 font-mono leading-relaxed text-center mt-1">
                       {isTableAllowed ? (
-                        <>💡 <span className="text-emerald-400 font-extrabold">Pro Tip:</span> Click <span className="text-white font-extrabold">"Download PDF File (.pdf)"</span> to immediately save your coupon sheet as a standalone PDF file on your device.</>
+                        <>💡 <span className="text-emerald-400 font-extrabold">Pro Tip:</span> Click <span className="text-white font-extrabold">"Download PDF File (.pdf)"</span> to save your 1-page coupon sheet.</>
                       ) : (
                         <span className="text-amber-400/90 font-semibold">🔒 Table access is restricted. Please purchase a plan for this bookmaker table to unlock PDF downloads.</span>
                       )}
@@ -6381,10 +6363,10 @@ export default function CustomerPortal({
                 </div>
 
                 {/* Right Column: Live Sheet Preview (Scrollable wrapper mimicking A4) */}
-                <div className="flex-1 overflow-y-auto p-4 sm:p-8 bg-slate-900/90 flex justify-center items-start scrollbar-thin scrollbar-thumb-slate-800 select-text relative">
+                <div className="flex-1 overflow-y-auto p-3 sm:p-5 bg-slate-900/90 flex justify-center items-start scrollbar-thin scrollbar-thumb-slate-800 select-text relative">
                   <div
                     id="printable-coupon-modal-sheet"
-                    className={`w-full max-w-[210mm] min-h-[297mm] bg-white text-slate-950 p-5 sm:p-8 shadow-2xl rounded border flex flex-col justify-between font-sans relative ${
+                    className={`w-full max-w-[210mm] bg-white text-slate-950 p-3 sm:p-5 shadow-2xl rounded border flex flex-col justify-between font-sans relative ${
                       pdfConfig.theme === 'emerald' ? 'border-t-8 border-t-emerald-700' : ''
                     }`}
                   >
@@ -6419,12 +6401,12 @@ export default function CustomerPortal({
                   {/* Decorative background grid overlay for print preview (removed during print automatically via CSS) */}
                   <div className="absolute inset-0 bg-grid opacity-[0.01] pointer-events-none print:hidden"></div>
 
-                  {/* Watermark layer: "fastpoolcodes" and user email repeating faintly */}
-                  <div className="absolute inset-0 overflow-hidden pointer-events-none select-none opacity-[0.04] print:opacity-[0.05] z-0 flex flex-wrap justify-around items-center content-around">
-                    {Array.from({ length: 32 }).map((_, i) => (
+                  {/* Watermark layer: "fastpoolcodes" and user email repeating softly */}
+                  <div className="absolute inset-0 overflow-hidden pointer-events-none select-none opacity-[0.08] print:opacity-[0.08] z-0 flex flex-wrap justify-around items-center content-around">
+                    {Array.from({ length: 24 }).map((_, i) => (
                       <div
                         key={i}
-                        className="text-[12px] sm:text-[13px] font-mono font-black text-slate-950 uppercase tracking-widest whitespace-nowrap select-none p-6 rotate-[-25deg]"
+                        className="text-[12px] font-mono font-black text-slate-500 uppercase tracking-widest whitespace-nowrap select-none p-4 rotate-[-25deg]"
                         style={{ transform: 'rotate(-25deg)' }}
                       >
                         fastpoolcodes • {currentUser?.email || 'user@fastpoolcodes.com'}
@@ -6432,91 +6414,75 @@ export default function CustomerPortal({
                     ))}
                   </div>
 
-                  <div className="space-y-6 relative z-10">
+                  <div className="space-y-3 relative z-10">
                     {/* Header Block */}
-                    <div className="border-b-2 border-slate-950 pb-5">
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xl font-black tracking-tighter uppercase font-sans">
-                              ⚽ FAST<span className="text-emerald-700">POOL</span>CODES
-                            </span>
-                            <span className="text-[8.5px] font-mono uppercase bg-slate-950 text-white px-2 py-0.5 rounded font-black select-none">
-                              VIP CERTIFIED
-                            </span>
-                          </div>
-                          <h1 className="text-base font-extrabold font-mono tracking-tight text-slate-900">
-                            {pdfConfig.title}
-                          </h1>
-                          <p className="text-xs text-slate-600 font-sans italic">
-                            {pdfConfig.subtitle}
-                          </p>
+                    <div className="border-b border-slate-950 pb-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-base font-black tracking-tighter uppercase font-sans">
+                            ⚽ FAST<span className="text-emerald-700">POOL</span>CODES
+                          </span>
+                          <span className="text-[7.5px] font-mono uppercase bg-slate-950 text-white px-1.5 py-0.5 rounded font-black select-none">
+                            VIP CERTIFIED
+                          </span>
                         </div>
 
-                        {/* Security Verification Stamp */}
-                        {pdfConfig.showVerificationStamp && (
-                          <div className="border-2 border-emerald-600 text-emerald-700 p-2 text-center rounded uppercase select-none font-black font-mono text-[9px] tracking-wider bg-emerald-50/50 flex flex-col items-center">
-                            <span>🛡️ VERIFIED LICENSED KEY</span>
-                            <span className="text-[7.5px] font-normal text-slate-500 lowercase mt-0.5">
-                              id: fp-sec-{Math.random().toString(36).substring(2, 7)}-{(currentUser?.id || 'guest').slice(0,4)}
-                            </span>
-                          </div>
-                        )}
+                        <div className="text-right">
+                          <span className="text-[10px] font-mono font-black text-emerald-800 uppercase">
+                            [{activeBookmaker.toUpperCase()}] WEEK {activeWeekNumber || 43} OFFICIAL
+                          </span>
+                        </div>
                       </div>
 
                       {/* Header Table Metadata Info Bar */}
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 border-t border-slate-200 mt-4 pt-3 text-[10.5px] font-mono text-slate-700">
+                      <div className="grid grid-cols-4 gap-1 border-t border-slate-200 mt-1.5 pt-1.5 text-[8.5px] font-mono text-slate-700">
                         <div>
-                          <span className="text-slate-400 block text-[9px] uppercase">LICENSEE NICK:</span>
-                          <span className="font-extrabold text-slate-900">@{currentUser?.username || 'user'}</span>
+                          <span className="text-slate-400 block text-[7px] uppercase">LICENSEE:</span>
+                          <span className="font-extrabold text-slate-900 truncate block">@{currentUser?.username || 'user'}</span>
                         </div>
                         <div>
-                          <span className="text-slate-400 block text-[9px] uppercase">EMAIL REGISTERED:</span>
-                          <span className="font-extrabold text-slate-900 truncate block max-w-[150px]">{currentUser?.email || 'user@fastpoolcodes.com'}</span>
+                          <span className="text-slate-400 block text-[7px] uppercase">EMAIL:</span>
+                          <span className="font-extrabold text-slate-900 truncate block">{currentUser?.email || 'user@fastpoolcodes.com'}</span>
                         </div>
                         <div>
-                          <span className="text-slate-400 block text-[9px] uppercase">VERIFIED ACTIVE:</span>
+                          <span className="text-slate-400 block text-[7px] uppercase">SEASON:</span>
                           <span className="font-extrabold text-slate-900">WEEK {activeWeekNumber || 43} (2026)</span>
                         </div>
                         <div>
-                          <span className="text-slate-400 block text-[9px] uppercase">COMPLIANCE CODE:</span>
-                          <span className="font-extrabold text-slate-900">SHA256:FPC-{(currentUser?.id || 'guest').slice(0, 5).toUpperCase()}</span>
+                          <span className="text-slate-400 block text-[7px] uppercase">KEY:</span>
+                          <span className="font-extrabold text-slate-900 truncate block">SHA256:FPC-{(currentUser?.id || 'guest').slice(0, 5).toUpperCase()}</span>
                         </div>
                       </div>
                     </div>
 
-                    {/* Warning Notice Box */}
-                    <div className="bg-slate-50 border border-slate-200 p-3 rounded text-[10px] text-slate-600 leading-relaxed font-mono">
-                      <strong>⚠️ VIP PRINT LICENSE CLAUSE:</strong> This classified match coupon is generated and optimized specifically for subscriber <strong>@{currentUser?.username || 'user'}</strong> ({currentUser?.email || 'user@fastpoolcodes.com'}). Distributing, photocopying, digital scanning, or public uploading of this document is fully trace-monitored. Infringements will violate Terms of Service Clause 6 (Intellectual Property) and lead to direct account closure without appeal.
-                    </div>
-
                     {/* Classified Coupon Table */}
-                    <div className="space-y-2">
-                      <h3 className="text-xs font-mono font-black uppercase text-slate-900 tracking-wide">
-                        📋 Compiled by Fastpoolcodes.com.  For Enquiries Call or WhatsApp: +234 8030587933, +234 9037595705)
-                      </h3>
+                    <div className="space-y-1">
+                      <div className="text-[9px] font-mono font-black uppercase text-slate-900 tracking-wide flex justify-between items-center">
+                        <span>📋 Compiled by Fastpoolcodes.com. For Enquiries Call/WhatsApp: +234 8030587933, +234 9037595705)</span>
+                        <span className="text-[7.5px] text-emerald-700 font-bold">1-PAGE COMPACT FORMAT</span>
+                      </div>
 
-                      <table className="w-full text-left font-sans text-xs border-collapse">
+                      <table className="w-full text-left font-sans text-[9px] border-collapse">
                         <thead>
-                          <tr className="bg-slate-950 text-white font-mono uppercase text-[9px] tracking-wider border border-slate-950">
-                            <th className="p-2 border text-center w-[10%]">Pool No</th>
-                            <th className="p-2 border text-center w-[15%]">Bet Code</th>
-                            <th className="p-2 border w-[40%]">Match Details (Home vs Away)</th>
+                          <tr className="bg-slate-950 text-white font-mono uppercase text-[7.5px] tracking-wider border border-slate-950">
+                            <th className="py-1 px-1.5 border text-center w-[8%]">Pool</th>
+                            <th className="py-1 px-1.5 border text-center w-[12%]">Bet Code</th>
+                            <th className="py-1 px-1.5 border w-[42%]">Match Details (Home vs Away)</th>
                             
                             {pdfConfig.showOdds && (
                               <>
-                                <th className="p-2 border text-center w-[7%]">Home (1)</th>
-                                <th className="p-2 border text-center w-[7%]">Draw (X)</th>
-                                <th className="p-2 border text-center w-[7%]">Away (2)</th>
+                                <th className="py-1 px-1 border text-center w-[7%]">1</th>
+                                <th className="py-1 px-1 border text-center w-[7%]">X</th>
+                                <th className="py-1 px-1 border text-center w-[7%]">2</th>
                               </>
                             )}
 
                             {pdfConfig.showTips && (
-                              <th className="p-2 border text-center w-[15%]">Expert Tip</th>
+                              <th className="py-1 px-1 border text-center w-[11%]">Tip</th>
                             )}
 
                             {pdfConfig.showBookmaker && (
-                              <th className="p-2 border text-center w-[12%]">Bookmaker</th>
+                              <th className="py-1 px-1 border text-center w-[10%]">Bookie</th>
                             )}
                           </tr>
                         </thead>
@@ -6552,7 +6518,7 @@ export default function CustomerPortal({
                             if (pdfFilteredGames.length === 0) {
                               return (
                                 <tr>
-                                  <td colSpan={7} className="p-8 text-center text-slate-400 font-mono italic">
+                                  <td colSpan={7} className="p-4 text-center text-slate-400 font-mono italic text-[8.5px]">
                                     No classified fixtures found for the selected bookmaker ({activeBookmaker}).
                                   </td>
                                 </tr>
@@ -6562,36 +6528,34 @@ export default function CustomerPortal({
                             return pdfFilteredGames.map((game, idx) => (
                               <tr 
                                 key={game.id || idx} 
-                                className={`text-[11px] hover:bg-slate-50 transition-colors ${
-                                  pdfConfig.theme === 'compact' ? 'py-1' : 'py-2.5'
-                                }`}
+                                className="text-[8.5px] leading-tight hover:bg-slate-50 transition-colors"
                               >
-                                <td className="p-2 border text-center font-mono font-black text-slate-900 bg-slate-50">
+                                <td className="py-0.5 px-1 border text-center font-mono font-black text-slate-900 bg-slate-50">
                                   {game.poolNo}
                                 </td>
-                                <td className="p-2 border text-center font-mono font-black text-slate-800 bg-slate-100/50">
+                                <td className="py-0.5 px-1 border text-center font-mono font-black text-slate-800 bg-slate-100/50">
                                   {game.betCode}
                                 </td>
-                                <td className="p-2 border font-extrabold text-slate-900">
+                                <td className="py-0.5 px-1.5 border font-bold text-slate-900">
                                   {game.home} <span className="font-normal text-slate-400">vs</span> {game.away}
                                 </td>
 
                                 {pdfConfig.showOdds && (
                                   <>
-                                    <td className="p-2 border text-center font-mono text-slate-600">{game.homeWin}</td>
-                                    <td className="p-2 border text-center font-mono text-slate-600">{game.draw}</td>
-                                    <td className="p-2 border text-center font-mono text-slate-600">{game.awayWin}</td>
+                                    <td className="py-0.5 px-0.5 border text-center font-mono text-slate-600 text-[8px]">{game.homeWin}</td>
+                                    <td className="py-0.5 px-0.5 border text-center font-mono text-slate-600 text-[8px]">{game.draw}</td>
+                                    <td className="py-0.5 px-0.5 border text-center font-mono text-slate-600 text-[8px]">{game.awayWin}</td>
                                   </>
                                 )}
 
                                 {pdfConfig.showTips && (
-                                  <td className="p-2 border text-center font-mono font-black text-emerald-800 text-[10px] uppercase">
+                                  <td className="py-0.5 px-0.5 border text-center font-mono font-black text-emerald-800 text-[7.5px] uppercase">
                                     {game.betTips || 'DRAW (X)'}
                                   </td>
                                 )}
 
                                 {pdfConfig.showBookmaker && (
-                                  <td className="p-2 border text-center font-mono text-[9.5px] text-slate-500 uppercase">
+                                  <td className="py-0.5 px-0.5 border text-center font-mono text-[7.5px] text-slate-500 uppercase">
                                     {game.bookmaker}
                                   </td>
                                 )}
@@ -6604,14 +6568,9 @@ export default function CustomerPortal({
                   </div>
 
                   {/* Coupon Sheet Footer */}
-                  <div className="border-t border-slate-300 pt-5 mt-8 flex flex-col gap-2.5 text-center sm:text-left relative z-10">
-                    <p className="text-[10px] text-slate-700 italic leading-relaxed font-sans">
-                      "{pdfConfig.customNote}"
-                    </p>
-                    <div className="flex flex-col sm:flex-row items-center justify-between text-[8px] font-mono text-slate-400 mt-2 border-t border-slate-100 pt-2 gap-2">
-                      <span>© 2026 FastPoolCodes Compliance & Decryption Syndicate.</span>
-                      <span>Verified Download Path: {currentUser?.email} • fpc-user-key-{(currentUser?.id || 'guest').slice(0,8)}</span>
-                    </div>
+                  <div className="border-t border-slate-200 pt-1.5 mt-2 flex items-center justify-between text-[7px] font-mono text-slate-400 relative z-10">
+                    <span>© 2026 FastPoolCodes Syndicate • Single Page Verified Sheet</span>
+                    <span>Compiled by Fastpoolcodes.com • Enquiries: +234 8030587933, +234 9037595705</span>
                   </div>
                 </div>
               </div>
