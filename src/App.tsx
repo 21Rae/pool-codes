@@ -313,7 +313,15 @@ export default function App() {
 
     const logAndSetTable = async (tableName: string, dbKey: keyof DatabaseState, query: string) => {
       try {
-        const res = await fetch(`/api/tables/${tableName}`);
+        const uid = currentUser?.id || '';
+        const uname = currentUser?.username || '';
+        const queryParams = uid || uname ? `?user_id=${encodeURIComponent(uid)}&username=${encodeURIComponent(uname)}` : '';
+        const res = await fetch(`/api/tables/${tableName}${queryParams}`, {
+          headers: {
+            'x-user-id': uid,
+            'x-username': uname
+          }
+        });
         if (!res.ok) {
           console.warn(`[Supabase Sync] Could not fetch table '${tableName}' through proxy. Status: ${res.status}`);
           return false;

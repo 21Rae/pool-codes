@@ -56,7 +56,22 @@ import { motion, AnimatePresence } from 'motion/react';
 import { DatabaseState, User, SubscriptionPlan, UserSubscription, PoolCode, parseComponents } from '../types';
 import { getSupabaseClient } from '../lib/supabase';
 import GoogleAdBanner from './GoogleAdBanner';
-import { INITIAL_PLANS, isGhanaPlan, getMergedSubscriptionPlans, getSortedComparisonPlans, isGhanaBookmaker, getMergedBookmakers, getBookmakersByCountry } from '../initialData';
+import {
+  INITIAL_PLANS,
+  isGhanaPlan,
+  getMergedSubscriptionPlans,
+  getSortedComparisonPlans,
+  isGhanaBookmaker,
+  getMergedBookmakers,
+  getBookmakersByCountry,
+  INITIAL_BET9JA,
+  INITIAL_BETKING,
+  INITIAL_SPORTYBET,
+  INITIAL_PREMIERBET,
+  INITIAL_BETWAY,
+  INITIAL_SOCCABET,
+  INITIAL_MSPORT
+} from '../initialData';
 
 interface CustomerPortalProps {
   db: DatabaseState;
@@ -891,13 +906,13 @@ export default function CustomerPortal({
       });
     };
 
-    const b9Rows = dbState.bet9ja || [];
-    const bkRows = dbState.betking || [];
-    const sbRows = dbState.sportybet || [];
-    const pbRows = dbState.premierbet || [];
-    const bwRows = dbState.betway || [];
-    const scRows = dbState.soccabet || [];
-    const msRows = (dbState as any).msport || [];
+    const b9Rows = (dbState.bet9ja && dbState.bet9ja.length > 0) ? dbState.bet9ja : INITIAL_BET9JA;
+    const bkRows = (dbState.betking && dbState.betking.length > 0) ? dbState.betking : INITIAL_BETKING;
+    const sbRows = (dbState.sportybet && dbState.sportybet.length > 0) ? dbState.sportybet : INITIAL_SPORTYBET;
+    const pbRows = (dbState.premierbet && dbState.premierbet.length > 0) ? dbState.premierbet : INITIAL_PREMIERBET;
+    const bwRows = (dbState.betway && dbState.betway.length > 0) ? dbState.betway : INITIAL_BETWAY;
+    const scRows = (dbState.soccabet && dbState.soccabet.length > 0) ? dbState.soccabet : INITIAL_SOCCABET;
+    const msRows = ((dbState as any).msport && (dbState as any).msport.length > 0) ? (dbState as any).msport : INITIAL_MSPORT;
 
     const b9 = mapBookieRows(b9Rows, 'bet9ja', 'Bet9ja');
     const bk = mapBookieRows(bkRows, 'betking', 'BetKing');

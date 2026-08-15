@@ -322,17 +322,48 @@ app.use((req, res, next) => {
 
       for (const logTbl of logTables) {
         try {
-          let logQuery = supabase.from(logTbl).select('*');
-          if (cleanUid && cleanUname) {
-            logQuery = logQuery.or(`user_id.eq.${cleanUid},username.eq.${cleanUname}`);
-          } else if (cleanUid) {
-            logQuery = logQuery.eq('user_id', cleanUid);
-          } else {
-            logQuery = logQuery.eq('username', cleanUname);
+          const rows: any[] = [];
+
+          // 1. Query by username if available
+          if (cleanUname) {
+            try {
+              const { data: uRows, error: uErr } = await supabase
+                .from(logTbl)
+                .select('*')
+                .ilike('username', cleanUname);
+              if (!uErr && Array.isArray(uRows)) {
+                rows.push(...uRows);
+              }
+            } catch (_) {}
           }
 
-          const { data: rows, error } = await logQuery;
-          if (!error && Array.isArray(rows) && rows.length > 0) {
+          // 2. Query by user_id if available
+          if (cleanUid) {
+            try {
+              const rawUid = cleanUid.replace(/^usr-/, '');
+              const { data: idRows, error: idErr } = await supabase
+                .from(logTbl)
+                .select('*')
+                .eq('user_id', rawUid);
+              if (!idErr && Array.isArray(idRows)) {
+                rows.push(...idRows);
+              }
+            } catch (_) {}
+
+            if (rows.length === 0 && cleanUid.startsWith('usr-')) {
+              try {
+                const { data: idRows2, error: idErr2 } = await supabase
+                  .from(logTbl)
+                  .select('*')
+                  .eq('user_id', cleanUid);
+                if (!idErr2 && Array.isArray(idRows2)) {
+                  rows.push(...idRows2);
+                }
+              } catch (_) {}
+            }
+          }
+
+          if (rows.length > 0) {
             for (const row of rows) {
               const statusStr = String(row.access_status || row.status || 'active').toLowerCase();
               const isStatusActive = statusStr === 'active' || statusStr === 'successful' || statusStr === 'completed' || statusStr === 'paid';
