@@ -58,6 +58,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DatabaseState, User, SubscriptionPlan, UserSubscription, PoolCode, parseComponents } from '../types';
+import WeeklyPoolPicksTable from './WeeklyPoolPicksTable';
 import { getSupabaseClient } from '../lib/supabase';
 import GoogleAdBanner from './GoogleAdBanner';
 import {
@@ -346,7 +347,7 @@ export default function CustomerPortal({
     );
   }
 
-  const [activeSubTab, setActiveSubTab] = useState<'dashboard' | 'comparison' | 'streaming' | 'results' | 'subscription' | 'profile'>('dashboard');
+  const [activeSubTab, setActiveSubTab] = useState<'dashboard' | 'picks' | 'comparison' | 'streaming' | 'results' | 'subscription' | 'profile'>('dashboard');
 
   const [codeTypeFilter, setCodeTypeFilter] = useState<'all' | 'uk' | 'aussie' | 'international'>('all');
   const [bookmakerFilter, setBookmakerFilter] = useState<string>('all');
@@ -1911,6 +1912,30 @@ export default function CustomerPortal({
 
                   <button
                     onClick={() => {
+                      setActiveSubTab('picks');
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className={`flex items-center justify-between px-3.5 py-3 rounded-lg text-xs font-bold tracking-wide transition duration-150 ${
+                      activeSubTab === 'picks'
+                        ? 'bg-gradient-to-r from-emerald-555/15 to-emerald-500/5 text-emerald-400 border-l-4 border-emerald-500 pl-2.5'
+                        : 'hover:bg-slate-800/60 text-slate-400 hover:text-slate-150'
+                    }`}
+                  >
+                    <span className="flex items-center gap-3">
+                      <Target className="w-4 h-4 text-emerald-400" />
+                      <span>WEEKLY POOL PICKS</span>
+                    </span>
+                    {isPaidUser ? (
+                      <span className="text-[8.5px] bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 px-2 py-0.5 rounded font-black font-mono tracking-widest leading-none uppercase">
+                        VIP
+                      </span>
+                    ) : (
+                      <Lock className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
+                    )}
+                  </button>
+
+                  <button
+                    onClick={() => {
                       setActiveSubTab('comparison');
                       setIsMobileMenuOpen(false);
                     }}
@@ -2088,6 +2113,27 @@ export default function CustomerPortal({
             </button>
 
             <button
+              onClick={() => setActiveSubTab('picks')}
+              className={`flex items-center justify-between px-3.5 py-3 rounded-lg text-xs font-bold tracking-wide transition duration-150 ${
+                activeSubTab === 'picks'
+                  ? 'bg-gradient-to-r from-emerald-550/15 to-emerald-500/5 text-emerald-400 border-l-4 border-emerald-500 pl-2.5'
+                  : 'hover:bg-slate-800/60 text-slate-400 hover:text-slate-150'
+              }`}
+            >
+              <span className="flex items-center gap-3">
+                <Target className="w-4 h-4 text-emerald-400" />
+                <span>WEEKLY POOL PICKS</span>
+              </span>
+              {isPaidUser ? (
+                <span className="text-[8.5px] bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 px-2 py-0.5 rounded font-black font-mono tracking-widest leading-none uppercase">
+                  VIP
+                </span>
+              ) : (
+                <Lock className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
+              )}
+            </button>
+
+            <button
               onClick={() => setActiveSubTab('comparison')}
               className={`flex items-center justify-between px-3.5 py-3 rounded-lg text-xs font-bold tracking-wide transition duration-150 ${
                 activeSubTab === 'comparison'
@@ -2203,12 +2249,12 @@ export default function CustomerPortal({
         <div className="hidden md:flex items-center justify-between bg-slate-900/70 border border-slate-800/80 rounded-2xl px-5 py-3.5 backdrop-blur-md shadow-lg">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center text-emerald-400 font-bold text-xs">
-              {activeSubTab === 'dashboard' ? <Home className="w-4 h-4" /> : activeSubTab === 'comparison' ? <Layers className="w-4 h-4" /> : activeSubTab === 'results' ? <Trophy className="w-4 h-4" /> : activeSubTab === 'subscription' ? <CreditCard className="w-4 h-4" /> : <UserIcon className="w-4 h-4" />}
+              {activeSubTab === 'dashboard' ? <Home className="w-4 h-4" /> : activeSubTab === 'picks' ? <Target className="w-4 h-4" /> : activeSubTab === 'comparison' ? <Layers className="w-4 h-4" /> : activeSubTab === 'results' ? <Trophy className="w-4 h-4" /> : activeSubTab === 'subscription' ? <CreditCard className="w-4 h-4" /> : <UserIcon className="w-4 h-4" />}
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-black text-white uppercase tracking-wider">
-                  {activeSubTab === 'dashboard' ? 'Codes Arena Dashboard' : activeSubTab === 'comparison' ? 'Codes Comparison Matrix' : activeSubTab === 'streaming' ? 'Live Scores Arena' : activeSubTab === 'results' ? 'Pool Results Archive' : activeSubTab === 'subscription' ? 'VIP Membership & Billing' : 'Account Profile'}
+                  {activeSubTab === 'dashboard' ? 'Codes Arena Dashboard' : activeSubTab === 'picks' ? 'Weekly Pool Picks' : activeSubTab === 'comparison' ? 'Codes Comparison Matrix' : activeSubTab === 'streaming' ? 'Live Scores Arena' : activeSubTab === 'results' ? 'Pool Results Archive' : activeSubTab === 'subscription' ? 'VIP Membership & Billing' : 'Account Profile'}
                 </span>
                 <span className="text-[10px] bg-slate-800 text-slate-400 font-mono px-2 py-0.5 rounded font-bold border border-slate-700/50">
                   WEEK {activeWeekNumber}
@@ -4748,6 +4794,21 @@ export default function CustomerPortal({
                   </div>
                 );
               })()}
+
+              {/* SUBTAB: WEEKLY POOL PICKS (STRICTLY SUBSCRIBED CUSTOMERS ONLY) */}
+              {activeSubTab === 'picks' && (
+                <div className="flex flex-col gap-6" id="weekly-pool-picks-tab-container">
+                  <WeeklyPoolPicksTable
+                    currentUser={currentUser}
+                    activePlan={activePlan}
+                    isPaidUser={isPaidUser}
+                    bypassPremium={bypassPremium}
+                    activeWeekNumber={activeWeekNumber}
+                    triggerToast={triggerToast}
+                    onUpgradeClick={() => setActiveSubTab('subscription')}
+                  />
+                </div>
+              )}
 
               {/* SUBTAB: POOL CODES COMPARISON (FREE TO ALL USERS) */}
               {activeSubTab === 'comparison' && (

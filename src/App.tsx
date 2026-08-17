@@ -347,20 +347,13 @@ export default function App() {
 
         if (data && Array.isArray(data)) {
           setDb(prev => {
-            const existingList = (prev[dbKey] as any[]) || [];
-            const fetchedMap = new Map((data as any[]).map(item => [item.id, item]));
-            const merged = [...(data as any[])];
-            
-            for (const existingItem of existingList) {
-              if (existingItem && existingItem.id && !fetchedMap.has(existingItem.id)) {
-                merged.push(existingItem);
-              }
+            if (data.length > 0) {
+              return {
+                ...prev,
+                [dbKey]: data
+              };
             }
-
-            return {
-              ...prev,
-              [dbKey]: merged
-            };
+            return prev;
           });
           if (data.length > 0) {
             logSQL(query, `Successfully loaded ${data.length} real rows from Supabase '${tableName}' table.`);

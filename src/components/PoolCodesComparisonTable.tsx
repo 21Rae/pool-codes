@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import {
@@ -16,11 +16,15 @@ import {
   Filter,
   ShieldCheck,
   Zap,
-  Info
+  Info,
+  RefreshCw,
+  Radio,
+  Database
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { PoolCodesComparisonRecord, User } from '../types';
 import { INITIAL_POOL_CODES_COMPARISON } from '../initialData';
+import { getSupabaseClient, initSupabaseConfig } from '../lib/supabase';
 
 interface PoolCodesComparisonTableProps {
   comparisonRows?: PoolCodesComparisonRecord[];
@@ -30,6 +34,100 @@ interface PoolCodesComparisonTableProps {
   onOpenVipSubscription?: () => void;
 }
 
+/**
+ * Helper to retrieve a value from an object regardless of uppercase/lowercase/symbols
+ */
+function getCaseInsensitiveValue(obj: any, candidateKeys: string[]): any {
+  if (!obj || typeof obj !== 'object') return undefined;
+
+  // 1. Direct key matches
+  for (const key of candidateKeys) {
+    if (obj[key] !== undefined && obj[key] !== null && String(obj[key]).trim() !== '') {
+      return obj[key];
+    }
+  }
+
+  // 2. Case-insensitive & symbol-stripped matching
+  const objKeys = Object.keys(obj);
+  for (const candidate of candidateKeys) {
+    const cleanCandidate = candidate.toLowerCase().replace(/[^a-z0-9]/g, '');
+    for (const objKey of objKeys) {
+      if (objKey.toLowerCase() === candidate.toLowerCase()) {
+        if (obj[objKey] !== undefined && obj[objKey] !== null && String(obj[objKey]).trim() !== '') {
+          return obj[objKey];
+        }
+      }
+      const cleanObjKey = objKey.toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (cleanObjKey === cleanCandidate) {
+        if (obj[objKey] !== undefined && obj[objKey] !== null && String(obj[objKey]).trim() !== '') {
+          return obj[objKey];
+        }
+      }
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * Normalizes raw records from Supabase public."pool codes comparison" or API payloads
+ * to ensure consistent field names regardless of database column casing/naming.
+ */
+function normalizeComparisonRecord(raw: any, index: number): PoolCodesComparisonRecord {
+  if (!raw || typeof raw !== 'object') {
+    return {
+      id: index + 1,
+      pool: index + 1,
+      home: 'Unknown',
+      away: 'Unknown',
+      'bet9ja (draw)': '-',
+      'betking (draw)': '-',
+      'sportybet (draw)': '-',
+      status: 'Saturday',
+      kickoff: '3:00 PM'
+    };
+  }
+
+  // Extract pool number (handles POOL, pool, pool_no, etc.)
+  const rawPool = getCaseInsensitiveValue(raw, ['pool', 'pool_no', 'pool_number', 'fixture_no', 'match_no', 'id']);
+  const pool = rawPool !== undefined ? String(rawPool).trim() : String(index + 1);
+
+  // Extract home & away teams (handles HOME, home, home_team, etc.)
+  const home = getCaseInsensitiveValue(raw, ['home', 'home_team', 'homeTeam', 'home team', 'hometeam']) || '';
+  const away = getCaseInsensitiveValue(raw, ['away', 'away_team', 'awayTeam', 'away team', 'awayteam']) || '';
+
+  // Extract bookmaker draw odds (handles "BET9JA (DRAW)", "bet9ja (draw)", "bet9ja_draw", "bet9ja", etc.)
+  const bet9ja = getCaseInsensitiveValue(raw, [
+    'bet9ja (draw)', 'BET9JA (DRAW)', 'bet9ja_draw', 'bet9ja', 'bet9jadraw', 'b9_draw', 'b9'
+  ]) || '-';
+
+  const betking = getCaseInsensitiveValue(raw, [
+    'betking (draw)', 'BETKING (DRAW)', 'betking_draw', 'betking', 'betkingdraw', 'bk_draw', 'bk'
+  ]) || '-';
+
+  const sportybet = getCaseInsensitiveValue(raw, [
+    'sportybet (draw)', 'SPORTYBET (DRAW)', 'sportybet_draw', 'sportybet', 'sportybetdraw', 'sb_draw', 'sb'
+  ]) || '-';
+
+  // Extract status & kickoff
+  const status = getCaseInsensitiveValue(raw, ['status', 'STATUS', 'match_status', 'day']) || 'Saturday';
+  const kickoff = getCaseInsensitiveValue(raw, ['kickoff', 'KICKOFF', 'kick_off', 'kickoff_time', 'time']) || '3:00 PM';
+
+  return {
+    ...raw,
+    id: raw.id ?? `${pool}_${home}_${away}` ?? index + 1,
+    pool,
+    home,
+    away,
+    'bet9ja (draw)': bet9ja,
+    'betking (draw)': betking,
+    'sportybet (draw)': sportybet,
+    status,
+    kickoff,
+    created_at: raw.created_at
+  };
+}
+
 export default function PoolCodesComparisonTable({
   comparisonRows,
   triggerToast,
@@ -37,6 +135,19 @@ export default function PoolCodesComparisonTable({
   compact = false,
   onOpenVipSubscription
 }: PoolCodesComparisonTableProps) {
+  // Local live state to ensure real-time responsiveness
+  const [liveRows, setLiveRows] = useState<PoolCodesComparisonRecord[]>(() => {
+    if (comparisonRows && comparisonRows.length > 0) {
+      return comparisonRows.map((r, i) => normalizeComparisonRecord(r, i));
+    }
+    return INITIAL_POOL_CODES_COMPARISON.map((r, i) => normalizeComparisonRecord(r, i));
+  });
+
+  const [isLoadingLive, setIsLoadingLive] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState<string>(() => new Date().toLocaleTimeString());
+  const [realtimeConnected, setRealtimeConnected] = useState<boolean>(false);
+  const [sourceTableName, setSourceTableName] = useState<string>('public.pool codes comparison');
+
   const [searchQuery, setSearchQuery] = useState('');
   const [dayFilter, setDayFilter] = useState<'all' | 'Saturday' | 'Sunday' | 'LKO'>('all');
   const [copiedFixtureId, setCopiedFixtureId] = useState<number | string | null>(null);
@@ -44,20 +155,178 @@ export default function PoolCodesComparisonTable({
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
-  // Clean data: eliminate empty or null entries (e.g. id 150 where pool is null)
-  const rawData: PoolCodesComparisonRecord[] = useMemo(() => {
-    const source = (comparisonRows && comparisonRows.length > 0)
-      ? comparisonRows
-      : INITIAL_POOL_CODES_COMPARISON;
-    return source.filter(r => r && (r.home || r.pool !== null && r.pool !== undefined));
+  // Sync prop updates if parent passes new rows
+  useEffect(() => {
+    if (comparisonRows && comparisonRows.length > 0) {
+      const normalized = comparisonRows.map((r, i) => normalizeComparisonRecord(r, i));
+      setLiveRows(normalized);
+      setLastSyncTime(new Date().toLocaleTimeString());
+    }
   }, [comparisonRows]);
+
+  /**
+   * Fetch live records directly from Supabase public."pool codes comparison" table or API proxy
+   */
+  const fetchLiveComparisonData = useCallback(async (isSilent = false) => {
+    if (!isSilent) setIsLoadingLive(true);
+
+    try {
+      await initSupabaseConfig();
+      const supabase = getSupabaseClient();
+      let fetchedRows: any[] | null = null;
+      let usedTable = 'pool codes comparison';
+
+      // 1. Direct Supabase Query on "pool codes comparison"
+      if (supabase) {
+        try {
+          const res1 = await supabase.from('pool codes comparison').select('*');
+          if (!res1.error && res1.data && res1.data.length > 0) {
+            fetchedRows = res1.data;
+            usedTable = 'public.pool codes comparison';
+          } else {
+            // Check fallback table name "pool_codes_comparison"
+            const res2 = await supabase.from('pool_codes_comparison').select('*');
+            if (!res2.error && res2.data && res2.data.length > 0) {
+              fetchedRows = res2.data;
+              usedTable = 'public.pool_codes_comparison';
+            }
+          }
+        } catch (sbErr) {
+          console.warn('[PoolCodesComparison] Direct Supabase query error, falling back to API proxy:', sbErr);
+        }
+      }
+
+      // 2. Server API Route Proxy Fallback
+      if (!fetchedRows || fetchedRows.length === 0) {
+        try {
+          const apiRes = await fetch('/api/tables/pool%20codes%20comparison');
+          if (apiRes.ok) {
+            const json = await apiRes.json();
+            if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+              fetchedRows = json.data;
+              usedTable = 'public.pool codes comparison';
+            }
+          }
+        } catch (apiErr) {
+          console.warn('[PoolCodesComparison] API proxy fetch error:', apiErr);
+        }
+      }
+
+      // Update state with normalized rows if data retrieved
+      if (fetchedRows && fetchedRows.length > 0) {
+        const normalized = fetchedRows
+          .filter(r => r && (r.home || r.pool !== null && r.pool !== undefined))
+          .map((r, i) => normalizeComparisonRecord(r, i));
+
+        if (normalized.length > 0) {
+          setLiveRows(normalized);
+          setSourceTableName(usedTable);
+          setLastSyncTime(new Date().toLocaleTimeString());
+          if (!isSilent) {
+            triggerToast(`✅ Loaded ${normalized.length} real-time rows from ${usedTable}`, 'success');
+          }
+        }
+      }
+    } catch (err: any) {
+      console.error('[PoolCodesComparison] Live fetch exception:', err);
+    } finally {
+      if (!isSilent) setIsLoadingLive(false);
+    }
+  }, [triggerToast]);
+
+  /**
+   * Set up Realtime WebSocket subscription on public."pool codes comparison" and periodic polling
+   */
+  useEffect(() => {
+    // Initial fetch
+    fetchLiveComparisonData(true);
+
+    // Realtime WebSocket Subscription
+    let channel: any = null;
+    try {
+      const supabase = getSupabaseClient();
+      if (supabase) {
+        channel = supabase
+          .channel('realtime-pool-codes-comparison-channel')
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'pool codes comparison'
+            },
+            (payload) => {
+              console.log('⚡ Real-time update on public.pool codes comparison:', payload);
+              fetchLiveComparisonData(true);
+            }
+          )
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'pool_codes_comparison'
+            },
+            (payload) => {
+              console.log('⚡ Real-time update on public.pool_codes_comparison:', payload);
+              fetchLiveComparisonData(true);
+            }
+          )
+          .subscribe((status) => {
+            if (status === 'SUBSCRIBED') {
+              setRealtimeConnected(true);
+            } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+              setRealtimeConnected(false);
+            }
+          });
+      }
+    } catch (wsErr) {
+      console.warn('[PoolCodesComparison] WebSocket subscription error:', wsErr);
+    }
+
+    // High frequency fallback polling (every 4 seconds) to guarantee real-time updates
+    const interval = setInterval(() => {
+      fetchLiveComparisonData(true);
+    }, 4000);
+
+    // Window focus / visibility refresh
+    const handleFocus = () => {
+      if (document.visibilityState === 'visible') {
+        fetchLiveComparisonData(true);
+      }
+    };
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('visibilitychange', handleFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('visibilitychange', handleFocus);
+      if (channel) {
+        try {
+          const supabase = getSupabaseClient();
+          if (supabase) supabase.removeChannel(channel);
+        } catch (_) {}
+      }
+    };
+  }, [fetchLiveComparisonData]);
+
+  // Clean data: eliminate empty or null entries and normalize all field casings
+  const rawData: PoolCodesComparisonRecord[] = useMemo(() => {
+    const source = (liveRows && liveRows.length > 0)
+      ? liveRows
+      : (comparisonRows && comparisonRows.length > 0 ? comparisonRows : INITIAL_POOL_CODES_COMPARISON);
+    return source
+      .map((r, i) => normalizeComparisonRecord(r, i))
+      .filter(r => r && (r.home || r.away || (r.pool !== null && r.pool !== undefined)));
+  }, [liveRows, comparisonRows]);
 
   // Helper to parse numeric odds
   const parseOdds = (val?: string | number): number => {
     if (val === undefined || val === null) return 0;
     if (typeof val === 'number') return val;
     const cleaned = String(val).trim().toUpperCase();
-    if (cleaned === 'NA' || cleaned === 'N/A' || cleaned === '') return 0;
+    if (cleaned === 'NA' || cleaned === 'N/A' || cleaned === '' || cleaned === '-') return 0;
     const num = parseFloat(cleaned);
     return isNaN(num) ? 0 : num;
   };
@@ -296,7 +565,6 @@ export default function PoolCodesComparisonTable({
       for (let p = 1; p <= totalPages; p++) {
         doc.setPage(p);
         doc.saveGraphicsState();
-        // Soft refined cool-slate tint with reduced color intensity & slightly increased font
         doc.setTextColor(232, 237, 243);
         doc.setFontSize(11.5);
         doc.setFont('helvetica', 'bold');
@@ -335,9 +603,18 @@ export default function PoolCodesComparisonTable({
                 <Zap className="w-3.5 h-3.5 fill-current" />
                 <span>FREE ACCESS TO ALL USERS</span>
               </span>
-              <span className="px-2.5 py-0.5 bg-amber-500/10 border border-amber-500/30 text-amber-400 font-mono text-[11px] font-bold rounded-full">
-                Week 49 Aussie Pools
+              
+              {/* Real-time Status Badge */}
+              <span className="px-2.5 py-0.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-mono text-[11px] font-bold rounded-full flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>REAL-TIME LIVE</span>
               </span>
+
+              <span className="px-2.5 py-0.5 bg-slate-800/90 border border-slate-700/60 text-slate-300 font-mono text-[11px] rounded-full flex items-center gap-1.5">
+                <Database className="w-3 h-3 text-slate-400" />
+                <span>{sourceTableName}</span>
+              </span>
+
               <span className="px-2.5 py-0.5 bg-slate-800 text-slate-300 font-mono text-[11px] rounded-full">
                 {rawData.length} Verified Fixtures
               </span>
@@ -349,12 +626,22 @@ export default function PoolCodesComparisonTable({
             </h2>
 
             <p className="text-xs sm:text-sm text-slate-300 max-w-3xl leading-relaxed">
-              Compare multi-bookmaker draw classification odds side-by-side across <strong className="text-amber-400 font-semibold">Bet9ja</strong>, <strong className="text-sky-400 font-semibold">BetKing</strong>, and <strong className="text-pink-400 font-semibold">SportyBet</strong>. Highlighting the best market value for Aussie football pools coupons.
+              Compare multi-bookmaker draw classification odds side-by-side across <strong className="text-amber-400 font-semibold">Bet9ja</strong>, <strong className="text-sky-400 font-semibold">BetKing</strong>, and <strong className="text-pink-400 font-semibold">SportyBet</strong>. Highlighting the best market value for football pools coupons with instant real-time updates.
             </p>
           </div>
 
-          {/* Action buttons: Free Download PDF & Native Print */}
+          {/* Action buttons: Sync Live Data, Free Download PDF & Native Print */}
           <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 shrink-0">
+            <button
+              onClick={() => fetchLiveComparisonData(false)}
+              disabled={isLoadingLive}
+              className="px-3.5 py-3 bg-slate-900 hover:bg-slate-800 active:scale-95 text-slate-200 border border-slate-700 hover:border-emerald-500/50 font-bold text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center gap-2 font-mono shadow-md"
+              title="Sync latest live rows from Supabase"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-emerald-400 ${isLoadingLive ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">Sync Live</span>
+            </button>
+
             <button
               onClick={handleDownloadPdf}
               disabled={isGeneratingPdf}
@@ -382,9 +669,16 @@ export default function PoolCodesComparisonTable({
 
         {/* Quick Contact & Compilation Notice */}
         <div className="mt-4 pt-3.5 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3 text-[11px] font-mono text-slate-400">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-emerald-400" />
-            <span>Compiled by <strong>Fastpoolcodes.com</strong></span>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              <span>Compiled by <strong>Fastpoolcodes.com</strong></span>
+            </div>
+            <span className="text-slate-600">•</span>
+            <div className="flex items-center gap-1.5 text-slate-400">
+              <Clock className="w-3.5 h-3.5 text-slate-500" />
+              <span>Last Synced: <strong className="text-slate-200">{lastSyncTime}</strong></span>
+            </div>
           </div>
           <div className="flex items-center gap-2 text-slate-300">
             <span>Enquiries Call / WhatsApp:</span>
@@ -449,7 +743,7 @@ export default function PoolCodesComparisonTable({
                     : 'bg-slate-900 text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-slate-800'
                 }`}
               >
-                {day === 'all' ? 'All Days (49)' : day === 'LKO' ? 'Late Kick-Off (LKO)' : day}
+                {day === 'all' ? `All Matches (${rawData.length})` : day === 'LKO' ? 'Late Kick-Off (LKO)' : day}
               </button>
             );
           })}
@@ -630,7 +924,7 @@ export default function PoolCodesComparisonTable({
                       <td className="py-2.5 px-2 text-center">
                         <button
                           onClick={() => handleCopyFixture(row)}
-                          className="p-1 text-slate-500 hover:text-amber-400 transition rounded hover:bg-slate-800"
+                          className="p-1 text-slate-500 hover:text-amber-400 transition rounded hover:bg-slate-800 cursor-pointer"
                           title="Copy fixture details"
                         >
                           {copiedFixtureId === row.id ? (
@@ -652,7 +946,7 @@ export default function PoolCodesComparisonTable({
         <div className="bg-slate-950 p-3.5 px-4 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs font-mono text-slate-400">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span>Showing <strong>{filteredRows.length}</strong> of {rawData.length} multi-bookmaker pool matches</span>
+            <span>Showing <strong>{filteredRows.length}</strong> of {rawData.length} multi-bookmaker pool matches from <span className="text-emerald-400">{sourceTableName}</span></span>
           </div>
 
           <div className="flex items-center gap-4 text-[11.5px]">

@@ -262,4 +262,22 @@ export interface DatabaseState {
   msport?: BookmakerTableRecord[];
   arena_games?: BookmakerTableRecord[];
   pool_codes_comparison?: PoolCodesComparisonRecord[];
+  weekly_picks?: WeeklyPoolPick[];
+}
+
+export interface WeeklyPoolPick {
+  id?: string | number;
+  pool_no: number;
+  bet_code: string;
+  home: string;
+  away: string;
+  home_win: number | string;
+  draw_x: number | string;
+  away_win: number | string;
+  bet: string;
+  status: string;
+  kick_off: string;
+  week?: number;
+  notes?: string;
+  is_banker?: boolean;
 }

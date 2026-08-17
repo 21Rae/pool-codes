@@ -152,6 +152,7 @@ app.use((req, res, next) => {
         'livescores', 'live_scores', 'matches', 'fixtures', 'predictions',
         'championship_results', 'championships',
         'pool codes comparison', 'pool_codes_comparison',
+        'weekly_picks', 'weekly_pool_picks', 'weekly_picks_table',
         'pool_codes', 'pool_results', 'pool_weeks', 'bookmakers',
         'subscription_plans', 'user_subscriptions', 'notifications', 'user_downloads',
         'bet9ja', 'betking', 'sportybet', 'msport', 'premierbet', 'betway', 'soccabet', 'arena_games',
@@ -237,7 +238,8 @@ app.use((req, res, next) => {
       'users', 'profiles', 'accounts', 'blogs', 'blog', 'posts', 'articles', 'news', 'expert_blogs',
       'subscription_plans', 'settings', 'comments', 'notifications', 'livescores', 'live_scores',
       'championship_results', 'championships', 'pool_weeks', 'bookmakers',
-      'pool_codes_comparison', 'pool codes comparison', 'pool_code_comparison', 'pool_comparison', 'poolcodes_comparison', 'pool_codes_comparisons'
+      'pool_codes_comparison', 'pool codes comparison', 'pool_code_comparison', 'pool_comparison', 'poolcodes_comparison', 'pool_codes_comparisons',
+      'weekly_picks', 'weekly_pool_picks', 'weekly pool picks', 'weekly_picks_table'
     ];
     if (PUBLIC_TABLES.includes(cleanTable)) {
       return { allowed: true };
@@ -500,6 +502,8 @@ app.use((req, res, next) => {
     const normalizedKey = decodedName.toLowerCase().replace(/[\s_\-]+/g, '_');
     if (normalizedKey === 'pool_codes_comparison' || normalizedKey === 'pool_code_comparison' || normalizedKey === 'pool_comparison' || normalizedKey === 'poolcodes_comparison') {
       actualTableName = 'pool codes comparison';
+    } else if (normalizedKey === 'weekly_pool_picks' || normalizedKey === 'weekly_picks' || normalizedKey === 'weekly_picks_table') {
+      actualTableName = 'weekly pool picks';
     }
 
     // Extract user credentials for access check
@@ -540,7 +544,33 @@ app.use((req, res, next) => {
       const supabase = createClient(supabaseUrl, serviceRoleKey || supabaseAnonKey);
 
       const runQuery = async () => {
-        const { data, error, count } = await supabase.from(actualTableName).select('*', { count: 'exact' });
+        let { data, error, count } = await supabase.from(actualTableName).select('*', { count: 'exact' });
+        
+        // Fallback for table name aliases with spaces vs underscores
+        if ((error || !data || data.length === 0) && (actualTableName === 'pool codes comparison' || actualTableName === 'pool_codes_comparison')) {
+          const alternate = actualTableName === 'pool codes comparison' ? 'pool_codes_comparison' : 'pool codes comparison';
+          const altRes = await supabase.from(alternate).select('*', { count: 'exact' });
+          if (!altRes.error && altRes.data && altRes.data.length > 0) {
+            data = altRes.data;
+            count = altRes.count;
+            error = null;
+            actualTableName = alternate;
+          }
+        } else if ((error || !data || data.length === 0) && (actualTableName === 'weekly pool picks' || actualTableName === 'weekly_pool_picks' || actualTableName === 'weekly_picks')) {
+          const candidates = ['weekly pool picks', 'weekly_pool_picks', 'weekly_picks'];
+          for (const cand of candidates) {
+            if (cand === actualTableName) continue;
+            const altRes = await supabase.from(cand).select('*', { count: 'exact' });
+            if (!altRes.error && altRes.data && altRes.data.length > 0) {
+              data = altRes.data;
+              count = altRes.count;
+              error = null;
+              actualTableName = cand;
+              break;
+            }
+          }
+        }
+
         if (error) {
           if (actualTableName === 'users') {
             return { success: true, table: 'users', count: serverMemoryUsers.length, data: serverMemoryUsers };
@@ -641,6 +671,9 @@ app.use((req, res, next) => {
       const { error } = await (isNaN(numId) ? query.eq('id', id) : query.eq('id', numId));
       if (error) {
         return res.status(400).json({ success: false, error: error.message });
+      }
+      if (tableName.toLowerCase() === 'livescores' || tableName.toLowerCase() === 'live_scores') {
+        liveScores = liveScores.filter(m => m.id !== id && m.id !== String(numId));
       }
       return res.json({ success: true, table: tableName, deletedId: id });
     } catch (err: any) {
@@ -1144,39 +1177,8 @@ app.use((req, res, next) => {
       }
     }
 
-    // If update didn't match any row, insert row into table
-    try {
-      const insertCandidate = {
-        home_team: hName,
-        away_team: aName,
-        home_team_score: hScore,
-        away_team_score: aScore,
-        live_score_status: match.status,
-        home_score: hScore,
-        away_score: aScore,
-        status: match.status,
-        score: match.score,
-        log: match.log,
-        last_checked: match.lastChecked
-      };
-      const { data, error } = await supabase.from(tableName).insert([insertCandidate]).select();
-      if (!error && data && data.length > 0) {
-        console.log(`[DB Write Success] Inserted new row in table '${tableName}' for match '${match.fixture}'`);
-        return true;
-      }
-    } catch (e) {
-      try {
-        const altInsert = {
-          home_team: hName,
-          home_team_score: hScore,
-          away_team_score: aScore,
-          away_team: aName,
-          live_score_status: match.status
-        };
-        await supabase.from(tableName).insert([altInsert]);
-      } catch (e2) {}
-    }
-
+    // DO NOT insert new rows here! If a row was deleted from the database table,
+    // updateTableMatch must NEVER re-insert it!
     return false;
   }
 
@@ -1201,16 +1203,20 @@ app.use((req, res, next) => {
     if (supabase) {
       try {
         let allRows: any[] = [];
+        let fetchedFromDb = false;
+
         const res1 = await supabase.from('livescores').select('*');
         if (!res1.error && res1.data && Array.isArray(res1.data)) {
           allRows = [...allRows, ...res1.data];
+          fetchedFromDb = true;
         }
         const res2 = await supabase.from('live_scores').select('*');
         if (!res2.error && res2.data && Array.isArray(res2.data)) {
           allRows = [...allRows, ...res2.data];
+          fetchedFromDb = true;
         }
 
-        if (allRows.length > 0) {
+        if (fetchedFromDb) {
           const dbMatches = allRows
             .map((r: any) => {
               const hTeam = (r.home_team || r.Home_team || r.homeTeam || r.home || "").trim();
@@ -1251,23 +1257,25 @@ app.use((req, res, next) => {
           }
           const uniqueDbMatches = Array.from(uniqueMap.values());
 
-          // Keep all DB matches in memory and sync latest scores/statuses
+          // CRITICAL: Strict database synchronization.
+          // Replace liveScores with only rows currently present in the database!
+          const newLiveScores: LiveScoreMatch[] = [];
           const validStatuses = ["not_started", "live", "finished", "postponed", "cancelled", "halftime"];
           for (const dbMatch of uniqueDbMatches) {
             const existing = liveScores.find(m => m.id === dbMatch.id || m.fixture === dbMatch.fixture);
-            if (!existing) {
-              liveScores.push(dbMatch);
+            if (existing) {
+              newLiveScores.push({
+                ...dbMatch,
+                score: (dbMatch.score && dbMatch.score !== "-:-") ? dbMatch.score : existing.score,
+                status: (dbMatch.status && validStatuses.includes(dbMatch.status.toLowerCase())) ? dbMatch.status : existing.status,
+                log: dbMatch.log || existing.log || "",
+                lastChecked: dbMatch.lastChecked || existing.lastChecked || new Date().toISOString()
+              });
             } else {
-              if (dbMatch.score && dbMatch.score !== "-:-") {
-                existing.score = dbMatch.score;
-              }
-              if (dbMatch.status && validStatuses.includes(dbMatch.status.toLowerCase())) {
-                existing.status = dbMatch.status;
-              }
-              if (dbMatch.log) existing.log = dbMatch.log;
-              if (dbMatch.lastChecked) existing.lastChecked = dbMatch.lastChecked;
+              newLiveScores.push(dbMatch);
             }
           }
+          liveScores = newLiveScores;
         }
       } catch (err) {
         console.warn("DB init error:", err);
@@ -1898,7 +1906,8 @@ Format exactly as this JSON schema (NO markdown blocks, NO \`\`\`json):
       console.warn("Error deleting match from database:", err);
     }
 
-    liveScores = liveScores.filter(m => m.id !== id);
+    const numId = Number(id);
+    liveScores = liveScores.filter(m => m.id !== id && m.id !== String(id) && (isNaN(numId) || m.id !== String(numId)));
 
     globalLog.unshift(`[${new Date().toLocaleTimeString()}] Admin removed match ID: ${id}`);
     res.json({ success: true, message: "Match deleted from database." });
