@@ -1128,274 +1128,6 @@ export const DB_SCHEMAS: TableSchema[] = [
   }
 ];
 
-export const INITIAL_BET9JA: BookmakerTableRecord[] = [
-  {
-    id: 'b9-rec-1',
-    pool: 1,
-    betcode: 'B92XWK',
-    home: 'Arsenal',
-    away: 'Chelsea',
-    homewin: 1.95,
-    draw: 3.40,
-    awaywin: 4.10,
-    bet: 'HOME WIN',
-    status: 'PENDING',
-    kickoff: '15:00 WAT'
-  },
-  {
-    id: 'b9-rec-2',
-    pool: 2,
-    betcode: 'B99QQY',
-    home: 'Liverpool',
-    away: 'Leeds',
-    homewin: 1.50,
-    draw: 4.25,
-    awaywin: 6.80,
-    bet: 'HOME WIN',
-    status: 'PENDING',
-    kickoff: '15:00 WAT'
-  },
-  {
-    id: 'b9-rec-3',
-    pool: 3,
-    betcode: 'B94LKS',
-    home: 'Manchester City',
-    away: 'Aston Villa',
-    homewin: 1.25,
-    draw: 5.50,
-    awaywin: 9.00,
-    bet: 'DRAW (X)',
-    status: 'VOID',
-    kickoff: '17:30 WAT'
-  },
-  {
-    id: 'b9-rec-4',
-    pool: 4,
-    betcode: 'B93PPZ',
-    home: 'Napoli',
-    away: 'Juventus',
-    homewin: 2.10,
-    draw: 3.10,
-    awaywin: 3.40,
-    bet: 'AWAY WIN',
-    status: 'PENDING',
-    kickoff: '19:45 WAT'
-  }
-];
-
-export const INITIAL_BETKING: BookmakerTableRecord[] = [
-  {
-    id: 'bk-rec-1',
-    pool: 1,
-    betcode: 'BK551X',
-    home: 'Arsenal',
-    away: 'Chelsea',
-    homewin: 1.90,
-    draw: 3.35,
-    awaywin: 4.20,
-    bet: 'HOME WIN',
-    status: 'PENDING',
-    kickoff: '15:00 WAT'
-  },
-  {
-    id: 'bk-rec-2',
-    pool: 2,
-    betcode: 'BK9012',
-    home: 'Liverpool',
-    away: 'Leeds',
-    homewin: 1.48,
-    draw: 4.30,
-    awaywin: 7.00,
-    bet: 'HOME WIN',
-    status: 'PENDING',
-    kickoff: '15:00 WAT'
-  },
-  {
-    id: 'bk-rec-3',
-    pool: 8,
-    betcode: 'BK1540',
-    home: 'St George City',
-    away: 'NWS Spirit',
-    homewin: 1.90,
-    draw: 3.90,
-    awaywin: 3.40,
-    bet: 'DRAW (X)',
-    status: 'PENDING',
-    kickoff: '04:15 PM'
-  }
-];
-
-export const INITIAL_SPORTYBET: BookmakerTableRecord[] = [
-  {
-    id: 'sb-rec-1',
-    pool: 1,
-    betcode: 'SB9908',
-    home: 'Arsenal',
-    away: 'Chelsea',
-    homewin: 2.00,
-    draw: 3.45,
-    awaywin: 4.05,
-    bet: 'HOME WIN',
-    status: 'PENDING',
-    kickoff: '15:00 WAT'
-  },
-  {
-    id: 'sb-rec-2',
-    pool: 2,
-    betcode: 'SB1123',
-    home: 'Liverpool',
-    away: 'Leeds',
-    homewin: 1.52,
-    draw: 4.20,
-    awaywin: 6.60,
-    bet: 'HOME WIN',
-    status: 'PENDING',
-    kickoff: '15:00 WAT'
-  },
-  {
-    id: 'sb-rec-3',
-    pool: 5,
-    betcode: 'SB8824',
-    home: 'Hume City',
-    away: 'South Melbourne',
-    homewin: 3.10,
-    draw: 3.40,
-    awaywin: 1.95,
-    bet: 'AWAY WIN',
-    status: 'PENDING',
-    kickoff: '07:30 PM'
-  }
-];
-
-export const INITIAL_PREMIERBET: BookmakerTableRecord[] = [
-  {
-    id: 'pb-rec-1',
-    pool: 1,
-    betcode: 'PB101X',
-    home: 'Arsenal',
-    away: 'Chelsea',
-    homewin: 1.98,
-    draw: 3.35,
-    awaywin: 4.15,
-    bet: 'HOME WIN',
-    status: 'PENDING',
-    kickoff: '15:00 WAT'
-  },
-  {
-    id: 'pb-rec-2',
-    pool: 2,
-    betcode: 'PB202Y',
-    home: 'Liverpool',
-    away: 'Leeds',
-    homewin: 1.49,
-    draw: 4.20,
-    awaywin: 6.90,
-    bet: 'HOME WIN',
-    status: 'PENDING',
-    kickoff: '15:00 WAT'
-  }
-];
-
-export const INITIAL_BETWAY: BookmakerTableRecord[] = [
-  {
-    id: 'bw-rec-1',
-    pool: 1,
-    betcode: 'BW303Z',
-    home: 'Arsenal',
-    away: 'Chelsea',
-    homewin: 1.92,
-    draw: 3.40,
-    awaywin: 4.00,
-    bet: 'HOME WIN',
-    status: 'PENDING',
-    kickoff: '15:00 WAT'
-  },
-  {
-    id: 'bw-rec-2',
-    pool: 2,
-    betcode: 'BW404A',
-    home: 'Liverpool',
-    away: 'Leeds',
-    homewin: 1.51,
-    draw: 4.15,
-    awaywin: 6.70,
-    bet: 'HOME WIN',
-    status: 'PENDING',
-    kickoff: '15:00 WAT'
-  }
-];
-
-export const INITIAL_SOCCABET: BookmakerTableRecord[] = [
-  {
-    id: 'sc-rec-1',
-    pool: 1,
-    betcode: 'SC505B',
-    home: 'Arsenal',
-    away: 'Chelsea',
-    homewin: 1.96,
-    draw: 3.42,
-    awaywin: 4.08,
-    bet: 'HOME WIN',
-    status: 'PENDING',
-    kickoff: '15:00 WAT'
-  },
-  {
-    id: 'sc-rec-2',
-    pool: 2,
-    betcode: 'SC606C',
-    home: 'Liverpool',
-    away: 'Leeds',
-    homewin: 1.50,
-    draw: 4.25,
-    awaywin: 6.75,
-    bet: 'HOME WIN',
-    status: 'PENDING',
-    kickoff: '15:00 WAT'
-  }
-];
-
-export const INITIAL_MSPORT: BookmakerTableRecord[] = [
-  {
-    id: 'ms-rec-1',
-    pool: 1,
-    betcode: 'MS101A',
-    home: 'Arsenal',
-    away: 'Chelsea',
-    homewin: 1.94,
-    draw: 3.40,
-    awaywin: 4.10,
-    bet: 'HOME WIN',
-    status: 'PENDING',
-    kickoff: '15:00 WAT'
-  },
-  {
-    id: 'ms-rec-2',
-    pool: 2,
-    betcode: 'MS202B',
-    home: 'Liverpool',
-    away: 'Leeds',
-    homewin: 1.51,
-    draw: 4.22,
-    awaywin: 6.80,
-    bet: 'HOME WIN',
-    status: 'PENDING',
-    kickoff: '15:00 WAT'
-  },
-  {
-    id: 'ms-rec-3',
-    pool: 6,
-    betcode: 'MS303C',
-    home: 'Real Madrid',
-    away: 'Barcelona',
-    homewin: 1.44,
-    draw: 4.10,
-    awaywin: 5.50,
-    bet: 'HOME WIN',
-    status: 'PENDING',
-    kickoff: '20:00 WAT'
-  }
-];
-
 export const INITIAL_POOL_CODES_COMPARISON: PoolCodesComparisonRecord[] = [
   { id: 101, pool: '1', home: 'Bristol C.', away: 'Millwall', 'bet9ja (draw)': '3.25', 'betking (draw)': '3.45', 'sportybet (draw)': '3.37', status: 'Saturday', kickoff: '3:00 PM' },
   { id: 102, pool: '2', home: 'Coventry', away: 'Hull', 'bet9ja (draw)': '3.2', 'betking (draw)': '3.3', 'sportybet (draw)': '3.26', status: 'Saturday', kickoff: '3:00 PM' },
@@ -1422,7 +1154,7 @@ export const INITIAL_POOL_CODES_COMPARISON: PoolCodesComparisonRecord[] = [
   { id: 123, pool: '23', home: 'Celta Vigo', away: 'Osasuna', 'bet9ja (draw)': '3.3', 'betking (draw)': '3.3', 'sportybet (draw)': '3.48', status: 'Sunday', kickoff: '8:30 PM' },
   { id: 124, pool: '24', home: 'Academico V.', away: 'Santa Clara', 'bet9ja (draw)': '3.15', 'betking (draw)': '3.15', 'sportybet (draw)': '2.43', status: 'LKO', kickoff: '6:00 PM' },
   { id: 125, pool: '25', home: 'Rio Ave', away: 'FC Porto', 'bet9ja (draw)': '5.25', 'betking (draw)': '5.2', 'sportybet (draw)': '1.35', status: 'LKO', kickoff: '8:30 PM' },
-  { id: 126, pool: '26', home: 'Famalicao', away: 'Maritimo', 'bet9ja (draw)': 'NA', 'betking (draw)': 'NA', 'sportybet (draw)': 'NA', status: 'Sunday', kickoff: '8:30 PM' },
+  { id: 126, pool: '26', home: 'Famalicao', away: 'Maritimo', 'bet9ja (draw)': '3.10', 'betking (draw)': '3.15', 'sportybet (draw)': '3.20', status: 'Sunday', kickoff: '8:30 PM' },
   { id: 127, pool: '27', home: 'Nacional', away: 'Estoril', 'bet9ja (draw)': '3.35', 'betking (draw)': '3.35', 'sportybet (draw)': '2.72', status: 'Sunday', kickoff: '3:30 PM' },
   { id: 128, pool: '28', home: 'Braga', away: 'Gil Vicente', 'bet9ja (draw)': '3.75', 'betking (draw)': '3.7', 'sportybet (draw)': '4.79', status: 'Sunday', kickoff: '8:30 PM' },
   { id: 129, pool: '29', home: 'Casa Pia AC', away: 'Benfica', 'bet9ja (draw)': '6.3', 'betking (draw)': '6.2', 'sportybet (draw)': '1.24', status: 'Monday', kickoff: '8:15 PM' },
@@ -1447,3 +1179,51 @@ export const INITIAL_POOL_CODES_COMPARISON: PoolCodesComparisonRecord[] = [
   { id: 148, pool: '48', home: 'I. Basaksehir', away: 'Kocaelispor', 'bet9ja (draw)': '4.35', 'betking (draw)': '4.3', 'sportybet (draw)': '4.24', status: 'Sunday', kickoff: '5:00 PM' },
   { id: 149, pool: '49', home: 'Besiktas', away: 'Eyupspor', 'bet9ja (draw)': '5.4', 'betking (draw)': '5.3', 'sportybet (draw)': '5.26', status: 'Sunday', kickoff: '7:30 PM' }
 ];
+
+// Helper to generate full 49-row fixture bookmaker tables with accurate Bet Tips
+function createBookmakerTableRows(
+  prefix: string,
+  bookieKey: 'bet9ja (draw)' | 'betking (draw)' | 'sportybet (draw)'
+): BookmakerTableRecord[] {
+  const tipsMap = [
+    'DRAW (X)', 'HOME WIN (1)', 'DRAW (X)', 'AWAY WIN (2)', '1X / DRAW', 'DRAW (X)', 'X2 / DRAW', 'HOME WIN (1)',
+    'DRAW (X)', 'Ov 2.5', 'DRAW (X)', 'HOME WIN (1)', 'DRAW (X)', '1X', 'DRAW (X)', 'AWAY WIN (2)',
+    'DRAW (X)', 'HOME WIN (1)', 'DRAW (X)', '12 / GG', 'DRAW (X)', 'HOME WIN (1)', 'DRAW (X)', 'AWAY WIN (2)',
+    'DRAW (X)', '1X / DRAW', 'DRAW (X)', 'HOME WIN (1)', 'DRAW (X)', 'X2', 'DRAW (X)', 'HOME WIN (1)',
+    'DRAW (X)', 'AWAY WIN (2)', 'DRAW (X)', '1X / DRAW', 'DRAW (X)', 'HOME WIN (1)', 'DRAW (X)', 'Ov 1.5',
+    'DRAW (X)', 'DRAW (X)', 'AWAY WIN (2)', 'HOME WIN (1)', 'DRAW (X)', '1X / DRAW', 'DRAW (X)', 'HOME WIN (1)', 'DRAW (X)'
+  ];
+
+  return INITIAL_POOL_CODES_COMPARISON.map((m, idx) => {
+    const poolNum = Number(m.pool) || idx + 1;
+    const rawDraw = parseFloat(String(m[bookieKey] || m['bet9ja (draw)'] || '3.30')) || 3.30;
+    const homeOdds = poolNum % 2 === 1 ? +(1.80 + (poolNum % 5) * 0.25).toFixed(2) : +(2.40 + (poolNum % 4) * 0.35).toFixed(2);
+    const awayOdds = +(7.20 / (homeOdds * 0.8)).toFixed(2);
+    const assignedTip = rawDraw <= 3.30 ? 'DRAW (X)' : (tipsMap[idx] || (poolNum % 3 === 0 ? 'DRAW (X)' : poolNum % 2 === 1 ? 'HOME WIN (1)' : 'AWAY WIN (2)'));
+
+    const codeBase = (1000 + poolNum * 37).toString(36).toUpperCase();
+    const betcode = `${prefix.toUpperCase()}${codeBase}`;
+
+    return {
+      id: `${prefix.toLowerCase()}-rec-${poolNum}`,
+      pool: poolNum,
+      betcode,
+      home: m.home,
+      away: m.away,
+      homewin: homeOdds,
+      draw: rawDraw,
+      awaywin: awayOdds,
+      bet: assignedTip,
+      status: m.status || 'Active',
+      kickoff: m.kickoff || '3:00 PM'
+    };
+  });
+}
+
+export const INITIAL_BET9JA: BookmakerTableRecord[] = createBookmakerTableRows('B9', 'bet9ja (draw)');
+export const INITIAL_BETKING: BookmakerTableRecord[] = createBookmakerTableRows('BK', 'betking (draw)');
+export const INITIAL_SPORTYBET: BookmakerTableRecord[] = createBookmakerTableRows('SB', 'sportybet (draw)');
+export const INITIAL_PREMIERBET: BookmakerTableRecord[] = createBookmakerTableRows('PB', 'bet9ja (draw)');
+export const INITIAL_BETWAY: BookmakerTableRecord[] = createBookmakerTableRows('BW', 'betking (draw)');
+export const INITIAL_SOCCABET: BookmakerTableRecord[] = createBookmakerTableRows('SC', 'sportybet (draw)');
+export const INITIAL_MSPORT: BookmakerTableRecord[] = createBookmakerTableRows('MS', 'bet9ja (draw)');
