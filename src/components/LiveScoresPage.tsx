@@ -96,6 +96,11 @@ export default function LiveScoresPage({
   };
 
   useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+    const container = document.getElementById('standalone-live-scores-arena')?.parentElement;
+    if (container) {
+      container.scrollTo({ top: 0, behavior: 'instant' });
+    }
     fetchLiveScores();
     const interval = setInterval(fetchLiveScores, 5000); // UI fast poll every 5 seconds
 
@@ -234,8 +239,8 @@ export default function LiveScoresPage({
   });
 
   return (
-    <div className="w-full bg-[#030d0a] text-emerald-100 min-h-screen py-6 px-4 md:px-8 flex flex-col font-sans select-none" id="standalone-live-scores-arena">
-      <div className="max-w-6xl mx-auto w-full flex-1 flex flex-col gap-6">
+    <div className="w-full bg-[#030d0a] text-emerald-100 py-6 px-4 md:px-8 flex flex-col font-sans select-none flex-1" id="standalone-live-scores-arena">
+      <div className="max-w-6xl mx-auto w-full flex flex-col gap-6">
         
         {/* Navigation back and title */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-emerald-950 pb-6">
@@ -431,35 +436,30 @@ export default function LiveScoresPage({
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <AnimatePresence mode="popLayout">
-                {filteredMatches.map((match, idx) => {
-                  const isLiveStatus = match.status === 'live';
-                  const isFinished = match.status === 'finished';
-                  const isPostponed = match.status === 'postponed';
+              {filteredMatches.map((match, idx) => {
+                const isLiveStatus = match.status === 'live';
+                const isFinished = match.status === 'finished';
+                const isPostponed = match.status === 'postponed';
 
-                  const scoreParts = (match.score || "0 - 0").split(" - ");
-                  const scoreHome = scoreParts[0]?.trim() || "0";
-                  const scoreAway = scoreParts[1]?.trim() || "0";
+                const scoreParts = (match.score || "0 - 0").split(" - ");
+                const scoreHome = scoreParts[0]?.trim() || "0";
+                const scoreAway = scoreParts[1]?.trim() || "0";
 
-                  const fixtureParts = (match.fixture || "").split(" vs ");
-                  const teamHome = fixtureParts[0]?.trim() || "Home Team";
-                  const teamAway = fixtureParts[1]?.trim() || "Away Team";
+                const fixtureParts = (match.fixture || "").split(" vs ");
+                const teamHome = fixtureParts[0]?.trim() || "Home Team";
+                const teamAway = fixtureParts[1]?.trim() || "Away Team";
 
-                  return (
-                    <motion.div
-                      key={`live_match_${idx}_${match.id || ''}`}
-                      layout
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.95 }}
-                      className={`relative overflow-hidden rounded-2xl border p-4 transition duration-200 flex flex-col justify-between min-h-[140px] ${
-                        isLiveStatus
-                          ? 'bg-gradient-to-br from-[#FA3E65]/10 via-slate-950 to-slate-950 border-[#FA3E65]/35 shadow-lg shadow-red-950/20'
-                          : isFinished
-                            ? 'bg-slate-950/40 border-emerald-950/50 hover:border-emerald-900/30'
-                            : 'bg-slate-950/25 border-emerald-950/20 hover:border-emerald-900/20'
-                      }`}
-                    >
+                return (
+                  <div
+                    key={`live_match_${idx}_${match.id || ''}`}
+                    className={`relative overflow-hidden rounded-2xl border p-4 transition duration-200 flex flex-col justify-between min-h-[140px] ${
+                      isLiveStatus
+                        ? 'bg-gradient-to-br from-[#FA3E65]/10 via-slate-950 to-slate-950 border-[#FA3E65]/35 shadow-lg shadow-red-950/20'
+                        : isFinished
+                          ? 'bg-slate-950/40 border-emerald-950/50 hover:border-emerald-900/30'
+                          : 'bg-slate-950/25 border-emerald-950/20 hover:border-emerald-900/20'
+                    }`}
+                  >
                       {/* Top ribbon: Status Indicator */}
                       <div className="flex items-center justify-between mb-3">
                         <span className="text-[10px] font-mono text-slate-500 font-bold uppercase tracking-wider inline-flex items-center gap-1">
@@ -467,31 +467,21 @@ export default function LiveScoresPage({
                           {isLiveStatus ? 'Live Stream Active' : isFinished ? 'Full Time' : isPostponed ? 'Postponed' : 'Upcoming Fixture'}
                         </span>
 
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-mono font-black uppercase tracking-widest ${
-                          isLiveStatus 
-                            ? 'bg-emerald-950/70 text-emerald-400 border border-emerald-900/40 shadow-sm' 
-                            : isFinished 
-                              ? 'bg-emerald-900/20 text-emerald-400 border border-emerald-900/30' 
-                              : isPostponed
-                                ? 'bg-amber-950/60 text-amber-500 border border-amber-900/30'
-                                : 'bg-slate-900 text-slate-500'
-                        }`}>
-                          {isLiveStatus ? (
-                            <>
-                              <span className="w-1 h-1 rounded-full bg-emerald-400 animate-ping"></span>
-                              <span>LIVE NOW</span>
-                            </>
-                          ) : isFinished ? (
-                            <>
-                              <Check className="w-2.5 h-2.5 text-emerald-400" />
-                              <span>FINISHED</span>
-                            </>
-                          ) : isPostponed ? (
+                        {isLiveStatus ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-mono font-black uppercase tracking-widest bg-emerald-950/70 text-emerald-400 border border-emerald-900/40 shadow-sm">
+                            <span className="w-1 h-1 rounded-full bg-emerald-400 animate-ping"></span>
+                            <span>LIVE NOW</span>
+                          </span>
+                        ) : isFinished ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-mono font-black uppercase tracking-widest bg-emerald-900/20 text-emerald-400 border border-emerald-900/30">
+                            <Check className="w-2.5 h-2.5 text-emerald-400" />
+                            <span>FINISHED</span>
+                          </span>
+                        ) : isPostponed ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-mono font-black uppercase tracking-widest bg-amber-950/60 text-amber-500 border border-amber-900/30">
                             <span>PPD</span>
-                          ) : (
-                            <span>NOT STARTED</span>
-                          )}
-                        </span>
+                          </span>
+                        ) : null}
                       </div>
 
                       {/* Middle: Teams and Scoreboard */}
@@ -525,15 +515,14 @@ export default function LiveScoresPage({
                         </div>
                       </div>
 
-                      {/* Bottom ribbon: Admin actions or placeholder */}
-                      <div className="mt-3 pt-2.5 border-t border-slate-900/60 flex items-center justify-between text-[11px] text-slate-400">
-                        <div className="flex items-center gap-1">
-                          <span className="text-xs">⚽</span>
-                          <span className="font-semibold text-[10.5px] text-slate-350">Pool League Match</span>
-                        </div>
+                      {/* Bottom ribbon: Admin actions when logged in as admin */}
+                      {isAdmin && (
+                        <div className="mt-3 pt-2.5 border-t border-slate-900/60 flex items-center justify-between text-[11px] text-slate-400">
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs">⚽</span>
+                            <span className="font-semibold text-[10.5px] text-slate-350">Pool League Match</span>
+                          </div>
 
-                        {/* Admin specific action buttons inside the card */}
-                        {isAdmin ? (
                           <div className="flex items-center gap-1.5">
                             {!isLiveStatus && !isFinished && (
                               <button
@@ -581,17 +570,11 @@ export default function LiveScoresPage({
                               <Trash2 className="w-3 h-3" />
                             </button>
                           </div>
-                        ) : (
-                          <span className="text-[9.5px] font-mono text-emerald-500/60 font-black tracking-wider uppercase flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/40"></span>
-                            Verified Sports Feed
-                          </span>
-                        )}
-                      </div>
-                    </motion.div>
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
-              </AnimatePresence>
             </div>
           )}
         </div>

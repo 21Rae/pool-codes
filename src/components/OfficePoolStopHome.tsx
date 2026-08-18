@@ -276,32 +276,50 @@ export default function OfficePoolStopHome({
 
   const scoreboardRef = useRef<HTMLDivElement>(null);
   const [isScoreboardHovered, setIsScoreboardHovered] = useState(false);
+  const touchTimeoutRef = useRef<any>(null);
 
-  // Scroll implementation for scoreboard games ticker
+  // Scroll implementation for scoreboard games ticker (supports mobile fractional scroll)
   useEffect(() => {
     const container = scoreboardRef.current;
     if (!container) return;
 
     let iframeId: number;
-    const scrollSpeed = 0.65;
+    let scrollPos = container.scrollLeft;
+    const scrollSpeed = 0.75;
 
     const runScroll = () => {
       if (!isScoreboardHovered && container.scrollWidth > container.clientWidth) {
-        container.scrollLeft += scrollSpeed;
+        scrollPos += scrollSpeed;
         const maxScroll = container.scrollWidth - container.clientWidth;
         if (
-          container.scrollLeft >= container.scrollWidth / 2 ||
-          (maxScroll > 0 && container.scrollLeft >= maxScroll - 2)
+          scrollPos >= container.scrollWidth / 2 ||
+          (maxScroll > 0 && scrollPos >= maxScroll - 2)
         ) {
-          container.scrollLeft = 0;
+          scrollPos = 0;
         }
+        container.scrollLeft = scrollPos;
+      } else {
+        scrollPos = container.scrollLeft;
       }
       iframeId = requestAnimationFrame(runScroll);
     };
 
+    const handleScroll = () => {
+      if (isScoreboardHovered) {
+        scrollPos = container.scrollLeft;
+      }
+    };
+
+    container.addEventListener('scroll', handleScroll, { passive: true });
     iframeId = requestAnimationFrame(runScroll);
-    return () => cancelAnimationFrame(iframeId);
-  }, [isScoreboardHovered]);
+    return () => {
+      cancelAnimationFrame(iframeId);
+      container.removeEventListener('scroll', handleScroll);
+      if (touchTimeoutRef.current) {
+        clearTimeout(touchTimeoutRef.current);
+      }
+    };
+  }, [isScoreboardHovered, liveScoresData.length]);
 
   // Master fetch blogs function designed by the system and optimized by the user
   const fetchBlogs = async () => {
@@ -715,7 +733,17 @@ export default function OfficePoolStopHome({
             ref={scoreboardRef}
             onMouseEnter={() => setIsScoreboardHovered(true)}
             onMouseLeave={() => setIsScoreboardHovered(false)}
-            className="flex-1 flex text-[11px] md:text-xs items-center select-none text-white overflow-x-auto scrollbar-none"
+            onTouchStart={() => {
+              if (touchTimeoutRef.current) clearTimeout(touchTimeoutRef.current);
+              setIsScoreboardHovered(true);
+            }}
+            onTouchEnd={() => {
+              if (touchTimeoutRef.current) clearTimeout(touchTimeoutRef.current);
+              touchTimeoutRef.current = setTimeout(() => {
+                setIsScoreboardHovered(false);
+              }, 1800);
+            }}
+            className="flex-1 flex text-[11px] md:text-xs items-center select-none text-white overflow-x-auto scrollbar-none touch-pan-x"
           >
             {liveScoresData.length === 0 ? (
               <div className="flex items-center gap-2 text-emerald-500/80 font-mono text-[9px] uppercase tracking-widest pl-2">
@@ -739,10 +767,10 @@ export default function OfficePoolStopHome({
                   const isFinished = match.status === 'finished';
                   const isPostponed = match.status === 'postponed';
 
-                  let typeStr = 'NOT STARTED';
+                  let typeStr = '';
                   let typeColor = 'text-slate-400';
                   if (isLiveStatus) {
-                    typeStr = 'LIVE';
+                    typeStr = match.minute ? `${match.minute}' LIVE` : 'LIVE';
                     typeColor = 'text-[#FA3E65]';
                   } else if (isFinished) {
                     typeStr = 'FT';
@@ -750,6 +778,9 @@ export default function OfficePoolStopHome({
                   } else if (isPostponed) {
                     typeStr = 'PPD';
                     typeColor = 'text-amber-500';
+                  } else if (match.time || match.kickoff) {
+                    typeStr = match.time || match.kickoff;
+                    typeColor = 'text-slate-400';
                   }
 
                   return (
@@ -762,9 +793,11 @@ export default function OfficePoolStopHome({
                       className="flex items-center border-r border-emerald-950/60 pr-5 pl-2 hover:bg-emerald-950/40 transition cursor-pointer h-full gap-3 text-left shrink-0"
                     >
                       <div className="flex flex-col justify-center">
-                        <span className={`text-[8.5px] font-black tracking-widest font-mono ${typeColor}`}>
-                          {typeStr}
-                        </span>
+                        {typeStr ? (
+                          <span className={`text-[8.5px] font-black tracking-widest font-mono ${typeColor}`}>
+                            {typeStr}
+                          </span>
+                        ) : null}
                         <div className="flex items-center gap-1 mt-0.5 font-bold text-slate-100">
                           <span className="text-[11.5px] tracking-wide">{team1}</span> 
                           <span className="text-amber-300 font-black text-[11px]">{score1}</span>
@@ -992,8 +1025,8 @@ export default function OfficePoolStopHome({
 
                   const snapshotRows = [...rows];
                   const rowCount = snapshotRows.length;
-                  const fontSize = rowCount > 25 ? '8px' : rowCount > 15 ? '9px' : '10px';
-                  const cellPadding = rowCount > 25 ? '3px 5px' : rowCount > 15 ? '4px 6px' : '5px 8px';
+                  const fontSize = rowCount > 35 ? '9.5px' : rowCount > 20 ? '10.5px' : '11.5px';
+                  const cellPadding = rowCount > 35 ? '3.5px 6px' : rowCount > 20 ? '5px 7px' : '6px 8px';
 
                   const printDiv = document.createElement('div');
                   printDiv.id = 'printable-home-results-sheet';
@@ -1295,109 +1328,220 @@ export default function OfficePoolStopHome({
 
             case 'about':
               return (
-                <div className="max-w-5xl mx-auto px-6 py-12 space-y-16 text-left">
-                  {/* Editorial Title */}
-                  <div className="space-y-4 text-center md:text-left max-w-3xl">
-                    <span className="text-xs font-mono font-black text-emerald-400 uppercase tracking-widest bg-emerald-950/40 border border-emerald-900/40 px-3.5 py-1.5 rounded-full inline-block">
-                      📖 FastPool Library & Story
-                    </span>
-                    <h2 className="text-4xl md:text-5xl font-black text-white leading-tight uppercase tracking-tight">
-                      About FastPool.com
+                <div className="max-w-5xl mx-auto px-6 py-12 space-y-16 text-left" id="about-us-page">
+                  {/* Hero & WHO WE ARE */}
+                  <div className="space-y-6 max-w-4xl">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-mono font-black text-emerald-400 uppercase tracking-widest bg-emerald-950/40 border border-emerald-900/40 px-3.5 py-1.5 rounded-full inline-block">
+                        📖 FastPool Library & Heritage
+                      </span>
+                    </div>
+                    <h2 className="text-3xl md:text-5xl font-black text-white leading-tight uppercase tracking-tight">
+                      WHO WE ARE
                     </h2>
-                    <p className="text-slate-300 text-sm md:text-base leading-relaxed font-semibold">
-                      FastPool.com is the ultimate premium analytics and forecasting database designed to decode weekly football pool coupons across the UK, Australian, and Nigerian combined pool seasons.
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-12 pt-4 items-start">
-                    <div className="space-y-6">
-                      <h3 className="text-white text-lg font-black uppercase tracking-wider border-b border-emerald-950 pb-2 flex items-center gap-2">
-                        <span className="text-amber-400">01.</span> Our Legacy & Vision
-                      </h3>
-                      <p className="text-xs md:text-sm text-slate-400 leading-relaxed">
-                        FastPoolCodes was founded in Lagos, Nigeria, originally as a printed weekly forecasting journal for serious pool stakers who permed combinations on local coupons. Over two decades, our forecasting methodology grew from paper calculations into a robust relational digital matrix.
+                    <div className="space-y-4 text-slate-300 text-sm md:text-base leading-relaxed">
+                      <p>
+                        <strong className="text-white font-black">Fastpoolcodes.com</strong> is Africa’s premier digital bridge between traditional pool staking and the modern sports betting ecosystem. Originally founded in Lagos, Nigeria as a printed weekly pool journal for punters perming combinations at local retail kiosks, we are duly registered and trademarked and have evolved into a comprehensive digital sports data platform. We integrate African pool punters and retail shop operators into high-yield digital betting networks across West Africa and the continent at large.
                       </p>
-                      <p className="text-xs md:text-sm text-slate-400 leading-relaxed font-semibold">
-                        In 2026, we launched our digital portal to bypass traditional delay structures. By publishing expert checklists and keys directly to stakers' devices, we empower players across UK, Australian, and West African markets with mathematically sound, verified double-chance forecasts.
-                      </p>
-                    </div>
-
-                    <div className="space-y-6">
-                      <h3 className="text-white text-lg font-black uppercase tracking-wider border-b border-emerald-950 pb-2 flex items-center gap-2">
-                        <span className="text-amber-400">02.</span> Mathematical Sequence Analysis
-                      </h3>
-                      <p className="text-xs md:text-sm text-slate-400 leading-relaxed">
-                        Unlike fixed odds betting, pool perming is a game of combination filtering and mathematical sequence tracking. Each coupon week has an active spacing sequence, a layout keyset, and historical draw matrices.
-                      </p>
-                      <p className="text-xs md:text-sm text-slate-400 leading-relaxed font-semibold">
-                        Our internal decoders verify these sequences using historical data going back to the 1990s. We then compile this intelligence into a single highly encrypted <span className="text-amber-400 font-mono">.txt</span> codesheet, pushing it directly to paid stakers immediately upon release.
+                      <p className="text-slate-400">
+                        By combining decades of deep-rooted pool heritage with advanced data analytics, we deliver carefully curated weekly soccer pool fixtures, betting codes, real-time match data, and cross-platform odds comparisons tailored to specific betting agencies and independent shop owners.
                       </p>
                     </div>
                   </div>
 
-                  {/* Core Values Bento Grid */}
-                  <div className="bg-[#071310]/40 border border-emerald-950 rounded-3xl p-8 space-y-6">
-                    <h3 className="text-white text-base font-black uppercase tracking-wider text-center">
-                      Our Guiding Principles
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <div className="bg-[#020b08] p-5 rounded-2xl border border-emerald-950/80">
-                        <span className="text-2xl">⚡</span>
-                        <h4 className="text-white text-xs font-black uppercase mt-3">Zero Delay Deliveries</h4>
-                        <p className="text-[11px] text-slate-400 mt-1.5 leading-relaxed">
-                          We understand that stakers need codes immediately when coupons are printed. We guarantee instant file delivery inside the dashboard.
+                  {/* OUR CORE PILLARS & OPERATIONAL CAPABILITIES */}
+                  <div className="space-y-8">
+                    <div className="border-b border-emerald-950/80 pb-3">
+                      <h3 className="text-xl md:text-2xl font-black text-white tracking-wide uppercase flex items-center gap-2">
+                        <span className="text-emerald-400">⚡</span>
+                        OUR CORE PILLARS & OPERATIONAL CAPABILITIES
+                      </h3>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      <div className="bg-[#051310]/70 border border-emerald-950/80 p-6 rounded-2xl space-y-3 hover:border-emerald-800 transition">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-950/60 border border-emerald-800/40 flex items-center justify-center text-emerald-400 font-black text-sm">
+                          01
+                        </div>
+                        <h4 className="text-white text-sm font-black uppercase tracking-wide">
+                          Comprehensive Data Compilation & Fixture Engineering
+                        </h4>
+                        <p className="text-xs text-slate-400 leading-relaxed">
+                          We collate, structure, and distribute future match schedules and pool fixtures—including UK, Australian, and global soccer leagues—alongside non-soccer sporting events tailored for retail and digital staking.
                         </p>
                       </div>
-                      <div className="bg-[#020b08] p-5 rounded-2xl border border-emerald-950/80">
-                        <span className="text-2xl">🔒</span>
-                        <h4 className="text-white text-xs font-black uppercase mt-3">Verified Calculations</h4>
-                        <p className="text-[11px] text-slate-400 mt-1.5 leading-relaxed">
-                          Every key sequence published on our blog is double-checked by senior forecasting experts to filter out high-risk variations.
+
+                      <div className="bg-[#051310]/70 border border-emerald-950/80 p-6 rounded-2xl space-y-3 hover:border-emerald-800 transition">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-950/60 border border-emerald-800/40 flex items-center justify-center text-emerald-400 font-black text-sm">
+                          02
+                        </div>
+                        <h4 className="text-white text-sm font-black uppercase tracking-wide">
+                          Odds Comparison & Market Analysis
+                        </h4>
+                        <p className="text-xs text-slate-400 leading-relaxed">
+                          We analyze real-time odds, statistical parameters, and global match trends across major African and international bookmakers to help punters make informed predictions and optimize yield.
                         </p>
                       </div>
-                      <div className="bg-[#020b08] p-5 rounded-2xl border border-emerald-950/80">
-                        <span className="text-2xl">🌍</span>
-                        <h4 className="text-white text-xs font-black uppercase mt-3">Global Community Support</h4>
-                        <p className="text-[11px] text-slate-400 mt-1.5 leading-relaxed">
-                          From Lagos to London, we support stakers with reliable WhatsApp feeds, email helplines, and offline code-sheet verification.
+
+                      <div className="bg-[#051310]/70 border border-emerald-950/80 p-6 rounded-2xl space-y-3 hover:border-emerald-800 transition">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-950/60 border border-emerald-800/40 flex items-center justify-center text-emerald-400 font-black text-sm">
+                          03
+                        </div>
+                        <h4 className="text-white text-sm font-black uppercase tracking-wide">
+                          Automated Code Translation & Digital Distribution
+                        </h4>
+                        <p className="text-xs text-slate-400 leading-relaxed">
+                          We map weekly pool fixtures directly to native booking codes for leading West African betting platforms, streamlining transaction flow for bet shop owners and individual punters alike.
+                        </p>
+                      </div>
+
+                      <div className="bg-[#051310]/70 border border-emerald-950/80 p-6 rounded-2xl space-y-3 hover:border-emerald-800 transition">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-950/60 border border-emerald-800/40 flex items-center justify-center text-emerald-400 font-black text-sm">
+                          04
+                        </div>
+                        <h4 className="text-white text-sm font-black uppercase tracking-wide">
+                          Live Match Tracking & Global Results Aggregation
+                        </h4>
+                        <p className="text-xs text-slate-400 leading-relaxed">
+                          Our platform processes live scores, historical outcome data, and real-time match statistics across diverse sports disciplines to provide immediate post-match verification.
+                        </p>
+                      </div>
+
+                      <div className="bg-[#051310]/70 border border-emerald-950/80 p-6 rounded-2xl space-y-3 hover:border-emerald-800 transition">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-950/60 border border-emerald-800/40 flex items-center justify-center text-emerald-400 font-black text-sm">
+                          05
+                        </div>
+                        <h4 className="text-white text-sm font-black uppercase tracking-wide">
+                          Community & Social Interaction Networks
+                        </h4>
+                        <p className="text-xs text-slate-400 leading-relaxed">
+                          We host digital discussion hubs where sports enthusiasts, seasoned forecasters, and retail agents connect, analyze fixtures, and debate strategy in real time.
+                        </p>
+                      </div>
+
+                      <div className="bg-[#051310]/70 border border-emerald-950/80 p-6 rounded-2xl space-y-3 hover:border-emerald-800 transition">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-950/60 border border-emerald-800/40 flex items-center justify-center text-emerald-400 font-black text-sm">
+                          06
+                        </div>
+                        <h4 className="text-white text-sm font-black uppercase tracking-wide">
+                          Broadcast & Digital Media Rights Management
+                        </h4>
+                        <p className="text-xs text-slate-400 leading-relaxed">
+                          We hold and exploit digital rights to stream, broadcast, and display live global sporting events across our web and mobile applications.
                         </p>
                       </div>
                     </div>
                   </div>
 
-                  {/* Team Placeholder Grid (Google SEO Friendly) */}
-                  <div className="space-y-6">
-                    <div className="text-center md:text-left">
-                      <h3 className="text-white text-lg font-black uppercase tracking-wider">
-                        Meet the Expert Forecasting Decoders
+                  {/* WHAT WE DELIVER EVERY WEEK */}
+                  <div className="bg-[#040f0c] border border-emerald-950/80 rounded-3xl p-8 space-y-6">
+                    <div className="border-b border-emerald-950 pb-3">
+                      <h3 className="text-xl md:text-2xl font-black text-white tracking-wide uppercase flex items-center gap-2">
+                        <span className="text-amber-400">📅</span>
+                        WHAT WE DELIVER EVERY WEEK
                       </h3>
-                      <p className="text-slate-400 text-xs mt-1">
-                        Our administrative panel consists of mathematical modelers, historical analysts, and community advocates.
-                      </p>
                     </div>
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {[
-                        { name: 'Chief forecaster Emmanuel', role: 'Head Decryptor & Technical Architect', bio: 'Specialist in Australian spacing sequences and UK winter coupon draw calculations.' },
-                        { name: 'Solomon Davies', role: 'Senior Database Analyst', bio: 'Manages relational databases and real-time live match integrations.' },
-                        { name: 'Agent FastPool Support', role: 'Community & Customer Advocate', bio: 'Guarantees direct staker communications and WhatsApp community notifications.' }
-                      ].map((member, mIdx) => (
-                        <div key={mIdx} className="bg-gradient-to-b from-[#071310] to-[#020705] border border-emerald-950 p-6 rounded-2xl flex flex-col items-center text-center space-y-4">
-                          <div className="w-24 h-24 rounded-full bg-emerald-950/80 border-2 border-emerald-500/30 flex items-center justify-center relative group overflow-hidden">
-                            <Users className="w-8 h-8 text-emerald-400" />
-                            <div className="absolute inset-0 bg-slate-950/80 opacity-0 group-hover:opacity-100 flex items-center justify-center transition duration-350">
-                              <span className="text-[9px] font-mono font-black text-amber-300">FastPool Staff</span>
-                            </div>
-                          </div>
-                          <div>
-                            <h4 className="text-white text-sm font-black uppercase tracking-wider">{member.name}</h4>
-                            <span className="text-[9.5px] font-mono text-emerald-400 font-extrabold uppercase mt-0.5 block">{member.role}</span>
-                          </div>
-                          <p className="text-[11px] text-slate-400 leading-normal font-semibold">
-                            {member.bio}
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="flex gap-4 items-start bg-[#020705] p-5 rounded-2xl border border-emerald-950/60">
+                        <span className="text-emerald-400 text-xl font-bold">✓</span>
+                        <div className="space-y-1">
+                          <h4 className="text-white text-xs md:text-sm font-black uppercase">
+                            UK & Australian Pool Key Fixtures
+                          </h4>
+                          <p className="text-xs text-slate-400 leading-relaxed">
+                            Standardized weekly coupon releases accompanied by validated matrix codes for instant booking across top-tier bookmakers.
                           </p>
                         </div>
-                      ))}
+                      </div>
+
+                      <div className="flex gap-4 items-start bg-[#020705] p-5 rounded-2xl border border-emerald-950/60">
+                        <span className="text-emerald-400 text-xl font-bold">✓</span>
+                        <div className="space-y-1">
+                          <h4 className="text-white text-xs md:text-sm font-black uppercase">
+                            High-Accuracy Bet Tips & Permutation Matrices
+                          </h4>
+                          <p className="text-xs text-slate-400 leading-relaxed">
+                            Expert mathematical projections designed to boost weekly sales for retail agents and improve hit rates for punters.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-4 items-start bg-[#020705] p-5 rounded-2xl border border-emerald-950/60">
+                        <span className="text-emerald-400 text-xl font-bold">✓</span>
+                        <div className="space-y-1">
+                          <h4 className="text-white text-xs md:text-sm font-black uppercase">
+                            Cross-Market Intelligence
+                          </h4>
+                          <p className="text-xs text-slate-400 leading-relaxed">
+                            In-depth breakdowns of team form, head-to-head metrics, and market movements ahead of every major pool weekend.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-4 items-start bg-[#020705] p-5 rounded-2xl border border-emerald-950/60">
+                        <span className="text-emerald-400 text-xl font-bold">✓</span>
+                        <div className="space-y-1">
+                          <h4 className="text-white text-xs md:text-sm font-black uppercase">
+                            Instant Digital Access
+                          </h4>
+                          <p className="text-xs text-slate-400 leading-relaxed">
+                            Seamless multi-channel delivery of fixture lists, print-ready PDF formats, and live digital feeds directly to mobile devices and retail terminals.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* OUR LEGACY & VISION */}
+                  <div className="bg-gradient-to-r from-[#061813] to-[#020705] border border-emerald-900/40 rounded-3xl p-8 space-y-4">
+                    <h3 className="text-xl md:text-2xl font-black text-white tracking-wide uppercase flex items-center gap-2">
+                      <span className="text-emerald-400">🌟</span>
+                      OUR LEGACY & VISION
+                    </h3>
+                    <div className="space-y-3 text-slate-300 text-xs md:text-sm leading-relaxed">
+                      <p>
+                        From our beginnings as a printed paper circulating through neighborhood kiosks in Lagos to becoming a pan-African sports analytics network, our core mission has remained constant: driving profitability for the African betting community through access, precision, and speed.
+                      </p>
+                      <p className="text-slate-400 font-medium">
+                        As digital adoption accelerates across the continent, Fastpoolcodes.com continues to pioneer tools that empower retail shop owners to scale their revenue while giving punters the data edge required to navigate modern sports markets.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* JOIN THE NETWORK */}
+                  <div className="bg-gradient-to-br from-[#0c2820] to-[#030e0b] border-2 border-emerald-500/40 rounded-3xl p-8 md:p-10 space-y-6 text-center shadow-2xl">
+                    <div className="inline-flex items-center gap-2 bg-emerald-950/80 border border-emerald-500/30 px-4 py-1.5 rounded-full text-xs font-mono font-black text-emerald-400 uppercase tracking-widest">
+                      🤝 Join FastPoolCodes Today
+                    </div>
+                    <h3 className="text-2xl md:text-4xl font-black text-white tracking-tight uppercase">
+                      JOIN THE NETWORK
+                    </h3>
+                    <p className="text-slate-300 text-xs md:text-sm max-w-2xl mx-auto leading-relaxed">
+                      Sign up to our sports community today to receive weekly football pool fixtures, cross-agency betting codes, expert match projections, and live data feeds built to power your betting shop or personal forecasting strategy.
+                    </p>
+                    <div className="pt-2 flex flex-wrap items-center justify-center gap-4">
+                      <button
+                        onClick={() => {
+                          setShowSystemAuth(true);
+                          setAuthMode('signup');
+                        }}
+                        className="bg-[#fa3e65] hover:bg-[#e03055] text-white font-black text-xs md:text-sm uppercase tracking-wider px-8 py-3.5 rounded-xl shadow-lg shadow-rose-950/40 transition active:scale-95 cursor-pointer"
+                      >
+                        Create Free Account
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (onNavigateToCodes) {
+                            onNavigateToCodes();
+                          } else {
+                            triggerToast('Navigating to pool coupon codes...', 'info');
+                          }
+                        }}
+                        className="bg-emerald-950/70 hover:bg-emerald-900 text-emerald-300 border border-emerald-500/30 font-bold text-xs md:text-sm uppercase tracking-wider px-7 py-3.5 rounded-xl transition cursor-pointer"
+                      >
+                        Explore Coupon Codes
+                      </button>
                     </div>
                   </div>
                 </div>

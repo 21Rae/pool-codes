@@ -1746,8 +1746,9 @@ export default function App() {
     }
   };
 
-  const renderFooter = () => (
+  const renderFooter = (isDark = false) => (
     <Footer 
+      isDark={isDark}
       triggerToast={triggerToast} 
       onOpenTerms={() => {
         setTermsOrigin(viewMode === 'portal' ? 'portal' : 'homepage');
@@ -1849,32 +1850,40 @@ export default function App() {
           {renderFooter()}
         </div>
       ) : viewMode === 'livescores' ? (
-        <LiveScoresPage
-          currentUser={currentUser}
-          triggerToast={triggerToast}
-          isInsidePortal={livescoresOrigin === 'portal'}
-          onBack={() => {
-            setViewMode(livescoresOrigin);
-          }}
-        />
+        <div className="flex-1 overflow-y-auto flex flex-col bg-[#030d0a]">
+          <LiveScoresPage
+            currentUser={currentUser}
+            triggerToast={triggerToast}
+            isInsidePortal={livescoresOrigin === 'portal'}
+            onBack={() => {
+              setViewMode(livescoresOrigin);
+            }}
+          />
+          {renderFooter(true)}
+        </div>
       ) : viewMode === 'terms' ? (
-        <TermsOfServicePage
-          onBack={() => {
-            setViewMode(termsOrigin);
-          }}
-          triggerToast={triggerToast}
-        />
+        <div className="flex-1 overflow-y-auto flex flex-col bg-[#040907]">
+          <TermsOfServicePage
+            onBack={() => {
+              setViewMode(termsOrigin);
+            }}
+            triggerToast={triggerToast}
+          />
+          {renderFooter()}
+        </div>
       ) : viewMode === 'help' ? (
-        <HelpCenterPage
-          onBack={() => {
-            setViewMode(helpOrigin);
-          }}
-          triggerToast={triggerToast}
-          onNavigateToCodes={() => {
-            setViewMode('portal');
-          }}
-          renderFooter={renderFooter}
-        />
+        <div className="flex-1 overflow-y-auto flex flex-col bg-[#06110d]">
+          <HelpCenterPage
+            onBack={() => {
+              setViewMode(helpOrigin);
+            }}
+            triggerToast={triggerToast}
+            onNavigateToCodes={() => {
+              setViewMode('portal');
+            }}
+            renderFooter={renderFooter}
+          />
+        </div>
       ) : (
         <div className="h-screen bg-[#090D1A] flex flex-col overflow-hidden text-slate-100">
           {/* Main Application Navigation Header (Styled naturally as key workspace views) */}

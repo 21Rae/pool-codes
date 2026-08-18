@@ -2659,10 +2659,10 @@ export default function CustomerPortal({
                           const isFinished = match.status === 'finished';
                           const isPostponed = match.status === 'postponed';
 
-                          let typeStr = 'NOT STARTED';
+                          let typeStr = '';
                           let typeColor = 'text-slate-500';
                           if (isLiveStatus) {
-                            typeStr = 'LIVE';
+                            typeStr = match.minute ? `${match.minute}' LIVE` : 'LIVE';
                             typeColor = 'text-[#FA3E65]';
                           } else if (isFinished) {
                             typeStr = 'FT';
@@ -2670,18 +2670,23 @@ export default function CustomerPortal({
                           } else if (isPostponed) {
                             typeStr = 'PPD';
                             typeColor = 'text-amber-500';
+                          } else if (match.time || match.kickoff) {
+                            typeStr = match.time || match.kickoff;
+                            typeColor = 'text-slate-500';
                           }
 
                           return (
                             <div 
                               key={`live_match_portal_${idx}_${match.id || ''}`}
-                              onClick={() => triggerToast(`Match Details: ${team1} vs ${team2} (${typeStr})`, 'info')}
+                              onClick={() => triggerToast(`Match Details: ${team1} vs ${team2}${typeStr ? ` (${typeStr})` : ''}`, 'info')}
                               className="flex items-center bg-[#070B14] border border-slate-800 hover:border-slate-700 rounded-xl px-4 py-2.5 transition cursor-pointer gap-4 text-left shadow-md select-none shrink-0"
                             >
                               <div className="flex flex-col justify-center">
-                                <span className={`text-[9px] font-mono font-black tracking-widest ${typeColor}`}>
-                                  {typeStr}
-                                </span>
+                                {typeStr ? (
+                                  <span className={`text-[9px] font-mono font-black tracking-widest ${typeColor}`}>
+                                    {typeStr}
+                                  </span>
+                                ) : null}
                                 <div className="flex items-center gap-2 mt-1 font-black">
                                   <span className="text-neutral-250 text-xs tracking-wide">{team1}</span> 
                                   <span className="text-amber-400 font-black text-xs">{score1}</span>
@@ -5090,31 +5095,23 @@ export default function CustomerPortal({
                                     </span>
                                   </td>
                                   <td className="py-3.5 px-4 text-center">
-                                    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono uppercase font-black tracking-widest ${
-                                      isLiveStatus 
-                                        ? 'bg-emerald-950/70 text-emerald-400 border border-emerald-900/40' 
-                                        : isFinished 
-                                          ? 'bg-slate-850 text-slate-400' 
-                                          : isPostponed
-                                            ? 'bg-amber-950/60 text-amber-500 border border-amber-900/30'
-                                            : 'bg-slate-900/40 text-slate-500'
-                                    }`}>
-                                      {isLiveStatus ? (
-                                        <>
-                                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
-                                          <span>LIVE</span>
-                                        </>
-                                      ) : isFinished ? (
-                                        <>
-                                          <Check className="w-3 h-3 text-emerald-400" />
-                                          <span>FT</span>
-                                        </>
-                                      ) : isPostponed ? (
+                                    {isLiveStatus ? (
+                                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono uppercase font-black tracking-widest bg-emerald-950/70 text-emerald-400 border border-emerald-900/40">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                                        <span>LIVE</span>
+                                      </span>
+                                    ) : isFinished ? (
+                                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono uppercase font-black tracking-widest bg-slate-850 text-slate-400">
+                                        <Check className="w-3 h-3 text-emerald-400" />
+                                        <span>FT</span>
+                                      </span>
+                                    ) : isPostponed ? (
+                                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono uppercase font-black tracking-widest bg-amber-950/60 text-amber-500 border border-amber-900/30">
                                         <span>PPD</span>
-                                      ) : (
-                                        <span>NOT STARTED</span>
-                                      )}
-                                    </span>
+                                      </span>
+                                    ) : (
+                                      <span className="text-slate-600 font-mono text-[11px]">-</span>
+                                    )}
                                   </td>
                                   {currentUser.role === 'admin' && (
                                     <td className="py-3.5 px-4 text-right">
@@ -6740,70 +6737,70 @@ export default function CustomerPortal({
                             const pageWidth = doc.internal.pageSize.getWidth();
                             const pageHeight = doc.internal.pageSize.getHeight();
 
-                            // Top compact header banner (Height: 8mm)
+                            // Top compact header banner (Height: 7mm)
                             doc.setFillColor(15, 23, 42); // slate-900
-                            doc.rect(6, 4, pageWidth - 12, 8, 'F');
+                            doc.rect(5, 3.5, pageWidth - 10, 7, 'F');
                             
                             doc.setTextColor(255, 255, 255);
-                            doc.setFontSize(9);
+                            doc.setFontSize(10);
                             doc.setFont('helvetica', 'bold');
-                            doc.text('FASTPOOLCODES', 9, 9.2);
+                            doc.text('FASTPOOLCODES', 8, 8.2);
                             
                             doc.setTextColor(52, 211, 153); // emerald-400
-                            doc.setFontSize(7);
+                            doc.setFontSize(7.5);
                             doc.setFont('helvetica', 'bold');
-                            doc.text(`[${activeBookmaker.toUpperCase()}] OFFICIAL WEEK ${activeWeekNumber || 43} SHEET`, pageWidth - 9, 9.2, { align: 'right' });
+                            doc.text(`[${activeBookmaker.toUpperCase()}] OFFICIAL WEEK ${activeWeekNumber || 43} SHEET (49 FIXTURES)`, pageWidth - 8, 8.2, { align: 'right' });
 
-                            // Metadata 1-line bar (Height: 4mm)
+                            // Metadata 1-line bar (Height: 3.8mm)
                             doc.setFillColor(248, 250, 252);
                             doc.setDrawColor(226, 232, 240);
-                            doc.rect(6, 12.5, pageWidth - 12, 4, 'FD');
+                            doc.rect(5, 11, pageWidth - 10, 3.8, 'FD');
 
-                            doc.setFontSize(5.8);
+                            doc.setFontSize(6.5);
                             doc.setTextColor(100, 116, 139);
                             doc.setFont('helvetica', 'normal');
-                            doc.text('LICENSEE:', 8, 15.3);
+                            doc.text('LICENSEE:', 7, 13.7);
                             doc.setTextColor(15, 23, 42);
                             doc.setFont('helvetica', 'bold');
-                            doc.text(`@${currentUser?.username || 'user'}`, 20, 15.3);
+                            doc.text(`@${currentUser?.username || 'user'}`, 20, 13.7);
 
                             doc.setFont('helvetica', 'normal');
                             doc.setTextColor(100, 116, 139);
-                            doc.text('EMAIL:', 48, 15.3);
+                            doc.text('EMAIL:', 50, 13.7);
                             doc.setTextColor(15, 23, 42);
                             doc.setFont('helvetica', 'bold');
-                            doc.text(currentUser?.email || 'user@fastpoolcodes.com', 57, 15.3);
+                            doc.text(currentUser?.email || 'user@fastpoolcodes.com', 60, 13.7);
 
                             doc.setFont('helvetica', 'normal');
                             doc.setTextColor(100, 116, 139);
-                            doc.text('SEASON:', 115, 15.3);
+                            doc.text('SEASON:', 118, 13.7);
                             doc.setTextColor(5, 150, 105);
                             doc.setFont('helvetica', 'bold');
-                            doc.text(`WEEK ${activeWeekNumber || 43} (2026)`, 127, 15.3);
+                            doc.text(`WEEK ${activeWeekNumber || 43} (2026)`, 131, 13.7);
 
                             doc.setFont('helvetica', 'normal');
                             doc.setTextColor(100, 116, 139);
-                            doc.text('KEY:', 158, 15.3);
+                            doc.text('KEY:', 162, 13.7);
                             doc.setTextColor(15, 23, 42);
                             doc.setFont('helvetica', 'bold');
-                            doc.text(`SHA256:FPC-${(currentUser?.id || 'guest').slice(0, 5).toUpperCase()}`, 164, 15.3);
+                            doc.text(`SHA256:FPC-${(currentUser?.id || 'guest').slice(0, 5).toUpperCase()}`, 168, 13.7);
 
                             // Compiled By & Contact Enquiries Header Line (Height: 3.5mm)
-                            doc.setFontSize(6.2);
+                            doc.setFontSize(7);
                             doc.setTextColor(15, 23, 42);
                             doc.setFont('helvetica', 'bold');
-                            doc.text('Compiled by Fastpoolcodes.com. For Enquiries Call or WhatsApp: +234 8030587933, +234 9037595705)', 6, 19.5);
+                            doc.text('Compiled by Fastpoolcodes.com • Enquiries / WhatsApp: +234 8030587933, +234 9037595705', 5, 17.8);
 
                             // Table Columns Setup
-                            const tableHeaders: string[] = ['Pool No', 'Bet Code', 'Match Details (Home vs Away)'];
+                            const tableHeaders: string[] = ['Pool', 'Bet Code', 'Match Details (Home vs Away)'];
                             if (pdfConfig.showOdds) {
                               tableHeaders.push('1', 'X', '2');
                             }
                             if (pdfConfig.showTips) {
-                              tableHeaders.push('Expert Tip');
+                              tableHeaders.push('Tip');
                             }
                             if (pdfConfig.showBookmaker) {
-                              tableHeaders.push('Bookmaker');
+                              tableHeaders.push('Bookie');
                             }
 
                             const tableData = pdfFilteredGames.map(game => {
@@ -6825,51 +6822,51 @@ export default function CustomerPortal({
                             });
 
                             autoTable(doc, {
-                              startY: 21,
+                              startY: 19.2,
                               head: [tableHeaders],
                               body: tableData.length > 0 ? tableData : [['-', '-', 'No classified fixtures found', ...tableHeaders.slice(3).map(() => '-')]],
                               theme: 'grid',
-                              margin: { top: 21, bottom: 6, left: 6, right: 6 },
+                              margin: { top: 19.2, bottom: 4.5, left: 5, right: 5 },
                               headStyles: {
                                 fillColor: [15, 23, 42],
                                 textColor: [255, 255, 255],
-                                fontSize: 7.2,
+                                fontSize: 8.5,
                                 fontStyle: 'bold',
                                 halign: 'center',
-                                cellPadding: [0.8, 1],
-                                minCellHeight: 3.5,
+                                cellPadding: [0.8, 0.8],
+                                minCellHeight: 4.2,
                               },
                               bodyStyles: {
-                                fontSize: 6.5,
+                                fontSize: 8.0,
                                 textColor: [15, 23, 42],
-                                cellPadding: [0.45, 0.8],
-                                minCellHeight: 3.0,
+                                cellPadding: [0.75, 0.8],
+                                minCellHeight: 4.8,
                               },
                               alternateRowStyles: {
                                 fillColor: [248, 250, 252],
                               },
                               columnStyles: {
-                                0: { halign: 'center', fontStyle: 'bold', cellWidth: 12 },
-                                1: { halign: 'center', fontStyle: 'bold', cellWidth: 16 },
+                                0: { halign: 'center', fontStyle: 'bold', cellWidth: 14 },
+                                1: { halign: 'center', fontStyle: 'bold', cellWidth: 20 },
                                 2: { halign: 'left', fontStyle: 'bold' },
-                                3: { halign: 'center', cellWidth: 11 },
-                                4: { halign: 'center', cellWidth: 11 },
-                                5: { halign: 'center', cellWidth: 11 },
-                                6: { halign: 'center', cellWidth: 18 },
+                                3: { halign: 'center', cellWidth: 12 },
+                                4: { halign: 'center', cellWidth: 12 },
+                                5: { halign: 'center', cellWidth: 12 },
+                                6: { halign: 'center', cellWidth: 20, fontStyle: 'bold' },
                                 7: { halign: 'center', cellWidth: 20 },
                               },
                               didDrawPage: (data) => {
                                 // Footer on page
-                                doc.setFontSize(5.8);
+                                doc.setFontSize(6.5);
                                 doc.setTextColor(148, 163, 184);
                                 doc.text(
-                                  `FastPoolCodes Official Classified Coupon • Week ${activeWeekNumber || 43} • Licensed to ${currentUser?.email || 'user'} • Page 1 of 1`,
-                                  6,
+                                  `FastPoolCodes Official Classified Coupon • Week ${activeWeekNumber || 43} • Licensed to ${currentUser?.email || 'user'} • Single Page Verified Sheet`,
+                                  5,
                                   pageHeight - 2.5
                                 );
                                 doc.text(
                                   'Compiled by Fastpoolcodes.com (Call/WhatsApp: +234 8030587933, +234 9037595705)',
-                                  pageWidth - 6,
+                                  pageWidth - 5,
                                   pageHeight - 2.5,
                                   { align: 'right' }
                                 );
@@ -7022,15 +7019,15 @@ export default function CustomerPortal({
                     </div>
 
                     {/* Classified Coupon Table */}
-                    <div className="space-y-1">
-                      <div className="text-[9px] font-mono font-black uppercase text-slate-900 tracking-wide flex justify-between items-center">
-                        <span>📋 Compiled by Fastpoolcodes.com. For Enquiries Call/WhatsApp: +234 8030587933, +234 9037595705)</span>
-                        <span className="text-[7.5px] text-emerald-700 font-bold">1-PAGE COMPACT FORMAT</span>
+                    <div className="space-y-1.5">
+                      <div className="text-[10px] font-mono font-black uppercase text-slate-900 tracking-wide flex justify-between items-center">
+                        <span>📋 Compiled by Fastpoolcodes.com • WhatsApp/Enquiries: +234 8030587933, +234 9037595705</span>
+                        <span className="text-[8.5px] text-emerald-700 font-bold">1-PAGE A4 FORMAT (49 ROWS)</span>
                       </div>
 
-                      <table className="w-full text-left font-sans text-[9px] border-collapse">
+                      <table className="w-full text-left font-sans text-[10px] border-collapse">
                         <thead>
-                          <tr className="bg-slate-950 text-white font-mono uppercase text-[7.5px] tracking-wider border border-slate-950">
+                          <tr className="bg-slate-950 text-white font-mono uppercase text-[9px] tracking-wider border border-slate-950">
                             <th className="py-1 px-1.5 border text-center w-[8%]">Pool</th>
                             <th className="py-1 px-1.5 border text-center w-[12%]">Bet Code</th>
                             <th className="py-1 px-1.5 border w-[42%]">Match Details (Home vs Away)</th>
@@ -7084,7 +7081,7 @@ export default function CustomerPortal({
                             if (pdfFilteredGames.length === 0) {
                               return (
                                 <tr>
-                                  <td colSpan={7} className="p-4 text-center text-slate-400 font-mono italic text-[8.5px]">
+                                  <td colSpan={7} className="p-4 text-center text-slate-400 font-mono italic text-[9px]">
                                     No classified fixtures found for the selected bookmaker ({activeBookmaker}).
                                   </td>
                                 </tr>
@@ -7094,7 +7091,7 @@ export default function CustomerPortal({
                             return pdfFilteredGames.map((game, idx) => (
                               <tr 
                                 key={game.id || idx} 
-                                className="text-[8.5px] leading-tight hover:bg-slate-50 transition-colors"
+                                className="text-[9.5px] leading-tight hover:bg-slate-50 transition-colors"
                               >
                                 <td className="py-0.5 px-1 border text-center font-mono font-black text-slate-900 bg-slate-50">
                                   {game.poolNo}
@@ -7108,20 +7105,20 @@ export default function CustomerPortal({
 
                                 {pdfConfig.showOdds && (
                                   <>
-                                    <td className="py-0.5 px-0.5 border text-center font-mono text-slate-600 text-[8px]">{game.homeWin}</td>
-                                    <td className="py-0.5 px-0.5 border text-center font-mono text-slate-600 text-[8px]">{game.draw}</td>
-                                    <td className="py-0.5 px-0.5 border text-center font-mono text-slate-600 text-[8px]">{game.awayWin}</td>
+                                    <td className="py-0.5 px-0.5 border text-center font-mono text-slate-600 text-[8.5px]">{game.homeWin}</td>
+                                    <td className="py-0.5 px-0.5 border text-center font-mono text-slate-600 text-[8.5px]">{game.draw}</td>
+                                    <td className="py-0.5 px-0.5 border text-center font-mono text-slate-600 text-[8.5px]">{game.awayWin}</td>
                                   </>
                                 )}
 
                                 {pdfConfig.showTips && (
-                                  <td className="py-0.5 px-0.5 border text-center font-mono font-black text-emerald-800 text-[7.5px] uppercase">
+                                  <td className="py-0.5 px-0.5 border text-center font-mono font-black text-emerald-800 text-[8.5px] uppercase">
                                     {game.betTips || 'DRAW (X)'}
                                   </td>
                                 )}
 
                                 {pdfConfig.showBookmaker && (
-                                  <td className="py-0.5 px-0.5 border text-center font-mono text-[7.5px] text-slate-500 uppercase">
+                                  <td className="py-0.5 px-0.5 border text-center font-mono text-[8.5px] text-slate-500 uppercase">
                                     {game.bookmaker}
                                   </td>
                                 )}
@@ -7134,7 +7131,7 @@ export default function CustomerPortal({
                   </div>
 
                   {/* Coupon Sheet Footer */}
-                  <div className="border-t border-slate-200 pt-1.5 mt-2 flex items-center justify-between text-[7px] font-mono text-slate-400 relative z-10">
+                  <div className="border-t border-slate-200 pt-1.5 mt-2 flex items-center justify-between text-[8px] font-mono text-slate-400 relative z-10">
                     <span>© 2026 FastPoolCodes Syndicate • Single Page Verified Sheet</span>
                     <span>Compiled by Fastpoolcodes.com • Enquiries: +234 8030587933, +234 9037595705</span>
                   </div>
