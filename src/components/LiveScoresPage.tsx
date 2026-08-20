@@ -20,6 +20,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { getSupabaseClient } from '../lib/supabase';
 import GoogleAdBanner from './GoogleAdBanner';
+import LiveScoresComments from './LiveScoresComments';
 
 interface LiveScoresPageProps {
   currentUser: any;
@@ -45,11 +46,13 @@ export default function LiveScoresPage({
   const [newMatchStatus, setNewMatchStatus] = useState("not_started");
   const [isSubmittingMatch, setIsSubmittingMatch] = useState(false);
   const [isRefreshingLiveScores, setIsRefreshingLiveScores] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'live' | 'finished'>('all');
 
   const isAdmin = currentUser?.role === 'admin';
 
   const fetchLiveScores = async () => {
+    setIsLoading(true);
     try {
       const response = await fetch("/api/livescores");
       if (!response.ok) {
@@ -64,6 +67,8 @@ export default function LiveScoresPage({
       }
     } catch (err) {
       console.warn("Graceful notice: Live scores not yet loaded in stand-alone page (standard behavior).");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -102,8 +107,8 @@ export default function LiveScoresPage({
       container.scrollTo({ top: 0, behavior: 'instant' });
     }
     fetchLiveScores();
-    const interval = setInterval(fetchLiveScores, 5000); // UI fast poll every 5 seconds
 
+    // Event-driven WebSocket push notifications (zero continuous CPU polling)
     const supabase = getSupabaseClient();
     let channel: any = null;
     if (supabase) {
@@ -125,7 +130,6 @@ export default function LiveScoresPage({
     }
 
     return () => {
-      clearInterval(interval);
       if (supabase && channel) {
         try { supabase.removeChannel(channel); } catch (_) {}
       }
@@ -262,6 +266,19 @@ export default function LiveScoresPage({
           </div>
 
           <div className="flex flex-wrap items-center gap-3 self-start md:self-auto">
+            <button
+              onClick={() => {
+                fetchLiveScores();
+                triggerToast("Fetching latest live scores from database...", "info");
+              }}
+              disabled={isLoading}
+              className="flex items-center gap-2 text-xs font-bold font-mono uppercase tracking-wider text-emerald-300 hover:text-white bg-emerald-950/60 hover:bg-emerald-900/60 border border-emerald-500/40 hover:border-emerald-400 px-4 py-3 rounded-xl transition duration-150 cursor-pointer active:scale-95 shadow-md"
+              title="Fetch latest scores from database"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-emerald-400 ${isLoading ? 'animate-spin' : ''}`} />
+              <span>{isLoading ? 'Fetching...' : 'Fetch Latest Records'}</span>
+            </button>
+
             <button
               onClick={onBack}
               className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-emerald-400 hover:text-emerald-300 bg-emerald-950/30 hover:bg-emerald-900/40 border border-emerald-500/20 hover:border-emerald-500/40 px-5 py-3 rounded-xl transition duration-150 cursor-pointer group active:scale-95 text-center font-mono"
@@ -578,6 +595,12 @@ export default function LiveScoresPage({
             </div>
           )}
         </div>
+
+        {/* Live Match Comments & Fan Discussions */}
+        <LiveScoresComments
+          currentUser={currentUser}
+          triggerToast={triggerToast}
+        />
 
         {/* Informative Tip Box */}
         <div className="w-full p-4 bg-emerald-950/10 border border-emerald-950 rounded-2xl flex items-start gap-3 text-left">

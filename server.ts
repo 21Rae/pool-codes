@@ -1220,6 +1220,101 @@ if (!process.env.VERCEL) {
 }
 
 // Live Score Endpoints
+let liveComments: {
+  id: string;
+  match_id?: string;
+  user_id?: string;
+  username: string;
+  comment: string;
+  team_tag?: string;
+  created_at: string;
+  likes: number;
+}[] = [
+  {
+    id: "lc-1",
+    username: "PoolMaster_99",
+    comment: "Week 49 looking very strong on draw perms! Keep eyes on match 12 and 18.",
+    team_tag: "Draw Banker",
+    created_at: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
+    likes: 6
+  },
+  {
+    id: "lc-2",
+    username: "KingsleyVIP",
+    comment: "Arsenal vs Chelsea live game is tight. Solid 1-1 outcome in progress.",
+    team_tag: "Live Draw",
+    created_at: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
+    likes: 4
+  }
+];
+
+app.get("/api/livescores/comments", async (req, res) => {
+  setCacheHeaders(res, 2, 5, 10);
+  const { match_id } = req.query;
+  const supabase = getSupabaseClient();
+  
+  if (supabase) {
+    try {
+      let query = supabase.from("livescore_comments").select("*").order("created_at", { ascending: false }).limit(50);
+      if (match_id) {
+        query = query.eq("match_id", String(match_id));
+      }
+      const { data, error } = await query;
+      if (!error && data && data.length > 0) {
+        return res.json({ success: true, comments: data });
+      }
+    } catch (_) {}
+  }
+  
+  let filtered = liveComments;
+  if (match_id) {
+    filtered = liveComments.filter(c => c.match_id === match_id || !c.match_id);
+  }
+  res.json({ success: true, comments: filtered });
+});
+
+app.post("/api/livescores/comments", async (req, res) => {
+  const { match_id, user_id, username, comment, team_tag } = req.body || {};
+  if (!comment || !String(comment).trim()) {
+    return res.status(400).json({ success: false, error: "Comment text is required." });
+  }
+
+  const newComment = {
+    id: `lc-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    match_id: match_id || undefined,
+    user_id: user_id || "guest",
+    username: username || "Pool Enthusiast",
+    comment: String(comment).trim(),
+    team_tag: team_tag || "General",
+    created_at: new Date().toISOString(),
+    likes: 0
+  };
+
+  liveComments.unshift(newComment);
+  if (liveComments.length > 200) {
+    liveComments = liveComments.slice(0, 200);
+  }
+
+  const supabase = getSupabaseClient();
+  if (supabase) {
+    try {
+      await supabase.from("livescore_comments").insert([newComment]);
+    } catch (_) {}
+  }
+
+  res.json({ success: true, comment: newComment, comments: liveComments });
+});
+
+app.post("/api/livescores/comments/like", (req, res) => {
+  const { id } = req.body || {};
+  const c = liveComments.find(item => item.id === id);
+  if (c) {
+    c.likes = (c.likes || 0) + 1;
+    return res.json({ success: true, likes: c.likes });
+  }
+  res.json({ success: true, likes: 1 });
+});
+
 app.get("/api/livescores", async (req, res) => {
   setCacheHeaders(res, 2, 5, 15);
   await ensureLiveScoresLoaded();

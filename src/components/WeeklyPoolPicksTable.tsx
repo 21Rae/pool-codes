@@ -382,7 +382,7 @@ export default function WeeklyPoolPicksTable({
     }
   }, [activeWeekNumber, triggerToast]);
 
-  // Real-time WebSocket listener & polling
+  // Real-time WebSocket listener (Event-driven only, no continuous polling)
   useEffect(() => {
     fetchPicks(true);
 
@@ -428,22 +428,7 @@ export default function WeeklyPoolPicksTable({
       console.warn('[WeeklyPicks] WebSocket subscription error:', wsErr);
     }
 
-    const interval = setInterval(() => {
-      fetchPicks(true);
-    }, 4000);
-
-    const handleFocus = () => {
-      if (document.visibilityState === 'visible') {
-        fetchPicks(true);
-      }
-    };
-    window.addEventListener('focus', handleFocus);
-    window.addEventListener('visibilitychange', handleFocus);
-
     return () => {
-      clearInterval(interval);
-      window.removeEventListener('focus', handleFocus);
-      window.removeEventListener('visibilitychange', handleFocus);
       if (channel) {
         try {
           const supabase = getSupabaseClient();
@@ -552,19 +537,35 @@ export default function WeeklyPoolPicksTable({
           8: { halign: 'center', fontStyle: 'bold' },
           9: { halign: 'center', fontStyle: 'normal' }
         },
-        didDrawPage: () => {
-          // Security trace watermark across page
+        willDrawPage: () => {
+          // Soft security watermark placed strictly BEHIND the table cells and text
           doc.saveGraphicsState();
-          doc.setTextColor(232, 237, 243);
-          doc.setFontSize(11.5);
+          doc.setTextColor(244, 246, 249);
+          doc.setFontSize(10);
           doc.setFont('helvetica', 'bold');
           const watermarkText = `FASTPOOLCODES • ${primaryEmail}`;
-          for (let x = 15; x < 297; x += 90) {
-            for (let y = 35; y < 210; y += 45) {
+          for (let x = 15; x < 297; x += 95) {
+            for (let y = 35; y < 210; y += 50) {
               doc.text(watermarkText, x, y, { angle: -25 });
             }
           }
           doc.restoreGraphicsState();
+        },
+        didDrawPage: () => {
+          // Official security trace watermark placed in footer BELOW the codes
+          doc.setFontSize(6.5);
+          doc.setTextColor(148, 163, 184);
+          doc.text(
+            `FastPoolCodes Official Classified Sheet • Week ${activeWeekNumber} • Licensed to ${primaryEmail} • Single Page Verified Copy`,
+            14,
+            202
+          );
+          doc.text(
+            'Compiled by Fastpoolcodes.com (Call/WhatsApp: +234 8030587933, +234 9037595705)',
+            283,
+            202,
+            { align: 'right' }
+          );
         }
       });
 
@@ -709,28 +710,19 @@ export default function WeeklyPoolPicksTable({
 
           {/* Top Quick Actions */}
           <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-            {/* Sync Live Button */}
+            {/* Fetch Latest Records Button */}
             <button
               onClick={() => fetchPicks(false)}
               disabled={isLoading}
-              className="px-3.5 py-2.5 bg-slate-800/80 hover:bg-slate-700 active:scale-95 border border-slate-700 hover:border-emerald-500/50 text-slate-200 hover:text-white rounded-xl text-xs font-bold font-mono uppercase tracking-wider transition cursor-pointer flex items-center gap-1.5 shadow-md"
-              title="Sync latest live rows from Supabase"
+              className="px-3.5 py-2.5 bg-emerald-950/40 hover:bg-emerald-900/60 active:scale-95 border border-emerald-500/40 hover:border-emerald-400 text-emerald-300 rounded-xl text-xs font-bold font-mono uppercase tracking-wider transition cursor-pointer flex items-center gap-1.5 shadow-md"
+              title="Fetch latest verified records from database"
             >
               <RefreshCw className={`w-3.5 h-3.5 text-emerald-400 ${isLoading ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline">Sync Live</span>
+              <span>{isLoading ? 'Fetching...' : 'Fetch Latest Records'}</span>
             </button>
 
             {hasAccess ? (
               <>
-                <button
-                  onClick={handleCopyAllCodes}
-                  className="px-3.5 py-2.5 bg-slate-800/80 hover:bg-slate-700 active:scale-95 border border-slate-700 text-slate-200 hover:text-white rounded-xl text-xs font-bold font-mono uppercase tracking-wider transition cursor-pointer flex items-center gap-1.5 shadow-md"
-                  title="Copy all bet codes separated by commas"
-                >
-                  {isCopiedAll ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-slate-400" />}
-                  <span>{isCopiedAll ? 'Codes Copied!' : 'Copy All Bet Codes'}</span>
-                </button>
-
                 <button
                   onClick={handleExportPDF}
                   className="px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 active:scale-95 text-slate-950 rounded-xl text-xs font-black uppercase tracking-wider transition cursor-pointer flex items-center gap-1.5 shadow-lg shadow-emerald-950/40"

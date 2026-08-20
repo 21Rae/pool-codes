@@ -30,12 +30,17 @@ import {
   Share2,
   Copy,
   KeyRound,
-  Layers
+  Layers,
+  ChevronDown,
+  LayoutDashboard,
+  LogIn,
+  LogOut
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import ExpertBlogView from './ExpertBlogView';
 import GoogleAdBanner from './GoogleAdBanner';
 import PoolCodesComparisonTable from './PoolCodesComparisonTable';
+import LiveScoresComments from './LiveScoresComments';
 import { getSupabaseClient } from '../lib/supabase';
 import { INITIAL_PLANS, isGhanaPlan, getMergedSubscriptionPlans, getSortedComparisonPlans, getBookmakersByCountry, isGhanaBookmaker } from '../initialData';
 
@@ -270,8 +275,6 @@ export default function OfficePoolStopHome({
       }
     };
     fetchLiveScores();
-    const interval = setInterval(fetchLiveScores, 10000);
-    return () => clearInterval(interval);
   }, []);
 
   const scoreboardRef = useRef<HTMLDivElement>(null);
@@ -394,22 +397,7 @@ export default function OfficePoolStopHome({
       }
     }
 
-    // 2. Automatic periodic background sync fallback (every 10 seconds)
-    const pollInterval = setInterval(() => {
-      fetchBlogs();
-    }, 10000);
-
-    // 3. Re-fetch immediately when user returns to tab
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        fetchBlogs();
-      }
-    };
-    window.addEventListener('visibilitychange', handleVisibilityChange);
-
     return () => {
-      clearInterval(pollInterval);
-      window.removeEventListener('visibilitychange', handleVisibilityChange);
       if (supabase && activeChannel) {
         try {
           supabase.removeChannel(activeChannel);
@@ -720,6 +708,50 @@ export default function OfficePoolStopHome({
             })}
           </nav>
 
+          <div className="flex items-center gap-2 self-start lg:self-auto shrink-0">
+            {currentUser && currentUser.id && currentUser.id !== 'guest' ? (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={onSignIn}
+                  className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-950 bg-gradient-to-r from-emerald-400 to-teal-300 hover:from-emerald-300 hover:to-teal-200 px-4 py-2 rounded-xl transition duration-150 cursor-pointer active:scale-95 shadow-md shadow-emerald-500/20 border border-emerald-300/40"
+                  title="Return to your Pool Codes Dashboard"
+                >
+                  <LayoutDashboard className="w-3.5 h-3.5" />
+                  <span>MY DASHBOARD</span>
+                </button>
+                <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-950/70 border border-emerald-500/30 text-emerald-300 text-xs font-mono font-bold">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span className="truncate max-w-[110px]">@{currentUser.username}</span>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => {
+                  setShowSystemAuth(true);
+                  setAuthMode('login');
+                }}
+                className="flex items-center gap-1.5 text-xs font-bold font-mono uppercase tracking-wider text-emerald-400 hover:text-white bg-emerald-950/60 hover:bg-emerald-900 border border-emerald-500/40 hover:border-emerald-400 px-3.5 py-2 rounded-xl transition duration-150 cursor-pointer active:scale-95 shadow-sm"
+                title="Sign in to your account"
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                <span>SIGN IN</span>
+              </button>
+            )}
+
+            <button
+              onClick={async () => {
+                triggerToast('Fetching latest records from database...', 'info');
+                await fetchBlogs();
+                triggerToast('Homepage feeds & records successfully updated!', 'success');
+              }}
+              disabled={isBlogsLoading}
+              className="flex items-center gap-2 text-xs font-bold font-mono uppercase tracking-wider text-emerald-300 hover:text-white bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/50 hover:border-emerald-400 px-3.5 py-2 rounded-xl transition duration-150 cursor-pointer active:scale-95 shadow-md"
+              title="Fetch latest verified records from database"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-emerald-400 ${isBlogsLoading ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">{isBlogsLoading ? 'Fetching...' : 'Fetch Latest Records'}</span>
+            </button>
+          </div>
 
         </div>
 
@@ -966,6 +998,12 @@ export default function OfficePoolStopHome({
                     })}
                   </div>
 
+                  {/* Live Match Comments & Fan Discussion */}
+                  <LiveScoresComments
+                    currentUser={currentUser}
+                    triggerToast={triggerToast}
+                  />
+
                   {/* Pool disclaimer */}
                   <div className="bg-emerald-950/20 border border-emerald-900/30 rounded-2xl p-6 flex items-start gap-4 mt-8">
                     <span className="text-2xl">📢</span>
@@ -1141,187 +1179,195 @@ export default function OfficePoolStopHome({
               };
 
               return (
-                <div className="max-w-7xl mx-auto px-6 py-12 space-y-8 text-left">
-                  <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10 space-y-6 text-left">
+                  <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-2 border-b border-emerald-950/40">
                     <div className="space-y-2">
-                      <span className="text-xs font-mono font-black text-emerald-400 uppercase tracking-widest bg-emerald-950/40 border border-emerald-900/40 px-3 py-1 rounded-full">
+                      <span className="text-xs font-mono font-black text-emerald-400 uppercase tracking-widest bg-emerald-950/40 border border-emerald-900/40 px-3 py-1 rounded-full inline-block">
                         🏆 Adjudicated Archives
                       </span>
-                      <h2 className="text-3xl font-black text-white tracking-tight uppercase">
+                      <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight uppercase">
                         Official Weekly Pool Results
                       </h2>
-                      <p className="text-slate-400 text-xs md:text-sm max-w-xl leading-relaxed font-semibold">
-                        Verify payouts and coupon draw codes from completed seasons. Click on any week to view individual full-fixture outcomes.
+                      <p className="text-slate-400 text-xs sm:text-sm max-w-2xl leading-relaxed font-semibold">
+                        Verify payouts and coupon draw codes from completed seasons. Select any week from the dropdown below to view individual full-fixture outcomes.
                       </p>
-                    </div>
-
-                    {/* Search Field */}
-                    <div className="w-full md:w-80">
-                      <input
-                        type="text"
-                        placeholder="Search by week or title..."
-                        value={resultsSearchQuery}
-                        onChange={(e) => setResultsSearchQuery(e.target.value)}
-                        className="w-full bg-[#071310] border border-emerald-950 rounded-xl px-4.5 py-3 text-xs text-white focus:outline-none focus:border-emerald-600 transition font-mono font-bold"
-                      />
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pt-4">
-                    {/* List of weeks */}
-                    <div className="lg:col-span-5 space-y-4">
-                      {filteredResults.length === 0 ? (
-                        <div className="p-8 text-center bg-[#071310]/50 border border-emerald-950 rounded-2xl text-slate-500 text-xs font-bold">
-                          No results found matching search terms.
+                  {(() => {
+                    const activeResult = resultsList.find(x => x.id === (selectedResultId || (filteredResults[0] && filteredResults[0].id) || (resultsList[0] && resultsList[0].id)));
+                    
+                    if (!activeResult) {
+                      return (
+                        <div className="p-12 text-center bg-[#071310]/50 border border-emerald-950 rounded-2xl text-slate-500 text-xs font-bold font-mono">
+                          No pool results sheets are currently loaded in the system.
                         </div>
-                      ) : (
-                        filteredResults.map((result: any) => {
-                          const isSelected = selectedResultId === result.id || (!selectedResultId && filteredResults[0].id === result.id);
-                          const totalDraws = (result.results_table || []).filter((x: any) => x.outcome === 'DRAW').length;
-                          return (
-                            <div 
-                              key={result.id}
-                              onClick={() => setSelectedResultId(result.id)}
-                              className={`p-5 rounded-2xl border transition cursor-pointer text-left relative overflow-hidden flex flex-col gap-3 ${
-                                isSelected 
-                                  ? 'bg-gradient-to-r from-emerald-950/50 to-[#04150f] border-emerald-500/50' 
-                                  : 'bg-gradient-to-r from-zinc-950 to-zinc-900/10 border-emerald-950 hover:border-emerald-900/40'
-                              }`}
-                            >
-                              <div className="flex items-center justify-between">
-                                <span className="text-[10px] font-mono font-black text-emerald-400 uppercase tracking-wider">
-                                  Week {result.week_number} • Year {result.season_year}
-                                </span>
-                                <span className="bg-emerald-950 text-emerald-400 text-[9px] font-mono font-black px-2 py-0.5 rounded border border-emerald-900/30">
-                                  {totalDraws} DRAWS CLEARED
-                                </span>
-                              </div>
-                              <h3 className="font-extrabold text-white text-sm uppercase leading-tight font-sans tracking-wide">
-                                {result.title}
-                              </h3>
-                              <div className="flex items-center justify-between text-[11px] text-slate-400 font-bold border-t border-emerald-950/40 pt-3 mt-1">
-                                <span>Fixture Date: {result.fixture_date || 'N/A'}</span>
-                                <span className="text-amber-300 flex items-center gap-1">
-                                  View details <span>→</span>
-                                </span>
-                              </div>
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
+                      );
+                    }
 
-                    {/* Week Details Table */}
-                    <div className="lg:col-span-7">
-                      {(() => {
-                        const activeResult = resultsList.find(x => x.id === (selectedResultId || (filteredResults[0] && filteredResults[0].id)));
-                        if (!activeResult) {
-                          return (
-                            <div className="p-12 text-center bg-[#071310]/30 border border-emerald-950 rounded-2xl text-slate-500 text-xs font-bold">
-                              Select a week to view comprehensive draw listings.
-                            </div>
-                          );
-                        }
+                    const totalDraws = (activeResult.results_table || []).filter((x: any) => x.outcome === 'DRAW').length;
+                    const totalMatches = (activeResult.results_table || []).length;
 
-                        const activeResultRows = (activeResult.results_table || []).filter((row: any) => {
-                          if (!resultsTableSearch) return true;
-                          const s = resultsTableSearch.toLowerCase();
-                          return (
-                            row.homeTeam?.toLowerCase().includes(s) ||
-                            row.awayTeam?.toLowerCase().includes(s) ||
-                            row.outcome?.toLowerCase().includes(s) ||
-                            row.payoutStatus?.toLowerCase().includes(s) ||
-                            row.matchNo?.toString().includes(s) ||
-                            row.fullTimeScore?.toString().includes(s)
-                          );
-                        });
+                    const activeResultRows = (activeResult.results_table || []).filter((row: any) => {
+                      if (!resultsTableSearch) return true;
+                      const s = resultsTableSearch.toLowerCase();
+                      return (
+                        row.homeTeam?.toLowerCase().includes(s) ||
+                        row.awayTeam?.toLowerCase().includes(s) ||
+                        row.outcome?.toLowerCase().includes(s) ||
+                        row.payoutStatus?.toLowerCase().includes(s) ||
+                        row.matchNo?.toString().includes(s) ||
+                        row.fullTimeScore?.toString().includes(s)
+                      );
+                    });
 
-                        return (
-                          <div className="bg-[#071310]/60 border border-emerald-950/80 rounded-2xl overflow-hidden shadow-xl flex flex-col">
-                            <div className="p-5 border-b border-emerald-950 flex items-center justify-between bg-gradient-to-r from-[#071310] to-[#040e0b]">
-                              <div className="text-left">
-                                <span className="text-[9px] font-mono font-black text-amber-400 uppercase tracking-widest block">
-                                  Active Record Sheet
-                                </span>
-                                <h3 className="text-white font-extrabold text-sm uppercase tracking-wide mt-0.5">
-                                  {activeResult.title}
-                                </h3>
-                              </div>
-                              <button
-                                onClick={() => handleExportPDF(activeResult)}
-                                className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-[10px] uppercase tracking-wider px-3.5 py-2 rounded-lg flex items-center gap-1.5 cursor-pointer transition shadow shadow-emerald-500/10"
+                    return (
+                      <div className="space-y-5">
+                        {/* Dropdown Selector Bar & Fixtures Search */}
+                        <div className="bg-[#071310]/80 border border-emerald-950/90 rounded-2xl p-4 sm:p-5 shadow-xl flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+                          {/* Week Dropdown */}
+                          <div className="flex-1 min-w-0 space-y-1.5">
+                            <label className="text-[10px] font-mono font-black text-emerald-400 uppercase tracking-wider block">
+                              Select Pool Results Week
+                            </label>
+                            <div className="relative">
+                              <select
+                                value={activeResult.id}
+                                onChange={(e) => {
+                                  setSelectedResultId(e.target.value);
+                                  setResultsTableSearch('');
+                                }}
+                                className="w-full bg-[#030a07] text-white border border-emerald-900/60 rounded-xl px-4 py-3 text-xs sm:text-sm font-mono font-bold focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition cursor-pointer appearance-none pr-10"
                               >
-                                <span>📄 Download PDF</span>
-                              </button>
+                                {resultsList.map((res: any) => {
+                                  const draws = (res.results_table || []).filter((x: any) => x.outcome === 'DRAW').length;
+                                  return (
+                                    <option key={res.id} value={res.id} className="bg-slate-950 text-white py-2">
+                                      WEEK {res.week_number} • Year {res.season_year || 2026} — {res.title} ({draws} Draws)
+                                    </option>
+                                  );
+                                })}
+                              </select>
+                              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3.5 text-emerald-400">
+                                <ChevronDown className="w-4 h-4" />
+                              </div>
                             </div>
+                          </div>
 
-                            {/* Detailed Results Table Search Filter */}
-                            <div className="px-5 py-3 border-b border-emerald-950/45 bg-[#030a07] flex items-center justify-between gap-3">
+                          {/* Fixtures Search in Active Sheet */}
+                          <div className="w-full lg:w-80 space-y-1.5">
+                            <label className="text-[10px] font-mono font-black text-slate-400 uppercase tracking-wider block">
+                              Filter Fixtures / Teams
+                            </label>
+                            <div className="relative">
                               <input
                                 type="text"
-                                placeholder="Filter fixtures (e.g. Arsenal, Chelsea, DRAW)..."
+                                placeholder="Filter e.g. Arsenal, Chelsea, DRAW..."
                                 value={resultsTableSearch}
                                 onChange={(e) => setResultsTableSearch(e.target.value)}
-                                className="w-full bg-[#071310] border border-emerald-950/80 rounded-lg px-3 py-1.5 text-[11px] text-white focus:outline-none focus:border-emerald-600 transition font-mono"
+                                className="w-full bg-[#030a07] border border-emerald-900/60 rounded-xl px-3.5 py-3 text-xs text-white focus:outline-none focus:border-emerald-500 transition font-mono placeholder:text-slate-600"
                               />
                               {resultsTableSearch && (
                                 <button
                                   onClick={() => setResultsTableSearch('')}
-                                  className="text-[10px] text-slate-400 hover:text-white uppercase font-mono font-bold shrink-0"
+                                  className="absolute right-3 top-3 text-[10px] text-slate-400 hover:text-white uppercase font-mono font-bold"
                                 >
                                   Clear
                                 </button>
                               )}
                             </div>
+                          </div>
+                        </div>
 
-                            <div className="overflow-x-auto">
-                              <table className="w-full text-left border-collapse text-xs">
-                                <thead>
-                                  <tr className="bg-[#020b08] text-emerald-400 font-mono text-[9px] font-bold uppercase tracking-widest border-b border-emerald-950">
-                                    <th className="py-3.5 px-4 text-center">No</th>
-                                    <th className="py-3.5 px-4">Match Fixture</th>
-                                    <th className="py-3.5 px-4 text-center">FT Score</th>
-                                    <th className="py-3.5 px-4 text-center">Outcome</th>
-                                    <th className="py-3.5 px-4 text-right">Status</th>
+                        {/* Active Result Card & Table */}
+                        <div className="bg-[#071310]/60 border border-emerald-950/80 rounded-2xl overflow-hidden shadow-xl flex flex-col">
+                          {/* Active Header with Badges */}
+                          <div className="p-4 sm:p-5 border-b border-emerald-950/80 bg-gradient-to-r from-[#071310] via-[#04120e] to-[#020b08] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div className="space-y-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="text-[9px] font-mono font-black text-amber-400 uppercase tracking-widest bg-amber-950/40 border border-amber-900/40 px-2 py-0.5 rounded">
+                                  Active Record Sheet
+                                </span>
+                                <span className="text-[10px] font-mono font-black text-emerald-400">
+                                  Week {activeResult.week_number} • Year {activeResult.season_year || 2026}
+                                </span>
+                              </div>
+                              <h3 className="text-white font-extrabold text-base sm:text-lg uppercase tracking-wide">
+                                {activeResult.title}
+                              </h3>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-2 font-mono text-xs">
+                              <span className="bg-emerald-950/80 text-emerald-400 text-[10px] font-black px-2.5 py-1.5 rounded-lg border border-emerald-900/40">
+                                {totalDraws} DRAWS CLEARED
+                              </span>
+                              <span className="bg-slate-900 text-slate-300 text-[10px] font-bold px-2.5 py-1.5 rounded-lg border border-slate-800">
+                                {totalMatches} FIXTURES
+                              </span>
+                              {activeResult.fixture_date && (
+                                <span className="bg-slate-900/80 text-slate-400 text-[10px] font-bold px-2.5 py-1.5 rounded-lg border border-slate-800">
+                                  {activeResult.fixture_date}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Full Width Fixtures Table */}
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse text-xs">
+                              <thead>
+                                <tr className="bg-[#020b08] text-emerald-400 font-mono text-[10px] font-bold uppercase tracking-widest border-b border-emerald-950">
+                                  <th className="py-3.5 px-4 text-center w-14">No</th>
+                                  <th className="py-3.5 px-4">Match Fixture</th>
+                                  <th className="py-3.5 px-4 text-center w-28">FT Score</th>
+                                  <th className="py-3.5 px-4 text-center w-28">Outcome</th>
+                                  <th className="py-3.5 px-4 text-right w-28">Status</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-emerald-950/35 font-semibold text-slate-300">
+                                {activeResultRows.length === 0 ? (
+                                  <tr>
+                                    <td colSpan={5} className="py-10 text-center text-slate-500 font-mono text-xs">
+                                      No matches found matching filter "{resultsTableSearch}".
+                                    </td>
                                   </tr>
-                                </thead>
-                                <tbody className="divide-y divide-emerald-950/35 font-semibold text-slate-300">
-                                  {activeResultRows.map((row: any, rIdx: number) => {
+                                ) : (
+                                  activeResultRows.map((row: any, rIdx: number) => {
                                     const isDraw = row.outcome === 'DRAW';
                                     return (
-                                      <tr key={rIdx} className={`hover:bg-emerald-950/20 transition ${isDraw ? 'bg-amber-950/10' : ''}`}>
-                                        <td className="py-3 px-4 text-center text-amber-300 font-mono font-bold">
+                                      <tr key={rIdx} className={`hover:bg-emerald-950/20 transition ${isDraw ? 'bg-amber-950/15' : ''}`}>
+                                        <td className="py-3.5 px-4 text-center text-amber-300 font-mono font-bold">
                                           {row.matchNo}
                                         </td>
-                                        <td className="py-3 px-4 text-white">
-                                          {row.homeTeam} <span className="text-slate-550 font-medium">vs</span> {row.awayTeam}
+                                        <td className="py-3.5 px-4 text-white font-medium">
+                                          {row.homeTeam} <span className="text-slate-500 font-normal mx-1">vs</span> {row.awayTeam}
                                         </td>
-                                        <td className="py-3 px-4 text-center font-mono font-black text-amber-300">
+                                        <td className="py-3.5 px-4 text-center font-mono font-black text-amber-300 text-sm">
                                           {row.fullTimeScore}
                                         </td>
-                                        <td className="py-3 px-4 text-center">
-                                          <span className={`text-[9px] font-mono font-black px-2 py-0.5 rounded border ${
+                                        <td className="py-3.5 px-4 text-center">
+                                          <span className={`text-[9px] font-mono font-black px-2.5 py-1 rounded border ${
                                             isDraw 
-                                              ? 'bg-amber-500/10 text-amber-300 border-amber-500/20' 
+                                              ? 'bg-amber-500/15 text-amber-300 border-amber-500/30 font-extrabold' 
                                               : 'bg-emerald-950/40 text-emerald-400 border-emerald-900/30'
                                           }`}>
                                             {row.outcome}
                                           </span>
                                         </td>
-                                        <td className="py-3 px-4 text-right text-slate-400 font-mono text-[10px]">
+                                        <td className="py-3.5 px-4 text-right text-slate-400 font-mono text-[10px]">
                                           {row.payoutStatus || 'CLEARED'}
                                         </td>
                                       </tr>
                                     );
-                                  })}
-                                </tbody>
-                              </table>
-                            </div>
+                                  })
+                                )}
+                              </tbody>
+                            </table>
                           </div>
-                        );
-                      })()}
-                    </div>
-                  </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             }

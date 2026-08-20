@@ -54,19 +54,23 @@ import {
   RefreshCw,
   Database,
   BookOpen,
-  Share2
+  Share2,
+  Sliders,
+  CheckCircle2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DatabaseState, User, SubscriptionPlan, UserSubscription, PoolCode, parseComponents } from '../types';
 import WeeklyPoolPicksTable from './WeeklyPoolPicksTable';
 import { getSupabaseClient } from '../lib/supabase';
 import GoogleAdBanner from './GoogleAdBanner';
+import LiveScoresComments from './LiveScoresComments';
 import {
   INITIAL_PLANS,
   isGhanaPlan,
   getMergedSubscriptionPlans,
   getSortedComparisonPlans,
   isGhanaBookmaker,
+  isPaymentDisabledBookmaker,
   getMergedBookmakers,
   getBookmakersByCountry,
   INITIAL_BET9JA,
@@ -362,51 +366,85 @@ export default function CustomerPortal({
   const [streamSubscribed, setStreamSubscribed] = useState(false);
   const [streamReminders, setStreamReminders] = useState<Record<string, boolean>>({});
 
-  // Dashboard Header Posts Carousel (Top 3 Blogs)
+  // Dashboard Header Posts Carousel & Selection Management
+  const [allAvailableBlogs, setAllAvailableBlogs] = useState<any[]>([]);
+  const [showCarouselManager, setShowCarouselManager] = useState(false);
+  const [carouselSearchFilter, setCarouselSearchFilter] = useState('');
+  const [selectedCarouselIds, setSelectedCarouselIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('fastpool_carousel_selected_ids');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (_) {}
+    return [];
+  });
+
   const [dashboardBlogs, setDashboardBlogs] = useState<any[]>([
     {
-      id: 'week-7-sportybet-header-post',
-      title: 'Download Week 7 Sportybet Pool Codes (Nigeria): UK Pool Fixtures – 15th August, 2026 [PREMIUM CONTENT]',
-      summary: 'These are Sportybet pool codes for week 7. Log in to download it',
-      content: `### Download Week 7 Sportybet Pool Codes (Nigeria): UK Pool Fixtures – 15th August, 2026 [PREMIUM CONTENT]\n\nWelcome to FastPoolCodes official decrypted Sportybet pool codes for Week 7 (15th August, 2026). Below you will find key numbers, match numbers, odds, and predictions for this week's UK Pool fixtures on Sportybet Nigeria.\n\n#### Key Features & Highlights:\n- **Official UK Fixtures**: Decrypted directly from primary UK football pool papers.\n- **Sportybet Booking Codes**: Instant access to verified Sportybet booking codes for fast placement.\n- **High Precision Odds**: Comprehensive odds analysis across all 49 matches.\n\nLog in or subscribe to your SportyBet pool code table to download the full decrypted codesheet in your dashboard below!`,
-      date: 'Aug 10, 2026',
+      id: 'week-43-sportybet-header-post',
+      title: 'Download Week 43 Sportybet Pool Codes (Nigeria): UK Pool Fixtures & Banker Codes',
+      summary: 'Verified Sportybet pool codes, weekly coupon draws, and high-probability bankers for coupon players.',
+      content: `### Download Week 43 Sportybet Pool Codes (Nigeria): UK Pool Fixtures [PREMIUM CONTENT]\n\nWelcome to FastPoolCodes official decrypted Sportybet pool codes for Week 43. Below you will find key numbers, match numbers, odds, and predictions for this week's UK Pool fixtures.\n\n#### Key Highlights:\n- **Official UK Fixtures**: Decrypted directly from primary UK football pool papers.\n- **Sportybet Booking Codes**: Instant access to verified Sportybet booking codes for fast placement.\n- **High Precision Odds**: Comprehensive odds analysis across all matches.`,
+      date: 'Apr 25, 2026',
       readTime: '2 mins',
       image_url: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=1200&q=80',
       category: 'ARTICLE',
       badge: '★ COVER STORY',
       bookmaker: 'SportyBet',
-      week_number: 7
+      week_number: 43
     },
     {
-      id: 'week-7-bet9ja-header-post',
-      title: 'Decrypted Week 7 Bet9ja Pool Codes & Banker Pairings – UK Pool Fixtures 2026',
-      summary: 'Verified Week 7 Bet9ja coupon codes, dead games, and high-probability bankers for coupon players.',
-      content: `### Decrypted Week 7 Bet9ja Pool Codes & Banker Pairings\n\nOfficial decrypted Bet9ja table fixtures with high confidence draw probabilities, key codes, and banker pairings.\n\n- **100% Validated Codes**: Matched with Saturday pool sheets.\n- **Instant Bet9ja Booking**: Copy codes directly into your ticket.`,
-      date: 'Aug 12, 2026',
+      id: 'week-43-bet9ja-header-post',
+      title: 'Decrypted Week 43 Bet9ja Pool Codes & Banker Pairings – UK Pool Fixtures',
+      summary: 'Verified Week 43 Bet9ja coupon codes, dead games, and high-probability bankers for coupon players.',
+      content: `### Decrypted Week 43 Bet9ja Pool Codes & Banker Pairings\n\nOfficial decrypted Bet9ja table fixtures with high confidence draw probabilities, key codes, and banker pairings.\n\n- **100% Validated Codes**: Matched with Saturday pool sheets.\n- **Instant Bet9ja Booking**: Copy codes directly into your ticket.`,
+      date: 'Apr 24, 2026',
       readTime: '3 mins',
       image_url: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=1200&q=80',
       category: 'ANALYSIS',
       badge: '★ TRENDING',
       bookmaker: 'Bet9ja',
-      week_number: 7
+      week_number: 43
     },
     {
-      id: 'week-7-betking-header-post',
-      title: 'Week 7 BetKing Pool Codes & Telegraph Matrix Summary (Classified)',
+      id: 'week-43-betking-header-post',
+      title: 'Week 43 BetKing Pool Codes & Telegraph Matrix Summary (Classified)',
       summary: 'Complete BetKing UK pools fixture breakdown with telegraph matrix analysis and verified odds.',
-      content: `### Week 7 BetKing Pool Codes & Telegraph Matrix Summary\n\nAccess our classified BetKing codes and analysis for this week's coupon games.`,
-      date: 'Aug 13, 2026',
+      content: `### Week 43 BetKing Pool Codes & Telegraph Matrix Summary\n\nAccess our classified BetKing codes and analysis for this week's coupon games.`,
+      date: 'Apr 23, 2026',
       readTime: '2 mins',
       image_url: 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?auto=format&fit=crop&w=1200&q=80',
       category: 'PREDICTION',
       badge: '★ EXCLUSIVE',
       bookmaker: 'BetKing',
-      week_number: 7
+      week_number: 43
     }
   ]);
   const [activeCarouselIdx, setActiveCarouselIdx] = useState(0);
   const [isCarouselHovered, setIsCarouselHovered] = useState(false);
   const [selectedDashboardArticle, setSelectedDashboardArticle] = useState<any | null>(null);
+
+  // Sync Carousel items whenever available blogs or selection IDs change
+  const syncCarouselItems = (available: any[], chosenIds: string[]) => {
+    if (!available || available.length === 0) return;
+    
+    if (chosenIds && chosenIds.length > 0) {
+      const matched = chosenIds
+        .map(id => available.find(b => String(b.id) === String(id)))
+        .filter(Boolean);
+      if (matched.length > 0) {
+        setDashboardBlogs(matched);
+        setActiveCarouselIdx(0);
+        return;
+      }
+    }
+    
+    // Default to newest published blogs (top 3-5)
+    setDashboardBlogs(available.slice(0, 5));
+    setActiveCarouselIdx(0);
+  };
 
   useEffect(() => {
     const loadDashboardBlogs = async () => {
@@ -415,29 +453,48 @@ export default function CustomerPortal({
         if (res.ok) {
           const json = await res.json();
           if (json.success && Array.isArray(json.data) && json.data.length > 0) {
-            const parsedBlogs = json.data.slice(0, 3).map((b: any, idx: number) => ({
-              id: b.id || `blog-${idx}`,
-              title: b.title || b.heading || `Week 7 Classified Pool Codes & Analysis #${idx + 1}`,
-              summary: b.summary || b.description || 'Verified pool codes and expert match predictions. Log in to download the full decrypted codesheet.',
-              content: b.content || b.body || 'Classified pool codes details and predictions.',
-              date: b.date || (b.created_at ? new Date(b.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Aug 14, 2026'),
-              readTime: b.read_time || b.readTime || '2 mins',
-              image_url: b.image_url || b.cover || b.banner || (idx === 0 ? 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=1200&q=80' : idx === 1 ? 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=1200&q=80' : 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?auto=format&fit=crop&w=1200&q=80'),
-              category: b.category || (idx === 0 ? 'ARTICLE' : idx === 1 ? 'ANALYSIS' : 'PREDICTION'),
-              badge: idx === 0 ? '★ COVER STORY' : idx === 1 ? '★ TRENDING' : '★ EXCLUSIVE',
-              bookmaker: b.bookmaker || (idx === 0 ? 'SportyBet' : idx === 1 ? 'Bet9ja' : 'BetKing'),
-              week_number: b.week_number || 7
-            }));
+            const parsedBlogs = json.data.map((b: any, idx: number) => {
+              const rawUrl = b.image_url || b.imageUrl || b.cover || b.banner || b.thumbnail;
+              const fallbackUrl = idx === 0 
+                ? 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=1200&q=80' 
+                : idx === 1 
+                  ? 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=1200&q=80' 
+                  : 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?auto=format&fit=crop&w=1200&q=80';
 
-            if (parsedBlogs.length > 0) {
-              setDashboardBlogs(parsedBlogs);
-            }
+              return {
+                id: String(b.id || `blog-${idx}`),
+                title: b.title || b.heading || `Weekly Pool Codes & Analysis #${idx + 1}`,
+                summary: b.summary || b.description || b.excerpt || 'Verified pool codes and expert match predictions. Log in to download the full decrypted codesheet.',
+                content: b.content || b.body || 'Classified pool codes details and predictions.',
+                date: b.date || (b.created_at ? new Date(b.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Apr 25, 2026'),
+                readTime: b.read_time || b.readTime || '2 mins',
+                image_url: rawUrl && String(rawUrl).trim() !== '' ? rawUrl : fallbackUrl,
+                category: b.category || (idx === 0 ? 'ARTICLE' : idx === 1 ? 'ANALYSIS' : 'PREDICTION'),
+                badge: idx === 0 ? '★ COVER STORY' : idx === 1 ? '★ TRENDING' : '★ EXCLUSIVE',
+                bookmaker: b.bookmaker || 'SportyBet',
+                week_number: b.week_number || 43
+              };
+            });
+
+            setAllAvailableBlogs(parsedBlogs);
+            syncCarouselItems(parsedBlogs, selectedCarouselIds);
           }
         }
       } catch (_) {}
     };
     loadDashboardBlogs();
   }, []);
+
+  // Save Carousel selection handler
+  const handleSaveCarouselSelection = (newSelectedIds: string[]) => {
+    setSelectedCarouselIds(newSelectedIds);
+    try {
+      localStorage.setItem('fastpool_carousel_selected_ids', JSON.stringify(newSelectedIds));
+    } catch (_) {}
+    syncCarouselItems(allAvailableBlogs.length > 0 ? allAvailableBlogs : dashboardBlogs, newSelectedIds);
+    setShowCarouselManager(false);
+    triggerToast('Carousel articles updated successfully!', 'success');
+  };
 
   // Auto-scroll carousel every 5 seconds (paused when hovered)
   useEffect(() => {
@@ -523,17 +580,12 @@ export default function CustomerPortal({
     }
   }, [discoveredDbTables]);
 
-  // Real-time listener and background poll for Database Explorer view
+  // Real-time listener for Database Explorer view (Event-driven only, no continuous interval polling)
   useEffect(() => {
     if ((activeSubTab as string) !== 'db_explorer') return;
 
     // Refresh initially when tab opens or table changes
     refreshDbExplorer(dbExplorerSelectedTable);
-
-    // Auto-poll every 5 seconds for real-time changes
-    const interval = setInterval(() => {
-      refreshDbExplorer(dbExplorerSelectedTable);
-    }, 5000);
 
     const supabase = getSupabaseClient();
     let channel: any = null;
@@ -553,7 +605,6 @@ export default function CustomerPortal({
     }
 
     return () => {
-      clearInterval(interval);
       if (supabase && channel) {
         try { supabase.removeChannel(channel); } catch (_) {}
       }
@@ -1424,8 +1475,6 @@ export default function CustomerPortal({
     };
 
     fetchLiveScores();
-    const interval = setInterval(fetchLiveScores, 10000); // UI poll fast every 10 seconds
-    return () => clearInterval(interval);
   }, [activeSubTab]);
 
   const handleAddMatch = async (e: React.FormEvent) => {
@@ -2358,6 +2407,23 @@ export default function CustomerPortal({
               </button>
             )}
 
+            {/* Quick Manual Fetch Latest Records Button in Top Bar */}
+            <button
+              onClick={async () => {
+                if (fetchRealSupabaseData) {
+                  triggerToast('Fetching latest records from database...', 'info');
+                  await fetchRealSupabaseData(true);
+                  triggerToast('Database refreshed with latest verified records!', 'success');
+                }
+              }}
+              disabled={isSyncingSupabase}
+              className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-emerald-950/80 border border-emerald-500/50 hover:border-emerald-400 text-emerald-300 hover:text-white hover:bg-emerald-900/90 text-xs font-mono font-bold transition cursor-pointer shadow-md active:scale-95"
+              title="Fetch latest verified records from database"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-emerald-400 ${isSyncingSupabase ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">{isSyncingSupabase ? 'Fetching...' : 'Fetch Latest Records'}</span>
+            </button>
+
             {/* Notification Bell Button with Glow & Unread Count */}
             <button
               onClick={() => setIsNotificationDrawerOpen(true)}
@@ -2389,8 +2455,13 @@ export default function CustomerPortal({
           </div>
         </div>
 
-        {/* Google AdSense Banner */}
-        <GoogleAdBanner className="bg-slate-900/60 border border-slate-800 rounded-xl p-2" />
+        {/* Subtle Compact Google AdSense Unit */}
+        <GoogleAdBanner 
+          compact={true}
+          adFormat="horizontal"
+          fullWidthResponsive={false}
+          className="bg-slate-900/40 border border-slate-800/60 rounded-xl px-3 py-1 max-w-2xl mx-auto my-2" 
+        />
 
 
 
@@ -2417,7 +2488,7 @@ export default function CustomerPortal({
               className="flex flex-col gap-6"
             >
               
-              {isLockedOut && (activeSubTab === 'dashboard' || activeSubTab === 'streaming' || activeSubTab === 'results') ? (
+              {isLockedOut && activeSubTab === 'results' ? (
                 <div className="bg-slate-900/40 border border-rose-900/30 rounded-2xl p-6 md:p-12 text-center max-w-2xl mx-auto my-8 shadow-2xl backdrop-blur-md relative overflow-hidden flex flex-col items-center gap-6">
                   {/* Decorative Lock Header */}
                   <div className="relative flex items-center justify-center">
@@ -2504,174 +2575,161 @@ export default function CustomerPortal({
                     </div>
                   )}
 
-                  {/* AUTO-SCROLLING BLOGS CAROUSEL (TOP 3 BLOGS) */}
+                  {/* SLEEK COMPACT DASHBOARD CAROUSEL */}
                   {dashboardBlogs.length > 0 && (() => {
                     const currentBlog = dashboardBlogs[activeCarouselIdx] || dashboardBlogs[0];
                     return (
                       <div 
                         onMouseEnter={() => setIsCarouselHovered(true)}
                         onMouseLeave={() => setIsCarouselHovered(false)}
-                        className="bg-white dark:bg-[#111827] border border-zinc-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl transition duration-300 group relative"
+                        className="bg-white dark:bg-[#111827] border border-zinc-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition duration-300 group relative"
                       >
-                        {/* Banner Image Container with Animated Transition */}
-                        <div 
-                          onClick={() => setSelectedDashboardArticle(currentBlog)}
-                          className="h-64 sm:h-80 w-full relative bg-gradient-to-br from-indigo-950 via-slate-900 to-emerald-950 overflow-hidden cursor-pointer select-none"
-                        >
-                          <AnimatePresence mode="wait">
-                            <motion.img 
-                              key={`carousel_img_${currentBlog.id || activeCarouselIdx}`}
-                              src={currentBlog.image_url} 
-                              alt={currentBlog.title}
-                              referrerPolicy="no-referrer"
-                              initial={{ opacity: 0, scale: 1.05 }}
-                              animate={{ opacity: 0.88, scale: 1 }}
-                              exit={{ opacity: 0 }}
-                              transition={{ duration: 0.5, ease: 'easeOut' }}
-                              onError={(e) => {
-                                (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=1200&q=80';
-                              }}
-                              className="w-full h-full object-cover absolute inset-0 group-hover:scale-105 transition-transform duration-700"
-                            />
-                          </AnimatePresence>
-
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/50 to-black/20 pointer-events-none"></div>
-
-                          {/* Center Overlay Graphics matching uploaded image design */}
-                          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none p-4 text-center">
-                            <div className="bg-black/75 backdrop-blur-md border border-white/15 px-6 py-3.5 rounded-2xl shadow-2xl flex flex-col items-center max-w-xs sm:max-w-md">
-                              <span className="text-white text-2xl sm:text-4xl font-black uppercase tracking-tight font-sans drop-shadow">
-                                Week {currentBlog.week_number || 7}
-                              </span>
-                              <div className="flex items-center gap-1.5 mt-0.5">
-                                <span className="text-slate-100 text-2xl sm:text-3xl font-black tracking-tight drop-shadow">FastPool</span>
-                                <span className="text-[#FA3E65] text-2xl sm:text-3xl font-black tracking-tight drop-shadow">Codes</span>
-                              </div>
-                              <span className="text-slate-300 text-[10px] sm:text-xs font-mono tracking-widest mt-1 opacity-90">
-                                fastpoolcodes.com
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Floating Cover Story Badge Top Left */}
-                          <div className="absolute top-4 left-4 bg-[#fa3e65] text-white text-[10px] font-black px-2.5 py-1 rounded shadow-lg tracking-widest uppercase flex items-center gap-1">
-                            <span>{currentBlog.badge || '★ FEATURED'}</span>
-                          </div>
-
-                          {/* Carousel Navigation Arrows */}
-                          {dashboardBlogs.length > 1 && (
-                            <>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActiveCarouselIdx((prev) => (prev - 1 + dashboardBlogs.length) % dashboardBlogs.length);
+                        <div className="flex flex-col sm:flex-row items-stretch">
+                          {/* Compact Left Banner Image (Height constrained to h-40 on mobile, h-44 on desktop) */}
+                          <div 
+                            onClick={() => setSelectedDashboardArticle(currentBlog)}
+                            className="w-full sm:w-64 md:w-80 h-36 sm:h-44 shrink-0 relative bg-gradient-to-br from-indigo-950 via-slate-900 to-emerald-950 overflow-hidden cursor-pointer select-none"
+                          >
+                            <AnimatePresence mode="wait">
+                              <motion.img 
+                                key={`compact_img_${currentBlog.id || activeCarouselIdx}`}
+                                src={currentBlog.image_url} 
+                                alt={currentBlog.title}
+                                referrerPolicy="no-referrer"
+                                initial={{ opacity: 0, scale: 1.05 }}
+                                animate={{ opacity: 0.9, scale: 1 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.4, ease: 'easeOut' }}
+                                onError={(e) => {
+                                  (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=800&q=80';
                                 }}
-                                aria-label="Previous Blog"
-                                className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/60 hover:bg-black/85 text-white flex items-center justify-center border border-white/20 backdrop-blur-md opacity-0 group-hover:opacity-100 transition duration-200 cursor-pointer shadow-lg active:scale-95"
-                              >
-                                <ChevronLeft className="w-5 h-5" />
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActiveCarouselIdx((prev) => (prev + 1) % dashboardBlogs.length);
-                                }}
-                                aria-label="Next Blog"
-                                className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/60 hover:bg-black/85 text-white flex items-center justify-center border border-white/20 backdrop-blur-md opacity-0 group-hover:opacity-100 transition duration-200 cursor-pointer shadow-lg active:scale-95"
-                              >
-                                <ChevronRight className="w-5 h-5" />
-                              </button>
-                            </>
-                          )}
+                                className="w-full h-full object-cover absolute inset-0 group-hover:scale-105 transition-transform duration-500"
+                              />
+                            </AnimatePresence>
 
-                          {/* Meta Stamp Bottom Left + Carousel Step Indicators Bottom Right */}
-                          <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-white">
-                            <div className="flex items-center gap-2">
-                              <span className="bg-emerald-500 text-slate-950 text-[10px] font-black px-2.5 py-0.5 rounded uppercase tracking-wide">
-                                {currentBlog.category || 'ARTICLE'}
-                              </span>
-                              <span className="text-neutral-200 text-xs font-bold font-mono">
-                                {currentBlog.date}
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent pointer-events-none"></div>
+
+                            {/* Badge */}
+                            <div className="absolute top-2.5 left-2.5 pointer-events-auto">
+                              <span className="bg-[#fa3e65] text-white text-[9px] font-black px-2 py-0.5 rounded shadow tracking-widest uppercase">
+                                {currentBlog.badge || '★ FEATURED'}
                               </span>
                             </div>
 
-                            {/* Carousel Step Indicators / Dots */}
+                            {/* Navigation controls on image */}
                             {dashboardBlogs.length > 1 && (
-                              <div className="flex items-center gap-1.5 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/10">
-                                {dashboardBlogs.map((b: any, idx: number) => (
-                                  <button
-                                    key={`dot_${b.id || idx}`}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setActiveCarouselIdx(idx);
-                                    }}
-                                    className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${
-                                      activeCarouselIdx === idx ? 'w-5 bg-[#FA3E65]' : 'w-1.5 bg-white/40 hover:bg-white/70'
-                                    }`}
-                                    title={`Go to Blog ${idx + 1}`}
-                                  />
-                                ))}
+                              <div className="absolute bottom-2 right-2 flex items-center gap-1">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveCarouselIdx((prev) => (prev - 1 + dashboardBlogs.length) % dashboardBlogs.length);
+                                  }}
+                                  aria-label="Previous article"
+                                  className="w-6 h-6 rounded-full bg-black/70 hover:bg-black/95 text-white flex items-center justify-center border border-white/20 backdrop-blur-md transition cursor-pointer active:scale-90"
+                                >
+                                  <ChevronLeft className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveCarouselIdx((prev) => (prev + 1) % dashboardBlogs.length);
+                                  }}
+                                  aria-label="Next article"
+                                  className="w-6 h-6 rounded-full bg-black/70 hover:bg-black/95 text-white flex items-center justify-center border border-white/20 backdrop-blur-md transition cursor-pointer active:scale-90"
+                                >
+                                  <ChevronRight className="w-3.5 h-3.5" />
+                                </button>
                               </div>
                             )}
                           </div>
-                        </div>
 
-                        {/* Textual Body Block */}
-                        <div className="p-5 sm:p-6 space-y-3 text-left">
-                          <AnimatePresence mode="wait">
-                            <motion.div
-                              key={`carousel_text_${currentBlog.id || activeCarouselIdx}`}
-                              initial={{ opacity: 0, y: 6 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, y: -6 }}
-                              transition={{ duration: 0.3 }}
-                              className="space-y-2"
-                            >
-                              <h2 
-                                onClick={() => setSelectedDashboardArticle(currentBlog)}
-                                className="font-sans font-black text-zinc-900 dark:text-white text-xl sm:text-2xl tracking-tight leading-tight group-hover:text-[#fa3e65] transition cursor-pointer"
-                              >
-                                {currentBlog.title}
-                              </h2>
-                              <p 
-                                onClick={() => setSelectedDashboardArticle(currentBlog)}
-                                className="text-zinc-600 dark:text-slate-300 font-medium text-xs sm:text-sm leading-relaxed cursor-pointer line-clamp-2 sm:line-clamp-none"
-                              >
-                                {currentBlog.summary}
-                              </p>
-                            </motion.div>
-                          </AnimatePresence>
+                          {/* Compact Right Content Area */}
+                          <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between text-left gap-2 min-w-0">
+                            <div className="space-y-1.5">
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2">
+                                  <span className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[9px] font-black px-2 py-0.5 rounded font-mono uppercase tracking-wide">
+                                    {currentBlog.category || 'ARTICLE'}
+                                  </span>
+                                  <span className="text-slate-400 text-[11px] font-semibold font-mono">
+                                    {currentBlog.date}
+                                  </span>
+                                </div>
 
-                          {/* Footer Controls */}
-                          <div className="pt-3 border-t border-zinc-100 dark:border-slate-800 flex items-center justify-between text-xs font-bold text-zinc-500 dark:text-slate-400">
-                            <div 
-                              onClick={() => setSelectedDashboardArticle(currentBlog)}
-                              className="flex items-center gap-2 cursor-pointer hover:text-zinc-800 dark:hover:text-white transition"
-                            >
-                              <span className="flex items-center gap-1.5 text-zinc-700 dark:text-slate-300 font-bold">
-                                <BookOpen className="w-4 h-4 text-emerald-500" />
-                                <span>Read Full Article</span>
-                              </span>
-                              <span>•</span>
-                              <span className="text-rose-500 font-black">{currentBlog.readTime}</span>
+                                {/* Step Dots Indicator */}
+                                {dashboardBlogs.length > 1 && (
+                                  <div className="flex items-center gap-1">
+                                    {dashboardBlogs.map((b: any, idx: number) => (
+                                      <button
+                                        key={`dot_compact_${b.id || idx}`}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setActiveCarouselIdx(idx);
+                                        }}
+                                        className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${
+                                          activeCarouselIdx === idx ? 'w-4 bg-[#FA3E65]' : 'w-1.5 bg-slate-700 hover:bg-slate-500'
+                                        }`}
+                                        title={`Go to Blog ${idx + 1}`}
+                                      />
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+
+                              <AnimatePresence mode="wait">
+                                <motion.div
+                                  key={`compact_text_${currentBlog.id || activeCarouselIdx}`}
+                                  initial={{ opacity: 0, y: 3 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  exit={{ opacity: 0, y: -3 }}
+                                  transition={{ duration: 0.25 }}
+                                  className="space-y-1"
+                                >
+                                  <h2 
+                                    onClick={() => setSelectedDashboardArticle(currentBlog)}
+                                    className="font-sans font-black text-zinc-900 dark:text-white text-sm sm:text-base tracking-tight leading-snug group-hover:text-[#fa3e65] transition cursor-pointer line-clamp-1"
+                                  >
+                                    {currentBlog.title}
+                                  </h2>
+                                  <p 
+                                    onClick={() => setSelectedDashboardArticle(currentBlog)}
+                                    className="text-zinc-600 dark:text-slate-400 font-normal text-xs leading-relaxed cursor-pointer line-clamp-2"
+                                  >
+                                    {currentBlog.summary}
+                                  </p>
+                                </motion.div>
+                              </AnimatePresence>
                             </div>
 
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (navigator.clipboard) {
-                                  navigator.clipboard.writeText(window.location.href);
-                                  triggerToast('Article link copied to clipboard!', 'success');
-                                } else {
-                                  triggerToast(`Share: ${currentBlog.title}`, 'info');
-                                }
-                              }}
-                              className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-100 hover:bg-rose-50 hover:text-rose-600 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 text-zinc-700 rounded-lg transition text-xs font-bold uppercase cursor-pointer border border-zinc-200 dark:border-slate-700 shadow-xs active:scale-95"
-                              title="Share Article"
-                            >
-                              <Share2 className="w-3.5 h-3.5 text-rose-500" />
-                              <span>SHARE</span>
-                            </button>
+                            {/* Compact Action Footer */}
+                            <div className="pt-2 border-t border-zinc-100 dark:border-slate-800 flex items-center justify-between text-xs font-semibold text-zinc-500 dark:text-slate-400">
+                              <div 
+                                onClick={() => setSelectedDashboardArticle(currentBlog)}
+                                className="flex items-center gap-2 cursor-pointer hover:text-emerald-400 transition text-[11px]"
+                              >
+                                <BookOpen className="w-3.5 h-3.5 text-emerald-500" />
+                                <span className="font-bold text-slate-300">Read Article</span>
+                                <span>•</span>
+                                <span className="text-rose-400 font-mono font-bold text-[10px]">{currentBlog.readTime}</span>
+                              </div>
+
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (navigator.clipboard) {
+                                    navigator.clipboard.writeText(window.location.href);
+                                    triggerToast('Article link copied to clipboard!', 'success');
+                                  } else {
+                                    triggerToast(`Share: ${currentBlog.title}`, 'info');
+                                  }
+                                }}
+                                className="flex items-center gap-1 px-2.5 py-1 bg-zinc-100 hover:bg-rose-50 hover:text-rose-600 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 text-zinc-700 rounded-lg transition text-[10px] font-bold uppercase cursor-pointer border border-zinc-200 dark:border-slate-700 active:scale-95"
+                                title="Share Article"
+                              >
+                                <Share2 className="w-3 h-3 text-rose-500" />
+                                <span>Share</span>
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -2848,28 +2906,8 @@ export default function CustomerPortal({
                         })()}
                       </div>
 
-                      {/* Right-aligned Search and Export */}
+                      {/* Right-aligned Actions */}
                       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
-                        {/* Real-time search */}
-                        <div className="relative w-full lg:w-72">
-                          <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
-                          <input
-                            type="text"
-                            value={dashboardGameSearch}
-                            onChange={(e) => setDashboardGameSearch(e.target.value)}
-                            placeholder="Search Team, Bet tip, Bet code..."
-                            className="w-full bg-slate-950/95 text-slate-200 text-xs pl-9 pr-4 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition font-mono placeholder:text-slate-600"
-                          />
-                          {dashboardGameSearch && (
-                            <button 
-                              onClick={() => setDashboardGameSearch('')}
-                              className="absolute right-3 top-2.5 text-xs text-slate-500 hover:text-slate-300 uppercase font-mono"
-                            >
-                              clear
-                            </button>
-                          )}
-                        </div>
-
                         {/* Download PDF Customizer Button with Strict Table Access Check */}
                         {(() => {
                           const isTableAllowed = isBookieAllowed(dashboardBookmakerFilter);
@@ -2905,6 +2943,23 @@ export default function CustomerPortal({
                             </button>
                           );
                         })()}
+
+                        {/* Direct Fetch Latest Records Button above Table */}
+                        <button
+                          onClick={async () => {
+                            if (fetchRealSupabaseData) {
+                              triggerToast(`Fetching latest ${dashboardBookmakerFilter} records from database...`, 'info');
+                              await fetchRealSupabaseData(true);
+                              triggerToast(`Updated with latest records for ${dashboardBookmakerFilter}!`, 'success');
+                            }
+                          }}
+                          disabled={isSyncingSupabase}
+                          className="px-4 py-2.5 bg-emerald-950/80 hover:bg-emerald-900 active:scale-95 text-emerald-300 border border-emerald-500/50 hover:border-emerald-400 font-bold text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-2 shadow-lg shrink-0 font-mono"
+                          title={`Fetch latest ${dashboardBookmakerFilter} records from database`}
+                        >
+                          <RefreshCw className={`w-3.5 h-3.5 text-emerald-400 ${isSyncingSupabase ? 'animate-spin' : ''}`} />
+                          <span>{isSyncingSupabase ? 'Fetching...' : 'Fetch Latest Records'}</span>
+                        </button>
 
 
                       </div>
@@ -5218,6 +5273,12 @@ export default function CustomerPortal({
                     )}
                   </div>
 
+                  {/* Live Match Comments & Fan Discussions */}
+                  <LiveScoresComments
+                    currentUser={currentUser}
+                    triggerToast={triggerToast}
+                  />
+
                   {/* Left: Interactive Broadcast Player Mockup */}
                   <div className="max-w-4xl mx-auto w-full">
                     <div className="w-full bg-[#111827] rounded-2xl border border-slate-800 p-6 shadow-xl flex flex-col gap-5">
@@ -5574,40 +5635,6 @@ export default function CustomerPortal({
                                 </button>
                               )}
                             </div>
-
-                            {/* Download CSV button */}
-                            <button
-                              onClick={() => {
-                                const baseRows = activeResult.results_table || [];
-                                const filtered = baseRows.filter((row: any) => {
-                                  if (!championshipSearchQuery) return true;
-                                  const q = championshipSearchQuery.toLowerCase();
-                                  return (
-                                    row.homeTeam?.toLowerCase().includes(q) ||
-                                    row.awayTeam?.toLowerCase().includes(q) ||
-                                    row.matchNo?.toString().includes(q) ||
-                                    row.outcome?.toLowerCase().includes(q)
-                                  );
-                                });
-
-                                const headers = ['Season', 'Active Week', 'Fixture Date', 'Match No', 'Home Team Selection', 'Away Team Companion', 'Score FT', 'POOL Outcome', 'PAY Status'];
-                                const csvRows = filtered.map((row: any) => [
-                                  String(activeResult.season_year || 2026),
-                                  `WEEK #${activeResult.week_number || 43}`,
-                                  activeResult.fixture_date || '2026-04-25',
-                                  String(row.matchNo),
-                                  row.homeTeam,
-                                  row.awayTeam,
-                                  row.fullTimeScore,
-                                  row.outcome,
-                                  row.payoutStatus
-                                ]);
-                                printTable(`Pool Results Week ${activeResult.week_number}`, headers, csvRows);
-                              }}
-                              className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-[10px] uppercase tracking-wider px-3.5 py-1.5 rounded cursor-pointer transition font-mono shrink-0 flex items-center justify-center gap-1.5 shadow shadow-emerald-500/10 active:scale-95"
-                            >
-                              <span>📄 Download PDF</span>
-                            </button>
                           </div>
                         )}
                       </div>
@@ -6547,23 +6574,10 @@ export default function CustomerPortal({
                   }}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0c1322] via-[#0c1322]/50 to-black/30"></div>
-                
-                {/* Center Badge Graphic Overlay */}
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none p-4 text-center">
-                  <div className="bg-black/75 backdrop-blur-md border border-white/15 px-5 py-2.5 rounded-2xl shadow-2xl flex flex-col items-center">
-                    <span className="text-white text-xl sm:text-2xl font-black uppercase tracking-tight font-sans drop-shadow">
-                      Week 7
-                    </span>
-                    <div className="flex items-center gap-1 mt-0.5">
-                      <span className="text-slate-100 text-lg sm:text-xl font-black tracking-tight">FastPool</span>
-                      <span className="text-[#FA3E65] text-lg sm:text-xl font-black tracking-tight">Codes</span>
-                    </div>
-                  </div>
-                </div>
 
                 <div className="absolute top-4 left-4 bg-[#fa3e65] text-white text-[10px] font-black px-2.5 py-1 rounded shadow-lg tracking-widest uppercase flex items-center gap-1">
                   <span>★</span>
-                  <span>COVER STORY</span>
+                  <span>{selectedDashboardArticle.badge || 'COVER STORY'}</span>
                 </div>
               </div>
 
@@ -6596,7 +6610,9 @@ export default function CustomerPortal({
                 <div className="pt-6 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-3">
                   <button
                     onClick={() => {
-                      setDashboardBookmakerFilter('SportyBet');
+                      if (selectedDashboardArticle.bookmaker) {
+                        setDashboardBookmakerFilter(selectedDashboardArticle.bookmaker);
+                      }
                       setSelectedDashboardArticle(null);
                       setTimeout(() => {
                         const el = document.getElementById('posted-games-bulletin');
@@ -6606,7 +6622,7 @@ export default function CustomerPortal({
                     className="w-full sm:w-auto px-6 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg transition cursor-pointer flex items-center justify-center gap-2 font-mono"
                   >
                     <Download className="w-4 h-4" />
-                    <span>Download Week 7 Sportybet Codes</span>
+                    <span>Download Week {selectedDashboardArticle.week_number || 43} {selectedDashboardArticle.bookmaker || 'Pool'} Codes</span>
                   </button>
 
                   <button
@@ -6620,6 +6636,198 @@ export default function CustomerPortal({
                   >
                     <Share2 className="w-4 h-4 text-rose-500" />
                     <span>Share Article</span>
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* DASHBOARD CAROUSEL MANAGER MODAL */}
+      <AnimatePresence>
+        {showCarouselManager && (
+          <div className="fixed inset-0 z-[99999] bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-[#0f172a] border border-slate-700 text-white rounded-3xl max-w-3xl w-full overflow-hidden shadow-2xl relative my-auto text-left flex flex-col max-h-[90vh]"
+            >
+              {/* Modal Header */}
+              <div className="p-5 sm:p-6 border-b border-slate-800 flex items-center justify-between bg-slate-900/60 shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                    <Sliders className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base sm:text-lg font-black text-white">
+                      Decide Dashboard Carousel Posts
+                    </h3>
+                    <p className="text-xs text-slate-400 font-medium">
+                      Select and organize which articles appear in the top dashboard banner
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setShowCarouselManager(false)}
+                  className="bg-slate-800 hover:bg-rose-600 text-white p-2 rounded-full border border-white/10 transition cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Modal Controls & Search */}
+              <div className="p-4 sm:p-5 border-b border-slate-800/80 bg-slate-950/40 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shrink-0">
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={carouselSearchFilter}
+                    onChange={(e) => setCarouselSearchFilter(e.target.value)}
+                    placeholder="Filter articles by title or bookmaker..."
+                    className="w-full bg-slate-900 border border-slate-700/80 focus:border-emerald-500 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 outline-hidden font-mono"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      const allIds = (allAvailableBlogs.length > 0 ? allAvailableBlogs : dashboardBlogs).slice(0, 3).map(b => String(b.id));
+                      setSelectedCarouselIds(allIds);
+                    }}
+                    className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-mono font-bold rounded-xl border border-slate-700 transition cursor-pointer"
+                  >
+                    Select Top 3
+                  </button>
+                  <button
+                    onClick={() => {
+                      const allIds = (allAvailableBlogs.length > 0 ? allAvailableBlogs : dashboardBlogs).map(b => String(b.id));
+                      setSelectedCarouselIds(allIds);
+                    }}
+                    className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-mono font-bold rounded-xl border border-slate-700 transition cursor-pointer"
+                  >
+                    Select All
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedCarouselIds([]);
+                      try {
+                        localStorage.removeItem('fastpool_carousel_selected_ids');
+                      } catch (_) {}
+                    }}
+                    className="px-3 py-2 bg-rose-950/40 hover:bg-rose-900/50 text-rose-300 text-[11px] font-mono font-bold rounded-xl border border-rose-800/40 transition cursor-pointer"
+                  >
+                    Reset
+                  </button>
+                </div>
+              </div>
+
+              {/* Scrollable Blog List with Selection Toggles */}
+              <div className="p-4 sm:p-5 overflow-y-auto space-y-2.5 flex-1 divide-y divide-slate-800/40">
+                {(() => {
+                  const sourceList = allAvailableBlogs.length > 0 ? allAvailableBlogs : dashboardBlogs;
+                  const filtered = sourceList.filter(b => 
+                    !carouselSearchFilter || 
+                    (b.title || '').toLowerCase().includes(carouselSearchFilter.toLowerCase()) ||
+                    (b.bookmaker || '').toLowerCase().includes(carouselSearchFilter.toLowerCase())
+                  );
+
+                  if (filtered.length === 0) {
+                    return (
+                      <div className="text-center py-10 text-slate-400 text-xs font-mono">
+                        No articles match the current filter.
+                      </div>
+                    );
+                  }
+
+                  return filtered.map((b) => {
+                    const isSelected = selectedCarouselIds.length > 0 
+                      ? selectedCarouselIds.includes(String(b.id))
+                      : dashboardBlogs.some(d => String(d.id) === String(b.id));
+
+                    return (
+                      <div
+                        key={b.id}
+                        onClick={() => {
+                          let currentIds = selectedCarouselIds.length > 0 
+                            ? [...selectedCarouselIds] 
+                            : dashboardBlogs.map(d => String(d.id));
+                          
+                          if (currentIds.includes(String(b.id))) {
+                            currentIds = currentIds.filter(id => id !== String(b.id));
+                          } else {
+                            currentIds.push(String(b.id));
+                          }
+                          setSelectedCarouselIds(currentIds);
+                        }}
+                        className={`pt-2.5 first:pt-0 flex items-center justify-between gap-3 p-3 rounded-2xl cursor-pointer transition select-none ${
+                          isSelected 
+                            ? 'bg-emerald-950/30 border border-emerald-500/40' 
+                            : 'bg-slate-900/40 hover:bg-slate-900 border border-slate-800/60'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <img
+                            src={b.image_url}
+                            alt={b.title}
+                            className="w-14 h-14 rounded-xl object-cover border border-slate-800 shrink-0"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=1200&q=80';
+                            }}
+                          />
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="bg-slate-800 text-emerald-400 text-[10px] font-mono font-bold px-2 py-0.5 rounded uppercase">
+                                {b.category || 'ARTICLE'}
+                              </span>
+                              <span className="text-slate-400 text-[10px] font-mono">
+                                Week {b.week_number || 43} • {b.date}
+                              </span>
+                            </div>
+                            <h4 className="text-xs sm:text-sm font-bold text-white truncate">
+                              {b.title}
+                            </h4>
+                          </div>
+                        </div>
+
+                        <div className="shrink-0 pl-2">
+                          <div className={`w-6 h-6 rounded-lg flex items-center justify-center border transition ${
+                            isSelected 
+                              ? 'bg-emerald-500 border-emerald-400 text-slate-950' 
+                              : 'border-slate-700 bg-slate-800/60 text-transparent'
+                          }`}>
+                            <Check className="w-4 h-4 stroke-[3]" />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-4 sm:p-5 border-t border-slate-800 bg-slate-900/80 flex items-center justify-between gap-3 shrink-0">
+                <div className="text-xs font-mono text-slate-400">
+                  <span className="text-emerald-400 font-black">
+                    {selectedCarouselIds.length > 0 ? selectedCarouselIds.length : dashboardBlogs.length}
+                  </span>{' '}
+                  articles active in dashboard carousel
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowCarouselManager(false)}
+                    className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono text-xs font-bold rounded-xl transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => handleSaveCarouselSelection(selectedCarouselIds)}
+                    className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black font-mono text-xs uppercase tracking-wider rounded-xl transition cursor-pointer shadow-lg shadow-emerald-950/20 active:scale-95"
+                  >
+                    Apply Carousel Selection
                   </button>
                 </div>
               </div>
@@ -6910,8 +7118,22 @@ export default function CustomerPortal({
                                 6: { halign: 'center', cellWidth: 20, fontStyle: 'bold' },
                                 7: { halign: 'center', cellWidth: 20 },
                               },
+                              willDrawPage: () => {
+                                // Soft security watermark placed strictly BEHIND the table cells and text
+                                doc.saveGraphicsState();
+                                doc.setTextColor(244, 246, 249);
+                                doc.setFontSize(10);
+                                doc.setFont('helvetica', 'bold');
+                                const watermarkText = `FASTPOOLCODES • ${currentUser?.email || 'user@fastpoolcodes.com'}`;
+                                for (let y = 30; y < pageHeight; y += 45) {
+                                  for (let x = 5; x < pageWidth + 30; x += 90) {
+                                    doc.text(watermarkText, x, y, { angle: -25 });
+                                  }
+                                }
+                                doc.restoreGraphicsState();
+                              },
                               didDrawPage: (data) => {
-                                // Footer on page
+                                // Security trace footer strictly BELOW the codes on page bottom
                                 doc.setFontSize(6.5);
                                 doc.setTextColor(148, 163, 184);
                                 doc.text(
@@ -6927,25 +7149,6 @@ export default function CustomerPortal({
                                 );
                               }
                             });
-
-                            // Softened, subtle security watermark across page
-                            const totalPages = (doc as any).internal.getNumberOfPages();
-                            for (let p = 1; p <= totalPages; p++) {
-                              doc.setPage(p);
-                              doc.saveGraphicsState();
-                              // Soft refined cool-slate tint with reduced color intensity & slightly increased font
-                              doc.setTextColor(232, 237, 243);
-                              doc.setFontSize(11.5);
-                              doc.setFont('helvetica', 'bold');
-                              
-                              const watermarkText = `FASTPOOLCODES • ${currentUser?.email || 'user@fastpoolcodes.com'}`;
-                              for (let y = 30; y < pageHeight; y += 40) {
-                                for (let x = 5; x < pageWidth + 30; x += 85) {
-                                  doc.text(watermarkText, x, y, { angle: -25 });
-                                }
-                              }
-                              doc.restoreGraphicsState();
-                            }
 
                             const filename = `FastPoolCodes_${activeBookmaker}_Week_${activeWeekNumber || 43}.pdf`;
                             doc.save(filename);

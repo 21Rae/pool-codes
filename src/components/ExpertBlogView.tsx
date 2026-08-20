@@ -26,7 +26,9 @@ import {
   Instagram,
   Youtube,
   Share2,
-  Copy
+  Copy,
+  Megaphone,
+  ArrowUpRight
 } from 'lucide-react';
 import { getSupabaseClient } from '../lib/supabase';
 import GoogleAdBanner from './GoogleAdBanner';
@@ -431,6 +433,95 @@ export default function ExpertBlogView({
                     <span>YouTube</span>
                   </a>
                 </div>
+              </div>
+
+              {/* 1. ADVERTISE HERE BOX */}
+              <div className="bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-emerald-500/10 border-2 border-dashed border-amber-400/70 rounded-xl p-4 text-left shadow-sm relative overflow-hidden group">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500 text-slate-950 font-black text-[9px] uppercase tracking-wider shadow-xs">
+                    <Megaphone className="w-3 h-3" />
+                    Advertise Here
+                  </span>
+                  <span className="text-[10px] font-mono text-zinc-500 font-bold">Slot Available</span>
+                </div>
+                <h6 className="font-extrabold text-xs text-zinc-900 leading-snug">
+                  Promote Your Brand, Channel or Service
+                </h6>
+                <p className="text-[11px] text-zinc-600 font-medium leading-relaxed mt-1 mb-3">
+                  Reach 50,000+ active weekly pools punters, sports bettors & football analysts across Nigeria, Ghana & UK.
+                </p>
+                <a
+                  href="mailto:fastpoolcodes@gmail.com?subject=Advertising%20Inquiry%20-%20FastPoolCodes"
+                  className="w-full bg-slate-900 hover:bg-slate-800 text-amber-300 hover:text-amber-200 border border-slate-700 font-black text-[10px] uppercase py-2 px-3 rounded-lg transition shadow-xs text-center tracking-wider flex items-center justify-center gap-1.5 cursor-pointer font-mono"
+                >
+                  <span>Advertise With Us</span>
+                  <ArrowUpRight className="w-3 h-3" />
+                </a>
+              </div>
+
+              {/* 2. SIDEBAR BLOGS (TRENDING & RECENT ARTICLES) */}
+              <div className="bg-white border border-zinc-200 rounded-xl p-4 text-left shadow-sm space-y-3">
+                <div className="flex items-center justify-between border-b border-zinc-100 pb-2.5">
+                  <div className="flex items-center gap-1.5">
+                    <BookOpen className="w-3.5 h-3.5 text-emerald-600" />
+                    <span className="font-black text-[11px] tracking-wide text-zinc-800 uppercase">
+                      Top Blog Reads
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-mono font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
+                    {sortedBlogPosts.length} Articles
+                  </span>
+                </div>
+
+                <div className="space-y-3 divide-y divide-zinc-100">
+                  {sortedBlogPosts.slice(0, 5).map((post: any, idx: number) => (
+                    <div
+                      key={post.id || `sidebar-blog-${idx}`}
+                      onClick={() => onReadArticle(post)}
+                      className="pt-2.5 first:pt-0 group cursor-pointer transition flex gap-2.5 items-start"
+                    >
+                      <div className="w-14 h-14 rounded-lg overflow-hidden bg-zinc-100 shrink-0 border border-zinc-200/80 relative">
+                        <img
+                          src={getBlogImage(post, idx)}
+                          alt={post.title}
+                          referrerPolicy="no-referrer"
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-[9px] font-mono font-bold text-zinc-400 block mb-0.5">
+                          {post.date || 'Weekly Update'}
+                        </span>
+                        <h6 className="text-[11.5px] font-bold text-zinc-800 group-hover:text-emerald-600 transition leading-snug line-clamp-2">
+                          {post.title}
+                        </h6>
+                        <div className="flex items-center gap-1 text-[10px] text-zinc-500 mt-1 font-medium">
+                          <span>Read Article</span>
+                          <ArrowRight className="w-2.5 h-2.5 group-hover:translate-x-0.5 transition-transform text-emerald-600" />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 3. SECONDARY ADVERTISE HERE DISPLAY CARD */}
+              <div className="bg-gradient-to-br from-slate-900 to-zinc-950 border border-zinc-800 rounded-xl p-4 text-center text-white shadow-sm relative overflow-hidden">
+                <div className="inline-block px-2.5 py-0.5 bg-amber-400 text-slate-950 font-black text-[9px] uppercase tracking-wider rounded mb-2">
+                  ADVERTISE HERE
+                </div>
+                <p className="text-xs font-bold text-zinc-200">
+                  Premium Sidebar Banner Spot
+                </p>
+                <p className="text-[10px] text-zinc-400 mt-1 leading-relaxed">
+                  Direct Banner Ads • Sponsor Links • Telegram / WhatsApp Channels
+                </p>
+                <a
+                  href="mailto:fastpoolcodes@gmail.com?subject=Advertise%20Here%20Banner%20Placement"
+                  className="mt-3 inline-flex items-center justify-center gap-1 w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-[10px] uppercase py-2 rounded-lg transition font-mono"
+                >
+                  <span>Contact For Ad Placement</span>
+                </a>
               </div>
             </div>
 
@@ -1297,14 +1388,6 @@ INSERT INTO public.championship_results (
                               </h4>
                             </div>
                           </div>
-
-                          <button
-                            onClick={handlePdfClick}
-                            className="bg-rose-600 hover:bg-rose-700 text-white font-black text-[10px] uppercase tracking-wider px-4 py-2.5 rounded-lg flex items-center justify-center gap-1.5 cursor-pointer transition shrink-0 shadow-sm w-full md:w-auto"
-                          >
-                            <FileText className="w-4 h-4" />
-                            <span>Download PDF</span>
-                          </button>
                         </div>
 
                         {/* Fixtures Table Filter */}

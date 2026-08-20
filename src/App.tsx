@@ -93,7 +93,27 @@ export default function App() {
   // 'customer' -> app.poolcodes.com
   // 'admin' -> admin.poolcodes.com
   const [currentAppSelector, setCurrentAppSelector] = useState<'customer' | 'admin'>('customer');
-  const [viewMode, setViewMode] = useState<'homepage' | 'portal' | 'livescores' | 'terms' | 'help'>('homepage');
+  const [viewMode, setViewMode] = useState<'homepage' | 'portal' | 'livescores' | 'terms' | 'help'>(() => {
+    try {
+      const hash = window.location.hash.toLowerCase();
+      const cachedStr = localStorage.getItem('fastpool_cached_user');
+      const cachedView = localStorage.getItem('fastpool_view_mode');
+
+      if (hash === '#livescores') return 'livescores';
+      if (hash === '#terms') return 'terms';
+      if (hash === '#help') return 'help';
+      if (hash === '#dashboard' || hash === '#portal') {
+        if (cachedStr) return 'portal';
+      }
+      if (cachedView === 'portal' && cachedStr) {
+        return 'portal';
+      }
+      if (cachedView === 'livescores') return 'livescores';
+      if (cachedView === 'terms') return 'terms';
+      if (cachedView === 'help') return 'help';
+    } catch (_) {}
+    return 'homepage';
+  });
   const [livescoresOrigin, setLivescoresOrigin] = useState<'homepage' | 'portal'>('homepage');
   const [termsOrigin, setTermsOrigin] = useState<'homepage' | 'portal'>('homepage');
   const [helpOrigin, setHelpOrigin] = useState<'homepage' | 'portal'>('homepage');
@@ -277,14 +297,57 @@ export default function App() {
     }
   }, []);
 
+  // Sync viewMode changes to localStorage and browser history hash
+  useEffect(() => {
+    try {
+      localStorage.setItem('fastpool_view_mode', viewMode);
+      const targetHash = viewMode === 'portal' ? '#dashboard' : viewMode === 'homepage' ? '#home' : `#${viewMode}`;
+      if (window.location.hash !== targetHash) {
+        window.history.replaceState({ view: viewMode }, '', targetHash);
+      }
+    } catch (_) {}
+  }, [viewMode]);
+
+  // Handle browser Back / Forward buttons seamlessly
+  useEffect(() => {
+    const handlePopState = () => {
+      try {
+        const hash = window.location.hash.toLowerCase();
+        const cachedUser = localStorage.getItem('fastpool_cached_user');
+
+        if (hash === '#dashboard' || hash === '#portal') {
+          if (cachedUser) {
+            setViewMode('portal');
+          } else {
+            setViewMode('homepage');
+          }
+        } else if (hash === '#livescores') {
+          setViewMode('livescores');
+        } else if (hash === '#terms') {
+          setViewMode('terms');
+        } else if (hash === '#help') {
+          setViewMode('help');
+        } else {
+          setViewMode('homepage');
+        }
+      } catch (_) {}
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
   // Strict Dashboard Guard: Users cannot access portal dashboard without signing up / logging in
   useEffect(() => {
-    if (viewMode === 'portal' && (!selectedPersonaId || currentUser.id === 'guest')) {
-      setViewMode('homepage');
-      setAutoOpenAuthHome(true);
-      triggerToast('Access restricted: Please sign up or log in to access the user dashboard.', 'error');
+    if (viewMode === 'portal') {
+      const cachedStr = localStorage.getItem('fastpool_cached_user');
+      if (!selectedPersonaId && !cachedStr) {
+        setViewMode('homepage');
+        setAutoOpenAuthHome(true);
+        triggerToast('Access restricted: Please sign up or log in to access the user dashboard.', 'error');
+      }
     }
-  }, [viewMode, selectedPersonaId, currentUser.id]);
+  }, [viewMode, selectedPersonaId]);
 
   // Fetch dynamic runtime configuration (including live Paystack Public Key) on load
   useEffect(() => {
@@ -398,19 +461,14 @@ export default function App() {
     }
   };
 
-  // Run initial and real-time live database synchronization across all Supabase tables
+  // Run initial live database synchronization across all Supabase tables
   useEffect(() => {
-    // 1. Initial sync after bootstrap
+    // 1. Initial sync on app load
     const timer = setTimeout(() => {
       fetchRealSupabaseData(true);
-    }, 1000);
+    }, 500);
 
-    // 2. Continuous background poll (every 6 seconds) to ensure real-time live sync
-    const pollInterval = setInterval(() => {
-      fetchRealSupabaseData(true);
-    }, 6000);
-
-    // 3. Supabase Realtime WebSocket subscription on all public schema tables
+    // 2. Supabase Realtime WebSocket subscription on all public schema tables (Push-based only, zero continuous CPU polling)
     const supabase = getSupabaseClient();
     let channel: any = null;
     if (supabase) {
@@ -436,20 +494,8 @@ export default function App() {
       }
     }
 
-    // 4. Re-fetch immediately when user returns to window tab
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        fetchRealSupabaseData(true);
-      }
-    };
-    window.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleVisibilityChange);
-
     return () => {
       clearTimeout(timer);
-      clearInterval(pollInterval);
-      window.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleVisibilityChange);
       if (supabase && channel) {
         try {
           supabase.removeChannel(channel);
@@ -1893,12 +1939,14 @@ export default function App() {
                 <button
                   onClick={() => {
                     setViewMode('homepage');
-                    triggerToast('Returned to main marketing landing page.', 'info');
+                    triggerToast(`Navigated to public homepage. Your session remains logged in as @${currentUser.username || 'user'}.`, 'info');
                   }}
-                  className="bg-slate-850 hover:bg-slate-800 text-slate-305 font-bold px-2 py-1 md:px-3 md:py-1.5 rounded-lg text-[10px] md:text-xs transition border border-slate-700/65 flex items-center gap-1 cursor-pointer shrink-0"
+                  className="bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white font-bold px-2.5 py-1.5 rounded-lg text-[10px] md:text-xs transition border border-slate-700 flex items-center gap-1.5 cursor-pointer shrink-0 active:scale-95 shadow-sm"
+                  title="Browse public homepage without logging out"
                 >
-                  <span className="xs:inline hidden">← HOME PAGE</span>
-                  <span className="xs:hidden inline">← HOME</span>
+                  <span>🌐</span>
+                  <span className="xs:inline hidden">PUBLIC HOMEPAGE</span>
+                  <span className="xs:hidden inline">HOMEPAGE</span>
                 </button>
                 <div className="flex items-center gap-1.5 md:gap-2 px-1.5 md:px-2 border-l border-slate-800">
                   <div className="w-6 h-6 md:w-8 md:h-8 rounded-lg md:rounded-xl bg-gradient-to-br from-[#FA3E65] to-teal-500 text-white flex items-center justify-center font-bold text-xs md:text-sm shadow-lg shrink-0">
@@ -1986,8 +2034,12 @@ export default function App() {
                 }}
                 onSignOut={() => {
                   localStorage.removeItem('fastpool_cached_user');
+                  localStorage.removeItem('fastpool_view_mode');
                   setSelectedPersonaId('');
                   setViewMode('homepage');
+                  try {
+                    window.history.replaceState({ view: 'homepage' }, '', '#home');
+                  } catch (_) {}
                   triggerToast('Logged out of workspace session successfully.', 'success');
                 }}
                 onUpdateProfile={(updated) => {

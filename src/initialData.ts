@@ -28,7 +28,7 @@ export const INITIAL_PLANS: SubscriptionPlan[] = [
     has_odds_comparison: true,
     has_results: true,
     has_notifications: true,
-    max_bookmakers: 10,
+    max_bookmakers: 4,
     created_at: '2026-01-01T00:00:00Z'
   },
   {
@@ -94,7 +94,7 @@ export const INITIAL_PLANS: SubscriptionPlan[] = [
     has_odds_comparison: true,
     has_results: true,
     has_notifications: true,
-    max_bookmakers: 6,
+    max_bookmakers: 4,
     created_at: '2026-01-01T00:00:00Z'
   },
   {
@@ -126,7 +126,7 @@ export const INITIAL_PLANS: SubscriptionPlan[] = [
     has_odds_comparison: true,
     has_results: true,
     has_notifications: true,
-    max_bookmakers: 8,
+    max_bookmakers: 4,
     created_at: '2026-01-01T00:00:00Z'
   },
   {
@@ -176,7 +176,7 @@ export const INITIAL_PLANS: SubscriptionPlan[] = [
     has_odds_comparison: true,
     has_results: true,
     has_notifications: true,
-    max_bookmakers: 12,
+    max_bookmakers: 4,
     created_at: '2026-01-01T00:00:00Z'
   },
   {
@@ -349,7 +349,21 @@ export function isGhanaBookmaker(b: any): boolean {
     slug.includes('ghana') ||
     id.includes('ghana') ||
     slug === 'soccabet' ||
-    slug === 'premierbet'
+    slug === 'premierbet' ||
+    slug === 'betway' ||
+    slug === 'sportybet-ghana'
+  );
+}
+
+export function isPaymentDisabledBookmaker(b: any): boolean {
+  if (!b) return false;
+  const slug = String(b.slug || b.id || b || '').toLowerCase().trim();
+  const name = String(b.name || '').toLowerCase().trim();
+  return (
+    slug === 'msport' ||
+    name === 'msport' ||
+    slug === 'betway' ||
+    name.includes('betway')
   );
 }
 
@@ -399,6 +413,7 @@ export function getBookmakersByCountry(dbBookmakers: Bookmaker[] | undefined, co
 export const INITIAL_SUBSCRIPTIONS: UserSubscription[] = [];
 
 export const INITIAL_BOOKMAKERS: Bookmaker[] = [
+  // NIGERIA BOOKMAKERS (4)
   {
     id: 'bm-bet9ja',
     name: 'Bet9ja',
@@ -420,7 +435,7 @@ export const INITIAL_BOOKMAKERS: Bookmaker[] = [
     name: 'SportyBet',
     slug: 'sportybet',
     logo_url: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=100&h=100&fit=crop&q=80',
-    country: 'KE',
+    country: 'NG',
     is_active: true
   },
   {
@@ -428,30 +443,39 @@ export const INITIAL_BOOKMAKERS: Bookmaker[] = [
     name: 'MSport',
     slug: 'msport',
     logo_url: 'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=100&h=100&fit=crop&q=80',
-    country: 'GH',
-    is_active: true
-  },
-  {
-    id: 'bm-premierbet',
-    name: 'PremierBet',
-    slug: 'premierbet',
-    logo_url: 'https://images.unsplash.com/photo-1518152006812-edab29b069ac?w=100&h=100&fit=crop&q=80',
     country: 'NG',
     is_active: true
   },
+  // GHANA BOOKMAKERS (4)
   {
     id: 'bm-betway',
-    name: 'Betway',
+    name: 'Betway Ghana',
     slug: 'betway',
     logo_url: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=100&h=100&fit=crop&q=80',
     country: 'GH',
     is_active: true
   },
   {
+    id: 'bm-premierbet',
+    name: 'PremierBet Ghana',
+    slug: 'premierbet',
+    logo_url: 'https://images.unsplash.com/photo-1518152006812-edab29b069ac?w=100&h=100&fit=crop&q=80',
+    country: 'GH',
+    is_active: true
+  },
+  {
     id: 'bm-soccabet',
-    name: 'Soccabet',
+    name: 'Soccabet Ghana',
     slug: 'soccabet',
     logo_url: 'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=100&h=100&fit=crop&q=80',
+    country: 'GH',
+    is_active: true
+  },
+  {
+    id: 'bm-sportybet-ghana',
+    name: 'SportyBet Ghana',
+    slug: 'sportybet-ghana',
+    logo_url: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=100&h=100&fit=crop&q=80',
     country: 'GH',
     is_active: true
   }

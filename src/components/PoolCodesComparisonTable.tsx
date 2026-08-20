@@ -241,7 +241,7 @@ export default function PoolCodesComparisonTable({
     // Initial fetch
     fetchLiveComparisonData(true);
 
-    // Realtime WebSocket Subscription
+    // Realtime WebSocket Subscription (Push notifications on db changes, zero continuous CPU polling)
     let channel: any = null;
     try {
       const supabase = getSupabaseClient();
@@ -284,24 +284,7 @@ export default function PoolCodesComparisonTable({
       console.warn('[PoolCodesComparison] WebSocket subscription error:', wsErr);
     }
 
-    // High frequency fallback polling (every 4 seconds) to guarantee real-time updates
-    const interval = setInterval(() => {
-      fetchLiveComparisonData(true);
-    }, 4000);
-
-    // Window focus / visibility refresh
-    const handleFocus = () => {
-      if (document.visibilityState === 'visible') {
-        fetchLiveComparisonData(true);
-      }
-    };
-    window.addEventListener('focus', handleFocus);
-    window.addEventListener('visibilitychange', handleFocus);
-
     return () => {
-      clearInterval(interval);
-      window.removeEventListener('focus', handleFocus);
-      window.removeEventListener('visibilitychange', handleFocus);
       if (channel) {
         try {
           const supabase = getSupabaseClient();
@@ -542,12 +525,26 @@ export default function PoolCodesComparisonTable({
           6: { cellWidth: 35, halign: 'center' },
           7: { cellWidth: 36, halign: 'center' }
         },
+        willDrawPage: () => {
+          // Soft security watermark placed strictly BEHIND the table cells and text
+          doc.saveGraphicsState();
+          doc.setTextColor(244, 246, 249);
+          doc.setFontSize(10);
+          doc.setFont('helvetica', 'bold');
+          const watermarkText = `FASTPOOLCODES • ${currentUser?.email || 'FREE ACCESS'}`;
+          for (let y = 30; y < pageHeight; y += 45) {
+            for (let x = 5; x < pageWidth + 30; x += 90) {
+              doc.text(watermarkText, x, y, { angle: -25 });
+            }
+          }
+          doc.restoreGraphicsState();
+        },
         didDrawPage: () => {
-          // Compact footer on page bottom
+          // Compact footer watermark strictly BELOW the codes on page bottom
           doc.setFontSize(5.8);
           doc.setTextColor(100, 116, 139);
           doc.text(
-            'Compiled by Fastpoolcodes.com. For Enquiries Call or WhatsApp: +234 8030587933, +234 9037595705) • Single Page Official Print',
+            `FastPoolCodes Comparison Verified Sheet • Licensed to ${currentUser?.email || 'General Access'} • For Enquiries Call/WhatsApp: +234 8030587933, +234 9037595705`,
             6,
             pageHeight - 2.5
           );
@@ -559,24 +556,6 @@ export default function PoolCodesComparisonTable({
           );
         }
       });
-
-      // Softened, subtle security watermark across page
-      const totalPages = (doc as any).internal.getNumberOfPages();
-      for (let p = 1; p <= totalPages; p++) {
-        doc.setPage(p);
-        doc.saveGraphicsState();
-        doc.setTextColor(232, 237, 243);
-        doc.setFontSize(11.5);
-        doc.setFont('helvetica', 'bold');
-        
-        const watermarkText = `FASTPOOLCODES • ${currentUser?.email || 'FREE ACCESS'}`;
-        for (let y = 30; y < pageHeight; y += 40) {
-          for (let x = 5; x < pageWidth + 30; x += 85) {
-            doc.text(watermarkText, x, y, { angle: -25 });
-          }
-        }
-        doc.restoreGraphicsState();
-      }
 
       doc.save(`Pool_Codes_Comparison_Fastpoolcodes_${new Date().toISOString().split('T')[0]}.pdf`);
       triggerToast('✅ Pool Codes Comparison PDF downloaded successfully!', 'success');
@@ -630,16 +609,16 @@ export default function PoolCodesComparisonTable({
             </p>
           </div>
 
-          {/* Action buttons: Sync Live Data, Free Download PDF & Native Print */}
+          {/* Action buttons: Fetch Latest Records, Free Download PDF & Native Print */}
           <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 shrink-0">
             <button
               onClick={() => fetchLiveComparisonData(false)}
               disabled={isLoadingLive}
-              className="px-3.5 py-3 bg-slate-900 hover:bg-slate-800 active:scale-95 text-slate-200 border border-slate-700 hover:border-emerald-500/50 font-bold text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center gap-2 font-mono shadow-md"
-              title="Sync latest live rows from Supabase"
+              className="px-3.5 py-3 bg-emerald-950/40 hover:bg-emerald-900/60 active:scale-95 text-emerald-300 border border-emerald-500/40 hover:border-emerald-400 font-bold text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center gap-2 font-mono shadow-md"
+              title="Fetch latest updated comparison records from database"
             >
               <RefreshCw className={`w-3.5 h-3.5 text-emerald-400 ${isLoadingLive ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline">Sync Live</span>
+              <span>{isLoadingLive ? 'Fetching...' : 'Fetch Latest Records'}</span>
             </button>
 
             <button
