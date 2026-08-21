@@ -42,7 +42,7 @@ import GoogleAdBanner from './GoogleAdBanner';
 import PoolCodesComparisonTable from './PoolCodesComparisonTable';
 import LiveScoresComments from './LiveScoresComments';
 import { getSupabaseClient } from '../lib/supabase';
-import { INITIAL_PLANS, isGhanaPlan, getMergedSubscriptionPlans, getSortedComparisonPlans, getBookmakersByCountry, isGhanaBookmaker } from '../initialData';
+import { INITIAL_PLANS, isGhanaPlan, getMergedSubscriptionPlans, getSortedComparisonPlans, getBookmakersByCountry, isGhanaBookmaker, isPaymentDisabledBookmaker } from '../initialData';
 
 interface OfficePoolStopHomeProps {
   onSignIn: () => void;
@@ -611,6 +611,10 @@ export default function OfficePoolStopHome({
 
   const handlePaymentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isPaymentDisabledBookmaker(selectedPaywallBookmaker)) {
+      triggerToast(`Payment portal for selected bookmaker (${selectedPaywallBookmaker}) is currently disabled. Please choose another bookmaker.`, 'error');
+      return;
+    }
     if (!paywallForm.cardholder || !paywallForm.cardNumber || !paywallForm.expiry || !paywallForm.cvv) {
       triggerToast('Please enter all credit card details to authorize access.', 'error');
       return;
@@ -2000,15 +2004,15 @@ export default function OfficePoolStopHome({
                     }))
                   : (isGhana
                       ? [
-                          { slug: 'premierbet', name: 'PremierBet', id: 'premierbet' },
-                          { slug: 'betway', name: 'Betway', id: 'betway' },
-                          { slug: 'soccabet', name: 'Soccabet', id: 'soccabet' },
-                          { slug: 'sportybet', name: 'SportyBet', id: 'sportybet' }
+                          { slug: 'betway', name: 'Betway Ghana', id: 'betway' },
+                          { slug: 'premierbet', name: 'PremierBet Ghana', id: 'premierbet' },
+                          { slug: 'soccabet', name: 'Soccabet Ghana', id: 'soccabet' },
+                          { slug: 'sportybet-ghana', name: 'SportyBet Ghana', id: 'sportybet-ghana' }
                         ]
                       : [
                           { slug: 'bet9ja', name: 'Bet9ja', id: 'bet9ja' },
-                          { slug: 'sportybet', name: 'SportyBet', id: 'sportybet' },
                           { slug: 'betking', name: 'BetKing', id: 'betking' },
+                          { slug: 'sportybet', name: 'SportyBet', id: 'sportybet' },
                           { slug: 'msport', name: 'MSport', id: 'msport' }
                         ]
                     );
@@ -2131,20 +2135,31 @@ export default function OfficePoolStopHome({
                                         <span className="text-xs font-black text-emerald-400">
                                           {currencySymbol}{unitPrice.toLocaleString()}
                                         </span>
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            setPaywallPlan(p.id);
-                                            setSelectedPaywallBookmaker(bmk.slug);
-                                          }}
-                                          className={`font-black text-[9.5px] uppercase px-2.5 py-1 rounded-md transition cursor-pointer active:scale-95 whitespace-nowrap ${
-                                            isSelected
-                                              ? 'bg-amber-400 text-slate-950 shadow-md shadow-amber-400/30'
-                                              : 'bg-emerald-600 hover:bg-emerald-500 text-slate-950'
-                                          }`}
-                                        >
-                                          {isSelected ? 'SELECTED ✓' : `BUY ${(bmk.name || 'BOOKMAKER').toUpperCase()}`}
-                                        </button>
+                                        {isPaymentDisabledBookmaker(bmk) ? (
+                                          <button
+                                            type="button"
+                                            onClick={() => triggerToast(`Payment portal for ${bmk.name} is currently disabled.`, 'info')}
+                                            className="bg-slate-900 hover:bg-slate-850 text-slate-400 border border-slate-750 font-bold text-[9px] uppercase px-2 py-1 rounded-md transition cursor-pointer whitespace-nowrap"
+                                            title={`Payment portal for ${bmk.name} is currently disabled`}
+                                          >
+                                            🔒 PORTAL DISABLED
+                                          </button>
+                                        ) : (
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setPaywallPlan(p.id);
+                                              setSelectedPaywallBookmaker(bmk.slug);
+                                            }}
+                                            className={`font-black text-[9.5px] uppercase px-2.5 py-1 rounded-md transition cursor-pointer active:scale-95 whitespace-nowrap ${
+                                              isSelected
+                                                ? 'bg-amber-400 text-slate-950 shadow-md shadow-amber-400/30'
+                                                : 'bg-emerald-600 hover:bg-emerald-500 text-slate-950'
+                                            }`}
+                                          >
+                                            {isSelected ? 'SELECTED ✓' : `BUY ${(bmk.name || 'BOOKMAKER').toUpperCase()}`}
+                                          </button>
+                                        )}
                                       </div>
                                     </td>
                                   );

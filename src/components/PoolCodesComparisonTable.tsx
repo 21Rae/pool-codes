@@ -507,6 +507,7 @@ export default function PoolCodesComparisonTable({
           minCellHeight: 3.5
         },
         bodyStyles: {
+          fillColor: [255, 255, 255],
           fontSize: 6.5,
           textColor: [30, 41, 59],
           cellPadding: [0.45, 0.8],
@@ -528,8 +529,8 @@ export default function PoolCodesComparisonTable({
         willDrawPage: () => {
           // Soft security watermark placed strictly BEHIND the table cells and text
           doc.saveGraphicsState();
-          doc.setTextColor(244, 246, 249);
-          doc.setFontSize(10);
+          doc.setTextColor(248, 250, 252);
+          doc.setFontSize(9);
           doc.setFont('helvetica', 'bold');
           const watermarkText = `FASTPOOLCODES • ${currentUser?.email || 'FREE ACCESS'}`;
           for (let y = 30; y < pageHeight; y += 45) {

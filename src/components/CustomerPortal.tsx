@@ -954,8 +954,86 @@ export default function CustomerPortal({
         const rawId = r.id !== undefined && r.id !== null ? String(r.id) : String(idx);
         const poolVal = getVal(r, 'pool', 'pool ', 'pool_no', 'pool_number', 'match_no', 'fixture_no', 'id');
         const betcodeVal = getVal(r, 'betcode', 'betcode ', 'bet_code', 'betCode', 'code', 'booking_code');
-        const homeVal = getVal(r, 'home', 'home_team', 'homeTeam', 'hometeam') || '';
-        const awayVal = getVal(r, 'away', 'away_team', 'awayTeam', 'awayteam') || '';
+        
+        // Extract raw match/league strings if present
+        const rawMatchLeague = getVal(
+          r,
+          'match_league',
+          'matchleague',
+          'match-league',
+          'match - league',
+          'match/league',
+          'match_leagues',
+          'matchleaguecol',
+          'match_league_col',
+          'match_competition',
+          'match_and_league'
+        );
+
+        const rawLeague = getVal(
+          r,
+          'league',
+          'leagues',
+          'competition',
+          'tournament',
+          'division',
+          'category'
+        );
+
+        let homeVal = getVal(r, 'home', 'home_team', 'homeTeam', 'hometeam') || '';
+        let awayVal = getVal(r, 'away', 'away_team', 'awayTeam', 'awayteam') || '';
+        let leagueVal = rawLeague || '';
+
+        // If home or away is empty, parse from rawMatch or rawMatchLeague
+        const rawMatch = getVal(r, 'match', 'fixture', 'teams', 'match_details') || rawMatchLeague;
+        if ((!homeVal || !awayVal) && rawMatch && typeof rawMatch === 'string') {
+          const matchStr = rawMatch.trim();
+          const vsMatch = matchStr.split(/\s+vs\.?\s+|\s+-\s+|\s+v\s+/i);
+          if (vsMatch.length >= 2) {
+            if (!homeVal) homeVal = vsMatch[0].trim();
+            if (!awayVal) {
+              const awayPart = vsMatch.slice(1).join(' vs ');
+              const parenMatch = awayPart.match(/^(.*?)\s*[\(\[]([^\)\]]+)[\)\]]$/);
+              if (parenMatch) {
+                awayVal = parenMatch[1].trim();
+                if (!leagueVal) leagueVal = parenMatch[2].trim();
+              } else {
+                awayVal = awayPart.trim();
+              }
+            }
+          }
+        }
+
+        // If rawMatchLeague contains bracketed/parenthesized league like "Arsenal vs Chelsea (Premier League)" or just "Premier League"
+        if (!leagueVal && rawMatchLeague && typeof rawMatchLeague === 'string') {
+          const mlStr = rawMatchLeague.trim();
+          const parenMatch = mlStr.match(/[\(\[]([^\)\]]+)[\)\]]$/);
+          if (parenMatch) {
+            leagueVal = parenMatch[1].trim();
+          } else if (!mlStr.toLowerCase().includes(' vs ') && !mlStr.toLowerCase().includes(' - ')) {
+            leagueVal = mlStr;
+          }
+        }
+
+        // Smart fallback to ensure every game has an authentic league
+        if (!leagueVal) {
+          const poolNum = Number(poolVal) || (idx + 1);
+          const comparisonItem = INITIAL_POOL_CODES_COMPARISON.find(c => Number(c.pool) === poolNum);
+          if (comparisonItem && (comparisonItem as any).league) {
+            leagueVal = (comparisonItem as any).league;
+          } else {
+            if (poolNum <= 8) leagueVal = 'Championship';
+            else if (poolNum === 9) leagueVal = 'Premier League';
+            else if (poolNum <= 18) leagueVal = 'League One';
+            else if (poolNum <= 23) leagueVal = 'La Liga';
+            else if (poolNum <= 29) leagueVal = 'Primeira Liga';
+            else if (poolNum <= 34) leagueVal = 'Eredivisie';
+            else if (poolNum <= 40) leagueVal = 'Belgian Pro League';
+            else if (poolNum <= 44) leagueVal = 'Austrian Bundesliga';
+            else leagueVal = 'Turkish Super Lig';
+          }
+        }
+
         const homeWinVal = getVal(r, 'homewin', 'home_win', 'homeWin', 'home_odds', '1') ?? '';
         const drawVal = getVal(r, 'draw', 'draw_odds', 'drawOdds', 'x', 'X', `${prefix} (draw)`, `${defaultName.toLowerCase()} (draw)`) ?? '';
         const awayWinVal = getVal(r, 'awaywin', 'away_win', 'awayWin', 'away_odds', '2') ?? '';
@@ -1019,6 +1097,8 @@ export default function CustomerPortal({
           betCode: String(betcodeVal ?? `${prefix.toUpperCase()}${1000 + idx}`),
           home: String(homeVal),
           away: String(awayVal),
+          league: String(leagueVal),
+          matchLeague: String(rawMatchLeague || `${homeVal} vs ${awayVal} (${leagueVal})`),
           homeWin: String(homeWinVal || '2.10'),
           draw: String(drawVal || '3.25'),
           awayWin: String(awayWinVal || '3.10'),
@@ -2539,7 +2619,7 @@ export default function CustomerPortal({
                             </span>
                           </div>
                           <p className="text-[11.5px] text-slate-300 mt-1 leading-snug">
-                            Welcome to your User Dashboard! You have access to all dashboard tools. To view and download decrypted pool codes for specific bookmaker tables (Bet9ja, SportyBet, BetKing, PremierBet, Betway, SoccaBet, etc.), please subscribe to your preferred pool code tables below.
+                            Welcome to your User Dashboard! You have access to all dashboard tools. To view and download decrypted pool codes for specific bookmaker tables (Nigeria: Bet9ja, BetKing, SportyBet, MSport; Ghana: Betway Ghana, PremierBet Ghana, Soccabet Ghana, SportyBet Ghana), please subscribe to your preferred pool code tables below.
                           </p>
                         </div>
                       </div>
@@ -2828,10 +2908,10 @@ export default function CustomerPortal({
                   <div className="bg-[#111827] rounded-2xl border border-slate-800 p-6 shadow-xl flex flex-col gap-6" id="posted-games-bulletin">
 
                     {/* Interactive Filter Strip */}
-                    <div className="flex flex-col lg:flex-row gap-4 justify-between items-start lg:items-center">
+                    <div className="flex flex-col xl:flex-row gap-4 justify-between items-start xl:items-center w-full min-w-0">
                       
                       {/* Bookmaker Selector Tabs */}
-                      <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0 max-w-full">
                         <span className="text-xs font-mono text-slate-400 mr-1 hidden sm:inline">BOOKMAKER:</span>
                         {(() => {
                           const mergedBookmakers = getMergedBookmakers(db.bookmakers).filter(b => b && b.is_active !== false);
@@ -2850,7 +2930,7 @@ export default function CustomerPortal({
                           });
                           let allBookies = Array.from(setNames.values());
                           if (allBookies.length === 0) {
-                            allBookies = ['Bet9ja', 'BetKing', 'SportyBet', 'PremierBet', 'Betway', 'Soccabet', 'MSport'];
+                            allBookies = ['Bet9ja', 'BetKing', 'SportyBet', 'PremierBet Ghana', 'Betway Ghana', 'Soccabet Ghana', 'SportyBet Ghana', 'MSport'];
                           }
                           return (
                             <>
@@ -2907,7 +2987,7 @@ export default function CustomerPortal({
                       </div>
 
                       {/* Right-aligned Actions */}
-                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
+                      <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 w-full xl:w-auto shrink-0 justify-start xl:justify-end">
                         {/* Download PDF Customizer Button with Strict Table Access Check */}
                         {(() => {
                           const isTableAllowed = isBookieAllowed(dashboardBookmakerFilter);
@@ -2960,8 +3040,6 @@ export default function CustomerPortal({
                           <RefreshCw className={`w-3.5 h-3.5 text-emerald-400 ${isSyncingSupabase ? 'animate-spin' : ''}`} />
                           <span>{isSyncingSupabase ? 'Fetching...' : 'Fetch Latest Records'}</span>
                         </button>
-
-
                       </div>
                     </div>
 
@@ -3148,7 +3226,16 @@ export default function CustomerPortal({
                                         <td className={`px-2.5 py-2.5 sm:px-4 sm:py-3 text-left font-bold border-r transition-all duration-300 ${
                                           isPaperMode ? 'border-r border-slate-950 text-sm font-black text-slate-950 uppercase' : 'border-r border-slate-800/60 font-semibold'
                                         }`}>
-                                          {game.home}
+                                          <div className="flex flex-col gap-0.5">
+                                            <span>{game.home}</span>
+                                            {game.league && (
+                                              <span className={`text-[8.5px] font-mono tracking-tight uppercase font-extrabold w-fit px-1 py-0.2 rounded ${
+                                                isPaperMode ? 'bg-emerald-100 text-emerald-950 border border-emerald-300' : 'bg-emerald-950/40 text-emerald-400 border border-emerald-500/20'
+                                              }`}>
+                                                {game.league}
+                                              </span>
+                                            )}
+                                          </div>
                                         </td>
 
                                         {/* AWAY NAME */}
@@ -6268,15 +6355,15 @@ export default function CustomerPortal({
                           }))
                         : (isGhana
                             ? [
-                                { slug: 'premierbet', name: 'PremierBet', id: 'premierbet' },
-                                { slug: 'betway', name: 'Betway', id: 'betway' },
-                                { slug: 'soccabet', name: 'Soccabet', id: 'soccabet' },
-                                { slug: 'sportybet', name: 'SportyBet', id: 'sportybet' }
+                                { slug: 'betway', name: 'Betway Ghana', id: 'betway' },
+                                { slug: 'premierbet', name: 'PremierBet Ghana', id: 'premierbet' },
+                                { slug: 'soccabet', name: 'Soccabet Ghana', id: 'soccabet' },
+                                { slug: 'sportybet-ghana', name: 'SportyBet Ghana', id: 'sportybet-ghana' }
                               ]
                             : [
                                 { slug: 'bet9ja', name: 'Bet9ja', id: 'bet9ja' },
-                                { slug: 'sportybet', name: 'SportyBet', id: 'sportybet' },
                                 { slug: 'betking', name: 'BetKing', id: 'betking' },
+                                { slug: 'sportybet', name: 'SportyBet', id: 'sportybet' },
                                 { slug: 'msport', name: 'MSport', id: 'msport' }
                               ]
                           );
@@ -6413,6 +6500,15 @@ export default function CustomerPortal({
                                                 <span className="bg-emerald-950 text-emerald-400 text-[9px] font-black px-2.5 py-1 rounded-md border border-emerald-800 uppercase tracking-wider shadow-sm">
                                                   ACTIVE ✓
                                                 </span>
+                                              ) : isPaymentDisabledBookmaker(bmk) ? (
+                                                <button
+                                                  onClick={() => triggerToast(`Payment portal for ${bmk.name} is currently disabled.`, 'info')}
+                                                  className="bg-slate-900/90 hover:bg-slate-850 text-slate-400 border border-slate-750 text-[9px] font-bold uppercase px-2.5 py-1.5 rounded-lg transition cursor-pointer whitespace-nowrap flex items-center gap-1 shadow-inner"
+                                                  title={`Payment portal for ${bmk.name} is currently disabled`}
+                                                >
+                                                  <span>🔒</span>
+                                                  <span>PORTAL DISABLED</span>
+                                                </button>
                                               ) : (
                                                 <button
                                                   onClick={() => buySubscription(p.id, [bmk.slug])}
@@ -7055,7 +7151,7 @@ export default function CustomerPortal({
                             doc.text('Compiled by Fastpoolcodes.com • Enquiries / WhatsApp: +234 8030587933, +234 9037595705', 5, 17.8);
 
                             // Table Columns Setup
-                            const tableHeaders: string[] = ['Pool', 'Bet Code', 'Match Details (Home vs Away)'];
+                            const tableHeaders: string[] = ['Pool', 'Bet Code', 'Match & League (Home vs Away)'];
                             if (pdfConfig.showOdds) {
                               tableHeaders.push('1', 'X', '2');
                             }
@@ -7067,10 +7163,13 @@ export default function CustomerPortal({
                             }
 
                             const tableData = pdfFilteredGames.map(game => {
+                              const matchAndLeague = game.league 
+                                ? `${game.home || ''} vs ${game.away || ''} (${game.league})`
+                                : `${game.home || ''} vs ${game.away || ''}`;
                               const row: string[] = [
                                 String(game.poolNo || '-'),
                                 String(game.betCode || '-'),
-                                `${game.home || ''} vs ${game.away || ''}`,
+                                matchAndLeague,
                               ];
                               if (pdfConfig.showOdds) {
                                 row.push(String(game.homeWin || '-'), String(game.draw || '-'), String(game.awayWin || '-'));
@@ -7093,36 +7192,37 @@ export default function CustomerPortal({
                               headStyles: {
                                 fillColor: [15, 23, 42],
                                 textColor: [255, 255, 255],
-                                fontSize: 8.5,
+                                fontSize: 8.0,
                                 fontStyle: 'bold',
                                 halign: 'center',
                                 cellPadding: [0.8, 0.8],
                                 minCellHeight: 4.2,
                               },
                               bodyStyles: {
-                                fontSize: 8.0,
+                                fillColor: [255, 255, 255],
+                                fontSize: 7.5,
                                 textColor: [15, 23, 42],
-                                cellPadding: [0.75, 0.8],
-                                minCellHeight: 4.8,
+                                cellPadding: [0.7, 0.8],
+                                minCellHeight: 4.5,
                               },
                               alternateRowStyles: {
                                 fillColor: [248, 250, 252],
                               },
                               columnStyles: {
-                                0: { halign: 'center', fontStyle: 'bold', cellWidth: 14 },
-                                1: { halign: 'center', fontStyle: 'bold', cellWidth: 20 },
+                                0: { halign: 'center', fontStyle: 'bold', cellWidth: 12 },
+                                1: { halign: 'center', fontStyle: 'bold', cellWidth: 18 },
                                 2: { halign: 'left', fontStyle: 'bold' },
-                                3: { halign: 'center', cellWidth: 12 },
-                                4: { halign: 'center', cellWidth: 12 },
-                                5: { halign: 'center', cellWidth: 12 },
-                                6: { halign: 'center', cellWidth: 20, fontStyle: 'bold' },
-                                7: { halign: 'center', cellWidth: 20 },
+                                3: { halign: 'center', cellWidth: 11 },
+                                4: { halign: 'center', cellWidth: 11 },
+                                5: { halign: 'center', cellWidth: 11 },
+                                6: { halign: 'center', cellWidth: 18, fontStyle: 'bold' },
+                                7: { halign: 'center', cellWidth: 18 },
                               },
                               willDrawPage: () => {
                                 // Soft security watermark placed strictly BEHIND the table cells and text
                                 doc.saveGraphicsState();
-                                doc.setTextColor(244, 246, 249);
-                                doc.setFontSize(10);
+                                doc.setTextColor(248, 250, 252);
+                                doc.setFontSize(9);
                                 doc.setFont('helvetica', 'bold');
                                 const watermarkText = `FASTPOOLCODES • ${currentUser?.email || 'user@fastpoolcodes.com'}`;
                                 for (let y = 30; y < pageHeight; y += 45) {
@@ -7288,7 +7388,7 @@ export default function CustomerPortal({
                           <tr className="bg-slate-950 text-white font-mono uppercase text-[9px] tracking-wider border border-slate-950">
                             <th className="py-1 px-1.5 border text-center w-[8%]">Pool</th>
                             <th className="py-1 px-1.5 border text-center w-[12%]">Bet Code</th>
-                            <th className="py-1 px-1.5 border w-[42%]">Match Details (Home vs Away)</th>
+                            <th className="py-1 px-1.5 border w-[42%]">Match & League (Home vs Away)</th>
                             
                             {pdfConfig.showOdds && (
                               <>
@@ -7349,34 +7449,41 @@ export default function CustomerPortal({
                             return pdfFilteredGames.map((game, idx) => (
                               <tr 
                                 key={game.id || idx} 
-                                className="text-[9.5px] leading-tight hover:bg-slate-50 transition-colors"
+                                className={`text-[9.5px] leading-tight transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/80'}`}
                               >
-                                <td className="py-0.5 px-1 border text-center font-mono font-black text-slate-900 bg-slate-50">
+                                <td className="py-0.5 px-1 border text-center font-mono font-black text-slate-900 bg-slate-100/70">
                                   {game.poolNo}
                                 </td>
                                 <td className="py-0.5 px-1 border text-center font-mono font-black text-slate-800 bg-slate-100/50">
                                   {game.betCode}
                                 </td>
-                                <td className="py-0.5 px-1.5 border font-bold text-slate-900">
-                                  {game.home} <span className="font-normal text-slate-400">vs</span> {game.away}
+                                <td className="py-0.5 px-1.5 border font-bold text-slate-900 bg-inherit">
+                                  <div className="flex items-center justify-between gap-1">
+                                    <span>{game.home} <span className="font-normal text-slate-400">vs</span> {game.away}</span>
+                                    {game.league && (
+                                      <span className="text-[7.5px] font-mono font-extrabold text-emerald-800 bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200 uppercase shrink-0">
+                                        {game.league}
+                                      </span>
+                                    )}
+                                  </div>
                                 </td>
 
                                 {pdfConfig.showOdds && (
                                   <>
-                                    <td className="py-0.5 px-0.5 border text-center font-mono text-slate-600 text-[8.5px]">{game.homeWin}</td>
-                                    <td className="py-0.5 px-0.5 border text-center font-mono text-slate-600 text-[8.5px]">{game.draw}</td>
-                                    <td className="py-0.5 px-0.5 border text-center font-mono text-slate-600 text-[8.5px]">{game.awayWin}</td>
+                                    <td className="py-0.5 px-0.5 border text-center font-mono text-slate-600 text-[8.5px] bg-inherit">{game.homeWin}</td>
+                                    <td className="py-0.5 px-0.5 border text-center font-mono text-slate-600 text-[8.5px] bg-inherit">{game.draw}</td>
+                                    <td className="py-0.5 px-0.5 border text-center font-mono text-slate-600 text-[8.5px] bg-inherit">{game.awayWin}</td>
                                   </>
                                 )}
 
                                 {pdfConfig.showTips && (
-                                  <td className="py-0.5 px-0.5 border text-center font-mono font-black text-emerald-800 text-[8.5px] uppercase">
+                                  <td className="py-0.5 px-0.5 border text-center font-mono font-black text-emerald-800 text-[8.5px] uppercase bg-inherit">
                                     {game.betTips || 'DRAW (X)'}
                                   </td>
                                 )}
 
                                 {pdfConfig.showBookmaker && (
-                                  <td className="py-0.5 px-0.5 border text-center font-mono text-[8.5px] text-slate-500 uppercase">
+                                  <td className="py-0.5 px-0.5 border text-center font-mono text-[8.5px] text-slate-500 uppercase bg-inherit">
                                     {game.bookmaker}
                                   </td>
                                 )}

@@ -218,6 +218,9 @@ export interface BookmakerTableRecord {
   betcode: string;
   home: string;
   away: string;
+  league?: string;
+  match_league?: string;
+  match?: string;
   homewin: number;
   draw: number;
   awaywin: number;
@@ -225,6 +228,7 @@ export interface BookmakerTableRecord {
   status: string;
   kickoff: string;
   created_at?: string;
+  [key: string]: any;
 }
 
 export interface PoolCodesComparisonRecord {
@@ -232,6 +236,8 @@ export interface PoolCodesComparisonRecord {
   pool: string | number;
   home: string;
   away: string;
+  league?: string;
+  match_league?: string;
   'bet9ja (draw)'?: string | number;
   'betking (draw)'?: string | number;
   'sportybet (draw)'?: string | number;

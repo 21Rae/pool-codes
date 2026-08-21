@@ -42,7 +42,8 @@ import {
   INITIAL_BETWAY,
   INITIAL_SOCCABET,
   INITIAL_MSPORT,
-  INITIAL_POOL_CODES_COMPARISON
+  INITIAL_POOL_CODES_COMPARISON,
+  isPaymentDisabledBookmaker
 } from './initialData';
 import {
   User,
@@ -1091,6 +1092,12 @@ export default function App() {
 
     if (selectedComponents.length === 0) {
       triggerToast('Please select at least one bookmaker component to subscribe.', 'error');
+      return;
+    }
+
+    const disabledComps = selectedComponents.filter(c => isPaymentDisabledBookmaker(c));
+    if (disabledComps.length > 0) {
+      triggerToast(`Payment portal for ${disabledComps.map(c => c.toUpperCase()).join(', ')} is currently disabled.`, 'error');
       return;
     }
 

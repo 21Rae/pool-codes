@@ -521,9 +521,13 @@ export default function WeeklyPoolPicksTable({
           halign: 'center'
         },
         bodyStyles: {
+          fillColor: [255, 255, 255],
           fontSize: 8.5,
           textColor: [15, 23, 42],
           halign: 'center'
+        },
+        alternateRowStyles: {
+          fillColor: [248, 250, 252]
         },
         columnStyles: {
           0: { halign: 'center', fontStyle: 'bold', fillColor: [248, 250, 252] },
@@ -540,8 +544,8 @@ export default function WeeklyPoolPicksTable({
         willDrawPage: () => {
           // Soft security watermark placed strictly BEHIND the table cells and text
           doc.saveGraphicsState();
-          doc.setTextColor(244, 246, 249);
-          doc.setFontSize(10);
+          doc.setTextColor(248, 250, 252);
+          doc.setFontSize(9);
           doc.setFont('helvetica', 'bold');
           const watermarkText = `FASTPOOLCODES • ${primaryEmail}`;
           for (let x = 15; x < 297; x += 95) {
