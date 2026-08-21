@@ -507,14 +507,14 @@ export default function PoolCodesComparisonTable({
           minCellHeight: 3.5
         },
         bodyStyles: {
-          fillColor: [255, 255, 255],
+          fillColor: false,
           fontSize: 6.5,
           textColor: [30, 41, 59],
           cellPadding: [0.45, 0.8],
           minCellHeight: 3.0,
         },
         alternateRowStyles: {
-          fillColor: [248, 250, 252]
+          fillColor: false
         },
         columnStyles: {
           0: { cellWidth: 12, halign: 'center', fontStyle: 'bold' },
@@ -527,14 +527,14 @@ export default function PoolCodesComparisonTable({
           7: { cellWidth: 36, halign: 'center' }
         },
         willDrawPage: () => {
-          // Soft security watermark placed strictly BEHIND the table cells and text
+          // Bolder security watermark placed strictly BEHIND the table cells and text
           doc.saveGraphicsState();
-          doc.setTextColor(248, 250, 252);
-          doc.setFontSize(9);
+          doc.setTextColor(195, 206, 220); // Bold, crisp watermark contrast
+          doc.setFontSize(14);
           doc.setFont('helvetica', 'bold');
           const watermarkText = `FASTPOOLCODES • ${currentUser?.email || 'FREE ACCESS'}`;
-          for (let y = 30; y < pageHeight; y += 45) {
-            for (let x = 5; x < pageWidth + 30; x += 90) {
+          for (let y = 25; y < pageHeight; y += 40) {
+            for (let x = -15; x < pageWidth + 30; x += 90) {
               doc.text(watermarkText, x, y, { angle: -25 });
             }
           }

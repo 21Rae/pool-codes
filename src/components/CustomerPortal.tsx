@@ -3239,16 +3239,7 @@ export default function CustomerPortal({
                                         <td className={`px-2.5 py-2.5 sm:px-4 sm:py-3 text-left font-bold border-r transition-all duration-300 ${
                                           isPaperMode ? 'border-r border-slate-950 text-sm font-black text-slate-950 uppercase' : 'border-r border-slate-800/60 font-semibold'
                                         }`}>
-                                          <div className="flex flex-col gap-0.5">
-                                            <span>{game.home}</span>
-                                            {game.league && (
-                                              <span className={`text-[8.5px] font-mono tracking-tight uppercase font-extrabold w-fit px-1 py-0.2 rounded ${
-                                                isPaperMode ? 'bg-emerald-100 text-emerald-950 border border-emerald-300' : 'bg-emerald-950/40 text-emerald-400 border border-emerald-500/20'
-                                              }`}>
-                                                {game.league}
-                                              </span>
-                                            )}
-                                          </div>
+                                          <span>{game.home}</span>
                                         </td>
 
                                         {/* AWAY NAME */}
@@ -7176,13 +7167,11 @@ export default function CustomerPortal({
                             }
 
                             const tableData = pdfFilteredGames.map(game => {
-                              const matchAndLeague = game.league 
-                                ? `${game.home || ''} vs ${game.away || ''} (${game.league})`
-                                : `${game.home || ''} vs ${game.away || ''}`;
+                              const matchTeams = `${game.home || ''} vs ${game.away || ''}`;
                               const row: string[] = [
                                 String(game.poolNo || '-'),
                                 String(game.betCode || '-'),
-                                matchAndLeague,
+                                matchTeams,
                               ];
                               if (pdfConfig.showOdds) {
                                 row.push(String(game.homeWin || '-'), String(game.draw || '-'), String(game.awayWin || '-'));
@@ -7212,14 +7201,14 @@ export default function CustomerPortal({
                                 minCellHeight: 4.2,
                               },
                               bodyStyles: {
-                                fillColor: [255, 255, 255],
+                                fillColor: false,
                                 fontSize: 7.5,
                                 textColor: [15, 23, 42],
                                 cellPadding: [0.7, 0.8],
                                 minCellHeight: 4.5,
                               },
                               alternateRowStyles: {
-                                fillColor: [248, 250, 252],
+                                fillColor: false,
                               },
                               columnStyles: {
                                 0: { halign: 'center', fontStyle: 'bold', cellWidth: 12 },
@@ -7232,14 +7221,14 @@ export default function CustomerPortal({
                                 7: { halign: 'center', cellWidth: 18 },
                               },
                               willDrawPage: () => {
-                                // Soft security watermark placed strictly BEHIND the table cells and text
+                                // Bolder security watermark placed strictly BEHIND the table cells and text
                                 doc.saveGraphicsState();
-                                doc.setTextColor(248, 250, 252);
-                                doc.setFontSize(9);
+                                doc.setTextColor(195, 206, 220); // Bold, crisp watermark contrast
+                                doc.setFontSize(14);
                                 doc.setFont('helvetica', 'bold');
                                 const watermarkText = `FASTPOOLCODES • ${currentUser?.email || 'user@fastpoolcodes.com'}`;
-                                for (let y = 30; y < pageHeight; y += 45) {
-                                  for (let x = 5; x < pageWidth + 30; x += 90) {
+                                for (let y = 25; y < pageHeight; y += 40) {
+                                  for (let x = -15; x < pageWidth + 30; x += 90) {
                                     doc.text(watermarkText, x, y, { angle: -25 });
                                   }
                                 }
@@ -7335,12 +7324,12 @@ export default function CustomerPortal({
                   {/* Decorative background grid overlay for print preview (removed during print automatically via CSS) */}
                   <div className="absolute inset-0 bg-grid opacity-[0.01] pointer-events-none print:hidden"></div>
 
-                  {/* Watermark layer: "fastpoolcodes" and user email repeating softly */}
-                  <div className="absolute inset-0 overflow-hidden pointer-events-none select-none opacity-[0.035] print:opacity-[0.035] z-0 flex flex-wrap justify-around items-center content-around">
+                  {/* Watermark layer: "fastpoolcodes" and user email repeating boldly beneath the table */}
+                  <div className="absolute inset-0 overflow-hidden pointer-events-none select-none opacity-[0.11] print:opacity-[0.12] z-0 flex flex-wrap justify-around items-center content-around">
                     {Array.from({ length: 24 }).map((_, i) => (
                       <div
                         key={i}
-                        className="text-[13px] font-mono font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap select-none p-4 rotate-[-25deg]"
+                        className="text-sm font-mono font-black text-slate-500 uppercase tracking-widest whitespace-nowrap select-none p-4 rotate-[-25deg]"
                         style={{ transform: 'rotate(-25deg)' }}
                       >
                         fastpoolcodes • {currentUser?.email || 'user@fastpoolcodes.com'}
@@ -7471,14 +7460,7 @@ export default function CustomerPortal({
                                   {game.betCode}
                                 </td>
                                 <td className="py-0.5 px-1.5 border font-bold text-slate-900 bg-inherit">
-                                  <div className="flex items-center justify-between gap-1">
-                                    <span>{game.home} <span className="font-normal text-slate-400">vs</span> {game.away}</span>
-                                    {game.league && (
-                                      <span className="text-[7.5px] font-mono font-extrabold text-emerald-800 bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200 uppercase shrink-0">
-                                        {game.league}
-                                      </span>
-                                    )}
-                                  </div>
+                                  <span>{game.home} <span className="font-normal text-slate-400">vs</span> {game.away}</span>
                                 </td>
 
                                 {pdfConfig.showOdds && (

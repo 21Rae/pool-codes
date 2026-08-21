@@ -28,6 +28,7 @@ import {
   ChevronUp,
   Database,
   Radio,
+  Star,
   X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -109,8 +110,18 @@ export function normalizeWeeklyPickRecord(raw: any, index: number, defaultWeek =
     };
   }
 
-  const rawPool = getCaseInsensitiveVal(raw, ['pool', 'pool_no', 'pool_number', 'fixture_no', 'match_no', 'id']);
-  const pool_no = rawPool !== undefined && !isNaN(Number(rawPool)) ? Number(rawPool) : (index + 1);
+  // Exact pool number resolution from DB column 'pool', 'pool_no', etc.
+  let pool_no = index + 1;
+  if (raw.pool !== undefined && raw.pool !== null && String(raw.pool).trim() !== '' && !isNaN(Number(raw.pool))) {
+    pool_no = Number(raw.pool);
+  } else if (raw.pool_no !== undefined && raw.pool_no !== null && String(raw.pool_no).trim() !== '' && !isNaN(Number(raw.pool_no))) {
+    pool_no = Number(raw.pool_no);
+  } else {
+    const rawPool = getCaseInsensitiveVal(raw, ['pool', 'pool_no', 'pool_number', 'poolno', 'fixture_no', 'match_no']);
+    if (rawPool !== undefined && !isNaN(Number(rawPool))) {
+      pool_no = Number(rawPool);
+    }
+  }
 
   const bet_code = String(getCaseInsensitiveVal(raw, ['bet_code', 'bet code', 'betcode', 'code', 'booking_code', 'ticket_code']) || '');
   const home = String(getCaseInsensitiveVal(raw, ['home', 'home_team', 'home team', 'hometeam']) || 'Home Team');
@@ -127,8 +138,14 @@ export function normalizeWeeklyPickRecord(raw: any, index: number, defaultWeek =
   const rawWeek = getCaseInsensitiveVal(raw, ['week', 'week_number', 'week_no', 'active_week']);
   const week = rawWeek !== undefined && !isNaN(Number(rawWeek)) ? Number(rawWeek) : defaultWeek;
 
-  const is_banker = Boolean(getCaseInsensitiveVal(raw, ['is_banker', 'banker', 'isbanker']));
-  const notes = String(getCaseInsensitiveVal(raw, ['notes', 'log', 'comment', 'description']) || '');
+  const is_banker = Boolean(
+    raw.is_banker === true ||
+    raw.is_banker === 'true' ||
+    raw.banker === true ||
+    raw.banker === 'true' ||
+    getCaseInsensitiveVal(raw, ['is_banker', 'banker', 'isbanker']) === true
+  );
+  const notes = String(getCaseInsensitiveVal(raw, ['notes', 'log', 'comment', 'description', 'analysis', 'rationale']) || '');
 
   return {
     id: raw.id ?? `pick-${pool_no}_${home}_${away}`,
@@ -151,99 +168,99 @@ export function normalizeWeeklyPickRecord(raw: any, index: number, defaultWeek =
 export const DEFAULT_WEEKLY_PICKS: WeeklyPoolPick[] = [
   {
     id: 1,
-    pool_no: 3,
+    pool_no: 2,
     bet_code: '2110',
     home: 'Everton',
     away: 'Crystal P.',
     home_win: 2.23,
-    draw_x: 3.4,
+    draw_x: 3.40,
     away_win: 3.35,
     bet: 'X',
     status: 'Saturday',
     kick_off: '3:00 PM',
     week: 7,
-    is_banker: true,
-    notes: 'Primary UK Premier League banker draw prediction.'
+    is_banker: false,
+    notes: 'Premier League fixture draw candidate'
   },
   {
     id: 2,
     pool_no: 14,
-    bet_code: '3412',
-    home: 'Port Vale',
-    away: 'Shrewsbury',
-    home_win: 2.45,
-    draw_x: 3.2,
-    away_win: 2.95,
+    bet_code: '4565',
+    home: 'Swansea',
+    away: 'Sheff Utd.',
+    home_win: 2.57,
+    draw_x: 3.30,
+    away_win: 2.70,
     bet: 'X',
     status: 'Saturday',
     kick_off: '3:00 PM',
     week: 7,
-    is_banker: true,
-    notes: 'League One key draw combination.'
+    is_banker: false,
+    notes: 'Championship high-probability draw pairing'
   },
   {
     id: 3,
-    pool_no: 22,
-    bet_code: '7841',
-    home: 'Walsall',
-    away: 'Newport Co.',
-    home_win: 2.1,
-    draw_x: 3.3,
-    away_win: 3.45,
+    pool_no: 19,
+    bet_code: '1072',
+    home: 'Wimbledon',
+    away: 'Reading',
+    home_win: 2.50,
+    draw_x: 3.20,
+    away_win: 2.60,
     bet: 'X',
     status: 'Saturday',
     kick_off: '3:00 PM',
     week: 7,
     is_banker: false,
-    notes: 'League Two statistical draw trend.'
+    notes: 'League One statistical draw forecast'
   },
   {
     id: 4,
-    pool_no: 28,
-    bet_code: '4590',
-    home: 'Barrow',
-    away: 'Colchester',
-    home_win: 2.3,
-    draw_x: 3.25,
-    away_win: 3.1,
+    pool_no: 20,
+    bet_code: '1221',
+    home: 'Bromley',
+    away: 'Cambridge U.',
+    home_win: 2.68,
+    draw_x: 3.10,
+    away_win: 2.50,
     bet: 'X',
     status: 'Saturday',
     kick_off: '3:00 PM',
     week: 7,
     is_banker: false,
-    notes: 'Decrypted coupon pairing banker.'
+    notes: 'League One balanced coupon match'
   },
   {
     id: 5,
-    pool_no: 35,
-    bet_code: '6723',
-    home: 'Tranmere',
-    away: 'Harrogate',
-    home_win: 2.15,
-    draw_x: 3.4,
-    away_win: 3.2,
+    pool_no: 30,
+    bet_code: '1590',
+    home: 'Walsall',
+    away: 'Grimsby',
+    home_win: 2.57,
+    draw_x: 3.05,
+    away_win: 2.63,
     bet: 'X',
-    status: 'Saturday',
-    kick_off: '3:00 PM',
+    status: 'EKO',
+    kick_off: '12:30 PM',
     week: 7,
-    is_banker: true,
-    notes: 'High-confidence League Two draw forecast.'
+    is_banker: false,
+    notes: 'Early Kick Off (EKO 12:30 PM) League Two prediction'
   },
   {
     id: 6,
-    pool_no: 41,
-    bet_code: '9012',
-    home: 'Crewe',
-    away: 'Salford City',
-    home_win: 2.4,
-    draw_x: 3.35,
-    away_win: 2.85,
+    pool_no: 34,
+    bet_code: '1641',
+    home: 'Fleetwood',
+    away: 'Gillingham',
+    home_win: 2.13,
+    draw_x: 3.25,
+    away_win: 3.15,
     bet: 'X',
     status: 'Saturday',
     kick_off: '3:00 PM',
     week: 7,
     is_banker: false,
-    notes: 'Late coupon classification match.'
+    notes: 'League Two key pairing'
   },
   {
     id: 7,
@@ -258,8 +275,8 @@ export const DEFAULT_WEEKLY_PICKS: WeeklyPoolPick[] = [
     status: 'LKO',
     kick_off: '7:45 PM',
     week: 7,
-    is_banker: true,
-    notes: 'Late Kick Off (LKO) Serie A banker draw pick.'
+    is_banker: false,
+    notes: 'Late Kick Off (LKO 7:45 PM) Serie A draw selection'
   }
 ];
 
@@ -288,11 +305,7 @@ export default function WeeklyPoolPicksTable({
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          // Check if parsed has outdated mock fixtures like 'Swansea' or 'Wimbledo'
-          const hasStaleMock = parsed.some(p => p.home === 'Swansea' || p.home === 'Wimbledo' || p.home === 'Bromley');
-          if (!hasStaleMock) {
-            return parsed;
-          }
+          return parsed;
         }
       }
     } catch (_) {}
@@ -498,7 +511,7 @@ export default function WeeklyPoolPicksTable({
       doc.setTextColor(148, 163, 184); // slate-400
       doc.text(`Week ${activeWeekNumber} UK Pools Decrypted Banker Draws & Bet Codes Matrix | Generated: ${new Date().toLocaleDateString('en-GB')} | License: @${currentUser.username || 'user'}`, 14, 19);
 
-      // Table columns & rows
+      // Table columns & rows matching strictly the bookmaker tables
       const tableHeaders = [
         ['POOL', 'BET CODE', 'HOME', 'AWAY', 'HOME WIN', 'DRAW (X)', 'AWAY WIN', 'BET', 'STATUS', 'KICK OFF (W.A.T)']
       ];
@@ -529,35 +542,35 @@ export default function WeeklyPoolPicksTable({
           halign: 'center'
         },
         bodyStyles: {
-          fillColor: [255, 255, 255],
+          fillColor: false,
           fontSize: 8.5,
           textColor: [15, 23, 42],
           halign: 'center'
         },
         alternateRowStyles: {
-          fillColor: [248, 250, 252]
+          fillColor: false
         },
         columnStyles: {
-          0: { halign: 'center', fontStyle: 'bold', fillColor: [248, 250, 252] },
+          0: { halign: 'center', fontStyle: 'bold' },
           1: { halign: 'center', fontStyle: 'bold', textColor: [5, 150, 105] },
           2: { halign: 'left', fontStyle: 'bold' },
           3: { halign: 'left', fontStyle: 'bold' },
           4: { halign: 'center' },
-          5: { halign: 'center', fontStyle: 'bold', fillColor: [236, 253, 245], textColor: [4, 120, 87] },
+          5: { halign: 'center', fontStyle: 'bold', textColor: [4, 120, 87] },
           6: { halign: 'center' },
-          7: { halign: 'center', fontStyle: 'bold', fillColor: [254, 240, 138], textColor: [133, 77, 14] },
+          7: { halign: 'center', fontStyle: 'bold', textColor: [133, 77, 14] },
           8: { halign: 'center', fontStyle: 'bold' },
           9: { halign: 'center', fontStyle: 'normal' }
         },
         willDrawPage: () => {
-          // Soft security watermark placed strictly BEHIND the table cells and text
+          // Bolder security watermark placed strictly BEHIND the table cells and text
           doc.saveGraphicsState();
-          doc.setTextColor(248, 250, 252);
-          doc.setFontSize(9);
+          doc.setTextColor(195, 206, 220); // Bold, visible watermark contrast
+          doc.setFontSize(15);
           doc.setFont('helvetica', 'bold');
           const watermarkText = `FASTPOOLCODES • ${primaryEmail}`;
-          for (let x = 15; x < 297; x += 95) {
-            for (let y = 35; y < 210; y += 50) {
+          for (let x = -20; x < 320; x += 105) {
+            for (let y = 25; y < 220; y += 42) {
               doc.text(watermarkText, x, y, { angle: -25 });
             }
           }
@@ -788,32 +801,32 @@ export default function WeeklyPoolPicksTable({
           <div className="absolute inset-0 opacity-15 filter blur-sm pointer-events-none select-none overflow-hidden p-4">
             <table className="w-full text-xs text-left">
               <thead>
-                <tr className="border-b border-slate-700 text-slate-400">
-                  <th className="p-3">POOL</th>
-                  <th className="p-3">BET CODE</th>
-                  <th className="p-3">HOME</th>
-                  <th className="p-3">AWAY</th>
-                  <th className="p-3">HOME WIN</th>
-                  <th className="p-3">DRAW (X)</th>
-                  <th className="p-3">AWAY WIN</th>
-                  <th className="p-3">BET</th>
-                  <th className="p-3">STATUS</th>
-                  <th className="p-3">KICK OFF</th>
+                <tr className="border-b border-slate-700 text-slate-400 font-mono">
+                  <th className="p-2.5 text-center">POOL</th>
+                  <th className="p-2.5 text-center">BET CODE</th>
+                  <th className="p-2.5">HOME</th>
+                  <th className="p-2.5">AWAY</th>
+                  <th className="p-2.5 text-center">HOME WIN</th>
+                  <th className="p-2.5 text-center">DRAW (X)</th>
+                  <th className="p-2.5 text-center">AWAY WIN</th>
+                  <th className="p-2.5 text-center">BET</th>
+                  <th className="p-2.5 text-center">STATUS</th>
+                  <th className="p-2.5 text-center">KICK OFF (W.A.T)</th>
                 </tr>
               </thead>
               <tbody>
                 {DEFAULT_WEEKLY_PICKS.map((p, idx) => (
-                  <tr key={idx} className="border-b border-slate-800 text-slate-300">
-                    <td className="p-3 font-mono">{p.pool_no}</td>
-                    <td className="p-3 font-mono">{p.bet_code}</td>
-                    <td className="p-3">{p.home}</td>
-                    <td className="p-3">{p.away}</td>
-                    <td className="p-3">{p.home_win}</td>
-                    <td className="p-3">{p.draw_x}</td>
-                    <td className="p-3">{p.away_win}</td>
-                    <td className="p-3">{p.bet}</td>
-                    <td className="p-3">{p.status}</td>
-                    <td className="p-3">{p.kick_off}</td>
+                  <tr key={idx} className="border-b border-slate-800 text-slate-300 font-sans">
+                    <td className="p-2.5 text-center font-mono font-bold">{p.pool_no}</td>
+                    <td className="p-2.5 text-center font-mono text-emerald-400 font-bold">{p.bet_code}</td>
+                    <td className="p-2.5 font-bold">{p.home}</td>
+                    <td className="p-2.5 font-bold">{p.away}</td>
+                    <td className="p-2.5 text-center font-mono">{Number(p.home_win).toFixed(2)}</td>
+                    <td className="p-2.5 text-center font-mono text-amber-300 font-bold">{Number(p.draw_x).toFixed(2)}</td>
+                    <td className="p-2.5 text-center font-mono">{Number(p.away_win).toFixed(2)}</td>
+                    <td className="p-2.5 text-center font-mono font-bold">{p.bet || 'X'}</td>
+                    <td className="p-2.5 text-center font-mono">{p.status}</td>
+                    <td className="p-2.5 text-center font-mono">{p.kick_off}</td>
                   </tr>
                 ))}
               </tbody>
@@ -821,9 +834,9 @@ export default function WeeklyPoolPicksTable({
           </div>
 
           {/* Watermark overlay */}
-          <div className="absolute inset-0 overflow-hidden pointer-events-none select-none opacity-[0.03] z-0 flex flex-wrap justify-around items-center content-around">
-            {Array.from({ length: 20 }).map((_, i) => (
-              <div key={i} className="text-[13px] font-mono font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap select-none p-4 rotate-[-25deg]">
+          <div className="absolute inset-0 overflow-hidden pointer-events-none select-none opacity-[0.10] z-0 flex flex-wrap justify-around items-center content-around">
+            {Array.from({ length: 24 }).map((_, i) => (
+              <div key={i} className="text-base font-mono font-black text-slate-400 uppercase tracking-widest whitespace-nowrap select-none p-4 rotate-[-25deg]">
                 FASTPOOLCODES • SUBSCRIBER EXCLUSIVE
               </div>
             ))}
@@ -994,22 +1007,31 @@ export default function WeeklyPoolPicksTable({
             </div>
           </div>
 
-          {/* THE DATA TABLE (Exact Structure from User's Spreadsheet) */}
-          <div className="bg-slate-900/70 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-md">
-            <div className="overflow-x-auto">
+          {/* THE DATA TABLE (Exact Structure from User's Spreadsheet - All Columns) */}
+          <div className="bg-slate-900/70 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-md relative">
+            {/* Watermark overlay beneath table text */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none select-none opacity-[0.05] z-0 flex flex-wrap justify-around items-center content-around">
+              {Array.from({ length: 16 }).map((_, i) => (
+                <div key={i} className="text-sm sm:text-base font-mono font-black text-slate-300 uppercase tracking-widest whitespace-nowrap select-none p-4 rotate-[-22deg]">
+                  FASTPOOLCODES • VERIFIED PICKS
+                </div>
+              ))}
+            </div>
+
+            <div className="overflow-x-auto relative z-10">
               <table className="w-full text-xs text-left border-collapse" id="weekly-pool-picks-data-table">
                 <thead>
-                  <tr className="bg-slate-950/90 text-slate-300 font-mono border-b border-slate-800">
-                    <th className="py-3.5 px-4 font-bold text-center w-16 uppercase tracking-wider text-slate-400">POOL</th>
-                    <th className="py-3.5 px-4 font-bold text-center w-28 uppercase tracking-wider text-emerald-400">BET CODE</th>
-                    <th className="py-3.5 px-4 font-bold uppercase tracking-wider">HOME</th>
-                    <th className="py-3.5 px-4 font-bold uppercase tracking-wider">AWAY</th>
-                    <th className="py-3.5 px-3 font-bold text-center w-24 uppercase tracking-wider text-slate-400">HOME WIN</th>
+                  <tr className="bg-slate-950/90 text-slate-300 font-mono border-b border-slate-800 text-[11px]">
+                    <th className="py-3.5 px-3 font-bold text-center w-14 uppercase tracking-wider text-slate-400">POOL</th>
+                    <th className="py-3.5 px-3 font-bold text-center w-28 uppercase tracking-wider text-emerald-400">BET CODE</th>
+                    <th className="py-3.5 px-4 font-bold uppercase tracking-wider min-w-[130px]">HOME</th>
+                    <th className="py-3.5 px-4 font-bold uppercase tracking-wider min-w-[130px]">AWAY</th>
+                    <th className="py-3.5 px-3 font-bold text-center w-20 uppercase tracking-wider text-slate-400">HOME WIN</th>
                     <th className="py-3.5 px-3 font-bold text-center w-24 uppercase tracking-wider text-amber-400">DRAW (X)</th>
-                    <th className="py-3.5 px-3 font-bold text-center w-24 uppercase tracking-wider text-slate-400">AWAY WIN</th>
-                    <th className="py-3.5 px-3 font-bold text-center w-20 uppercase tracking-wider text-yellow-300">BET</th>
-                    <th className="py-3.5 px-3 font-bold text-center w-24 uppercase tracking-wider text-slate-400">STATUS</th>
-                    <th className="py-3.5 px-4 font-bold text-center w-32 uppercase tracking-wider text-slate-400">KICK OFF (W.A.T)</th>
+                    <th className="py-3.5 px-3 font-bold text-center w-20 uppercase tracking-wider text-slate-400">AWAY WIN</th>
+                    <th className="py-3.5 px-3 font-bold text-center w-16 uppercase tracking-wider text-yellow-300">BET</th>
+                    <th className="py-3.5 px-3 font-bold text-center w-20 uppercase tracking-wider text-slate-400">STATUS</th>
+                    <th className="py-3.5 px-3 font-bold text-center w-28 uppercase tracking-wider text-slate-400">KICK OFF (W.A.T)</th>
                     {isAdmin && <th className="py-3.5 px-3 font-bold text-center w-20 uppercase tracking-wider text-slate-500">ACTIONS</th>}
                   </tr>
                 </thead>
@@ -1022,7 +1044,6 @@ export default function WeeklyPoolPicksTable({
                     </tr>
                   ) : (
                     filteredPicks.map((pick, idx) => {
-                      const isDraw = pick.bet === 'X';
                       const isEKO = pick.status === 'EKO';
                       const isLKO = pick.status === 'LKO';
 
@@ -1032,14 +1053,14 @@ export default function WeeklyPoolPicksTable({
                           className="hover:bg-slate-800/40 transition-colors group"
                         >
                           {/* 1. POOL */}
-                          <td className="py-3 px-4 text-center font-mono">
-                            <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-slate-950 border border-slate-700/60 text-slate-200 font-black text-xs group-hover:border-emerald-500/40 transition-colors">
+                          <td className="py-3 px-3 text-center font-mono">
+                            <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-slate-950 border border-slate-700/60 text-slate-100 font-black text-xs group-hover:border-emerald-500/50 shadow-inner transition-colors">
                               {pick.pool_no}
                             </span>
                           </td>
 
                           {/* 2. BET CODE with 1-click copy */}
-                          <td className="py-3 px-4 text-center font-mono">
+                          <td className="py-3 px-3 text-center font-mono">
                             <button
                               onClick={() => handleCopyCode(pick.bet_code, pick.id)}
                               className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-500/30 text-emerald-300 font-black text-xs tracking-wider transition active:scale-95 cursor-pointer"
@@ -1056,12 +1077,12 @@ export default function WeeklyPoolPicksTable({
 
                           {/* 3. HOME TEAM */}
                           <td className="py-3 px-4 font-bold text-white text-xs sm:text-sm">
-                            <span className="truncate block max-w-[140px] sm:max-w-[180px]">{pick.home}</span>
+                            <span className="truncate block max-w-[150px]">{pick.home}</span>
                           </td>
 
                           {/* 4. AWAY TEAM */}
                           <td className="py-3 px-4 font-bold text-slate-200 text-xs sm:text-sm">
-                            <span className="truncate block max-w-[140px] sm:max-w-[180px]">{pick.away}</span>
+                            <span className="truncate block max-w-[150px]">{pick.away}</span>
                           </td>
 
                           {/* 5. HOME WIN */}
@@ -1069,9 +1090,9 @@ export default function WeeklyPoolPicksTable({
                             {Number(pick.home_win).toFixed(2)}
                           </td>
 
-                          {/* 6. DRAW (X) (Highlighted as core banker metric) */}
+                          {/* 6. DRAW (X) */}
                           <td className="py-3 px-3 text-center font-mono">
-                            <span className="inline-block px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/25 text-amber-300 font-bold text-xs">
+                            <span className="inline-block px-2.5 py-1 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-300 font-black text-xs">
                               {Number(pick.draw_x).toFixed(2)}
                             </span>
                           </td>
@@ -1104,7 +1125,7 @@ export default function WeeklyPoolPicksTable({
                           </td>
 
                           {/* 10. KICK OFF (W.A.T) */}
-                          <td className="py-3 px-4 text-center font-mono text-xs text-slate-300 whitespace-nowrap">
+                          <td className="py-3 px-3 text-center font-mono text-xs text-slate-300 whitespace-nowrap">
                             <span className="inline-flex items-center gap-1 text-slate-300">
                               <Clock className="w-3 h-3 text-slate-500" />
                               <span>{pick.kick_off}</span>
@@ -1160,7 +1181,7 @@ export default function WeeklyPoolPicksTable({
       {/* ADMIN EDIT / ADD MODAL */}
       {isEditModalOpen && editingPick && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-emerald-500/30 rounded-2xl w-full max-w-xl p-6 shadow-2xl space-y-4">
+          <div className="bg-slate-900 border border-emerald-500/30 rounded-2xl w-full max-w-xl p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <h3 className="text-lg font-black text-white uppercase tracking-tight flex items-center gap-2">
                 <Target className="w-5 h-5 text-emerald-400" />
@@ -1266,7 +1287,7 @@ export default function WeeklyPoolPicksTable({
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="text-[10px] font-mono text-slate-400 uppercase font-bold block mb-1">BET (TIP)</label>
+                  <label className="text-[10px] font-mono text-slate-400 uppercase font-bold block mb-1">BET</label>
                   <input
                     type="text"
                     value={editingPick.bet || 'X'}
