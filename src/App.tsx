@@ -94,6 +94,7 @@ export default function App() {
   // 'customer' -> app.poolcodes.com
   // 'admin' -> admin.poolcodes.com
   const [currentAppSelector, setCurrentAppSelector] = useState<'customer' | 'admin'>('customer');
+  const [initialHomeView, setInitialHomeView] = useState<'blog' | 'comparison' | 'livescores' | 'results' | 'about' | 'contact'>('blog');
   const [viewMode, setViewMode] = useState<'homepage' | 'portal' | 'livescores' | 'terms' | 'help'>(() => {
     try {
       const hash = window.location.hash.toLowerCase();
@@ -1861,6 +1862,7 @@ export default function App() {
               currentUser={currentUser}
               autoOpenAuth={autoOpenAuthHome}
               onResetAutoOpenAuth={() => setAutoOpenAuthHome(false)}
+              initialView={initialHomeView}
               onSignIn={() => {
                 setViewMode('portal');
                 triggerToast('Authenticated secure session active! Welcome.', 'success');
@@ -1945,6 +1947,7 @@ export default function App() {
               <div className="flex items-center gap-1.5 md:gap-3">
                 <button
                   onClick={() => {
+                    setInitialHomeView('blog');
                     setViewMode('homepage');
                     triggerToast(`Navigated to public homepage. Your session remains logged in as @${currentUser.username || 'user'}.`, 'info');
                   }}
@@ -2038,6 +2041,16 @@ export default function App() {
                   setLivescoresOrigin('portal');
                   setViewMode('livescores');
                   triggerToast('Navigating to Live Scores Arena...', 'info');
+                }}
+                onNavigateToContact={() => {
+                  setInitialHomeView('contact');
+                  setViewMode('homepage');
+                  triggerToast('Navigating to Contact Us & Helpdesk...', 'info');
+                }}
+                onNavigateToAbout={() => {
+                  setInitialHomeView('about');
+                  setViewMode('homepage');
+                  triggerToast('Navigating to About Us & FastPool Story...', 'info');
                 }}
                 onSignOut={() => {
                   localStorage.removeItem('fastpool_cached_user');

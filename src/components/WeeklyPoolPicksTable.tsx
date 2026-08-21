@@ -150,8 +150,8 @@ export function normalizeWeeklyPickRecord(raw: any, index: number, defaultWeek =
 
 export const DEFAULT_WEEKLY_PICKS: WeeklyPoolPick[] = [
   {
-    id: 'pick-1',
-    pool_no: 2,
+    id: 1,
+    pool_no: 3,
     bet_code: '2110',
     home: 'Everton',
     away: 'Crystal P.',
@@ -166,87 +166,87 @@ export const DEFAULT_WEEKLY_PICKS: WeeklyPoolPick[] = [
     notes: 'Primary UK Premier League banker draw prediction.'
   },
   {
-    id: 'pick-2',
+    id: 2,
     pool_no: 14,
-    bet_code: '4565',
-    home: 'Swansea',
-    away: 'Sheff Utd.',
-    home_win: 2.57,
-    draw_x: 3.3,
-    away_win: 2.7,
-    bet: 'X',
-    status: 'Saturday',
-    kick_off: '3:00 PM',
-    week: 7,
-    is_banker: true,
-    notes: 'Championship high-probability draw pairing.'
-  },
-  {
-    id: 'pick-3',
-    pool_no: 19,
-    bet_code: '1072',
-    home: 'Wimbledo',
-    away: 'Reading',
-    home_win: 2.5,
+    bet_code: '3412',
+    home: 'Port Vale',
+    away: 'Shrewsbury',
+    home_win: 2.45,
     draw_x: 3.2,
-    away_win: 2.6,
+    away_win: 2.95,
     bet: 'X',
     status: 'Saturday',
     kick_off: '3:00 PM',
-    week: 7,
-    is_banker: false,
-    notes: 'League One coupon telegraph banker.'
-  },
-  {
-    id: 'pick-4',
-    pool_no: 20,
-    bet_code: '1221',
-    home: 'Bromley',
-    away: 'Cambridge',
-    home_win: 2.68,
-    draw_x: 3.1,
-    away_win: 2.5,
-    bet: 'X',
-    status: 'Saturday',
-    kick_off: '3:00 PM',
-    week: 7,
-    is_banker: false,
-    notes: 'Strong dead game & defensive stalemate indicator.'
-  },
-  {
-    id: 'pick-5',
-    pool_no: 30,
-    bet_code: '1590',
-    home: 'Walsall',
-    away: 'Grimsby',
-    home_win: 2.57,
-    draw_x: 3.05,
-    away_win: 2.63,
-    bet: 'X',
-    status: 'EKO',
-    kick_off: '12:30 PM',
     week: 7,
     is_banker: true,
-    notes: 'Early Kick Off (EKO) banker draw pick.'
+    notes: 'League One key draw combination.'
   },
   {
-    id: 'pick-6',
-    pool_no: 34,
-    bet_code: '1641',
-    home: 'Fleetwood',
-    away: 'Gillingham',
-    home_win: 2.13,
-    draw_x: 3.25,
-    away_win: 3.15,
+    id: 3,
+    pool_no: 22,
+    bet_code: '7841',
+    home: 'Walsall',
+    away: 'Newport Co.',
+    home_win: 2.1,
+    draw_x: 3.3,
+    away_win: 3.45,
     bet: 'X',
     status: 'Saturday',
     kick_off: '3:00 PM',
     week: 7,
     is_banker: false,
+    notes: 'League Two statistical draw trend.'
+  },
+  {
+    id: 4,
+    pool_no: 28,
+    bet_code: '4590',
+    home: 'Barrow',
+    away: 'Colchester',
+    home_win: 2.3,
+    draw_x: 3.25,
+    away_win: 3.1,
+    bet: 'X',
+    status: 'Saturday',
+    kick_off: '3:00 PM',
+    week: 7,
+    is_banker: false,
+    notes: 'Decrypted coupon pairing banker.'
+  },
+  {
+    id: 5,
+    pool_no: 35,
+    bet_code: '6723',
+    home: 'Tranmere',
+    away: 'Harrogate',
+    home_win: 2.15,
+    draw_x: 3.4,
+    away_win: 3.2,
+    bet: 'X',
+    status: 'Saturday',
+    kick_off: '3:00 PM',
+    week: 7,
+    is_banker: true,
     notes: 'High-confidence League Two draw forecast.'
   },
   {
-    id: 'pick-7',
+    id: 6,
+    pool_no: 41,
+    bet_code: '9012',
+    home: 'Crewe',
+    away: 'Salford City',
+    home_win: 2.4,
+    draw_x: 3.35,
+    away_win: 2.85,
+    bet: 'X',
+    status: 'Saturday',
+    kick_off: '3:00 PM',
+    week: 7,
+    is_banker: false,
+    notes: 'Late coupon classification match.'
+  },
+  {
+    id: 7,
     pool_no: 46,
     bet_code: '1893',
     home: 'Parma',
@@ -287,7 +287,13 @@ export default function WeeklyPoolPicksTable({
       const saved = localStorage.getItem('fastpool_weekly_picks_data');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Check if parsed has outdated mock fixtures like 'Swansea' or 'Wimbledo'
+          const hasStaleMock = parsed.some(p => p.home === 'Swansea' || p.home === 'Wimbledo' || p.home === 'Bromley');
+          if (!hasStaleMock) {
+            return parsed;
+          }
+        }
       }
     } catch (_) {}
     return DEFAULT_WEEKLY_PICKS;
@@ -325,7 +331,7 @@ export default function WeeklyPoolPicksTable({
       // 1. Direct Supabase Query
       if (supabase) {
         try {
-          const res1 = await supabase.from('weekly pool picks').select('*').order('pool', { ascending: true });
+          const res1 = await supabase.from('weekly pool picks').select('*');
           if (!res1.error && res1.data && res1.data.length > 0) {
             fetchedRows = res1.data;
             usedTable = 'public.weekly pool picks';
@@ -367,6 +373,8 @@ export default function WeeklyPoolPicksTable({
         const mapped: WeeklyPoolPick[] = fetchedRows.map((r: any, idx: number) =>
           normalizeWeeklyPickRecord(r, idx, activeWeekNumber)
         );
+        // Default sort by pool ascending
+        mapped.sort((a, b) => a.pool_no - b.pool_no);
         setPicks(mapped);
         setSourceTableName(usedTable);
         setLastSyncTime(new Date().toLocaleTimeString());

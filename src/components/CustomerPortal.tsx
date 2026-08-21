@@ -97,6 +97,8 @@ interface CustomerPortalProps {
   onUpdateProfile?: (updated: { username: string; email: string; phone?: string; password?: string }) => void;
   renderFooter?: () => React.ReactNode;
   onNavigateToLiveScores?: () => void;
+  onNavigateToContact?: () => void;
+  onNavigateToAbout?: () => void;
   confirmedPaymentMail?: { subject: string; body: string; pdfUrl: string; pdfName: string; fetchedFromSupabase: boolean; queryDetails: string } | null;
   setConfirmedPaymentMail?: (val: any) => void;
   showSimulatedEmailModal?: boolean;
@@ -122,6 +124,8 @@ export default function CustomerPortal({
   onUpdateProfile,
   renderFooter,
   onNavigateToLiveScores,
+  onNavigateToContact,
+  onNavigateToAbout,
   confirmedPaymentMail,
   setConfirmedPaymentMail,
   showSimulatedEmailModal: showSimulatedEmailModalProp,
@@ -2209,22 +2213,27 @@ export default function CustomerPortal({
                     <span>USER PROFILE</span>
                   </button>
 
-                  {/* Mobile WhatsApp Shortcut Card */}
+                  {/* Mobile About Us Shortcut Card */}
                   <div className="mt-4 p-3 bg-emerald-950/30 border border-emerald-500/20 rounded-xl flex flex-col gap-2">
                     <div className="flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-[#25D366] animate-pulse"></span>
-                      <span className="text-[9px] font-mono font-bold text-emerald-400 tracking-wider">WHATSAPP CHANNEL</span>
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                      <span className="text-[9px] font-mono font-bold text-emerald-400 tracking-wider uppercase">ABOUT FASTPOOLCODES</span>
                     </div>
                     <p className="text-[10px] text-slate-400 leading-normal">
-                      Get instant verified pool codes, draws, and predictions directly on your phone.
+                      Learn more about our cross-agency forecasting network, history, and predictive algorithms.
                     </p>
                     <a
-                      href="https://whatsapp.com/channel/0029VanbsS4EawdxbTTkgc3D"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg text-[10px] font-black bg-[#25D366] hover:bg-[#20BA56] text-white transition shadow-sm cursor-pointer"
+                      href="#about"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setIsMobileMenuOpen(false);
+                        if (onNavigateToAbout) {
+                          onNavigateToAbout();
+                        }
+                      }}
+                      className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg text-[10px] font-black bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition shadow-sm cursor-pointer"
                     >
-                      <span>✆ JOIN CHANNEL</span>
+                      <span>ℹ️ ABOUT US</span>
                     </a>
                   </div>
 
@@ -2396,23 +2405,27 @@ export default function CustomerPortal({
 
           </nav>
 
-          {/* Desktop WhatsApp Shortcut Card */}
+          {/* Desktop About Us Shortcut Card */}
           <div className="mt-4 p-3.5 bg-emerald-950/30 border border-emerald-500/20 rounded-xl flex flex-col gap-2.5">
             <div className="flex items-center gap-2">
-              <span className="w-2 h-2 bg-[#25D366] rounded-full animate-pulse"></span>
-              <span className="text-[10px] font-mono font-bold text-emerald-400 tracking-wider">WHATSAPP CHANNEL</span>
+              <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span>
+              <span className="text-[10px] font-mono font-bold text-emerald-400 tracking-wider uppercase">ABOUT FASTPOOLCODES</span>
             </div>
             <p className="text-[10px] text-slate-400 leading-normal">
-              Join our official channel for verified weekly pool codes, draws, and predictions directly in WhatsApp.
+              Discover our story, mission, predictive analytics, and forecasting network.
             </p>
             <a
-              href="https://whatsapp.com/channel/0029VanbsS4EawdxbTTkgc3D"
-              target="_blank"
-              rel="noreferrer"
-              className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-bold bg-[#25D366] hover:bg-[#20BA56] text-[#070B14] hover:text-[#070B14] transition cursor-pointer text-center"
+              href="#about"
+              onClick={(e) => {
+                e.preventDefault();
+                if (onNavigateToAbout) {
+                  onNavigateToAbout();
+                }
+              }}
+              className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 hover:text-slate-950 transition cursor-pointer text-center"
             >
-              <span className="font-sans">✆</span>
-              <span>JOIN CHANNEL</span>
+              <span>ℹ️</span>
+              <span>ABOUT US</span>
             </a>
           </div>
 

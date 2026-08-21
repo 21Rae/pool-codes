@@ -58,6 +58,7 @@ interface OfficePoolStopHomeProps {
   onOpenTerms?: () => void;
   autoOpenAuth?: boolean;
   onResetAutoOpenAuth?: () => void;
+  initialView?: 'blog' | 'comparison' | 'livescores' | 'results' | 'about' | 'contact';
 }
 
 const FALLBACK_BLOG_IMAGES = [
@@ -190,10 +191,17 @@ export default function OfficePoolStopHome({
   onChangePassword,
   onOpenTerms,
   autoOpenAuth,
-  onResetAutoOpenAuth
+  onResetAutoOpenAuth,
+  initialView
 }: OfficePoolStopHomeProps) {
   // Navigation & interaction states
-  const [currentView, setCurrentView] = useState<'blog' | 'comparison' | 'livescores' | 'results' | 'about' | 'contact'>('blog');
+  const [currentView, setCurrentView] = useState<'blog' | 'comparison' | 'livescores' | 'results' | 'about' | 'contact'>(initialView || 'blog');
+
+  useEffect(() => {
+    if (initialView) {
+      setCurrentView(initialView);
+    }
+  }, [initialView]);
   const [selectedResultId, setSelectedResultId] = useState<string | null>(null);
   const [resultsSearchQuery, setResultsSearchQuery] = useState('');
   const [resultsTableSearch, setResultsTableSearch] = useState('');
