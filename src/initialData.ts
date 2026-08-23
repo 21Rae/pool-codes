@@ -242,7 +242,17 @@ export function getPlanDurationDays(plan: Partial<SubscriptionPlan> | undefined)
 export function calculateSubscriptionExpiry(plan: Partial<SubscriptionPlan> | undefined, startDate: Date = new Date()): { startedAt: Date; expiresAt: Date; durationDays: number } {
   const startedAt = new Date(startDate.getTime());
   const durationDays = getPlanDurationDays(plan);
-  const expiresAt = new Date(startedAt.getTime() + durationDays * 24 * 60 * 60 * 1000);
+  // All subscriptions end at midnight (12:00 AM / 00:00:00) of the target expiry day.
+  // e.g. If bought on Tuesday at 3:00 PM with a weekly (7-day) subscription, it ends at Tuesday 12:00 AM (00:00:00) the following week.
+  const expiresAt = new Date(
+    startedAt.getFullYear(),
+    startedAt.getMonth(),
+    startedAt.getDate() + durationDays,
+    0,
+    0,
+    0,
+    0
+  );
   return { startedAt, expiresAt, durationDays };
 }
 

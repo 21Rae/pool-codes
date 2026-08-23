@@ -78,40 +78,49 @@ function normalizeComparisonRecord(raw: any, index: number): PoolCodesComparison
     return {
       id: index + 1,
       pool: index + 1,
-      home: 'Unknown',
-      away: 'Unknown',
-      'bet9ja (draw)': '-',
-      'betking (draw)': '-',
-      'sportybet (draw)': '-',
-      status: 'Saturday',
-      kickoff: '3:00 PM'
+      home: 'NULL',
+      away: 'NULL',
+      'bet9ja (draw)': 'NULL',
+      'betking (draw)': 'NULL',
+      'sportybet (draw)': 'NULL',
+      status: 'NULL',
+      kickoff: 'NULL'
     };
   }
 
   // Extract pool number (handles POOL, pool, pool_no, etc.)
   const rawPool = getCaseInsensitiveValue(raw, ['pool', 'pool_no', 'pool_number', 'fixture_no', 'match_no', 'id']);
-  const pool = rawPool !== undefined ? String(rawPool).trim() : String(index + 1);
+  const pool = rawPool !== undefined && rawPool !== null && String(rawPool).trim() !== '' ? String(rawPool).trim() : String(index + 1);
 
   // Extract home & away teams (handles HOME, home, home_team, etc.)
-  const home = getCaseInsensitiveValue(raw, ['home', 'home_team', 'homeTeam', 'home team', 'hometeam']) || '';
-  const away = getCaseInsensitiveValue(raw, ['away', 'away_team', 'awayTeam', 'away team', 'awayteam']) || '';
+  const rawHome = getCaseInsensitiveValue(raw, ['home', 'home_team', 'homeTeam', 'home team', 'hometeam']);
+  const home = rawHome !== undefined && rawHome !== null && String(rawHome).trim() !== '' ? String(rawHome) : 'NULL';
 
-  // Extract bookmaker draw odds (handles "BET9JA (DRAW)", "bet9ja (draw)", "bet9ja_draw", "bet9ja", etc.)
-  const bet9ja = getCaseInsensitiveValue(raw, [
+  const rawAway = getCaseInsensitiveValue(raw, ['away', 'away_team', 'awayTeam', 'away team', 'awayteam']);
+  const away = rawAway !== undefined && rawAway !== null && String(rawAway).trim() !== '' ? String(rawAway) : 'NULL';
+
+  // Extract bookmaker draw odds
+  const rawBet9ja = getCaseInsensitiveValue(raw, [
     'bet9ja (draw)', 'BET9JA (DRAW)', 'bet9ja_draw', 'bet9ja', 'bet9jadraw', 'b9_draw', 'b9'
-  ]) || '-';
+  ]);
+  const bet9ja = rawBet9ja !== undefined && rawBet9ja !== null && String(rawBet9ja).trim() !== '' ? String(rawBet9ja) : 'NULL';
 
-  const betking = getCaseInsensitiveValue(raw, [
+  const rawBetking = getCaseInsensitiveValue(raw, [
     'betking (draw)', 'BETKING (DRAW)', 'betking_draw', 'betking', 'betkingdraw', 'bk_draw', 'bk'
-  ]) || '-';
+  ]);
+  const betking = rawBetking !== undefined && rawBetking !== null && String(rawBetking).trim() !== '' ? String(rawBetking) : 'NULL';
 
-  const sportybet = getCaseInsensitiveValue(raw, [
+  const rawSportybet = getCaseInsensitiveValue(raw, [
     'sportybet (draw)', 'SPORTYBET (DRAW)', 'sportybet_draw', 'sportybet', 'sportybetdraw', 'sb_draw', 'sb'
-  ]) || '-';
+  ]);
+  const sportybet = rawSportybet !== undefined && rawSportybet !== null && String(rawSportybet).trim() !== '' ? String(rawSportybet) : 'NULL';
 
   // Extract status & kickoff
-  const status = getCaseInsensitiveValue(raw, ['status', 'STATUS', 'match_status', 'day']) || 'Saturday';
-  const kickoff = getCaseInsensitiveValue(raw, ['kickoff', 'KICKOFF', 'kick_off', 'kickoff_time', 'time']) || '3:00 PM';
+  const rawStatus = getCaseInsensitiveValue(raw, ['status', 'STATUS', 'match_status', 'day']);
+  const status = rawStatus !== undefined && rawStatus !== null && String(rawStatus).trim() !== '' ? String(rawStatus) : 'NULL';
+
+  const rawKickoff = getCaseInsensitiveValue(raw, ['kickoff', 'KICKOFF', 'kick_off', 'kickoff_time', 'time']);
+  const kickoff = rawKickoff !== undefined && rawKickoff !== null && String(rawKickoff).trim() !== '' ? String(rawKickoff) : 'NULL';
 
   return {
     ...raw,
@@ -830,24 +839,26 @@ export default function PoolCodesComparisonTable({
 
                       {/* HOME TEAM */}
                       <td className="py-2.5 px-4 font-bold text-slate-100 tracking-wide font-sans">
-                        {row.home}
+                        <span className={row.home === 'NULL' ? 'text-slate-500 font-mono italic text-xs' : ''}>{row.home}</span>
                       </td>
 
                       {/* AWAY TEAM */}
                       <td className="py-2.5 px-4 font-bold text-slate-300 tracking-wide font-sans">
-                        {row.away}
+                        <span className={row.away === 'NULL' ? 'text-slate-500 font-mono italic text-xs' : ''}>{row.away}</span>
                       </td>
 
                       {/* BET9JA (DRAW) */}
                       <td className="py-2.5 px-3.5 text-center font-mono font-bold bg-amber-950/10 border-l border-r border-slate-800/60">
                         <span
                           className={`inline-block px-2.5 py-1 rounded-md text-xs transition ${
-                            bestBookies.bet9ja
+                            row['bet9ja (draw)'] === 'NULL'
+                              ? 'text-slate-500 font-mono italic'
+                              : bestBookies.bet9ja
                               ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-black shadow-sm'
                               : 'text-slate-300'
                           }`}
                         >
-                          {row['bet9ja (draw)'] || '-'}
+                          {row['bet9ja (draw)']}
                         </span>
                       </td>
 
@@ -855,12 +866,14 @@ export default function PoolCodesComparisonTable({
                       <td className="py-2.5 px-3.5 text-center font-mono font-bold bg-sky-950/10 border-r border-slate-800/60">
                         <span
                           className={`inline-block px-2.5 py-1 rounded-md text-xs transition ${
-                            bestBookies.betking
+                            row['betking (draw)'] === 'NULL'
+                              ? 'text-slate-500 font-mono italic'
+                              : bestBookies.betking
                               ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40 font-black shadow-sm'
                               : 'text-slate-300'
                           }`}
                         >
-                          {row['betking (draw)'] || '-'}
+                          {row['betking (draw)']}
                         </span>
                       </td>
 
@@ -868,12 +881,14 @@ export default function PoolCodesComparisonTable({
                       <td className="py-2.5 px-3.5 text-center font-mono font-bold bg-pink-950/10 border-r border-slate-800/60">
                         <span
                           className={`inline-block px-2.5 py-1 rounded-md text-xs transition ${
-                            bestBookies.sportybet
+                            row['sportybet (draw)'] === 'NULL'
+                              ? 'text-slate-500 font-mono italic'
+                              : bestBookies.sportybet
                               ? 'bg-pink-500/20 text-pink-300 border border-pink-500/40 font-black shadow-sm'
                               : 'text-slate-300'
                           }`}
                         >
-                          {row['sportybet (draw)'] || '-'}
+                          {row['sportybet (draw)']}
                         </span>
                       </td>
 
@@ -881,22 +896,24 @@ export default function PoolCodesComparisonTable({
                       <td className="py-2.5 px-3.5 text-center border-r border-slate-800/60">
                         <span
                           className={`inline-block px-2 py-0.5 rounded text-[10.5px] font-mono font-bold uppercase ${
-                            isLko
+                            row.status === 'NULL'
+                              ? 'text-slate-500 font-mono italic'
+                              : isLko
                               ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
                               : isSunday
                               ? 'bg-sky-500/20 text-sky-300 border border-sky-500/30'
                               : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
                           }`}
                         >
-                          {row.status || 'Saturday'}
+                          {row.status}
                         </span>
                       </td>
 
                       {/* KICKOFF TIME */}
                       <td className="py-2.5 px-3.5 text-center font-mono text-[11px] text-slate-400">
                         <span className="flex items-center justify-center gap-1">
-                          <Clock className="w-3 h-3 text-slate-500" />
-                          <span>{row.kickoff || '3:00 PM'}</span>
+                          {row.kickoff !== 'NULL' && <Clock className="w-3 h-3 text-slate-500" />}
+                          <span className={row.kickoff === 'NULL' ? 'text-slate-500 font-mono italic' : ''}>{row.kickoff}</span>
                         </span>
                       </td>
 

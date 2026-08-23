@@ -213,20 +213,31 @@ export interface UserDownload {
 }
 
 export interface BookmakerTableRecord {
-  id: string;
-  pool: number;
-  betcode: string;
+  id: string | number;
+  pool: number | string;
+  betcode?: string;
+  bet_code?: string;
+  'match-league'?: string;
+  match_league?: string;
+  league?: string;
   home: string;
   away: string;
-  league?: string;
-  match_league?: string;
   match?: string;
-  homewin: number;
-  draw: number;
-  awaywin: number;
-  bet: string;
+  homewin: number | string;
+  home_win?: number | string;
+  draw: number | string;
+  draw_x?: number | string;
+  awaywin: number | string;
+  away_win?: number | string;
+  'bet-tips'?: string;
+  bet_tips?: string;
+  bet?: string;
   status: string;
   kickoff: string;
+  kick_off?: string;
+  week_no?: number | string;
+  week?: string | number;
+  is_banker?: boolean;
   created_at?: string;
   [key: string]: any;
 }
@@ -243,6 +254,8 @@ export interface PoolCodesComparisonRecord {
   'sportybet (draw)'?: string | number;
   status?: string;
   kickoff?: string;
+  week_no?: number | string;
+  week?: string | number;
   created_at?: string;
   [key: string]: any;
 }
@@ -275,6 +288,7 @@ export interface WeeklyPoolPick {
   id?: string | number;
   pool_no: number;
   bet_code: string;
+  league?: string;
   home: string;
   away: string;
   home_win: number | string;

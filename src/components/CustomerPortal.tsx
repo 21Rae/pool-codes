@@ -956,172 +956,54 @@ export default function CustomerPortal({
     const mapBookieRows = (rows: any[] | undefined, prefix: string, defaultName: string) => {
       return (rows || []).map((r, idx) => {
         const rawId = r.id !== undefined && r.id !== null ? String(r.id) : String(idx);
-        const poolVal = getVal(r, 'pool', 'pool ', 'pool_no', 'pool_number', 'match_no', 'fixture_no', 'id');
-        const betcodeVal = getVal(r, 'betcode', 'betcode ', 'bet_code', 'betCode', 'code', 'booking_code');
         
-        // Extract raw match/league strings if present
-        const rawMatchLeague = getVal(
-          r,
-          'match_league',
-          'matchleague',
-          'match-league',
-          'match - league',
-          'match/league',
-          'match_leagues',
-          'matchleaguecol',
-          'match_league_col',
-          'match_competition',
-          'match_and_league'
-        );
+        // Exact raw table values with strict NULL handling
+        const rawPool = getVal(r, 'pool', 'pool_no', 'pool_number', 'poolno');
+        const rawBetCode = getVal(r, 'betcode', 'bet_code', 'betCode', 'code', 'booking_code');
+        const rawLeague = getVal(r, 'league', 'match_league', 'match-league', 'matchleague', 'leagues', 'competition');
+        const rawHome = getVal(r, 'home', 'home_team', 'homeTeam', 'hometeam');
+        const rawAway = getVal(r, 'away', 'away_team', 'awayTeam', 'awayteam');
+        const rawHomeWin = getVal(r, 'homewin', 'home_win', 'homeWin', 'home_odds', '1');
+        const rawDraw = getVal(r, 'draw', 'draw_x', 'draw_odds', 'drawOdds', 'x', 'X');
+        const rawAwayWin = getVal(r, 'awaywin', 'away_win', 'awayWin', 'away_odds', '2');
+        const rawBetTips = getVal(r, 'bet-tips', 'bet_tips', 'betTips', 'bettips', 'bet', 'bet_tip', 'bettip', 'tip', 'tips', 'prediction');
+        const rawStatus = getVal(r, 'status', 'match_status', 'day');
+        const rawKickOff = getVal(r, 'kickoff', 'kick_off', 'kickOff', 'time');
+        const rawWeekNo = getVal(r, 'week_no', 'weekno', 'week_number', 'weekNumber', 'week');
+        const rawBookmaker = getVal(r, 'bookmaker', 'bookie', 'provider') || defaultName;
 
-        const rawLeague = getVal(
-          r,
-          'league',
-          'leagues',
-          'competition',
-          'tournament',
-          'division',
-          'category'
-        );
-
-        let homeVal = getVal(r, 'home', 'home_team', 'homeTeam', 'hometeam') || '';
-        let awayVal = getVal(r, 'away', 'away_team', 'awayTeam', 'awayteam') || '';
-        let leagueVal = rawLeague || '';
-
-        // If home or away is empty, parse from rawMatch or rawMatchLeague
-        const rawMatch = getVal(r, 'match', 'fixture', 'teams', 'match_details') || rawMatchLeague;
-        if ((!homeVal || !awayVal) && rawMatch && typeof rawMatch === 'string') {
-          const matchStr = rawMatch.trim();
-          const vsMatch = matchStr.split(/\s+vs\.?\s+|\s+-\s+|\s+v\s+/i);
-          if (vsMatch.length >= 2) {
-            if (!homeVal) homeVal = vsMatch[0].trim();
-            if (!awayVal) {
-              const awayPart = vsMatch.slice(1).join(' vs ');
-              const parenMatch = awayPart.match(/^(.*?)\s*[\(\[]([^\)\]]+)[\)\]]$/);
-              if (parenMatch) {
-                awayVal = parenMatch[1].trim();
-                if (!leagueVal) leagueVal = parenMatch[2].trim();
-              } else {
-                awayVal = awayPart.trim();
-              }
-            }
-          }
-        }
-
-        // If rawMatchLeague contains bracketed/parenthesized league like "Arsenal vs Chelsea (Premier League)" or just "Premier League"
-        if (!leagueVal && rawMatchLeague && typeof rawMatchLeague === 'string') {
-          const mlStr = rawMatchLeague.trim();
-          const parenMatch = mlStr.match(/[\(\[]([^\)\]]+)[\)\]]$/);
-          if (parenMatch) {
-            leagueVal = parenMatch[1].trim();
-          } else if (!mlStr.toLowerCase().includes(' vs ') && !mlStr.toLowerCase().includes(' - ')) {
-            leagueVal = mlStr;
-          }
-        }
-
-        // Smart fallback to ensure every game has an authentic league
-        if (!leagueVal) {
-          const poolNum = Number(poolVal) || (idx + 1);
-          const comparisonItem = INITIAL_POOL_CODES_COMPARISON.find(c => Number(c.pool) === poolNum);
-          if (comparisonItem && (comparisonItem as any).league) {
-            leagueVal = (comparisonItem as any).league;
-          } else {
-            if (poolNum <= 8) leagueVal = 'Championship';
-            else if (poolNum === 9) leagueVal = 'Premier League';
-            else if (poolNum <= 18) leagueVal = 'League One';
-            else if (poolNum <= 23) leagueVal = 'La Liga';
-            else if (poolNum <= 29) leagueVal = 'Primeira Liga';
-            else if (poolNum <= 34) leagueVal = 'Eredivisie';
-            else if (poolNum <= 40) leagueVal = 'Belgian Pro League';
-            else if (poolNum <= 44) leagueVal = 'Austrian Bundesliga';
-            else leagueVal = 'Turkish Super Lig';
-          }
-        }
-
-        const homeWinVal = getVal(r, 'homewin', 'home_win', 'homeWin', 'home_odds', '1') ?? '';
-        const drawVal = getVal(r, 'draw', 'draw_odds', 'drawOdds', 'x', 'X', `${prefix} (draw)`, `${defaultName.toLowerCase()} (draw)`) ?? '';
-        const awayWinVal = getVal(r, 'awaywin', 'away_win', 'awayWin', 'away_odds', '2') ?? '';
-        
-        let betTipsVal = getVal(
-          r,
-          'bet_tips',
-          'betTips',
-          'bettips',
-          'bet',
-          'bet_tip',
-          'bettip',
-          'tip',
-          'tips',
-          'prediction',
-          'predictions',
-          'expert_tip',
-          'expertTip',
-          'expert_tips',
-          'expertTips',
-          'outcome',
-          'pick',
-          'picks',
-          'forecast',
-          'matrix_tip'
-        );
-
-        // If bet tips was missing or blank, calculate an intelligent expert matrix prediction so it's always populated
-        if (!betTipsVal || String(betTipsVal).trim() === '') {
-          const d = parseFloat(String(drawVal));
-          const h = parseFloat(String(homeWinVal));
-          const a = parseFloat(String(awayWinVal));
-          const p = Number(poolVal) || idx + 1;
-
-          if (!isNaN(d) && d <= 3.30) {
-            betTipsVal = 'DRAW (X)';
-          } else if (!isNaN(h) && !isNaN(a)) {
-            if (h < a && h <= 1.80) betTipsVal = 'HOME WIN (1)';
-            else if (a < h && a <= 1.80) betTipsVal = 'AWAY WIN (2)';
-            else if (h < a) betTipsVal = '1X / DRAW';
-            else if (a < h) betTipsVal = 'X2 / DRAW';
-            else betTipsVal = 'DRAW (X)';
-          } else {
-            if (p % 4 === 0) betTipsVal = 'DRAW (X)';
-            else if (p % 4 === 1) betTipsVal = 'HOME WIN (1)';
-            else if (p % 4 === 2) betTipsVal = '1X / DRAW';
-            else betTipsVal = 'AWAY WIN (2)';
-          }
-        }
-
-        const statusVal = getVal(r, 'status', 'match_status', 'day') || 'Active';
-        const kickOffVal = getVal(r, 'kickoff', 'kick_off', 'kickOff', 'time') || '03:00 PM';
-        const bookmakerVal = getVal(r, 'bookmaker', 'bookie', 'provider') || defaultName;
-        const weekVal = getVal(r, 'week', 'pool_week', 'week_number') || 'Week 49 Aussie';
-
+        // Render as literal text or NULL if not in the database row
         return {
           id: `${prefix}_${rawId}`,
           rawId,
           sourceTable: prefix,
-          poolNo: poolVal !== undefined ? (Number(poolVal) || poolVal) : idx + 1,
-          betCode: String(betcodeVal ?? `${prefix.toUpperCase()}${1000 + idx}`),
-          home: String(homeVal),
-          away: String(awayVal),
-          league: String(leagueVal),
-          matchLeague: String(rawMatchLeague || `${homeVal} vs ${awayVal} (${leagueVal})`),
-          homeWin: String(homeWinVal || '2.10'),
-          draw: String(drawVal || '3.25'),
-          awayWin: String(awayWinVal || '3.10'),
-          betTips: String(betTipsVal),
-          status: String(statusVal),
-          kickOff: String(kickOffVal),
-          bookmaker: String(bookmakerVal),
-          week: String(weekVal)
+          poolNo: rawPool !== undefined && rawPool !== null && String(rawPool).trim() !== '' ? String(rawPool) : 'NULL',
+          betCode: rawBetCode !== undefined && rawBetCode !== null && String(rawBetCode).trim() !== '' ? String(rawBetCode) : 'NULL',
+          home: rawHome !== undefined && rawHome !== null && String(rawHome).trim() !== '' ? String(rawHome) : 'NULL',
+          away: rawAway !== undefined && rawAway !== null && String(rawAway).trim() !== '' ? String(rawAway) : 'NULL',
+          league: rawLeague !== undefined && rawLeague !== null && String(rawLeague).trim() !== '' ? String(rawLeague) : 'NULL',
+          matchLeague: (rawHome || rawAway) ? `${rawHome || 'NULL'} vs ${rawAway || 'NULL'}` : 'NULL',
+          homeWin: rawHomeWin !== undefined && rawHomeWin !== null && String(rawHomeWin).trim() !== '' ? String(rawHomeWin) : 'NULL',
+          draw: rawDraw !== undefined && rawDraw !== null && String(rawDraw).trim() !== '' ? String(rawDraw) : 'NULL',
+          awayWin: rawAwayWin !== undefined && rawAwayWin !== null && String(rawAwayWin).trim() !== '' ? String(rawAwayWin) : 'NULL',
+          betTips: rawBetTips !== undefined && rawBetTips !== null && String(rawBetTips).trim() !== '' ? String(rawBetTips) : 'NULL',
+          status: rawStatus !== undefined && rawStatus !== null && String(rawStatus).trim() !== '' ? String(rawStatus) : 'NULL',
+          kickOff: rawKickOff !== undefined && rawKickOff !== null && String(rawKickOff).trim() !== '' ? String(rawKickOff) : 'NULL',
+          bookmaker: String(rawBookmaker),
+          week: rawWeekNo !== undefined && rawWeekNo !== null && String(rawWeekNo).trim() !== '' ? `Week ${rawWeekNo}` : 'NULL',
+          weekNo: rawWeekNo !== undefined && rawWeekNo !== null && String(rawWeekNo).trim() !== '' ? String(rawWeekNo) : 'NULL'
         };
       });
     };
 
-    const b9Rows = (dbState.bet9ja && dbState.bet9ja.length > 0) ? dbState.bet9ja : INITIAL_BET9JA;
-    const bkRows = (dbState.betking && dbState.betking.length > 0) ? dbState.betking : INITIAL_BETKING;
-    const sbRows = (dbState.sportybet && dbState.sportybet.length > 0) ? dbState.sportybet : INITIAL_SPORTYBET;
-    const pbRows = (dbState.premierbet && dbState.premierbet.length > 0) ? dbState.premierbet : INITIAL_PREMIERBET;
-    const bwRows = (dbState.betway && dbState.betway.length > 0) ? dbState.betway : INITIAL_BETWAY;
-    const scRows = (dbState.soccabet && dbState.soccabet.length > 0) ? dbState.soccabet : INITIAL_SOCCABET;
-    const msRows = ((dbState as any).msport && (dbState as any).msport.length > 0) ? (dbState as any).msport : INITIAL_MSPORT;
+    const b9Rows = (dbState.bet9ja && dbState.bet9ja.length > 0) ? dbState.bet9ja : [];
+    const bkRows = (dbState.betking && dbState.betking.length > 0) ? dbState.betking : [];
+    const sbRows = (dbState.sportybet && dbState.sportybet.length > 0) ? dbState.sportybet : [];
+    const pbRows = (dbState.premierbet && dbState.premierbet.length > 0) ? dbState.premierbet : [];
+    const bwRows = (dbState.betway && dbState.betway.length > 0) ? dbState.betway : [];
+    const scRows = (dbState.soccabet && dbState.soccabet.length > 0) ? dbState.soccabet : [];
+    const msRows = ((dbState as any).msport && (dbState as any).msport.length > 0) ? (dbState as any).msport : [];
+    const agRows = (dbState as any).arena_games && (dbState as any).arena_games.length > 0 ? (dbState as any).arena_games : [];
 
     const b9 = mapBookieRows(b9Rows, 'bet9ja', 'Bet9ja');
     const bk = mapBookieRows(bkRows, 'betking', 'BetKing');
@@ -1130,7 +1012,6 @@ export default function CustomerPortal({
     const bw = mapBookieRows(bwRows, 'betway', 'Betway');
     const sc = mapBookieRows(scRows, 'soccabet', 'Soccabet');
     const ms = mapBookieRows(msRows, 'msport', 'MSport');
-    const agRows = (dbState as any).arena_games || [];
     const ag = mapBookieRows(agRows, 'arena_games', 'Bet9ja');
 
     return [...b9, ...bk, ...sb, ...pb, ...bw, ...sc, ...ms, ...ag];
@@ -3180,6 +3061,7 @@ export default function CustomerPortal({
                                     }`}>
                                       <th className={`px-1.5 py-2.5 sm:px-2 sm:py-3 text-center border-r font-bold transition-all duration-300 ${isPaperMode ? 'border-slate-950 font-black' : 'border-slate-800'}`}>POOL No.</th>
                                       <th className={`px-1.5 py-2.5 sm:px-2 sm:py-3 text-center border-r font-bold transition-all duration-300 ${isPaperMode ? 'border-slate-950 font-black text-rose-700' : 'border-slate-800'}`}>BET CODE</th>
+                                      <th className={`px-2 py-2.5 sm:px-3 sm:py-3 text-center border-r font-bold transition-all duration-300 ${isPaperMode ? 'border-slate-950 font-black text-slate-900' : 'border-slate-800 text-sky-400'}`}>LEAGUE</th>
                                       <th className={`px-2.5 py-2.5 sm:px-4 sm:py-3 text-left border-r font-bold transition-all duration-300 ${isPaperMode ? 'border-slate-950 font-black' : 'border-slate-800'}`}>HOME</th>
                                       <th className={`px-2.5 py-2.5 sm:px-4 sm:py-3 text-left border-r font-bold transition-all duration-300 ${isPaperMode ? 'border-slate-950 font-black' : 'border-slate-800'}`}>AWAY</th>
                                       <th className={`px-1.5 py-2.5 sm:px-2 sm:py-3 text-center border-r font-bold transition-all duration-300 ${isPaperMode ? 'border-slate-950' : 'border-slate-800'}`}>HOME WIN</th>
@@ -3187,7 +3069,8 @@ export default function CustomerPortal({
                                       <th className={`px-1.5 py-2.5 sm:px-2 sm:py-3 text-center border-r font-bold transition-all duration-300 ${isPaperMode ? 'border-slate-950' : 'border-slate-800'}`}>AWAY WIN</th>
                                       <th className={`px-2 py-2.5 sm:px-3 sm:py-3 text-center border-r font-bold transition-all duration-300 ${isPaperMode ? 'border-slate-950 font-bold text-emerald-800' : 'border-slate-800 text-amber-400'}`}>BET Tips</th>
                                       <th className={`px-2 py-2.5 sm:px-3 sm:py-3 text-center border-r font-bold transition-all duration-300 ${isPaperMode ? 'border-slate-950' : 'border-slate-800'}`}>STATUS</th>
-                                      <th className={`px-2 py-2.5 sm:px-3 sm:py-3 text-center font-bold transition-all duration-300 ${isPaperMode ? 'border-slate-950' : 'border-slate-800'}`}>KICK OFF</th>
+                                      <th className={`px-2 py-2.5 sm:px-3 sm:py-3 text-center border-r font-bold transition-all duration-300 ${isPaperMode ? 'border-slate-950' : 'border-slate-800'}`}>KICK OFF</th>
+                                      <th className={`px-1.5 py-2.5 sm:px-2 sm:py-3 text-center font-bold transition-all duration-300 ${isPaperMode ? 'border-slate-950 font-black text-indigo-900' : 'text-indigo-400'}`}>WEEK NO</th>
                                       
                                     </tr>
                                   </thead>
@@ -3211,7 +3094,7 @@ export default function CustomerPortal({
                                         <td className={`px-1.5 py-2.5 sm:px-2 sm:py-3 text-center font-bold border-r transition-all duration-300 ${
                                           isPaperMode ? 'border-r border-slate-950 text-base font-black' : 'border-r border-slate-800/60'
                                         }`}>
-                                          {game.poolNo}
+                                          <span className={game.poolNo === 'NULL' ? 'text-slate-500 font-mono italic text-xs' : ''}>{game.poolNo}</span>
                                         </td>
                                         
                                         {/* BET CODE */}
@@ -3221,39 +3104,56 @@ export default function CustomerPortal({
                                             : 'border-r border-slate-800/60 text-amber-400 font-extrabold bg-slate-950/40'
                                         }`}>
                                           <span className="flex items-center justify-center gap-1">
-                                            {game.betCode}
-                                            <button
-                                              onClick={() => {
-                                                navigator.clipboard.writeText(game.betCode);
-                                                triggerToast(`Bet Code [${game.betCode}] copied to clipboard!`, 'success');
-                                              }}
-                                              title="Copy Code"
-                                              className="opacity-0 group-hover:opacity-100 transition p-1 hover:bg-slate-350/20 rounded shrink-0"
-                                            >
-                                              <span className="text-[10px] block text-slate-400">📋</span>
-                                            </button>
+                                            <span className={game.betCode === 'NULL' ? 'text-slate-500 font-mono italic text-xs' : ''}>{game.betCode}</span>
+                                            {game.betCode !== 'NULL' && (
+                                              <button
+                                                onClick={() => {
+                                                  navigator.clipboard.writeText(game.betCode);
+                                                  triggerToast(`Bet Code [${game.betCode}] copied to clipboard!`, 'success');
+                                                }}
+                                                title="Copy Code"
+                                                className="opacity-0 group-hover:opacity-100 transition p-1 hover:bg-slate-350/20 rounded shrink-0"
+                                              >
+                                                <span className="text-[10px] block text-slate-400">📋</span>
+                                              </button>
+                                            )}
                                           </span>
                                         </td>
+
+                                         {/* LEAGUE */}
+                                         <td className={`px-2 py-2 sm:px-3 sm:py-2.5 text-center border-r transition-all duration-300 ${
+                                           isPaperMode ? 'border-r border-slate-950 text-slate-900 font-bold' : 'border-r border-slate-800/60'
+                                         }`}>
+                                           <span className={`inline-block px-2 py-0.5 rounded text-[10px] sm:text-[11px] font-bold uppercase tracking-wider truncate max-w-[130px] ${
+                                             game.league === 'NULL'
+                                               ? (isPaperMode ? 'text-slate-400 font-mono italic' : 'text-slate-500 font-mono italic')
+                                               : (isPaperMode 
+                                                   ? 'bg-slate-200 text-slate-900 border border-slate-400 font-black' 
+                                                   : 'bg-sky-950/40 text-sky-300 border border-sky-500/30')
+                                           }`}>
+                                             {game.league}
+                                           </span>
+                                         </td>
 
                                         {/* HOME NAME */}
                                         <td className={`px-2.5 py-2.5 sm:px-4 sm:py-3 text-left font-bold border-r transition-all duration-300 ${
                                           isPaperMode ? 'border-r border-slate-950 text-sm font-black text-slate-950 uppercase' : 'border-r border-slate-800/60 font-semibold'
                                         }`}>
-                                          <span>{game.home}</span>
+                                          <span className={game.home === 'NULL' ? 'text-slate-500 font-mono italic text-xs' : ''}>{game.home}</span>
                                         </td>
 
                                         {/* AWAY NAME */}
                                         <td className={`px-2.5 py-2.5 sm:px-4 sm:py-3 text-left font-bold border-r transition-all duration-300 ${
                                           isPaperMode ? 'border-r border-slate-950 text-sm font-black text-slate-950 uppercase' : 'border-r border-slate-800/60 font-semibold'
                                         }`}>
-                                          {game.away}
+                                          <span className={game.away === 'NULL' ? 'text-slate-500 font-mono italic text-xs' : ''}>{game.away}</span>
                                         </td>
 
                                         {/* HOME WIN ODDS */}
                                         <td className={`px-1.5 py-2.5 sm:px-2 sm:py-3 text-center border-r transition-all duration-300 ${
                                           isPaperMode ? 'border-r border-slate-950 text-gray-800' : 'border-r border-slate-800/60 font-mono text-slate-400'
                                         }`}>
-                                          {game.homeWin}
+                                          <span className={game.homeWin === 'NULL' ? 'text-slate-500 font-mono italic text-[10px]' : ''}>{game.homeWin}</span>
                                         </td>
 
                                         {/* DRAW (X) ODDS */}
@@ -3262,14 +3162,14 @@ export default function CustomerPortal({
                                             ? 'border-r border-slate-950 bg-[#FFFFE3] text-[#0F172A] font-black' 
                                             : 'border-r border-slate-800/60 bg-emerald-950/15 text-emerald-400 font-extrabold'
                                         }`}>
-                                          {game.draw}
+                                          <span className={game.draw === 'NULL' ? 'text-slate-500 font-mono italic text-[10px]' : ''}>{game.draw}</span>
                                         </td>
 
                                         {/* AWAY WIN ODDS */}
                                         <td className={`px-1.5 py-2.5 sm:px-2 sm:py-3 text-center border-r transition-all duration-300 ${
                                           isPaperMode ? 'border-r border-slate-950 text-gray-800' : 'border-r border-slate-800/60 font-mono text-slate-400'
                                         }`}>
-                                          {game.awayWin}
+                                          <span className={game.awayWin === 'NULL' ? 'text-slate-500 font-mono italic text-[10px]' : ''}>{game.awayWin}</span>
                                         </td>
 
                                         {/* BET TIPS */}
@@ -3279,11 +3179,13 @@ export default function CustomerPortal({
                                             : 'border-r border-slate-800/60 font-black text-amber-400'
                                         }`}>
                                           <span className={`inline-block px-2 py-0.5 rounded text-[10px] sm:text-[11px] font-black uppercase tracking-wider ${
-                                            isPaperMode 
-                                              ? 'bg-emerald-100 text-emerald-950 border border-emerald-300' 
-                                              : 'bg-amber-400/15 text-amber-300 border border-amber-400/30'
+                                            game.betTips === 'NULL'
+                                              ? (isPaperMode ? 'text-slate-400 font-mono italic' : 'text-slate-500 font-mono italic')
+                                              : (isPaperMode 
+                                                  ? 'bg-emerald-100 text-emerald-950 border border-emerald-300' 
+                                                  : 'bg-amber-400/15 text-amber-300 border border-amber-400/30')
                                           }`}>
-                                            {game.betTips || 'DRAW (X)'}
+                                            {game.betTips}
                                           </span>
                                         </td>
 
@@ -3291,15 +3193,15 @@ export default function CustomerPortal({
                                         <td className={`px-2 py-2.5 sm:px-3 sm:py-3 text-center border-r font-semibold transition-all duration-300 ${
                                           isPaperMode ? 'border-r border-slate-950 text-gray-800' : 'border-r border-slate-800/60 font-mono'
                                         }`}>
-                                          {game.status}
+                                          <span className={game.status === 'NULL' ? 'text-slate-500 font-mono italic text-[10px]' : ''}>{game.status}</span>
                                         </td>
 
                                         {/* KICK OFF */}
-                                        <td className={`px-2 py-2.5 sm:px-3 sm:py-3 text-center font-bold transition-all duration-300 ${
-                                          isPaperMode ? 'text-slate-950' : 'font-mono text-slate-300'
+                                        <td className={`px-2 py-2.5 sm:px-3 sm:py-3 text-center border-r font-bold transition-all duration-300 ${
+                                          isPaperMode ? 'border-r border-slate-950 text-slate-950' : 'border-r border-slate-800/60 font-mono text-slate-300'
                                         }`}>
                                           <div className="flex items-center justify-center gap-1.5">
-                                            <span>{game.kickOff}</span>
+                                            <span className={game.kickOff === 'NULL' ? 'text-slate-500 font-mono italic text-[10px]' : ''}>{game.kickOff}</span>
                                             {currentUser.role === 'admin' && (
                                               <button
                                                 onClick={() => handleDeleteGame(game.id, `${game.home} vs ${game.away}`)}
@@ -3310,6 +3212,21 @@ export default function CustomerPortal({
                                               </button>
                                             )}
                                           </div>
+                                        </td>
+
+                                        {/* WEEK NO */}
+                                        <td className={`px-1.5 py-2.5 sm:px-2 sm:py-3 text-center font-bold transition-all duration-300 ${
+                                          isPaperMode ? 'text-slate-950 font-black' : 'font-mono text-indigo-400'
+                                        }`}>
+                                          <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] sm:text-[11px] font-bold ${
+                                            game.weekNo === 'NULL'
+                                              ? (isPaperMode ? 'text-slate-400 font-mono italic' : 'text-slate-500 font-mono italic')
+                                              : (isPaperMode
+                                                  ? 'bg-slate-200 text-slate-950 font-black'
+                                                  : 'bg-indigo-950/40 text-indigo-300 border border-indigo-500/30')
+                                          }`}>
+                                            {game.weekNo}
+                                          </span>
                                         </td>
 
                                         
@@ -7155,7 +7072,7 @@ export default function CustomerPortal({
                             doc.text('Compiled by Fastpoolcodes.com • Enquiries / WhatsApp: +234 8030587933, +234 9037595705', 5, 17.8);
 
                             // Table Columns Setup
-                            const tableHeaders: string[] = ['Pool', 'Bet Code', 'Match & League (Home vs Away)'];
+                            const tableHeaders: string[] = ['Pool', 'Bet Code', 'League', 'Match & League (Home vs Away)'];
                             if (pdfConfig.showOdds) {
                               tableHeaders.push('1', 'X', '2');
                             }
@@ -7171,6 +7088,7 @@ export default function CustomerPortal({
                               const row: string[] = [
                                 String(game.poolNo || '-'),
                                 String(game.betCode || '-'),
+                                String(game.league || '-'),
                                 matchTeams,
                               ];
                               if (pdfConfig.showOdds) {
@@ -7390,6 +7308,7 @@ export default function CustomerPortal({
                           <tr className="bg-slate-950 text-white font-mono uppercase text-[9px] tracking-wider border border-slate-950">
                             <th className="py-1 px-1.5 border text-center w-[8%]">Pool</th>
                             <th className="py-1 px-1.5 border text-center w-[12%]">Bet Code</th>
+                            <th className="py-1 px-1.5 border text-center w-[12%]">League</th>
                             <th className="py-1 px-1.5 border w-[42%]">Match & League (Home vs Away)</th>
                             
                             {pdfConfig.showOdds && (
@@ -7454,32 +7373,47 @@ export default function CustomerPortal({
                                 className={`text-[9.5px] leading-tight transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/80'}`}
                               >
                                 <td className="py-0.5 px-1 border text-center font-mono font-black text-slate-900 bg-slate-100/70">
-                                  {game.poolNo}
+                                  <span className={game.poolNo === 'NULL' ? 'text-slate-400 font-mono italic text-[8px]' : ''}>{game.poolNo}</span>
                                 </td>
                                 <td className="py-0.5 px-1 border text-center font-mono font-black text-slate-800 bg-slate-100/50">
-                                  {game.betCode}
+                                  <span className={game.betCode === 'NULL' ? 'text-slate-400 font-mono italic text-[8px]' : ''}>{game.betCode}</span>
+                                </td>
+                                <td className="py-0.5 px-1 border text-center font-bold text-slate-800 text-[8.5px] bg-slate-100/30">
+                                  <span className={game.league === 'NULL' ? 'text-slate-400 font-mono italic text-[8px]' : ''}>{game.league}</span>
                                 </td>
                                 <td className="py-0.5 px-1.5 border font-bold text-slate-900 bg-inherit">
-                                  <span>{game.home} <span className="font-normal text-slate-400">vs</span> {game.away}</span>
+                                  <span>
+                                    <span className={game.home === 'NULL' ? 'text-slate-400 font-mono italic' : ''}>{game.home}</span>
+                                    {' '}
+                                    <span className="font-normal text-slate-400">vs</span>
+                                    {' '}
+                                    <span className={game.away === 'NULL' ? 'text-slate-400 font-mono italic' : ''}>{game.away}</span>
+                                  </span>
                                 </td>
 
                                 {pdfConfig.showOdds && (
                                   <>
-                                    <td className="py-0.5 px-0.5 border text-center font-mono text-slate-600 text-[8.5px] bg-inherit">{game.homeWin}</td>
-                                    <td className="py-0.5 px-0.5 border text-center font-mono text-slate-600 text-[8.5px] bg-inherit">{game.draw}</td>
-                                    <td className="py-0.5 px-0.5 border text-center font-mono text-slate-600 text-[8.5px] bg-inherit">{game.awayWin}</td>
+                                    <td className="py-0.5 px-0.5 border text-center font-mono text-slate-600 text-[8.5px] bg-inherit">
+                                      <span className={game.homeWin === 'NULL' ? 'text-slate-400 font-mono italic text-[8px]' : ''}>{game.homeWin}</span>
+                                    </td>
+                                    <td className="py-0.5 px-0.5 border text-center font-mono text-slate-600 text-[8.5px] bg-inherit">
+                                      <span className={game.draw === 'NULL' ? 'text-slate-400 font-mono italic text-[8px]' : ''}>{game.draw}</span>
+                                    </td>
+                                    <td className="py-0.5 px-0.5 border text-center font-mono text-slate-600 text-[8.5px] bg-inherit">
+                                      <span className={game.awayWin === 'NULL' ? 'text-slate-400 font-mono italic text-[8px]' : ''}>{game.awayWin}</span>
+                                    </td>
                                   </>
                                 )}
 
                                 {pdfConfig.showTips && (
                                   <td className="py-0.5 px-0.5 border text-center font-mono font-black text-emerald-800 text-[8.5px] uppercase bg-inherit">
-                                    {game.betTips || 'DRAW (X)'}
+                                    <span className={game.betTips === 'NULL' ? 'text-slate-400 font-mono italic text-[8px]' : ''}>{game.betTips}</span>
                                   </td>
                                 )}
 
                                 {pdfConfig.showBookmaker && (
                                   <td className="py-0.5 px-0.5 border text-center font-mono text-[8.5px] text-slate-500 uppercase bg-inherit">
-                                    {game.bookmaker}
+                                    <span className={game.bookmaker === 'NULL' ? 'text-slate-400 font-mono italic text-[8px]' : ''}>{game.bookmaker}</span>
                                   </td>
                                 )}
                               </tr>

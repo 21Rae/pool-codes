@@ -223,16 +223,22 @@ app.get("/api/database/tables", async (req, res) => {
   }
 
   const CANDIDATE_TABLES = [
-    "blogs", "blog", "posts", "articles", "news", "expert_blogs",
+    // Core content & system tables
+    "blogs", "blog", "posts", "articles", "news", "expert_blogs", "expert_blog",
     "users", "profiles", "accounts",
-    "livescores", "live_scores", "matches", "fixtures", "predictions",
-    "championship_results", "championships",
-    "pool codes comparison", "pool_codes_comparison",
-    "weekly_picks", "weekly_pool_picks", "weekly_picks_table",
-    "pool_codes", "pool_results", "pool_weeks", "bookmakers",
-    "subscription_plans", "user_subscriptions", "notifications", "user_downloads",
-    "bet9ja", "betking", "sportybet", "msport", "premierbet", "betway", "soccabet", "arena_games",
-    "coupons", "bank_codes", "bank_account_codes", "settings", "comments", "subscriptions"
+    "livescores", "live_scores", "live_score", "matches", "fixtures", "predictions", "games", "coupons",
+    "championship_results", "championships", "results", "pool_results",
+    "pool codes comparison", "pool_codes_comparison", "pool_codes", "pool_code", "pool_comparison", "pool_codes_table",
+    "weekly pool picks", "weekly_pool_picks", "weekly_picks", "pool_picks", "weekly pool picks table", "weekly_pool_picks_table", "weekly_picks_table", "pool_picks_table",
+    "pool_weeks", "weeks", "bookmakers", "bookmaker", "bookies", "providers",
+    "subscription_plans", "user_subscriptions", "users_subscriptions", "subscriptions", "purchases", "purchases_access_log", "subscriptions_access_log", "plan_purchased", "plans_purchased",
+    "notifications", "user_downloads", "downloads", "transactions", "payments", "support_tickets",
+    // All Bookmaker tables (Nigeria, Ghana, and International)
+    "bet9ja", "betking", "sportybet", "msport", "premierbet", "betway", "soccabet", "arena_games", "arena",
+    "1xbet", "bangbet", "merrybet", "nairabet", "betfuse", "parimatch", "22bet", "melbet", "betano", "odibets", "mozzart", "hollywoodbets", "supabets", "world_sports_betting",
+    "sportybet_ghana", "sportybet-ghana", "premierbet_ghana", "premierbet-ghana", "betway_ghana", "betway-ghana", "soccabet_ghana", "soccabet-ghana",
+    // Codes & settings
+    "bank_codes", "bank_account_codes", "settings", "comments", "bankers", "nap", "pairs", "dead_games"
   ];
 
   try {
@@ -1513,7 +1519,7 @@ async function recordSubscriptionInDatabase(subRecord: any): Promise<{
     plan_id: subRecord.plan_id || subRecord.planId || "plan-quarterly",
     status: subRecord.status || "active",
     starts_at: subRecord.starts_at || now.toISOString(),
-    expires_at: subRecord.expires_at || new Date(now.getTime() + 90 * 86400000).toISOString(),
+    expires_at: subRecord.expires_at || new Date(now.getFullYear(), now.getMonth(), now.getDate() + 90, 0, 0, 0, 0).toISOString(),
     payment_ref: subRecord.payment_ref || `REF-${Date.now()}`,
     payment_provider: subRecord.payment_provider || "Paystack API Gateway",
     created_at: now.toISOString(),

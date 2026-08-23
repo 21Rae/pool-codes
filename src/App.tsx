@@ -454,7 +454,10 @@ export default function App() {
       logAndSetTable('soccabet', 'soccabet', 'SELECT * FROM soccabet;'),
       logAndSetTable('arena_games', 'arena_games' as any, 'SELECT * FROM arena_games;'),
       logAndSetTable('championship_results', 'championship_results' as any, 'SELECT * FROM championship_results;'),
-      logAndSetTable('pool codes comparison', 'pool_codes_comparison', 'SELECT * FROM "pool codes comparison";')
+      logAndSetTable('pool codes comparison', 'pool_codes_comparison', 'SELECT * FROM "pool codes comparison";'),
+      logAndSetTable('weekly pool picks', 'weekly_pool_picks' as any, 'SELECT * FROM "weekly pool picks";'),
+      logAndSetTable('livescores', 'livescores' as any, 'SELECT * FROM livescores;'),
+      logAndSetTable('purchases_access_log', 'purchases_access_log' as any, 'SELECT * FROM purchases_access_log;')
     ]);
 
     setIsSyncingSupabase(false);
@@ -1574,8 +1577,8 @@ export default function App() {
 
         const subId = `sub-sb-${Math.floor(Math.random() * 90000 + 10000)}`;
         const now = new Date();
-        const expiry = new Date();
-        expiry.setMonth(now.getMonth() + 3);
+        const selectedPlan = findSubscriptionPlan(db.subscription_plans, planId);
+        const { expiresAt: calculatedExpiry } = calculateSubscriptionExpiry(selectedPlan, now);
 
         const hasPaid = Boolean(planId && planId !== 'plan-free');
         const newSub: UserSubscription = {
@@ -1585,7 +1588,7 @@ export default function App() {
           plan_id: hasPaid ? planId : 'plan-free',
           status: hasPaid ? 'active' : 'inactive',
           starts_at: now.toISOString(),
-          expires_at: hasPaid ? expiry.toISOString() : now.toISOString(),
+          expires_at: hasPaid ? calculatedExpiry.toISOString() : now.toISOString(),
           payment_ref: hasPaid ? `REF-PAY-${Math.floor(Math.random() * 9000000 + 1000000)}` : null,
           payment_provider: hasPaid ? 'Direct Verified Payment' : null,
           created_at: now.toISOString(),
