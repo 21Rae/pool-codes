@@ -2141,27 +2141,29 @@ export default function CustomerPortal({
                     <span>USER PROFILE</span>
                   </button>
 
-                  {/* Mobile About Us Shortcut Card */}
+                  {/* Mobile Contact Us Shortcut Card */}
                   <div className="mt-4 p-3 bg-emerald-950/30 border border-emerald-500/20 rounded-xl flex flex-col gap-2">
                     <div className="flex items-center gap-1.5">
                       <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                      <span className="text-[9px] font-mono font-bold text-emerald-400 tracking-wider uppercase">ABOUT FASTPOOLCODES</span>
+                      <span className="text-[9px] font-mono font-bold text-emerald-400 tracking-wider uppercase">CONTACT FASTPOOLCODES</span>
                     </div>
                     <p className="text-[10px] text-slate-400 leading-normal">
-                      Learn more about our cross-agency forecasting network, history, and predictive algorithms.
+                      Get in touch with our forecasting desk, 24/7 customer support, and enquiries team.
                     </p>
                     <a
-                      href="#about"
+                      href="#contact"
                       onClick={(e) => {
                         e.preventDefault();
                         setIsMobileMenuOpen(false);
-                        if (onNavigateToAbout) {
+                        if (onNavigateToContact) {
+                          onNavigateToContact();
+                        } else if (onNavigateToAbout) {
                           onNavigateToAbout();
                         }
                       }}
                       className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg text-[10px] font-black bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition shadow-sm cursor-pointer"
                     >
-                      <span>ℹ️ ABOUT US</span>
+                      <span>📞 CONTACT US</span>
                     </a>
                   </div>
 
@@ -2333,27 +2335,29 @@ export default function CustomerPortal({
 
           </nav>
 
-          {/* Desktop About Us Shortcut Card */}
+          {/* Desktop Contact Us Shortcut Card */}
           <div className="mt-4 p-3.5 bg-emerald-950/30 border border-emerald-500/20 rounded-xl flex flex-col gap-2.5">
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span>
-              <span className="text-[10px] font-mono font-bold text-emerald-400 tracking-wider uppercase">ABOUT FASTPOOLCODES</span>
+              <span className="text-[10px] font-mono font-bold text-emerald-400 tracking-wider uppercase">CONTACT FASTPOOLCODES</span>
             </div>
             <p className="text-[10px] text-slate-400 leading-normal">
-              Discover our story, mission, predictive analytics, and forecasting network.
+              Need assistance? Connect directly with our 24/7 forecasting support desk and enquiries team.
             </p>
             <a
-              href="#about"
+              href="#contact"
               onClick={(e) => {
                 e.preventDefault();
-                if (onNavigateToAbout) {
+                if (onNavigateToContact) {
+                  onNavigateToContact();
+                } else if (onNavigateToAbout) {
                   onNavigateToAbout();
                 }
               }}
               className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 hover:text-slate-950 transition cursor-pointer text-center"
             >
-              <span>ℹ️</span>
-              <span>ABOUT US</span>
+              <span>📞</span>
+              <span>CONTACT US</span>
             </a>
           </div>
 
