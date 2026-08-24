@@ -544,14 +544,14 @@ export default function PoolCodesComparisonTable({
           }
         },
         willDrawPage: () => {
-          // Bolder security watermark placed strictly BEHIND the table cells and text
+          // Soft security watermark placed strictly BEHIND the table cells and text
           doc.saveGraphicsState();
-          doc.setTextColor(195, 206, 220); // Bold, crisp watermark contrast
-          doc.setFontSize(14);
-          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(240, 244, 248); // Soft, faint watermark contrast under data
+          doc.setFontSize(10.5);
+          doc.setFont('helvetica', 'normal');
           const watermarkText = `FASTPOOLCODES • ${currentUser?.email || 'FREE ACCESS'}`;
-          for (let y = 25; y < pageHeight; y += 40) {
-            for (let x = -15; x < pageWidth + 30; x += 90) {
+          for (let y = 30; y < pageHeight; y += 65) {
+            for (let x = -15; x < pageWidth + 30; x += 140) {
               doc.text(watermarkText, x, y, { angle: -25 });
             }
           }

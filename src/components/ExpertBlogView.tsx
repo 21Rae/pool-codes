@@ -69,6 +69,7 @@ interface ExpertBlogViewProps {
   onRefreshBlogs?: () => void;
   onOpenTerms?: () => void;
   onNavigateToCodes?: () => void;
+  onNavigateToContact?: () => void;
   db?: any;
 }
 
@@ -84,6 +85,7 @@ export default function ExpertBlogView({
   onRefreshBlogs,
   onOpenTerms,
   onNavigateToCodes,
+  onNavigateToContact,
   db
 }: ExpertBlogViewProps) {
 
@@ -451,7 +453,15 @@ export default function ExpertBlogView({
                   Reach 50,000+ active weekly pools punters, sports bettors & football analysts across Nigeria, Ghana & UK.
                 </p>
                 <a
-                  href="mailto:fastpoolcodes@gmail.com?subject=Advertising%20Inquiry%20-%20FastPoolCodes"
+                  href="#contact"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (onNavigateToContact) {
+                      onNavigateToContact();
+                    } else {
+                      window.location.hash = '#contact';
+                    }
+                  }}
                   className="w-full bg-slate-900 hover:bg-slate-800 text-amber-300 hover:text-amber-200 border border-slate-700 font-black text-[10px] uppercase py-2 px-3 rounded-lg transition shadow-xs text-center tracking-wider flex items-center justify-center gap-1.5 cursor-pointer font-mono"
                 >
                   <span>Advertise With Us</span>
@@ -517,7 +527,15 @@ export default function ExpertBlogView({
                   Direct Banner Ads • Sponsor Links • Telegram / WhatsApp Channels
                 </p>
                 <a
-                  href="mailto:fastpoolcodes@gmail.com?subject=Advertise%20Here%20Banner%20Placement"
+                  href="#contact"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (onNavigateToContact) {
+                      onNavigateToContact();
+                    } else {
+                      window.location.hash = '#contact';
+                    }
+                  }}
                   className="mt-3 inline-flex items-center justify-center gap-1 w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-[10px] uppercase py-2 rounded-lg transition font-mono"
                 >
                   <span>Contact For Ad Placement</span>

@@ -890,6 +890,7 @@ export default function OfficePoolStopHome({
                   onRefreshBlogs={fetchBlogs}
                   onOpenTerms={onOpenTerms}
                   onNavigateToCodes={onNavigateToCodes}
+                  onNavigateToContact={() => setCurrentView('contact')}
                   db={db}
                 />
               );

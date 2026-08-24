@@ -542,13 +542,13 @@ export default function WeeklyPoolPicksTable({
           halign: 'center'
         },
         bodyStyles: {
-          fillColor: false,
+          fillColor: [255, 255, 255],
           fontSize: 8.5,
           textColor: [15, 23, 42],
           halign: 'center'
         },
         alternateRowStyles: {
-          fillColor: false
+          fillColor: [248, 250, 252]
         },
         columnStyles: {
           0: { halign: 'center', fontStyle: 'bold' },
@@ -563,14 +563,14 @@ export default function WeeklyPoolPicksTable({
           9: { halign: 'center', fontStyle: 'normal' }
         },
         willDrawPage: () => {
-          // Bolder security watermark placed strictly BEHIND the table cells and text
+          // Soft security watermark placed strictly BEHIND the table cells and text
           doc.saveGraphicsState();
-          doc.setTextColor(195, 206, 220); // Bold, visible watermark contrast
-          doc.setFontSize(15);
-          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(240, 244, 248); // Very soft, faint watermark under data
+          doc.setFontSize(10.5);
+          doc.setFont('helvetica', 'normal');
           const watermarkText = `FASTPOOLCODES • ${primaryEmail}`;
-          for (let x = -20; x < 320; x += 105) {
-            for (let y = 25; y < 220; y += 42) {
+          for (let x = -20; x < 320; x += 150) {
+            for (let y = 30; y < 220; y += 70) {
               doc.text(watermarkText, x, y, { angle: -25 });
             }
           }
@@ -834,9 +834,9 @@ export default function WeeklyPoolPicksTable({
           </div>
 
           {/* Watermark overlay */}
-          <div className="absolute inset-0 overflow-hidden pointer-events-none select-none opacity-[0.10] z-0 flex flex-wrap justify-around items-center content-around">
-            {Array.from({ length: 24 }).map((_, i) => (
-              <div key={i} className="text-base font-mono font-black text-slate-400 uppercase tracking-widest whitespace-nowrap select-none p-4 rotate-[-25deg]">
+          <div className="absolute inset-0 overflow-hidden pointer-events-none select-none opacity-[0.025] z-0 flex flex-wrap justify-around items-center content-around">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="text-sm font-mono font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap select-none p-4 rotate-[-25deg]">
                 FASTPOOLCODES • SUBSCRIBER EXCLUSIVE
               </div>
             ))}
@@ -1010,9 +1010,9 @@ export default function WeeklyPoolPicksTable({
           {/* THE DATA TABLE (Exact Structure from User's Spreadsheet - All Columns) */}
           <div className="bg-slate-900/70 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-md relative">
             {/* Watermark overlay beneath table text */}
-            <div className="absolute inset-0 overflow-hidden pointer-events-none select-none opacity-[0.05] z-0 flex flex-wrap justify-around items-center content-around">
-              {Array.from({ length: 16 }).map((_, i) => (
-                <div key={i} className="text-sm sm:text-base font-mono font-black text-slate-300 uppercase tracking-widest whitespace-nowrap select-none p-4 rotate-[-22deg]">
+            <div className="absolute inset-0 overflow-hidden pointer-events-none select-none opacity-[0.02] z-0 flex flex-wrap justify-around items-center content-around">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="text-xs sm:text-sm font-mono font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap select-none p-4 rotate-[-22deg]">
                   FASTPOOLCODES • VERIFIED PICKS
                 </div>
               ))}

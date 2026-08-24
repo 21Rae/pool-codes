@@ -7201,14 +7201,14 @@ export default function CustomerPortal({
                                 }
                               },
                               willDrawPage: () => {
-                                // Bolder security watermark placed strictly BEHIND the table cells and text
+                                // Soft security watermark placed strictly BEHIND the table cells and text
                                 doc.saveGraphicsState();
-                                doc.setTextColor(195, 206, 220); // Bold, crisp watermark contrast
-                                doc.setFontSize(14);
-                                doc.setFont('helvetica', 'bold');
+                                doc.setTextColor(240, 244, 248); // Soft, faint watermark contrast under data
+                                doc.setFontSize(10.5);
+                                doc.setFont('helvetica', 'normal');
                                 const watermarkText = `FASTPOOLCODES • ${currentUser?.email || 'user@fastpoolcodes.com'}`;
-                                for (let y = 25; y < pageHeight; y += 40) {
-                                  for (let x = -15; x < pageWidth + 30; x += 90) {
+                                for (let y = 30; y < pageHeight; y += 65) {
+                                  for (let x = -15; x < pageWidth + 30; x += 140) {
                                     doc.text(watermarkText, x, y, { angle: -25 });
                                   }
                                 }
@@ -7304,12 +7304,12 @@ export default function CustomerPortal({
                   {/* Decorative background grid overlay for print preview (removed during print automatically via CSS) */}
                   <div className="absolute inset-0 bg-grid opacity-[0.01] pointer-events-none print:hidden"></div>
 
-                  {/* Watermark layer: "fastpoolcodes" and user email repeating boldly beneath the table */}
-                  <div className="absolute inset-0 overflow-hidden pointer-events-none select-none opacity-[0.11] print:opacity-[0.12] z-0 flex flex-wrap justify-around items-center content-around">
-                    {Array.from({ length: 24 }).map((_, i) => (
+                  {/* Watermark layer: "fastpoolcodes" and user email repeating softly beneath the table */}
+                  <div className="absolute inset-0 overflow-hidden pointer-events-none select-none opacity-[0.025] print:opacity-[0.03] z-0 flex flex-wrap justify-around items-center content-around">
+                    {Array.from({ length: 8 }).map((_, i) => (
                       <div
                         key={i}
-                        className="text-sm font-mono font-black text-slate-500 uppercase tracking-widest whitespace-nowrap select-none p-4 rotate-[-25deg]"
+                        className="text-xs sm:text-sm font-mono font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap select-none p-4 rotate-[-25deg]"
                         style={{ transform: 'rotate(-25deg)' }}
                       >
                         fastpoolcodes • {currentUser?.email || 'user@fastpoolcodes.com'}
