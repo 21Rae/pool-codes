@@ -47,7 +47,7 @@ export interface WeeklyPoolPick {
   bet: string;
   status: string;
   kick_off: string;
-  week?: number;
+  week?: number | string;
   notes?: string;
   is_banker?: boolean;
 }
@@ -90,7 +90,7 @@ function getCaseInsensitiveVal(obj: any, candidateKeys: string[]): any {
 /**
  * Normalizes raw records from Supabase public."weekly pool picks" / "weekly_picks"
  */
-export function normalizeWeeklyPickRecord(raw: any, index: number, defaultWeek = 7): WeeklyPoolPick {
+export function normalizeWeeklyPickRecord(raw: any, index: number, defaultWeek: number | string = 7): WeeklyPoolPick {
   if (!raw || typeof raw !== 'object') {
     return {
       id: `pick-${index + 1}`,
@@ -285,7 +285,7 @@ interface WeeklyPoolPicksTableProps {
   activePlan?: SubscriptionPlan;
   isPaidUser: boolean;
   bypassPremium?: boolean;
-  activeWeekNumber?: number;
+  activeWeekNumber?: number | string;
   triggerToast: (msg: string, type: 'success' | 'error' | 'info') => void;
   onUpgradeClick: () => void;
 }

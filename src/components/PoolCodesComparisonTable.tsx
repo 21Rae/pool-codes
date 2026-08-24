@@ -489,14 +489,14 @@ export default function PoolCodesComparisonTable({
       ];
 
       const tableRows = filteredRows.map(r => [
-        String(r.pool ?? ''),
-        String(r.home ?? ''),
-        String(r.away ?? ''),
-        String(r['bet9ja (draw)'] ?? '-'),
-        String(r['betking (draw)'] ?? '-'),
-        String(r['sportybet (draw)'] ?? '-'),
-        String(r.status ?? 'Saturday'),
-        String(r.kickoff ?? '-')
+        String(r.pool !== undefined && r.pool !== null && String(r.pool).trim() !== '' ? r.pool : 'NULL'),
+        String(r.home !== undefined && r.home !== null && String(r.home).trim() !== '' ? r.home : 'NULL'),
+        String(r.away !== undefined && r.away !== null && String(r.away).trim() !== '' ? r.away : 'NULL'),
+        String(r['bet9ja (draw)'] !== undefined && r['bet9ja (draw)'] !== null && String(r['bet9ja (draw)']).trim() !== '' ? r['bet9ja (draw)'] : 'NULL'),
+        String(r['betking (draw)'] !== undefined && r['betking (draw)'] !== null && String(r['betking (draw)']).trim() !== '' ? r['betking (draw)'] : 'NULL'),
+        String(r['sportybet (draw)'] !== undefined && r['sportybet (draw)'] !== null && String(r['sportybet (draw)']).trim() !== '' ? r['sportybet (draw)'] : 'NULL'),
+        String(r.status !== undefined && r.status !== null && String(r.status).trim() !== '' ? r.status : 'NULL'),
+        String(r.kickoff !== undefined && r.kickoff !== null && String(r.kickoff).trim() !== '' ? r.kickoff : 'NULL')
       ]);
 
       autoTable(doc, {
@@ -534,6 +534,14 @@ export default function PoolCodesComparisonTable({
           5: { cellWidth: 34, halign: 'center', textColor: [190, 24, 93], fontStyle: 'bold' },
           6: { cellWidth: 35, halign: 'center' },
           7: { cellWidth: 36, halign: 'center' }
+        },
+        didParseCell: (hookData) => {
+          if (hookData.section === 'body') {
+            if (hookData.cell.raw === 'NULL') {
+              hookData.cell.styles.textColor = [148, 163, 184];
+              hookData.cell.styles.fontStyle = 'italic';
+            }
+          }
         },
         willDrawPage: () => {
           // Bolder security watermark placed strictly BEHIND the table cells and text

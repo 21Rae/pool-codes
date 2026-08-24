@@ -527,7 +527,6 @@ export default function CustomerPortal({
     theme: 'classic', // 'classic' | 'emerald' | 'compact'
     customNote: 'Decrypted with Premium VIP Authorization. FastPoolCodes All rights reserved.'
   });
-  const activeWeekNumber = 43;
 
   // Personal Info & Password edit states
   const [profileUsername, setProfileUsername] = useState(currentUser.username);
@@ -1151,6 +1150,54 @@ export default function CustomerPortal({
   const [pricingRegionFilter, setPricingRegionFilter] = useState<'nigeria' | 'ghana'>('nigeria');
   const [vipViewMode, setVipViewMode] = useState<'standalone' | 'matrix' | 'custom'>('standalone');
   const [vipBookmakerFilter, setVipBookmakerFilter] = useState<string>('all');
+
+  // Dynamically compute the active week number from the database bookmaker columns
+  const activeWeekNumber = useMemo(() => {
+    // 1. Try finding week number from current selected bookmaker in postedGames
+    const normStr = (s: string) => (s || '').replace(/\s+/g, '').toLowerCase();
+    const targetNorm = normStr(dashboardBookmakerFilter);
+    const selectedBookieGameWithWeek = postedGames.find(g => {
+      const gBookie = normStr(g.bookmaker || '');
+      const gSource = normStr(g.sourceTable || '');
+      const matches = targetNorm === 'all' || gBookie === targetNorm || gSource === targetNorm;
+      return matches && g.weekNo && g.weekNo !== 'NULL' && String(g.weekNo).trim() !== '';
+    });
+    if (selectedBookieGameWithWeek?.weekNo && selectedBookieGameWithWeek.weekNo !== 'NULL') {
+      return selectedBookieGameWithWeek.weekNo;
+    }
+
+    // 2. Try finding week number from any games in postedGames
+    const anyGameWithWeek = postedGames.find(g => g.weekNo && g.weekNo !== 'NULL' && String(g.weekNo).trim() !== '');
+    if (anyGameWithWeek?.weekNo && anyGameWithWeek.weekNo !== 'NULL') {
+      return anyGameWithWeek.weekNo;
+    }
+
+    // 3. Try checking raw database tables (bet9ja, betking, sportybet, etc.)
+    const allDbTables = [
+      db.bet9ja,
+      db.betking,
+      db.sportybet,
+      db.premierbet,
+      db.betway,
+      db.soccabet,
+      (db as any).msport,
+      (db as any).arena_games
+    ];
+    for (const table of allDbTables) {
+      if (Array.isArray(table)) {
+        for (const row of table) {
+          if (row && typeof row === 'object') {
+            const rawWk = row.week_no ?? row.weekno ?? row.week_number ?? row.weekNumber ?? row.week;
+            if (rawWk !== undefined && rawWk !== null && String(rawWk).trim() !== '' && String(rawWk).toUpperCase() !== 'NULL') {
+              return String(rawWk).replace(/^week\s*/i, '').trim();
+            }
+          }
+        }
+      }
+    }
+
+    return 'NULL';
+  }, [postedGames, dashboardBookmakerFilter, db]);
 
   // Admin form state for posting games
   const [adminPoolNo, setAdminPoolNo] = useState<string>('9');
@@ -2339,7 +2386,7 @@ export default function CustomerPortal({
                   {activeSubTab === 'dashboard' ? 'Codes Arena Dashboard' : activeSubTab === 'picks' ? 'Weekly Pool Picks' : activeSubTab === 'comparison' ? 'Codes Comparison Matrix' : activeSubTab === 'streaming' ? 'Live Scores Arena' : activeSubTab === 'results' ? 'Pool Results Archive' : activeSubTab === 'subscription' ? 'VIP Membership & Billing' : 'Account Profile'}
                 </span>
                 <span className="text-[10px] bg-slate-800 text-slate-400 font-mono px-2 py-0.5 rounded font-bold border border-slate-700/50">
-                  WEEK {activeWeekNumber}
+                  {activeWeekNumber === 'NULL' ? 'WEEK NULL' : `WEEK ${activeWeekNumber}`}
                 </span>
               </div>
               <p className="text-[10px] text-slate-400 font-mono">
@@ -7029,7 +7076,7 @@ export default function CustomerPortal({
                             doc.setTextColor(52, 211, 153); // emerald-400
                             doc.setFontSize(7.5);
                             doc.setFont('helvetica', 'bold');
-                            doc.text(`[${activeBookmaker.toUpperCase()}] OFFICIAL WEEK ${activeWeekNumber || 43} SHEET (49 FIXTURES)`, pageWidth - 8, 8.2, { align: 'right' });
+                            doc.text(`[${activeBookmaker.toUpperCase()}] OFFICIAL WEEK ${activeWeekNumber} SHEET (49 FIXTURES)`, pageWidth - 8, 8.2, { align: 'right' });
 
                             // Metadata 1-line bar (Height: 3.8mm)
                             doc.setFillColor(248, 250, 252);
@@ -7056,7 +7103,7 @@ export default function CustomerPortal({
                             doc.text('SEASON:', 118, 13.7);
                             doc.setTextColor(5, 150, 105);
                             doc.setFont('helvetica', 'bold');
-                            doc.text(`WEEK ${activeWeekNumber || 43} (2026)`, 131, 13.7);
+                            doc.text(`WEEK ${activeWeekNumber} (2026)`, 131, 13.7);
 
                             doc.setFont('helvetica', 'normal');
                             doc.setTextColor(100, 116, 139);
@@ -7071,72 +7118,83 @@ export default function CustomerPortal({
                             doc.setFont('helvetica', 'bold');
                             doc.text('Compiled by Fastpoolcodes.com • Enquiries / WhatsApp: +234 8030587933, +234 9037595705', 5, 17.8);
 
-                            // Table Columns Setup
-                            const tableHeaders: string[] = ['Pool', 'Bet Code', 'League', 'Match & League (Home vs Away)'];
-                            if (pdfConfig.showOdds) {
-                              tableHeaders.push('1', 'X', '2');
-                            }
-                            if (pdfConfig.showTips) {
-                              tableHeaders.push('Tip');
-                            }
-                            if (pdfConfig.showBookmaker) {
-                              tableHeaders.push('Bookie');
-                            }
+                            // Table Columns Setup (Strict 12 Bookmaker Columns)
+                            const tableHeaders: string[] = [
+                              'POOL',
+                              'BET CODE',
+                              'LEAGUE',
+                              'HOME',
+                              'AWAY',
+                              '1',
+                              'X',
+                              '2',
+                              'BET TIPS',
+                              'STATUS',
+                              'KICK OFF',
+                              'WEEK NO'
+                            ];
 
-                            const tableData = pdfFilteredGames.map(game => {
-                              const matchTeams = `${game.home || ''} vs ${game.away || ''}`;
-                              const row: string[] = [
-                                String(game.poolNo || '-'),
-                                String(game.betCode || '-'),
-                                String(game.league || '-'),
-                                matchTeams,
-                              ];
-                              if (pdfConfig.showOdds) {
-                                row.push(String(game.homeWin || '-'), String(game.draw || '-'), String(game.awayWin || '-'));
-                              }
-                              if (pdfConfig.showTips) {
-                                row.push(String(game.betTips || 'DRAW (X)'));
-                              }
-                              if (pdfConfig.showBookmaker) {
-                                row.push(String(game.bookmaker || '-'));
-                              }
-                              return row;
-                            });
+                            const tableData = pdfFilteredGames.map(game => [
+                              String(game.poolNo ?? 'NULL'),
+                              String(game.betCode ?? 'NULL'),
+                              String(game.league ?? 'NULL'),
+                              String(game.home ?? 'NULL'),
+                              String(game.away ?? 'NULL'),
+                              String(game.homeWin ?? 'NULL'),
+                              String(game.draw ?? 'NULL'),
+                              String(game.awayWin ?? 'NULL'),
+                              String(game.betTips ?? 'NULL'),
+                              String(game.status ?? 'NULL'),
+                              String(game.kickOff ?? 'NULL'),
+                              String(game.weekNo ?? 'NULL')
+                            ]);
 
                             autoTable(doc, {
-                              startY: 19.2,
+                              startY: 18.5,
                               head: [tableHeaders],
-                              body: tableData.length > 0 ? tableData : [['-', '-', 'No classified fixtures found', ...tableHeaders.slice(3).map(() => '-')]],
+                              body: tableData.length > 0 ? tableData : [['NULL', 'NULL', 'No classified fixtures found', ...tableHeaders.slice(3).map(() => 'NULL')]],
                               theme: 'grid',
-                              margin: { top: 19.2, bottom: 4.5, left: 5, right: 5 },
+                              margin: { top: 18.5, bottom: 4.5, left: 4.5, right: 4.5 },
                               headStyles: {
                                 fillColor: [15, 23, 42],
                                 textColor: [255, 255, 255],
-                                fontSize: 8.0,
+                                fontSize: 6.2,
                                 fontStyle: 'bold',
                                 halign: 'center',
-                                cellPadding: [0.8, 0.8],
-                                minCellHeight: 4.2,
+                                cellPadding: [0.5, 0.4],
+                                minCellHeight: 3.8,
                               },
                               bodyStyles: {
                                 fillColor: false,
-                                fontSize: 7.5,
+                                fontSize: 5.8,
                                 textColor: [15, 23, 42],
-                                cellPadding: [0.7, 0.8],
-                                minCellHeight: 4.5,
+                                cellPadding: [0.35, 0.35],
+                                minCellHeight: 4.2,
                               },
                               alternateRowStyles: {
                                 fillColor: false,
                               },
                               columnStyles: {
-                                0: { halign: 'center', fontStyle: 'bold', cellWidth: 12 },
-                                1: { halign: 'center', fontStyle: 'bold', cellWidth: 18 },
-                                2: { halign: 'left', fontStyle: 'bold' },
-                                3: { halign: 'center', cellWidth: 11 },
-                                4: { halign: 'center', cellWidth: 11 },
+                                0: { halign: 'center', fontStyle: 'bold', cellWidth: 10 },
+                                1: { halign: 'center', fontStyle: 'bold', cellWidth: 15 },
+                                2: { halign: 'center', cellWidth: 18 },
+                                3: { halign: 'left', fontStyle: 'bold', cellWidth: 29 },
+                                4: { halign: 'left', fontStyle: 'bold', cellWidth: 29 },
                                 5: { halign: 'center', cellWidth: 11 },
-                                6: { halign: 'center', cellWidth: 18, fontStyle: 'bold' },
-                                7: { halign: 'center', cellWidth: 18 },
+                                6: { halign: 'center', fontStyle: 'bold', textColor: [5, 150, 105], cellWidth: 11 },
+                                7: { halign: 'center', cellWidth: 11 },
+                                8: { halign: 'center', fontStyle: 'bold', textColor: [180, 83, 9], cellWidth: 19 },
+                                9: { halign: 'center', cellWidth: 15 },
+                                10: { halign: 'center', cellWidth: 17 },
+                                11: { halign: 'center', cellWidth: 16 },
+                              },
+                              didParseCell: (hookData) => {
+                                if (hookData.section === 'body') {
+                                  if (hookData.cell.raw === 'NULL') {
+                                    hookData.cell.styles.textColor = [148, 163, 184];
+                                    hookData.cell.styles.fontStyle = 'italic';
+                                  }
+                                }
                               },
                               willDrawPage: () => {
                                 // Bolder security watermark placed strictly BEHIND the table cells and text
@@ -7152,12 +7210,12 @@ export default function CustomerPortal({
                                 }
                                 doc.restoreGraphicsState();
                               },
-                              didDrawPage: (data) => {
+                              didDrawPage: () => {
                                 // Security trace footer strictly BELOW the codes on page bottom
                                 doc.setFontSize(6.5);
                                 doc.setTextColor(148, 163, 184);
                                 doc.text(
-                                  `FastPoolCodes Official Classified Coupon • Week ${activeWeekNumber || 43} • Licensed to ${currentUser?.email || 'user'} • Single Page Verified Sheet`,
+                                  `FastPoolCodes Official Classified Coupon • Week ${activeWeekNumber} • Licensed to ${currentUser?.email || 'user'} • Single Page Verified Sheet`,
                                   5,
                                   pageHeight - 2.5
                                 );
@@ -7170,7 +7228,7 @@ export default function CustomerPortal({
                               }
                             });
 
-                            const filename = `FastPoolCodes_${activeBookmaker}_Week_${activeWeekNumber || 43}.pdf`;
+                            const filename = `FastPoolCodes_${activeBookmaker}_Week_${activeWeekNumber}.pdf`;
                             doc.save(filename);
                             triggerToast('PDF document downloaded successfully!', 'success');
                           } catch (err) {
@@ -7270,7 +7328,7 @@ export default function CustomerPortal({
 
                         <div className="text-right">
                           <span className="text-[10px] font-mono font-black text-emerald-800 uppercase">
-                            [{activeBookmaker.toUpperCase()}] WEEK {activeWeekNumber || 43} OFFICIAL
+                            [{activeBookmaker.toUpperCase()}] WEEK {activeWeekNumber} OFFICIAL
                           </span>
                         </div>
                       </div>
@@ -7287,7 +7345,7 @@ export default function CustomerPortal({
                         </div>
                         <div>
                           <span className="text-slate-400 block text-[7px] uppercase">SEASON:</span>
-                          <span className="font-extrabold text-slate-900">WEEK {activeWeekNumber || 43} (2026)</span>
+                          <span className="font-extrabold text-slate-900">WEEK {activeWeekNumber} (2026)</span>
                         </div>
                         <div>
                           <span className="text-slate-400 block text-[7px] uppercase">KEY:</span>
@@ -7296,36 +7354,28 @@ export default function CustomerPortal({
                       </div>
                     </div>
 
-                    {/* Classified Coupon Table */}
-                    <div className="space-y-1.5">
-                      <div className="text-[10px] font-mono font-black uppercase text-slate-900 tracking-wide flex justify-between items-center">
+                    {/* Classified Coupon Table (12 Official Columns) */}
+                    <div className="space-y-1.5 overflow-x-auto">
+                      <div className="text-[9.5px] font-mono font-black uppercase text-slate-900 tracking-wide flex justify-between items-center">
                         <span>📋 Compiled by Fastpoolcodes.com • WhatsApp/Enquiries: +234 8030587933, +234 9037595705</span>
                         <span className="text-[8.5px] text-emerald-700 font-bold">1-PAGE A4 FORMAT (49 ROWS)</span>
                       </div>
 
-                      <table className="w-full text-left font-sans text-[10px] border-collapse">
+                      <table className="w-full text-left font-sans text-[8.5px] border-collapse">
                         <thead>
-                          <tr className="bg-slate-950 text-white font-mono uppercase text-[9px] tracking-wider border border-slate-950">
-                            <th className="py-1 px-1.5 border text-center w-[8%]">Pool</th>
-                            <th className="py-1 px-1.5 border text-center w-[12%]">Bet Code</th>
-                            <th className="py-1 px-1.5 border text-center w-[12%]">League</th>
-                            <th className="py-1 px-1.5 border w-[42%]">Match & League (Home vs Away)</th>
-                            
-                            {pdfConfig.showOdds && (
-                              <>
-                                <th className="py-1 px-1 border text-center w-[7%]">1</th>
-                                <th className="py-1 px-1 border text-center w-[7%]">X</th>
-                                <th className="py-1 px-1 border text-center w-[7%]">2</th>
-                              </>
-                            )}
-
-                            {pdfConfig.showTips && (
-                              <th className="py-1 px-1 border text-center w-[11%]">Tip</th>
-                            )}
-
-                            {pdfConfig.showBookmaker && (
-                              <th className="py-1 px-1 border text-center w-[10%]">Bookie</th>
-                            )}
+                          <tr className="bg-slate-950 text-white font-mono uppercase text-[7.5px] tracking-wider border border-slate-950">
+                            <th className="py-1 px-1 border text-center w-[5%]">Pool</th>
+                            <th className="py-1 px-1 border text-center w-[8%]">Bet Code</th>
+                            <th className="py-1 px-1 border text-center w-[9%]">League</th>
+                            <th className="py-1 px-1 border w-[15%]">Home</th>
+                            <th className="py-1 px-1 border w-[15%]">Away</th>
+                            <th className="py-1 px-0.5 border text-center w-[5%]">1</th>
+                            <th className="py-1 px-0.5 border text-center w-[5%]">X</th>
+                            <th className="py-1 px-0.5 border text-center w-[5%]">2</th>
+                            <th className="py-1 px-1 border text-center w-[10%]">Bet Tips</th>
+                            <th className="py-1 px-1 border text-center w-[8%]">Status</th>
+                            <th className="py-1 px-1 border text-center w-[8%]">Kick Off</th>
+                            <th className="py-1 px-1 border text-center w-[7%]">Week No</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-200 border">
@@ -7360,7 +7410,7 @@ export default function CustomerPortal({
                             if (pdfFilteredGames.length === 0) {
                               return (
                                 <tr>
-                                  <td colSpan={7} className="p-4 text-center text-slate-400 font-mono italic text-[9px]">
+                                  <td colSpan={12} className="p-4 text-center text-slate-400 font-mono italic text-[9px]">
                                     No classified fixtures found for the selected bookmaker ({activeBookmaker}).
                                   </td>
                                 </tr>
@@ -7370,52 +7420,44 @@ export default function CustomerPortal({
                             return pdfFilteredGames.map((game, idx) => (
                               <tr 
                                 key={game.id || idx} 
-                                className={`text-[9.5px] leading-tight transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/80'}`}
+                                className={`text-[8.5px] leading-tight transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/80'}`}
                               >
-                                <td className="py-0.5 px-1 border text-center font-mono font-black text-slate-900 bg-slate-100/70">
-                                  <span className={game.poolNo === 'NULL' ? 'text-slate-400 font-mono italic text-[8px]' : ''}>{game.poolNo}</span>
+                                <td className="py-0.5 px-0.5 border text-center font-mono font-black text-slate-900 bg-slate-100/70">
+                                  <span className={game.poolNo === 'NULL' ? 'text-slate-400 font-mono italic text-[7.5px]' : ''}>{game.poolNo}</span>
                                 </td>
-                                <td className="py-0.5 px-1 border text-center font-mono font-black text-slate-800 bg-slate-100/50">
-                                  <span className={game.betCode === 'NULL' ? 'text-slate-400 font-mono italic text-[8px]' : ''}>{game.betCode}</span>
+                                <td className="py-0.5 px-0.5 border text-center font-mono font-black text-slate-800 bg-slate-100/50">
+                                  <span className={game.betCode === 'NULL' ? 'text-slate-400 font-mono italic text-[7.5px]' : ''}>{game.betCode}</span>
                                 </td>
-                                <td className="py-0.5 px-1 border text-center font-bold text-slate-800 text-[8.5px] bg-slate-100/30">
-                                  <span className={game.league === 'NULL' ? 'text-slate-400 font-mono italic text-[8px]' : ''}>{game.league}</span>
+                                <td className="py-0.5 px-0.5 border text-center font-bold text-slate-800 text-[8px] bg-slate-100/30">
+                                  <span className={game.league === 'NULL' ? 'text-slate-400 font-mono italic text-[7.5px]' : ''}>{game.league}</span>
                                 </td>
-                                <td className="py-0.5 px-1.5 border font-bold text-slate-900 bg-inherit">
-                                  <span>
-                                    <span className={game.home === 'NULL' ? 'text-slate-400 font-mono italic' : ''}>{game.home}</span>
-                                    {' '}
-                                    <span className="font-normal text-slate-400">vs</span>
-                                    {' '}
-                                    <span className={game.away === 'NULL' ? 'text-slate-400 font-mono italic' : ''}>{game.away}</span>
-                                  </span>
+                                <td className="py-0.5 px-1 border font-bold text-slate-900 bg-inherit truncate max-w-[110px]">
+                                  <span className={game.home === 'NULL' ? 'text-slate-400 font-mono italic text-[7.5px]' : ''}>{game.home}</span>
                                 </td>
-
-                                {pdfConfig.showOdds && (
-                                  <>
-                                    <td className="py-0.5 px-0.5 border text-center font-mono text-slate-600 text-[8.5px] bg-inherit">
-                                      <span className={game.homeWin === 'NULL' ? 'text-slate-400 font-mono italic text-[8px]' : ''}>{game.homeWin}</span>
-                                    </td>
-                                    <td className="py-0.5 px-0.5 border text-center font-mono text-slate-600 text-[8.5px] bg-inherit">
-                                      <span className={game.draw === 'NULL' ? 'text-slate-400 font-mono italic text-[8px]' : ''}>{game.draw}</span>
-                                    </td>
-                                    <td className="py-0.5 px-0.5 border text-center font-mono text-slate-600 text-[8.5px] bg-inherit">
-                                      <span className={game.awayWin === 'NULL' ? 'text-slate-400 font-mono italic text-[8px]' : ''}>{game.awayWin}</span>
-                                    </td>
-                                  </>
-                                )}
-
-                                {pdfConfig.showTips && (
-                                  <td className="py-0.5 px-0.5 border text-center font-mono font-black text-emerald-800 text-[8.5px] uppercase bg-inherit">
-                                    <span className={game.betTips === 'NULL' ? 'text-slate-400 font-mono italic text-[8px]' : ''}>{game.betTips}</span>
-                                  </td>
-                                )}
-
-                                {pdfConfig.showBookmaker && (
-                                  <td className="py-0.5 px-0.5 border text-center font-mono text-[8.5px] text-slate-500 uppercase bg-inherit">
-                                    <span className={game.bookmaker === 'NULL' ? 'text-slate-400 font-mono italic text-[8px]' : ''}>{game.bookmaker}</span>
-                                  </td>
-                                )}
+                                <td className="py-0.5 px-1 border font-bold text-slate-900 bg-inherit truncate max-w-[110px]">
+                                  <span className={game.away === 'NULL' ? 'text-slate-400 font-mono italic text-[7.5px]' : ''}>{game.away}</span>
+                                </td>
+                                <td className="py-0.5 px-0.5 border text-center font-mono text-slate-600 text-[8px] bg-inherit">
+                                  <span className={game.homeWin === 'NULL' ? 'text-slate-400 font-mono italic text-[7.5px]' : ''}>{game.homeWin}</span>
+                                </td>
+                                <td className="py-0.5 px-0.5 border text-center font-mono font-bold text-emerald-700 text-[8px] bg-inherit">
+                                  <span className={game.draw === 'NULL' ? 'text-slate-400 font-mono italic text-[7.5px]' : ''}>{game.draw}</span>
+                                </td>
+                                <td className="py-0.5 px-0.5 border text-center font-mono text-slate-600 text-[8px] bg-inherit">
+                                  <span className={game.awayWin === 'NULL' ? 'text-slate-400 font-mono italic text-[7.5px]' : ''}>{game.awayWin}</span>
+                                </td>
+                                <td className="py-0.5 px-0.5 border text-center font-mono font-black text-amber-800 text-[8px] uppercase bg-inherit">
+                                  <span className={game.betTips === 'NULL' ? 'text-slate-400 font-mono italic text-[7.5px]' : ''}>{game.betTips}</span>
+                                </td>
+                                <td className="py-0.5 px-0.5 border text-center font-mono text-slate-600 text-[8px] bg-inherit">
+                                  <span className={game.status === 'NULL' ? 'text-slate-400 font-mono italic text-[7.5px]' : ''}>{game.status}</span>
+                                </td>
+                                <td className="py-0.5 px-0.5 border text-center font-mono text-slate-600 text-[8px] bg-inherit">
+                                  <span className={game.kickOff === 'NULL' ? 'text-slate-400 font-mono italic text-[7.5px]' : ''}>{game.kickOff}</span>
+                                </td>
+                                <td className="py-0.5 px-0.5 border text-center font-mono text-slate-600 text-[8px] bg-inherit">
+                                  <span className={game.weekNo === 'NULL' ? 'text-slate-400 font-mono italic text-[7.5px]' : ''}>{game.weekNo}</span>
+                                </td>
                               </tr>
                             ));
                           })()}
@@ -7473,7 +7515,7 @@ export default function CustomerPortal({
                 <div className="space-y-1">
                   <span className="text-[10px] text-slate-500 font-mono block">SUBJECT:</span>
                   <h3 className="text-xs sm:text-sm font-sans font-extrabold text-white">
-                    {confirmedPaymentMail ? confirmedPaymentMail.subject : `📧 [FastPoolCodes Premium Delivery] Week ${activeWeekNumber || 43} Classified Coupon Codes & Verified Slip Keys (PDF Attached)`}
+                    {confirmedPaymentMail ? confirmedPaymentMail.subject : `📧 [FastPoolCodes Premium Delivery] Week ${activeWeekNumber} Classified Coupon Codes & Verified Slip Keys (PDF Attached)`}
                   </h3>
                 </div>
 
@@ -7499,7 +7541,7 @@ export default function CustomerPortal({
                   ) : (
                     <>
                       <p>
-                        Congratulations on maintaining your active <strong>{activePlan?.name || 'VIP'} Subscription License</strong> for the current Week {activeWeekNumber || 43} pools league season!
+                        Congratulations on maintaining your active <strong>{activePlan?.name || 'VIP'} Subscription License</strong> for the current Week {activeWeekNumber} pools league season!
                       </p>
 
                       <p>
@@ -7521,7 +7563,7 @@ export default function CustomerPortal({
                     </div>
                     <div>
                       <h4 className="font-mono font-bold text-slate-200 text-xs break-all">
-                        {confirmedPaymentMail ? confirmedPaymentMail.pdfName : `FastPoolCodes_Week_${activeWeekNumber || 43}_Classified_Coupon.pdf`}
+                        {confirmedPaymentMail ? confirmedPaymentMail.pdfName : `FastPoolCodes_Week_${activeWeekNumber}_Classified_Coupon.pdf`}
                       </h4>
                       <p className="text-[10px] text-slate-500 font-mono mt-0.5">
                         {confirmedPaymentMail ? (
