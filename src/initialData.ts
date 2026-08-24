@@ -226,32 +226,68 @@ export function findSubscriptionPlan(plans: SubscriptionPlan[] | undefined, plan
 
 export function getPlanDurationDays(plan: Partial<SubscriptionPlan> | undefined): number {
   if (!plan) return 7;
-  if (typeof plan.duration_days === 'number' && plan.duration_days > 0) {
-    return plan.duration_days;
-  }
   const cycle = String(plan.billing_cycle || '').toLowerCase();
   const name = String(plan.name || '').toLowerCase();
+  const id = String(plan.id || '').toLowerCase();
+
+  const isWeekly = cycle === 'weekly' || name.includes('week') || id.includes('week');
+
   if (cycle === 'yearly' || name.includes('year')) return 364;
   if (cycle === 'biannual' || name.includes('bi-annual') || name.includes('bi - annual')) return 182;
   if (cycle === 'quarterly' || name.includes('quarter')) return 91;
   if (name.includes('ghana') && (cycle === 'monthly' || name.includes('month'))) return 35;
   if (cycle === 'monthly' || name.includes('month')) return 30;
+  if (isWeekly) return 7;
+
+  if (typeof plan.duration_days === 'number' && plan.duration_days > 0) {
+    return plan.duration_days;
+  }
   return 7;
 }
 
 export function calculateSubscriptionExpiry(plan: Partial<SubscriptionPlan> | undefined, startDate: Date = new Date()): { startedAt: Date; expiresAt: Date; durationDays: number } {
   const startedAt = new Date(startDate.getTime());
+  const cycle = String(plan?.billing_cycle || '').toLowerCase();
+  const name = String(plan?.name || '').toLowerCase();
+  const id = String(plan?.id || '').toLowerCase();
+  const isWeekly = cycle === 'weekly' || name.includes('week') || id.includes('week');
+
+  if (isWeekly) {
+    // For all weekly purchases (e.g. made on Friday, Saturday, Sunday, or any day during the week),
+    // the plan expires at midnight on the upcoming Sunday (Sunday 23:59:59.999 / end of Sunday night).
+    // dayOfWeek: 0 for Sunday, 1 for Monday, ..., 5 for Friday, 6 for Saturday.
+    const dayOfWeek = startedAt.getDay();
+    // If purchased on Sunday (0), days until end of that Sunday is 0 days.
+    // If purchased on Friday (5), days until Sunday is 2 days.
+    // If purchased on Saturday (6), days until Sunday is 1 day.
+    // If purchased on Monday (1), days until Sunday is 6 days.
+    const daysUntilSunday = (7 - dayOfWeek) % 7;
+
+    const expiresAt = new Date(
+      startedAt.getFullYear(),
+      startedAt.getMonth(),
+      startedAt.getDate() + daysUntilSunday,
+      23,
+      59,
+      59,
+      999
+    );
+
+    // Calculate effective duration in days (minimum 1 day)
+    const durationDays = Math.max(1, Math.ceil((expiresAt.getTime() - startedAt.getTime()) / (1000 * 60 * 60 * 24)));
+    return { startedAt, expiresAt, durationDays };
+  }
+
   const durationDays = getPlanDurationDays(plan);
-  // All subscriptions end at midnight (12:00 AM / 00:00:00) of the target expiry day.
-  // e.g. If bought on Tuesday at 3:00 PM with a weekly (7-day) subscription, it ends at Tuesday 12:00 AM (00:00:00) the following week.
+  // Monthly / longer cycle plans end at midnight (23:59:59.999) of the target expiry day
   const expiresAt = new Date(
     startedAt.getFullYear(),
     startedAt.getMonth(),
-    startedAt.getDate() + durationDays,
-    0,
-    0,
-    0,
-    0
+    startedAt.getDate() + durationDays - 1,
+    23,
+    59,
+    59,
+    999
   );
   return { startedAt, expiresAt, durationDays };
 }
