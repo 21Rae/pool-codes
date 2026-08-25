@@ -6,10 +6,12 @@ import {
   PoolWeek,
   PoolCode,
   PoolResult,
+  PoolResultRecord,
   Notification,
   UserDownload,
   BookmakerTableRecord,
-  PoolCodesComparisonRecord
+  PoolCodesComparisonRecord,
+  LiveScoreRecord
 } from './types';
 
 export const INITIAL_USERS: User[] = [];
@@ -615,143 +617,58 @@ export const INITIAL_POOL_CODES: PoolCode[] = [
   }
 ];
 
+export const POOL_RESULT_ROWS: PoolResultRecord[] = [
+  { id: 1, home_team: 'Bristol C.', away_team: 'Millwall', home_team_score: 0, away_team_score: 2 },
+  { id: 2, home_team: 'Charlton', away_team: 'Derby', home_team_score: 2, away_team_score: 1 },
+  { id: 3, home_team: 'Middlesbro', away_team: 'Lincoln', home_team_score: 2, away_team_score: 1 },
+  { id: 4, home_team: 'Norwich', away_team: 'West Brom', home_team_score: 1, away_team_score: 2 },
+  { id: 5, home_team: 'Portsmouth', away_team: 'Q.P.R.', home_team_score: 1, away_team_score: 3 },
+  { id: 6, home_team: 'Stoke', away_team: 'Swansea', home_team_score: 1, away_team_score: 2 },
+  { id: 7, home_team: 'Sheff Utd.', away_team: 'Birmingham', home_team_score: 0, away_team_score: 0 },
+  { id: 8, home_team: 'Watford', away_team: 'Southampton', home_team_score: 2, away_team_score: 1 },
+  { id: 9, home_team: 'Burnley', away_team: 'West Ham', home_team_score: 2, away_team_score: 2 },
+  { id: 10, home_team: 'Barnsley', away_team: 'Bromley', home_team_score: 0, away_team_score: 1 },
+  { id: 11, home_team: 'Blackpool', away_team: 'Wycombe', home_team_score: 1, away_team_score: 1 },
+  { id: 12, home_team: 'Bradford C', away_team: 'Peterboro', home_team_score: 2, away_team_score: 0 },
+  { id: 13, home_team: 'Burton A.', away_team: 'Stevenage', home_team_score: 1, away_team_score: 1 },
+  { id: 14, home_team: 'Cambridge', away_team: 'Wigan A.', home_team_score: 3, away_team_score: 2 },
+  { id: 15, home_team: 'Huddersfie', away_team: 'A.Wimbledon', home_team_score: 3, away_team_score: 0 },
+  { id: 16, home_team: 'Leyton O.', away_team: 'Sheff Wed.', home_team_score: 1, away_team_score: 2 },
+  { id: 17, home_team: 'Mansfield', away_team: 'Doncaster', home_team_score: 2, away_team_score: 1 },
+  { id: 18, home_team: 'Plymouth', away_team: 'Stockport', home_team_score: 1, away_team_score: 3 },
+  { id: 19, home_team: 'Dep. Alaves', away_team: 'Getafe', home_team_score: 3, away_team_score: 0 },
+  { id: 20, home_team: 'Sevilla', away_team: 'R. Vallecano', home_team_score: 2, away_team_score: 1 },
+  { id: 21, home_team: 'R. Santander', away_team: 'Villarreal', home_team_score: 2, away_team_score: 2 }
+];
+
 export const INITIAL_POOL_RESULTS: PoolResult[] = [
   {
     id: 'pr-w43',
     pool_week_id: 'pw-week-43',
     bookmaker_id: 'bm-bet9ja',
     uploaded_by: 'usr-admin-777',
-    results_content: '--- WEEK 43 OFFICIAL RESULTS ---\nMatch 3: Arsenal 1-1 Chelsea (DRAW - Code Cleared)\nMatch 12: Man City 2-2 Everton (DRAW - Code Cleared)\nMatch 26: Leicester 1-1 West Ham (DRAW - Code Cleared)',
+    results_content: '--- WEEK 43 OFFICIAL RESULTS ---\nMatch 7: Sheff Utd. 0-0 Birmingham (DRAW)\nMatch 9: Burnley 2-2 West Ham (DRAW)\nMatch 11: Blackpool 1-1 Wycombe (DRAW)\nMatch 13: Burton A. 1-1 Stevenage (DRAW)\nMatch 21: R. Santander 2-2 Villarreal (DRAW)',
     file_url: 'https://storage.poolcodes.com/results/w43-results.pdf',
     created_at: '2026-04-27T10:00:00Z',
-    title: 'Week 43 UK Pool results: Pool results for the week - 25th April, 2026',
+    title: 'Week 43 UK Pool results: Official pool_result Table Matches',
     week_number: 43,
     season_year: 2026,
     pool_type: 'uk',
     fixture_date: '2026-04-25',
     comments_count: 0,
-    results_table: [
-      { matchNo: 1, homeTeam: 'Arsenal', awayTeam: 'Chelsea', fullTimeScore: '1-1', outcome: 'DRAW', payoutStatus: 'CLEARED' },
-      { matchNo: 2, homeTeam: 'Liverpool', awayTeam: 'Leeds', fullTimeScore: '2-0', outcome: 'HOME WIN', payoutStatus: 'CLEARED' },
-      { matchNo: 3, homeTeam: 'Man City', awayTeam: 'Everton', fullTimeScore: '2-2', outcome: 'DRAW', payoutStatus: 'CLEARED' },
-      { matchNo: 4, homeTeam: 'Napoli', awayTeam: 'Juventus', fullTimeScore: '0-3', outcome: 'AWAY WIN', payoutStatus: 'CLEARED' },
-      { matchNo: 5, homeTeam: 'Real Madrid', awayTeam: 'Sevilla', fullTimeScore: '1-1', outcome: 'DRAW', payoutStatus: 'CLEARED' },
-      { matchNo: 6, homeTeam: 'Barcelona', awayTeam: 'Valencia', fullTimeScore: '2-1', outcome: 'HOME WIN', payoutStatus: 'CLEARED' },
-      { matchNo: 7, homeTeam: 'Aston Villa', awayTeam: 'Wolves', fullTimeScore: '0-0', outcome: 'DRAW', payoutStatus: 'CLEARED' },
-      { matchNo: 8, homeTeam: 'Tottenham', awayTeam: 'Brentford', fullTimeScore: '1-0', outcome: 'HOME WIN', payoutStatus: 'CLEARED' },
-      { matchNo: 9, homeTeam: 'Leicester', awayTeam: 'West Ham', fullTimeScore: '1-1', outcome: 'DRAW', payoutStatus: 'CLEARED' },
-      { matchNo: 10, homeTeam: 'Roma', awayTeam: 'Milan', fullTimeScore: '2-2', outcome: 'DRAW', payoutStatus: 'CLEARED' }
-    ]
-  },
-  {
-    id: 'pr-w42',
-    pool_week_id: 'pw-week-42',
-    bookmaker_id: 'bm-betking',
-    uploaded_by: 'usr-admin-777',
-    results_content: '--- WEEK 42 OFFICIAL RESULTS ---\nMatch 1: Real Madrid 2-2 Sevilla (DRAW - Code Cleared)\nMatch 4: Aston Villa 0-0 Wolves (DRAW - Code Cleared)',
-    file_url: 'https://storage.poolcodes.com/results/w42-results.pdf',
-    created_at: '2026-04-20T10:00:00Z',
-    title: 'Week 42 UK Pool results: Pool results for the week - 18th April, 2026',
-    week_number: 42,
-    season_year: 2026,
-    pool_type: 'uk',
-    fixture_date: '2026-04-18',
-    comments_count: 0,
-    results_table: [
-      { matchNo: 1, homeTeam: 'Real Madrid', awayTeam: 'Sevilla', fullTimeScore: '2-2', outcome: 'DRAW', payoutStatus: 'CLEARED' },
-      { matchNo: 2, homeTeam: 'Barcelona', awayTeam: 'Valencia', fullTimeScore: '1-0', outcome: 'HOME WIN', payoutStatus: 'CLEARED' },
-      { matchNo: 3, homeTeam: 'Napoli', awayTeam: 'Juventus', fullTimeScore: '1-1', outcome: 'DRAW', payoutStatus: 'CLEARED' },
-      { matchNo: 4, homeTeam: 'Aston Villa', awayTeam: 'Wolves', fullTimeScore: '0-0', outcome: 'DRAW', payoutStatus: 'CLEARED' },
-      { matchNo: 5, homeTeam: 'Tottenham', awayTeam: 'Brentford', fullTimeScore: '2-2', outcome: 'DRAW', payoutStatus: 'CLEARED' },
-      { matchNo: 6, homeTeam: 'Leicester', awayTeam: 'West Ham', fullTimeScore: '1-3', outcome: 'AWAY WIN', payoutStatus: 'CLEARED' },
-      { matchNo: 7, homeTeam: 'Roma', awayTeam: 'Milan', fullTimeScore: '0-0', outcome: 'DRAW', payoutStatus: 'CLEARED' }
-    ]
-  },
-  {
-    id: 'pr-w41',
-    pool_week_id: 'pw-week-41',
-    bookmaker_id: 'bm-sportybet',
-    uploaded_by: 'usr-admin-777',
-    results_content: '--- WEEK 41 OFFICIAL RESULTS ---\nMatch 26: Roma 1-1 Milan (DRAW - Code Cleared)\nMatch 40: Bologna 0-0 Udinese (DRAW - Code Cleared)',
-    file_url: 'https://storage.poolcodes.com/results/w41-results.pdf',
-    created_at: '2026-04-14T10:00:00Z',
-    title: 'Week 41 UK Pool results: Pool results for the week - 11th April, 2026',
-    week_number: 41,
-    season_year: 2026,
-    pool_type: 'uk',
-    fixture_date: '2026-04-11',
-    comments_count: 14,
-    results_table: [
-      { matchNo: 1, homeTeam: 'Roma', awayTeam: 'Milan', fullTimeScore: '1-1', outcome: 'DRAW', payoutStatus: 'CLEARED' },
-      { matchNo: 2, homeTeam: 'Aston Villa', awayTeam: 'Wolves', fullTimeScore: '0-2', outcome: 'AWAY WIN', payoutStatus: 'CLEARED' },
-      { matchNo: 3, homeTeam: 'Barcelona', awayTeam: 'Valencia', fullTimeScore: '3-3', outcome: 'DRAW', payoutStatus: 'CLEARED' },
-      { matchNo: 4, homeTeam: 'Real Madrid', awayTeam: 'Sevilla', fullTimeScore: '3-0', outcome: 'HOME WIN', payoutStatus: 'CLEARED' },
-      { matchNo: 5, homeTeam: 'Napoli', awayTeam: 'Juventus', fullTimeScore: '0-0', outcome: 'DRAW', payoutStatus: 'CLEARED' },
-      { matchNo: 6, homeTeam: 'Liverpool', awayTeam: 'Leeds', fullTimeScore: '1-1', outcome: 'DRAW', payoutStatus: 'CLEARED' },
-      { matchNo: 7, homeTeam: 'Bologna', awayTeam: 'Udinese', fullTimeScore: '0-0', outcome: 'DRAW', payoutStatus: 'CLEARED' }
-    ]
-  },
-  {
-    id: 'pr-w40',
-    pool_week_id: 'pw-week-40',
-    bookmaker_id: 'bm-msport',
-    uploaded_by: 'usr-admin-777',
-    results_content: '--- WEEK 40 OFFICIAL RESULTS ---\nMatch 3: Liverpool 0-0 Leeds (DRAW - Code Cleared)',
-    file_url: null,
-    created_at: '2026-04-06T10:00:00Z',
-    title: 'Week 40 UK Pool results: Pool results for the week - 4th April, 2026',
-    week_number: 40,
-    season_year: 2026,
-    pool_type: 'uk',
-    fixture_date: '2026-04-04',
-    comments_count: 0,
-    results_table: [
-      { matchNo: 1, homeTeam: 'Roma', awayTeam: 'Milan', fullTimeScore: '2-0', outcome: 'HOME WIN', payoutStatus: 'CLEARED' },
-      { matchNo: 2, homeTeam: 'Aston Villa', awayTeam: 'Wolves', fullTimeScore: '1-1', outcome: 'DRAW', payoutStatus: 'CLEARED' },
-      { matchNo: 3, homeTeam: 'Liverpool', awayTeam: 'Leeds', fullTimeScore: '0-0', outcome: 'DRAW', payoutStatus: 'CLEARED' },
-      { matchNo: 4, homeTeam: 'Real Madrid', awayTeam: 'Sevilla', fullTimeScore: '2-1', outcome: 'HOME WIN', payoutStatus: 'CLEARED' }
-    ]
-  },
-  {
-    id: 'pr-w39',
-    pool_week_id: 'pw-week-39',
-    bookmaker_id: 'bm-bet9ja',
-    uploaded_by: 'usr-admin-777',
-    results_content: '--- WEEK 39 OFFICIAL RESULTS ---\nMatch 22: Newcastle 1-1 Southampton (DRAW - Code Cleared)',
-    file_url: 'https://storage.poolcodes.com/results/w39-results.pdf',
-    created_at: '2026-04-02T10:00:00Z',
-    title: 'Week 39 UK Pool results: Pool results for the week - 28th March, 2026',
-    week_number: 39,
-    season_year: 2026,
-    pool_type: 'uk',
-    fixture_date: '2026-03-28',
-    comments_count: 0,
-    results_table: [
-      { matchNo: 1, homeTeam: 'Newcastle', awayTeam: 'Southampton', fullTimeScore: '1-1', outcome: 'DRAW', payoutStatus: 'CLEARED' },
-      { matchNo: 2, homeTeam: 'Leicester', awayTeam: 'West Ham', fullTimeScore: '2-2', outcome: 'DRAW', payoutStatus: 'CLEARED' },
-      { matchNo: 3, homeTeam: 'Roma', awayTeam: 'Milan', fullTimeScore: '3-1', outcome: 'HOME WIN', payoutStatus: 'CLEARED' }
-    ]
-  },
-  {
-    id: 'pr-001',
-    pool_week_id: 'pw-week-48',
-    bookmaker_id: 'bm-bet9ja',
-    uploaded_by: 'usr-admin-777',
-    results_content: '--- WEEK 48 OFFICIAL RESULTS ---\nArsenal 1-1 Chelsea (DRAW - Code Match 1 SUCCESS)\nLiverpool 2-0 Leeds (Home Win - Code Match 2 MISSED)\nNapoli 0-0 Juventus (DRAW - Code Match 4 SUCCESS)',
-    file_url: 'https://storage.poolcodes.com/results/w48-results.pdf',
-    created_at: '2026-05-24T10:00:00Z',
-    title: 'Week 48 Aussie Pool results: Pool results for the week - 23rd May, 2026',
-    week_number: 48,
-    season_year: 2026,
-    pool_type: 'aussie',
-    fixture_date: '2026-05-23',
-    comments_count: 5,
-    results_table: [
-      { matchNo: 1, homeTeam: 'Arsenal', awayTeam: 'Chelsea', fullTimeScore: '1-1', outcome: 'DRAW', payoutStatus: 'CLEARED' },
-      { matchNo: 2, homeTeam: 'Liverpool', awayTeam: 'Leeds', fullTimeScore: '2-0', outcome: 'HOME WIN', payoutStatus: 'CLEARED' },
-      { matchNo: 3, homeTeam: 'Man City', awayTeam: 'Everton', fullTimeScore: '3-1', outcome: 'HOME WIN', payoutStatus: 'CLEARED' },
-      { matchNo: 4, homeTeam: 'Napoli', awayTeam: 'Juventus', fullTimeScore: '0-0', outcome: 'DRAW', payoutStatus: 'CLEARED' }
-    ]
+    results_table: POOL_RESULT_ROWS.map(r => ({
+      id: r.id,
+      matchNo: r.id,
+      home_team: r.home_team,
+      away_team: r.away_team,
+      home_team_score: r.home_team_score,
+      away_team_score: r.away_team_score,
+      homeTeam: r.home_team,
+      awayTeam: r.away_team,
+      fullTimeScore: `${r.home_team_score} - ${r.away_team_score}`,
+      outcome: r.home_team_score === r.away_team_score ? 'DRAW' : (r.home_team_score > r.away_team_score ? 'HOME WIN' : 'AWAY WIN'),
+      payoutStatus: 'CLEARED'
+    }))
   }
 ];
 
@@ -992,6 +909,25 @@ export const DB_SCHEMAS: TableSchema[] = [
     ]
   },
   {
+    name: 'pool_result',
+    description: 'Stores weekly match scoreline results featuring home/away teams and their respective match scores.',
+    sql: `CREATE TABLE pool_result (
+  id SERIAL PRIMARY KEY,
+  home_team VARCHAR(100) NOT NULL,
+  away_team VARCHAR(100) NOT NULL,
+  home_team_score INT NOT NULL DEFAULT 0,
+  away_team_score INT NOT NULL DEFAULT 0
+);`,
+    columns: [
+      { name: 'id', type: 'SERIAL / INT', constraints: ['PRIMARY KEY', 'AUTO_INCREMENT'], description: 'Sequential match ID.' },
+      { name: 'home_team', type: 'VARCHAR(100)', constraints: ['NOT NULL'], description: 'Home playing team name (e.g. Bristol C., Charlton).' },
+      { name: 'away_team', type: 'VARCHAR(100)', constraints: ['NOT NULL'], description: 'Away playing team name (e.g. Millwall, Derby).' },
+      { name: 'home_team_score', type: 'INT', constraints: ['NOT NULL', 'DEFAULT 0'], description: 'Goals scored by the home team.' },
+      { name: 'away_team_score', type: 'INT', constraints: ['NOT NULL', 'DEFAULT 0'], description: 'Goals scored by the away team.' }
+    ],
+    relationships: []
+  },
+  {
     name: 'pool_results',
     description: 'Stores final match outcomes and draw counts mapping pool coupons for verifying correct predictions.',
     sql: `CREATE TABLE pool_results (
@@ -1195,7 +1131,67 @@ export const DB_SCHEMAS: TableSchema[] = [
       { fromColumn: 'user_id', toTable: 'users', toColumn: 'id', type: 'N:1' },
       { fromColumn: 'plan_id', toTable: 'subscription_plans', toColumn: 'id', type: 'N:1' }
     ]
+  },
+  {
+    name: 'livescores',
+    description: 'Stores real-time match fixtures, scores, playing minutes, and match statuses for live pool tracking.',
+    sql: `CREATE TABLE livescores (
+  id SERIAL PRIMARY KEY,
+  fixture VARCHAR(150) NOT NULL,
+  home_team VARCHAR(100),
+  away_team VARCHAR(100),
+  home_score INT DEFAULT 0,
+  away_score INT DEFAULT 0,
+  score VARCHAR(20) DEFAULT '0 - 0',
+  status VARCHAR(30) DEFAULT 'not_started',
+  minute VARCHAR(20),
+  league VARCHAR(100),
+  pool_number INT,
+  last_checked TIMESTAMP DEFAULT NOW(),
+  created_at TIMESTAMP DEFAULT NOW()
+);`,
+    columns: [
+      { name: 'id', type: 'SERIAL / INT', constraints: ['PRIMARY KEY', 'AUTO_INCREMENT'], description: 'Sequential match ID.' },
+      { name: 'fixture', type: 'VARCHAR(150)', constraints: ['NOT NULL'], description: 'Full match fixture (e.g. Bristol C. vs Millwall).' },
+      { name: 'home_team', type: 'VARCHAR(100)', constraints: ['NULLABLE'], description: 'Home team name.' },
+      { name: 'away_team', type: 'VARCHAR(100)', constraints: ['NULLABLE'], description: 'Away team name.' },
+      { name: 'home_score', type: 'INT', constraints: ['DEFAULT 0'], description: 'Current goals by home team.' },
+      { name: 'away_score', type: 'INT', constraints: ['DEFAULT 0'], description: 'Current goals by away team.' },
+      { name: 'score', type: 'VARCHAR(20)', constraints: ["DEFAULT '0 - 0'"], description: 'Formatted score string (e.g. 1 - 1).' },
+      { name: 'status', type: 'VARCHAR(30)', constraints: ["DEFAULT 'not_started'"], description: 'Current state: live, finished, not_started, postponed.' },
+      { name: 'minute', type: 'VARCHAR(20)', constraints: ['NULLABLE'], description: 'Match minute clock (e.g. 68\', FT).' },
+      { name: 'league', type: 'VARCHAR(100)', constraints: ['NULLABLE'], description: 'Competition or league title.' },
+      { name: 'pool_number', type: 'INT', constraints: ['NULLABLE'], description: 'Pool coupon fixture number.' },
+      { name: 'last_checked', type: 'TIMESTAMP', constraints: ["DEFAULT NOW()"], description: 'Time of last live check.' }
+    ],
+    relationships: []
   }
+];
+
+export const INITIAL_LIVESCORES: LiveScoreRecord[] = [
+  { id: 'ls-1', pool_number: 1, fixture: 'Bristol C. vs Millwall', home_team: 'Bristol C.', away_team: 'Millwall', home_score: 1, away_score: 1, score: '1 - 1', status: 'live', minute: "68'", league: 'Championship', lastChecked: new Date().toISOString() },
+  { id: 'ls-2', pool_number: 7, fixture: 'Sheff Utd. vs Birmingham', home_team: 'Sheff Utd.', away_team: 'Birmingham', home_score: 0, away_score: 0, score: '0 - 0', status: 'live', minute: "42'", league: 'Championship', lastChecked: new Date().toISOString() },
+  { id: 'ls-3', pool_number: 9, fixture: 'Burnley vs West Ham', home_team: 'Burnley', away_team: 'West Ham', home_score: 2, away_score: 2, score: '2 - 2', status: 'live', minute: "75'", league: 'Premier League', lastChecked: new Date().toISOString() },
+  { id: 'ls-4', pool_number: 11, fixture: 'Blackpool vs Wycombe', home_team: 'Blackpool', away_team: 'Wycombe', home_score: 1, away_score: 1, score: '1 - 1', status: 'live', minute: "83'", league: 'League One', lastChecked: new Date().toISOString() },
+  { id: 'ls-5', pool_number: 13, fixture: 'Burton A. vs Stevenage', home_team: 'Burton A.', away_team: 'Stevenage', home_score: 1, away_score: 1, score: '1 - 1', status: 'live', minute: "54'", league: 'League One', lastChecked: new Date().toISOString() },
+  { id: 'ls-6', pool_number: 21, fixture: 'R. Santander vs Villarreal', home_team: 'R. Santander', away_team: 'Villarreal', home_score: 2, away_score: 2, score: '2 - 2', status: 'live', minute: "61'", league: 'La Liga 2', lastChecked: new Date().toISOString() },
+  { id: 'ls-7', pool_number: 2, fixture: 'Charlton vs Derby', home_team: 'Charlton', away_team: 'Derby', home_score: 2, away_score: 1, score: '2 - 1', status: 'finished', minute: 'FT', league: 'Championship', lastChecked: new Date().toISOString() },
+  { id: 'ls-8', pool_number: 3, fixture: 'Middlesbro vs Lincoln', home_team: 'Middlesbro', away_team: 'Lincoln', home_score: 2, away_score: 1, score: '2 - 1', status: 'finished', minute: 'FT', league: 'League One', lastChecked: new Date().toISOString() },
+  { id: 'ls-9', pool_number: 4, fixture: 'Norwich vs West Brom', home_team: 'Norwich', away_team: 'West Brom', home_score: 1, away_score: 2, score: '1 - 2', status: 'finished', minute: 'FT', league: 'Championship', lastChecked: new Date().toISOString() },
+  { id: 'ls-10', pool_number: 5, fixture: 'Portsmouth vs Q.P.R.', home_team: 'Portsmouth', away_team: 'Q.P.R.', home_score: 1, away_score: 3, score: '1 - 3', status: 'finished', minute: 'FT', league: 'Championship', lastChecked: new Date().toISOString() },
+  { id: 'ls-11', pool_number: 6, fixture: 'Stoke vs Swansea', home_team: 'Stoke', away_team: 'Swansea', home_score: 1, away_score: 2, score: '1 - 2', status: 'finished', minute: 'FT', league: 'Championship', lastChecked: new Date().toISOString() },
+  { id: 'ls-12', pool_number: 8, fixture: 'Watford vs Southampton', home_team: 'Watford', away_team: 'Southampton', home_score: 2, away_score: 1, score: '2 - 1', status: 'finished', minute: 'FT', league: 'Championship', lastChecked: new Date().toISOString() },
+  { id: 'ls-13', pool_number: 10, fixture: 'Barnsley vs Bromley', home_team: 'Barnsley', away_team: 'Bromley', home_score: 0, away_score: 1, score: '0 - 1', status: 'finished', minute: 'FT', league: 'League One', lastChecked: new Date().toISOString() },
+  { id: 'ls-14', pool_number: 12, fixture: 'Bradford C vs Peterboro', home_team: 'Bradford C', away_team: 'Peterboro', home_score: 2, away_score: 0, score: '2 - 0', status: 'finished', minute: 'FT', league: 'League One', lastChecked: new Date().toISOString() },
+  { id: 'ls-15', pool_number: 14, fixture: 'Cambridge vs Wigan A.', home_team: 'Cambridge', away_team: 'Wigan A.', home_score: 3, away_score: 2, score: '3 - 2', status: 'finished', minute: 'FT', league: 'League One', lastChecked: new Date().toISOString() },
+  { id: 'ls-16', pool_number: 15, fixture: 'Huddersfie vs A.Wimbledon', home_team: 'Huddersfie', away_team: 'A.Wimbledon', home_score: 3, away_score: 0, score: '3 - 0', status: 'finished', minute: 'FT', league: 'League One', lastChecked: new Date().toISOString() },
+  { id: 'ls-17', pool_number: 16, fixture: 'Leyton O. vs Sheff Wed.', home_team: 'Leyton O.', away_team: 'Sheff Wed.', home_score: 1, away_score: 2, score: '1 - 2', status: 'finished', minute: 'FT', league: 'League One', lastChecked: new Date().toISOString() },
+  { id: 'ls-18', pool_number: 17, fixture: 'Mansfield vs Doncaster', home_team: 'Mansfield', away_team: 'Doncaster', home_score: 2, away_score: 1, score: '2 - 1', status: 'finished', minute: 'FT', league: 'League Two', lastChecked: new Date().toISOString() },
+  { id: 'ls-19', pool_number: 18, fixture: 'Plymouth vs Stockport', home_team: 'Plymouth', away_team: 'Stockport', home_score: 1, away_score: 3, score: '1 - 3', status: 'finished', minute: 'FT', league: 'League One', lastChecked: new Date().toISOString() },
+  { id: 'ls-20', pool_number: 19, fixture: 'Dep. Alaves vs Getafe', home_team: 'Dep. Alaves', away_team: 'Getafe', home_score: 3, away_score: 0, score: '3 - 0', status: 'finished', minute: 'FT', league: 'La Liga', lastChecked: new Date().toISOString() },
+  { id: 'ls-21', pool_number: 20, fixture: 'Sevilla vs R. Vallecano', home_team: 'Sevilla', away_team: 'R. Vallecano', home_score: 2, away_score: 1, score: '2 - 1', status: 'finished', minute: 'FT', league: 'La Liga', lastChecked: new Date().toISOString() },
+  { id: 'ls-22', pool_number: 22, fixture: 'Arsenal vs Chelsea', home_team: 'Arsenal', away_team: 'Chelsea', home_score: 0, away_score: 0, score: '0 - 0', status: 'not_started', time: '17:30', league: 'Premier League', lastChecked: new Date().toISOString() },
+  { id: 'ls-23', pool_number: 23, fixture: 'Liverpool vs Manchester City', home_team: 'Liverpool', away_team: 'Manchester City', home_score: 0, away_score: 0, score: '0 - 0', status: 'not_started', time: '20:00', league: 'Premier League', lastChecked: new Date().toISOString() }
 ];
 
 export const INITIAL_POOL_CODES_COMPARISON: PoolCodesComparisonRecord[] = [

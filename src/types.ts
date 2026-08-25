@@ -163,13 +163,26 @@ export interface PoolCode {
   updated_at: string;
 }
 
+export interface PoolResultRecord {
+  id: number;
+  home_team: string;
+  away_team: string;
+  home_team_score: number;
+  away_team_score: number;
+}
+
 export interface ResultRow {
-  matchNo: number;
-  homeTeam: string;
-  awayTeam: string;
-  fullTimeScore: string;
-  outcome: 'DRAW' | 'HOME WIN' | 'AWAY WIN' | 'VOID';
-  payoutStatus: 'CLEARED' | 'LOCKED' | 'NOT REVEALED';
+  id?: number;
+  matchNo?: number;
+  home_team?: string;
+  away_team?: string;
+  home_team_score?: number;
+  away_team_score?: number;
+  homeTeam?: string;
+  awayTeam?: string;
+  fullTimeScore?: string;
+  outcome?: 'DRAW' | 'HOME WIN' | 'AWAY WIN' | 'VOID' | string;
+  payoutStatus?: 'CLEARED' | 'LOCKED' | 'NOT REVEALED' | string;
 }
 
 export interface PoolResult {
@@ -282,6 +295,28 @@ export interface DatabaseState {
   arena_games?: BookmakerTableRecord[];
   pool_codes_comparison?: PoolCodesComparisonRecord[];
   weekly_picks?: WeeklyPoolPick[];
+  livescores?: LiveScoreRecord[];
+}
+
+export interface LiveScoreRecord {
+  id?: string | number;
+  fixture: string;
+  home_team?: string;
+  away_team?: string;
+  home_score?: number;
+  away_score?: number;
+  score: string;
+  status: 'not_started' | 'live' | 'finished' | 'postponed';
+  minute?: string | number;
+  league?: string;
+  time?: string;
+  kickoff?: string;
+  pool_number?: number;
+  lastChecked?: string;
+  last_checked?: string;
+  log?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface WeeklyPoolPick {

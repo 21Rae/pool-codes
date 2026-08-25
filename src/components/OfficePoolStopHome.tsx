@@ -1044,18 +1044,22 @@ export default function OfficePoolStopHome({
               // PDF Exporter Helper
               const handleExportPDF = (result: any) => {
                 try {
-                  const headers = ['Match No', 'Home Team', 'Away Team', 'FT Score', 'Outcome', 'Payout Status'];
+                  const headers = ['id', 'home_team', 'away_team', 'home_team_score', 'away_team_score'];
                   const baseRows = result.results_table || [];
                   const filtered = baseRows.filter((row: any) => {
                     if (!resultsTableSearch) return true;
                     const s = resultsTableSearch.toLowerCase();
+                    const home = (row.home_team || row.homeTeam || '').toLowerCase();
+                    const away = (row.away_team || row.awayTeam || '').toLowerCase();
+                    const rowId = String(row.id ?? row.matchNo ?? '');
+                    const hScore = String(row.home_team_score ?? '');
+                    const aScore = String(row.away_team_score ?? '');
                     return (
-                      row.homeTeam?.toLowerCase().includes(s) ||
-                      row.awayTeam?.toLowerCase().includes(s) ||
-                      row.outcome?.toLowerCase().includes(s) ||
-                      row.payoutStatus?.toLowerCase().includes(s) ||
-                      row.matchNo?.toString().includes(s) ||
-                      row.fullTimeScore?.toString().includes(s)
+                      home.includes(s) ||
+                      away.includes(s) ||
+                      rowId.includes(s) ||
+                      hScore.includes(s) ||
+                      aScore.includes(s)
                     );
                   });
 
@@ -1066,12 +1070,11 @@ export default function OfficePoolStopHome({
                   staleStyles.forEach(style => style.remove());
 
                   const rows = filtered.map((row: any) => [
-                    String(row.matchNo),
-                    row.homeTeam || '',
-                    row.awayTeam || '',
-                    row.fullTimeScore || '',
-                    row.outcome || '',
-                    row.payoutStatus || ''
+                    String(row.id ?? row.matchNo ?? ''),
+                    row.home_team || row.homeTeam || '',
+                    row.away_team || row.awayTeam || '',
+                    String(row.home_team_score !== undefined ? row.home_team_score : (row.fullTimeScore?.split('-')[0]?.trim() ?? '')),
+                    String(row.away_team_score !== undefined ? row.away_team_score : (row.fullTimeScore?.split('-')[1]?.trim() ?? ''))
                   ]);
 
                   const snapshotRows = [...rows];
@@ -1224,13 +1227,17 @@ export default function OfficePoolStopHome({
                     const activeResultRows = (activeResult.results_table || []).filter((row: any) => {
                       if (!resultsTableSearch) return true;
                       const s = resultsTableSearch.toLowerCase();
+                      const home = (row.home_team || row.homeTeam || '').toLowerCase();
+                      const away = (row.away_team || row.awayTeam || '').toLowerCase();
+                      const rowId = String(row.id ?? row.matchNo ?? '');
+                      const hScore = String(row.home_team_score ?? '');
+                      const aScore = String(row.away_team_score ?? '');
                       return (
-                        row.homeTeam?.toLowerCase().includes(s) ||
-                        row.awayTeam?.toLowerCase().includes(s) ||
-                        row.outcome?.toLowerCase().includes(s) ||
-                        row.payoutStatus?.toLowerCase().includes(s) ||
-                        row.matchNo?.toString().includes(s) ||
-                        row.fullTimeScore?.toString().includes(s)
+                        home.includes(s) ||
+                        away.includes(s) ||
+                        rowId.includes(s) ||
+                        hScore.includes(s) ||
+                        aScore.includes(s)
                       );
                     });
 
@@ -1325,16 +1332,16 @@ export default function OfficePoolStopHome({
                             </div>
                           </div>
 
-                          {/* Full Width Fixtures Table */}
+                          {/* Full Width Fixtures Table Rendering pool_result Structure */}
                           <div className="overflow-x-auto">
                             <table className="w-full text-left border-collapse text-xs">
                               <thead>
-                                <tr className="bg-[#020b08] text-emerald-400 font-mono text-[10px] font-bold uppercase tracking-widest border-b border-emerald-950">
-                                  <th className="py-3.5 px-4 text-center w-14">No</th>
-                                  <th className="py-3.5 px-4">Match Fixture</th>
-                                  <th className="py-3.5 px-4 text-center w-28">FT Score</th>
-                                  <th className="py-3.5 px-4 text-center w-28">Outcome</th>
-                                  <th className="py-3.5 px-4 text-right w-28">Status</th>
+                                <tr className="bg-[#020b08] text-emerald-400 font-mono text-[11px] font-black uppercase tracking-wider border-b border-emerald-950">
+                                  <th className="py-3.5 px-4 text-center w-16 border-r border-emerald-950/60 bg-emerald-950/20">id</th>
+                                  <th className="py-3.5 px-4 border-r border-emerald-950/60">home_team</th>
+                                  <th className="py-3.5 px-4 border-r border-emerald-950/60">away_team</th>
+                                  <th className="py-3.5 px-4 text-center w-36 border-r border-emerald-950/60 bg-emerald-950/20">home_team_score</th>
+                                  <th className="py-3.5 px-4 text-center w-36 bg-emerald-950/20">away_team_score</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-emerald-950/35 font-semibold text-slate-300">
@@ -1346,29 +1353,29 @@ export default function OfficePoolStopHome({
                                   </tr>
                                 ) : (
                                   activeResultRows.map((row: any, rIdx: number) => {
-                                    const isDraw = row.outcome === 'DRAW';
+                                    const rowId = row.id ?? row.matchNo ?? (rIdx + 1);
+                                    const homeTeam = row.home_team || row.homeTeam || '';
+                                    const awayTeam = row.away_team || row.awayTeam || '';
+                                    const homeScore = row.home_team_score !== undefined ? row.home_team_score : Number(row.fullTimeScore?.split('-')[0]?.trim() || 0);
+                                    const awayScore = row.away_team_score !== undefined ? row.away_team_score : Number(row.fullTimeScore?.split('-')[1]?.trim() || 0);
+                                    const isDraw = homeScore === awayScore;
+
                                     return (
-                                      <tr key={rIdx} className={`hover:bg-emerald-950/20 transition ${isDraw ? 'bg-amber-950/15' : ''}`}>
-                                        <td className="py-3.5 px-4 text-center text-amber-300 font-mono font-bold">
-                                          {row.matchNo}
+                                      <tr key={rIdx} className={`hover:bg-emerald-950/30 transition-colors ${isDraw ? 'bg-amber-950/15' : ''}`}>
+                                        <td className="py-3 px-4 text-center text-amber-400 font-mono font-bold border-r border-emerald-950/50 bg-slate-950/30">
+                                          {rowId}
                                         </td>
-                                        <td className="py-3.5 px-4 text-white font-medium">
-                                          {row.homeTeam} <span className="text-slate-500 font-normal mx-1">vs</span> {row.awayTeam}
+                                        <td className="py-3 px-4 text-white font-semibold border-r border-emerald-950/50">
+                                          {homeTeam}
                                         </td>
-                                        <td className="py-3.5 px-4 text-center font-mono font-black text-amber-300 text-sm">
-                                          {row.fullTimeScore}
+                                        <td className="py-3 px-4 text-white font-semibold border-r border-emerald-950/50">
+                                          {awayTeam}
                                         </td>
-                                        <td className="py-3.5 px-4 text-center">
-                                          <span className={`text-[9px] font-mono font-black px-2.5 py-1 rounded border ${
-                                            isDraw 
-                                              ? 'bg-amber-500/15 text-amber-300 border-amber-500/30 font-extrabold' 
-                                              : 'bg-emerald-950/40 text-emerald-400 border-emerald-900/30'
-                                          }`}>
-                                            {row.outcome}
-                                          </span>
+                                        <td className="py-3 px-4 text-center font-mono font-black text-amber-300 text-sm border-r border-emerald-950/50 bg-slate-950/20">
+                                          {homeScore}
                                         </td>
-                                        <td className="py-3.5 px-4 text-right text-slate-400 font-mono text-[10px]">
-                                          {row.payoutStatus || 'CLEARED'}
+                                        <td className="py-3 px-4 text-center font-mono font-black text-amber-300 text-sm bg-slate-950/20">
+                                          {awayScore}
                                         </td>
                                       </tr>
                                     );

@@ -65,8 +65,6 @@ export default function LiveScoresComments({
 
   useEffect(() => {
     fetchComments();
-    const interval = setInterval(fetchComments, 15000);
-    return () => clearInterval(interval);
   }, [selectedMatchId]);
 
   useEffect(() => {

@@ -809,17 +809,13 @@ export default function CustomerPortal({
 
   const exportResultToCSV = (result: typeof db.pool_results[0]) => {
     try {
-      const headers = ['Season', 'Active Week', 'Fixture Date', 'Match No', 'Home Team Selection', 'Away Team Companion', 'Score FT', 'POOL Outcome', 'PAY Status'];
-      const rows = (result.results_table || []).map(row => [
-        `"${result.season_year || 2026}"`,
-        `"WEEK #${result.week_number || 43}"`,
-        `"${result.fixture_date || '2026-04-25'}"`,
-        row.matchNo,
-        `"${row.homeTeam}"`,
-        `"${row.awayTeam}"`,
-        `"${row.fullTimeScore}"`,
-        `"${row.outcome}"`,
-        `"${row.payoutStatus}"`
+      const headers = ['id', 'home_team', 'away_team', 'home_team_score', 'away_team_score'];
+      const rows = (result.results_table || []).map((row: any) => [
+        row.id ?? row.matchNo ?? '',
+        `"${row.home_team || row.homeTeam || ''}"`,
+        `"${row.away_team || row.awayTeam || ''}"`,
+        row.home_team_score !== undefined ? row.home_team_score : (row.fullTimeScore?.split('-')[0]?.trim() ?? 0),
+        row.away_team_score !== undefined ? row.away_team_score : (row.fullTimeScore?.split('-')[1]?.trim() ?? 0)
       ]);
       const csvContent = "data:text/csv;charset=utf-8," 
         + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
@@ -827,7 +823,7 @@ export default function CustomerPortal({
       const encodedUri = encodeURI(csvContent);
       const link = document.createElement("a");
       link.setAttribute("href", encodedUri);
-      link.setAttribute("download", `Pool_Results_Week_${result.week_number || 43}_${(result.pool_type || 'UK').toUpperCase()}_Pool.csv`);
+      link.setAttribute("download", `pool_result_week_${result.week_number || 43}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -1081,7 +1077,10 @@ export default function CustomerPortal({
     try {
       const stored = localStorage.getItem('fastpool_pool_results_list');
       if (stored) {
-        return JSON.parse(stored);
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0 && parsed[0]?.results_table?.[0]?.home_team === 'Bristol C.') {
+          return parsed;
+        }
       }
     } catch (e) {
       console.warn('LocalStorage read omitted for pool results:', e);
@@ -5569,135 +5568,6 @@ export default function CustomerPortal({
                       )}
                     </div>
 
-                    {/* Sheet Selection Selector with Filters */}
-                    <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 flex flex-col gap-4">
-                      {/* Section Title */}
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
-                        <div>
-                          <span className="text-[10px] font-mono font-black text-emerald-400 uppercase tracking-widest block">POOL RESULTS DIRECTORY</span>
-                          <h4 className="text-sm font-bold text-slate-100 font-sans mt-0.5">Filter & Select Active Results Sheet</h4>
-                        </div>
-                        {(filterSeason !== 'all' || filterWeek !== 'all' || filterFixtureDate !== '') && (
-                          <button
-                            onClick={() => {
-                              setFilterSeason('all');
-                              setFilterWeek('all');
-                              setFilterFixtureDate('');
-                              triggerToast('All directory filters cleared.', 'info');
-                            }}
-                            className="text-[10px] font-mono font-bold text-red-400 hover:text-red-300 bg-red-950/20 hover:bg-red-950/40 border border-red-900/40 px-2.5 py-1 rounded transition flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
-                          >
-                            <span>✕ Clear All Filters</span>
-                          </button>
-                        )}
-                      </div>
-
-                      {/* Filters Grid */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-                        {/* 1. Season Filter */}
-                        <div className="flex flex-col gap-1.5">
-                          <label className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider">Season</label>
-                          <select
-                            value={filterSeason}
-                            onChange={(e) => {
-                              setFilterSeason(e.target.value);
-                            }}
-                            className="bg-slate-950 border border-slate-800 text-slate-100 font-mono text-xs px-3 py-2 rounded-lg focus:border-emerald-500 cursor-pointer focus:ring-1 focus:ring-emerald-500/20 font-bold"
-                          >
-                            <option value="all">ALL SEASONS</option>
-                            {uniqueSeasons.map((yr: string) => (
-                              <option key={yr} value={yr}>{yr} season</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        {/* 2. Active Week Filter */}
-                        <div className="flex flex-col gap-1.5">
-                          <label className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider">Active Week</label>
-                          <select
-                            value={filterWeek}
-                            onChange={(e) => {
-                              setFilterWeek(e.target.value);
-                            }}
-                            className="bg-slate-950 border border-slate-800 text-slate-100 font-mono text-xs px-3 py-2 rounded-lg focus:border-emerald-500 cursor-pointer focus:ring-1 focus:ring-emerald-500/20 font-bold"
-                          >
-                            <option value="all">ALL WEEKS</option>
-                            {uniqueWeeks.map((wk: number) => (
-                              <option key={wk} value={String(wk)}>WEEK #{wk}</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        {/* 3. Fixture Date (Date Type) Filter */}
-                        <div className="flex flex-col gap-1.5">
-                          <label className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider">Fixture Date</label>
-                          <input
-                            type="date"
-                            value={filterFixtureDate}
-                            onChange={(e) => {
-                              setFilterFixtureDate(e.target.value);
-                            }}
-                            className="bg-slate-950 border border-slate-800 text-slate-100 font-mono text-xs px-3 py-1.5 rounded-lg focus:border-emerald-500 cursor-pointer focus:ring-1 focus:ring-emerald-500/20 [color-scheme:dark] font-bold"
-                          />
-                        </div>
-
-                        {/* 4. Active Sheet Selector */}
-                        <div className="flex flex-col gap-1.5">
-                          <label className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider">Select Sheet</label>
-                          <select
-                            value={activeResult ? activeResult.id : ''}
-                            onChange={(e) => {
-                              if (e.target.value) setSelectedResultId(e.target.value);
-                            }}
-                            disabled={filteredResults.length === 0}
-                            className="bg-slate-950 border border-slate-800 text-slate-100 font-mono text-xs px-3 py-2 rounded-lg focus:border-emerald-500 cursor-pointer font-black tracking-wide disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {filteredResults.length === 0 ? (
-                              <option value="">No sheets match</option>
-                            ) : (
-                              filteredResults.map((sheet: any) => (
-                                <option key={sheet.id} value={sheet.id}>
-                                  Wk {sheet.week_number} ({(sheet.pool_type || 'uk').toUpperCase()})
-                                </option>
-                              ))
-                            )}
-                          </select>
-                        </div>
-                      </div>
-
-                      {/* Filter stats helper with Search and Export to CSV */}
-                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-1 border-t border-slate-800/60">
-                        <div className="flex items-center gap-1.5 text-[10px] font-mono text-slate-400">
-                          <span>Directory count:</span>
-                          <span className="font-extrabold text-emerald-400 bg-slate-950 border border-slate-800 px-1.5 py-0.5 rounded">
-                            {filteredResults.length} of {poolResults.length} Sheets Matching
-                          </span>
-                        </div>
-
-                        {activeResult && (
-                          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
-                            {/* Filter input */}
-                            <div className="relative w-full sm:w-64">
-                              <input
-                                type="text"
-                                placeholder="Filter active sheet by team or code..."
-                                value={championshipSearchQuery}
-                                onChange={(e) => setChampionshipSearchQuery(e.target.value)}
-                                className="bg-slate-950 border border-slate-800 rounded px-2.5 py-1 text-[10px] text-white focus:outline-none focus:border-emerald-500 transition font-mono w-full"
-                              />
-                              {championshipSearchQuery && (
-                                <button
-                                  onClick={() => setChampionshipSearchQuery('')}
-                                  className="absolute right-2 top-1.5 text-[9px] text-slate-400 hover:text-white uppercase font-mono"
-                                >
-                                  Clear
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
 
                     {/* Interactive Excel/Spreadsheet Sheet Component */}
                     {activeResult && (
@@ -5730,18 +5600,11 @@ export default function CustomerPortal({
 
                           {/* Row 2: Column header tags */}
                           <div className="flex border-b border-slate-800 bg-slate-900/60 font-mono text-[11px] font-extrabold text-slate-300">
-                            <div className="w-[45px] shrink-0 bg-[#0F172A] border-r border-slate-800 flex items-center justify-center text-[10px] text-slate-500 select-none">
-                              2
-                            </div>
-                            <div className="w-[80px] shrink-0 border-r border-slate-800 p-2 text-center uppercase tracking-wider">Season</div>
-                            <div className="w-[85px] shrink-0 border-r border-slate-800 p-2 text-center uppercase tracking-wider">Active Week</div>
-                            <div className="w-[105px] shrink-0 border-r border-slate-800 p-2 text-center uppercase tracking-wider">Fixture Date</div>
-                            <div className="w-[70px] shrink-0 border-r border-slate-800 p-2 text-center uppercase tracking-wider bg-slate-950/25">Match No</div>
-                            <div className="flex-1 min-w-[150px] border-r border-slate-800 p-2 text-left pl-4 uppercase tracking-wider">Home Team Selection</div>
-                            <div className="flex-1 min-w-[150px] border-r border-slate-800 p-2 text-left pl-4 uppercase tracking-wider">Away Team Companion</div>
-                            <div className="w-[80px] shrink-0 border-r border-slate-800 p-2 text-center uppercase tracking-wider">Score FT</div>
-                            <div className="w-[110px] shrink-0 border-r border-slate-800 p-2 text-center uppercase tracking-wider bg-slate-950/25">POOL Outcome</div>
-                            <div className="w-[140px] shrink-0 p-2 text-center uppercase tracking-wider">PAY Status</div>
+                            <div className="w-[80px] shrink-0 border-r border-slate-800 p-2 text-center uppercase tracking-wider bg-slate-950/25">id</div>
+                            <div className="flex-1 min-w-[150px] border-r border-slate-800 p-2 text-left pl-4 uppercase tracking-wider">home_team</div>
+                            <div className="flex-1 min-w-[150px] border-r border-slate-800 p-2 text-left pl-4 uppercase tracking-wider">away_team</div>
+                            <div className="w-[140px] shrink-0 border-r border-slate-800 p-2 text-center uppercase tracking-wider bg-slate-950/25">home_team_score</div>
+                            <div className="w-[140px] shrink-0 p-2 text-center uppercase tracking-wider bg-slate-950/25">away_team_score</div>
                           </div>
 
                           {/* Rows: Results rows representing the actual football matches */}
@@ -5750,30 +5613,35 @@ export default function CustomerPortal({
                             const filtered = baseRows.filter((row: any) => {
                               if (!championshipSearchQuery) return true;
                               const q = championshipSearchQuery.toLowerCase();
+                              const home = (row.home_team || row.homeTeam || '').toLowerCase();
+                              const away = (row.away_team || row.awayTeam || '').toLowerCase();
+                              const rowId = String(row.id ?? row.matchNo ?? '');
                               return (
-                                row.homeTeam?.toLowerCase().includes(q) ||
-                                row.awayTeam?.toLowerCase().includes(q) ||
-                                row.matchNo?.toString().includes(q) ||
-                                row.outcome?.toLowerCase().includes(q)
+                                home.includes(q) ||
+                                away.includes(q) ||
+                                rowId.includes(q)
                               );
                             });
 
                             if (filtered.length === 0) {
                               return (
                                 <div className="flex border-b border-slate-800 font-mono text-xs text-center py-10 justify-center text-slate-500 italic">
-                                  <div className="w-[45px] shrink-0 bg-[#0F172A] border-r border-slate-800 select-none">3</div>
                                   <div className="flex-1">
                                     {baseRows.length === 0
-                                      ? "No match records added to this Pool Results Sheet yet. Use the admin panel below to fill outcomes."
+                                      ? "No match records added to this Pool Results Sheet yet."
                                       : "No matches found matching your filters."}
                                   </div>
                                 </div>
                               );
                             }
 
-                            return filtered.map((row, idx) => {
-                              const isDraw = row.outcome === 'DRAW';
-                              const rowId = idx + 3; // Excel row numbering starts at row 3 now!
+                            return filtered.map((row: any, idx: number) => {
+                              const rowId = row.id ?? row.matchNo ?? (idx + 1);
+                              const homeTeam = row.home_team || row.homeTeam || '';
+                              const awayTeam = row.away_team || row.awayTeam || '';
+                              const homeScore = row.home_team_score !== undefined ? row.home_team_score : Number(row.fullTimeScore?.split('-')[0]?.trim() || 0);
+                              const awayScore = row.away_team_score !== undefined ? row.away_team_score : Number(row.fullTimeScore?.split('-')[1]?.trim() || 0);
+                              const isDraw = homeScore === awayScore;
                               
                               return (
                                 <div 
@@ -5782,86 +5650,29 @@ export default function CustomerPortal({
                                     isDraw ? 'bg-emerald-950/10' : 'hover:bg-slate-900/35'
                                   }`}
                                 >
-                                  {/* Excel row number prefix */}
-                                  <div className="w-[45px] shrink-0 bg-[#0F172A] border-r border-slate-800 flex items-center justify-center text-[10px] text-slate-500 select-none shrink-0">
+                                  {/* id */}
+                                  <div className="w-[80px] shrink-0 border-r border-slate-800 p-3 text-center text-amber-400 font-black flex items-center justify-center bg-slate-950/20">
                                     {rowId}
                                   </div>
-                                  
-                                  {/* A: Season */}
-                                  <div className="w-[80px] shrink-0 border-r border-slate-800 p-3 text-center text-slate-300 font-medium flex items-center justify-center">
-                                    {activeResult.season_year || 2026}
-                                  </div>
 
-                                  {/* B: Active Week */}
-                                  <div className="w-[85px] shrink-0 border-r border-slate-800 p-3 text-center text-emerald-400 font-bold flex items-center justify-center">
-                                    WEEK #{activeResult.week_number || 43}
-                                  </div>
-
-                                  {/* C: Fixture Date */}
-                                  <div className="w-[105px] shrink-0 border-r border-slate-800 p-3 text-center text-slate-300 font-mono text-[10.5px] flex items-center justify-center">
-                                    {activeResult.fixture_date || '2026-04-25'}
-                                  </div>
-
-                                  {/* D: Match No */}
-                                  <div className="w-[70px] shrink-0 border-r border-slate-800 p-3 text-center text-slate-400 font-black flex items-center justify-center bg-slate-950/15">
-                                    {row.matchNo}
-                                  </div>
-                                  
-                                  {/* E: Home Team */}
+                                  {/* home_team */}
                                   <div className="flex-1 min-w-[150px] border-r border-slate-800 p-3 text-left pl-4 font-bold text-slate-100 flex items-center">
-                                    {row.homeTeam}
+                                    {homeTeam}
                                   </div>
 
-                                  {/* F: Away Team */}
+                                  {/* away_team */}
                                   <div className="flex-1 min-w-[150px] border-r border-slate-800 p-3 text-left pl-4 font-bold text-slate-100 flex items-center">
-                                    {row.awayTeam}
+                                    {awayTeam}
                                   </div>
 
-                                  {/* G: Score FT */}
-                                  <div className="w-[80px] shrink-0 border-r border-slate-800 p-3 text-center text-[#10B981] font-extrabold flex items-center justify-center">
-                                    {row.fullTimeScore}
+                                  {/* home_team_score */}
+                                  <div className="w-[140px] shrink-0 border-r border-slate-800 p-3 text-center text-amber-300 font-black text-sm flex items-center justify-center bg-slate-950/20">
+                                    {homeScore}
                                   </div>
 
-                                  {/* H: Outcome Badge */}
-                                  <div className="w-[110px] shrink-0 border-r border-slate-800 p-3 text-center flex items-center justify-center bg-slate-950/15">
-                                    {isDraw ? (
-                                      <span className="w-full bg-[#E11D48] text-[#FFF] font-black tracking-widest text-[9.5px] py-1 rounded-sm shadow-sm select-none uppercase text-center">
-                                        {row.outcome}
-                                      </span>
-                                    ) : (
-                                      <span className="w-full bg-slate-800 text-slate-400 font-bold tracking-tight text-[9.5px] px-2.5 py-1 rounded-sm select-none text-center">
-                                        {row.outcome}
-                                      </span>
-                                    )}
-                                  </div>
-
-                                  {/* I: Pay status */}
-                                  <div className="w-[140px] shrink-0 p-3 text-center flex items-center justify-between font-bold text-[10px]">
-                                    {row.payoutStatus === 'CLEARED' ? (
-                                      <span className="text-emerald-400 flex items-center gap-1">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                        CLEARED
-                                      </span>
-                                    ) : (
-                                      <span className="text-slate-500 uppercase">{row.payoutStatus}</span>
-                                    )}
-
-                                    {currentUser.role === 'admin' && (
-                                      <button
-                                        onClick={() => {
-                                          const updatedTable = (activeResult.results_table || []).filter(r => r.matchNo !== row.matchNo);
-                                          setPoolResults(prev => prev.map(sheet => {
-                                            if (sheet.id === activeResult.id) return { ...sheet, results_table: updatedTable };
-                                            return sheet;
-                                          }));
-                                          triggerToast(`Removed Match #${row.matchNo} from results.`, 'info');
-                                        }}
-                                        className="text-red-500 hover:text-red-400 font-bold font-mono px-2 py-1 hover:bg-slate-950/60 rounded"
-                                        title="Delete Row"
-                                      >
-                                        ✕
-                                      </button>
-                                    )}
+                                  {/* away_team_score */}
+                                  <div className="w-[140px] shrink-0 p-3 text-center text-amber-300 font-black text-sm flex items-center justify-center bg-slate-950/20">
+                                    {awayScore}
                                   </div>
                                 </div>
                               );

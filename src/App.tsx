@@ -43,6 +43,7 @@ import {
   INITIAL_SOCCABET,
   INITIAL_MSPORT,
   INITIAL_POOL_CODES_COMPARISON,
+  INITIAL_LIVESCORES,
   isPaymentDisabledBookmaker
 } from './initialData';
 import {
@@ -87,7 +88,8 @@ export default function App() {
     betway: [],
     soccabet: [],
     msport: [],
-    pool_codes_comparison: INITIAL_POOL_CODES_COMPARISON
+    pool_codes_comparison: INITIAL_POOL_CODES_COMPARISON,
+    livescores: INITIAL_LIVESCORES
   });
 
   // Simulator Domain Router: toggles independent application instances

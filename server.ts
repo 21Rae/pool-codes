@@ -920,125 +920,57 @@ app.post("/api/auth/magiclink", async (req, res) => {
 interface LiveScoreMatch {
   id: string;
   fixture: string;
+  home_team?: string;
+  away_team?: string;
+  home_score?: number;
+  away_score?: number;
   score: string;
   status: "not_started" | "live" | "finished" | "postponed";
+  minute?: string | number;
+  league?: string;
+  time?: string;
+  kickoff?: string;
+  pool_number?: number;
   lastChecked: string;
   log?: string;
 }
 
-let liveScores: LiveScoreMatch[] = [];
+let liveScores: LiveScoreMatch[] = [
+  { id: "ls-1", pool_number: 1, fixture: "Bristol C. vs Millwall", home_team: "Bristol C.", away_team: "Millwall", home_score: 1, away_score: 1, score: "1 - 1", status: "live", minute: "68'", league: "Championship", lastChecked: new Date().toISOString() },
+  { id: "ls-2", pool_number: 7, fixture: "Sheff Utd. vs Birmingham", home_team: "Sheff Utd.", away_team: "Birmingham", home_score: 0, away_score: 0, score: "0 - 0", status: "live", minute: "42'", league: "Championship", lastChecked: new Date().toISOString() },
+  { id: "ls-3", pool_number: 9, fixture: "Burnley vs West Ham", home_team: "Burnley", away_team: "West Ham", home_score: 2, away_score: 2, score: "2 - 2", status: "live", minute: "75'", league: "Premier League", lastChecked: new Date().toISOString() },
+  { id: "ls-4", pool_number: 11, fixture: "Blackpool vs Wycombe", home_team: "Blackpool", away_team: "Wycombe", home_score: 1, away_score: 1, score: "1 - 1", status: "live", minute: "83'", league: "League One", lastChecked: new Date().toISOString() },
+  { id: "ls-5", pool_number: 13, fixture: "Burton A. vs Stevenage", home_team: "Burton A.", away_team: "Stevenage", home_score: 1, away_score: 1, score: "1 - 1", status: "live", minute: "54'", league: "League One", lastChecked: new Date().toISOString() },
+  { id: "ls-6", pool_number: 21, fixture: "R. Santander vs Villarreal", home_team: "R. Santander", away_team: "Villarreal", home_score: 2, away_score: 2, score: "2 - 2", status: "live", minute: "61'", league: "La Liga 2", lastChecked: new Date().toISOString() },
+  { id: "ls-7", pool_number: 2, fixture: "Charlton vs Derby", home_team: "Charlton", away_team: "Derby", home_score: 2, away_score: 1, score: "2 - 1", status: "finished", minute: "FT", league: "Championship", lastChecked: new Date().toISOString() },
+  { id: "ls-8", pool_number: 3, fixture: "Middlesbro vs Lincoln", home_team: "Middlesbro", away_team: "Lincoln", home_score: 2, away_score: 1, score: "2 - 1", status: "finished", minute: "FT", league: "League One", lastChecked: new Date().toISOString() },
+  { id: "ls-9", pool_number: 4, fixture: "Norwich vs West Brom", home_team: "Norwich", away_team: "West Brom", home_score: 1, away_score: 2, score: "1 - 2", status: "finished", minute: "FT", league: "Championship", lastChecked: new Date().toISOString() },
+  { id: "ls-10", pool_number: 5, fixture: "Portsmouth vs Q.P.R.", home_team: "Portsmouth", away_team: "Q.P.R.", home_score: 1, away_score: 3, score: "1 - 3", status: "finished", minute: "FT", league: "Championship", lastChecked: new Date().toISOString() },
+  { id: "ls-11", pool_number: 6, fixture: "Stoke vs Swansea", home_team: "Stoke", away_team: "Swansea", home_score: 1, away_score: 2, score: "1 - 2", status: "finished", minute: "FT", league: "Championship", lastChecked: new Date().toISOString() },
+  { id: "ls-12", pool_number: 8, fixture: "Watford vs Southampton", home_team: "Watford", away_team: "Southampton", home_score: 2, away_score: 1, score: "2 - 1", status: "finished", minute: "FT", league: "Championship", lastChecked: new Date().toISOString() },
+  { id: "ls-13", pool_number: 10, fixture: "Barnsley vs Bromley", home_team: "Barnsley", away_team: "Bromley", home_score: 0, away_score: 1, score: "0 - 1", status: "finished", minute: "FT", league: "League One", lastChecked: new Date().toISOString() },
+  { id: "ls-14", pool_number: 12, fixture: "Bradford C vs Peterboro", home_team: "Bradford C", away_team: "Peterboro", home_score: 2, away_score: 0, score: "2 - 0", status: "finished", minute: "FT", league: "League One", lastChecked: new Date().toISOString() },
+  { id: "ls-15", pool_number: 14, fixture: "Cambridge vs Wigan A.", home_team: "Cambridge", away_team: "Wigan A.", home_score: 3, away_score: 2, score: "3 - 2", status: "finished", minute: "FT", league: "League One", lastChecked: new Date().toISOString() },
+  { id: "ls-16", pool_number: 15, fixture: "Huddersfie vs A.Wimbledon", home_team: "Huddersfie", away_team: "A.Wimbledon", home_score: 3, away_score: 0, score: "3 - 0", status: "finished", minute: "FT", league: "League One", lastChecked: new Date().toISOString() },
+  { id: "ls-17", pool_number: 16, fixture: "Leyton O. vs Sheff Wed.", home_team: "Leyton O.", away_team: "Sheff Wed.", home_score: 1, away_score: 2, score: "1 - 2", status: "finished", minute: "FT", league: "League One", lastChecked: new Date().toISOString() },
+  { id: "ls-18", pool_number: 17, fixture: "Mansfield vs Doncaster", home_team: "Mansfield", away_team: "Doncaster", home_score: 2, away_score: 1, score: "2 - 1", status: "finished", minute: "FT", league: "League Two", lastChecked: new Date().toISOString() },
+  { id: "ls-19", pool_number: 18, fixture: "Plymouth vs Stockport", home_team: "Plymouth", away_team: "Stockport", home_score: 1, away_score: 3, score: "1 - 3", status: "finished", minute: "FT", league: "League One", lastChecked: new Date().toISOString() },
+  { id: "ls-20", pool_number: 19, fixture: "Dep. Alaves vs Getafe", home_team: "Dep. Alaves", away_team: "Getafe", home_score: 3, away_score: 0, score: "3 - 0", status: "finished", minute: "FT", league: "La Liga", lastChecked: new Date().toISOString() },
+  { id: "ls-21", pool_number: 20, fixture: "Sevilla vs R. Vallecano", home_team: "Sevilla", away_team: "R. Vallecano", home_score: 2, away_score: 1, score: "2 - 1", status: "finished", minute: "FT", league: "La Liga", lastChecked: new Date().toISOString() },
+  { id: "ls-22", pool_number: 22, fixture: "Arsenal vs Chelsea", home_team: "Arsenal", away_team: "Chelsea", home_score: 0, away_score: 0, score: "0 - 0", status: "not_started", time: "17:30", league: "Premier League", lastChecked: new Date().toISOString() },
+  { id: "ls-23", pool_number: 23, fixture: "Liverpool vs Manchester City", home_team: "Liverpool", away_team: "Manchester City", home_score: 0, away_score: 0, score: "0 - 0", status: "not_started", time: "20:00", league: "Premier League", lastChecked: new Date().toISOString() }
+];
 let globalLog: string[] = ["Server booted. Live scores system initialized."];
 let isCheckingLiveScores = false;
 let isLivescoreAgentStopped = true;
 
-async function searchWebForMatch(query: string): Promise<string> {
-  const snippets: string[] = [];
-
-  // Source 1: High-speed ESPN Sports API
-  try {
-    const parts = query.split(" vs ");
-    const h = (parts[0] || "").trim().toLowerCase();
-    const a = (parts[1] || "").trim().toLowerCase();
-    const leagues = ["eng.1", "esp.1", "ita.1", "ger.1", "fra.1", "uefa.champions"];
-
-    for (const code of leagues) {
-      const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${code}/scoreboard`, {
-        signal: AbortSignal.timeout(1500)
-      });
-      if (!res.ok) continue;
-      const data = await res.json();
-      for (const event of data.events || []) {
-        const comp = event.competitions?.[0];
-        if (!comp) continue;
-        const comps = comp.competitors || [];
-        const homeComp = comps.find((c: any) => c.homeAway === "home");
-        const awayComp = comps.find((c: any) => c.homeAway === "away");
-        const homeName = (homeComp?.team?.name || homeComp?.team?.displayName || "").toLowerCase();
-        const awayName = (awayComp?.team?.name || awayComp?.team?.displayName || "").toLowerCase();
-
-        if (
-          h &&
-          awayName &&
-          (homeName.includes(h) || h.includes(homeName) || awayName.includes(h)) &&
-          (awayName.includes(a) || a.includes(awayName) || homeName.includes(a))
-        ) {
-          const hScore = homeComp?.score ?? "0";
-          const aScore = awayComp?.score ?? "0";
-          const detailStatus = event.status?.type?.detail || event.status?.type?.shortDetail || "Scheduled";
-          const isCompleted = event.status?.type?.completed || false;
-          const state = event.status?.type?.state || "pre";
-
-          let mappedStatus = "not_started";
-          if (state === "in" || detailStatus.toLowerCase().includes("half") || detailStatus.toLowerCase().includes("live")) {
-            mappedStatus = "live";
-          } else if (isCompleted || detailStatus.toLowerCase().includes("full time") || detailStatus.toLowerCase().includes("ft")) {
-            mappedStatus = "finished";
-          }
-
-          snippets.push(`[ESPN LIVE SCORE MATCH]: ${homeComp?.team?.displayName || h} ${hScore} - ${aScore} ${awayComp?.team?.displayName || a}. Status: ${mappedStatus} (${detailStatus}).`);
-          break;
-        }
-      }
-      if (snippets.length > 0) break;
-    }
-  } catch (_) {}
-
-  // Source 2: Wikipedia Live Sports Search
-  if (snippets.length === 0) {
-    try {
-      const wikiRes = await fetch(
-        `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query + " live score")}&format=json`,
-        { signal: AbortSignal.timeout(1500) }
-      );
-      if (wikiRes.ok) {
-        const wikiData = await wikiRes.json();
-        const results = wikiData.query?.search || [];
-        for (const item of results.slice(0, 2)) {
-          const cleanSnippet = (item.snippet || "").replace(REGEX_HTML_TAGS, " ").replace(REGEX_WHITESPACE, " ").trim();
-          if (cleanSnippet) {
-            snippets.push(`[Wikipedia Info]: ${item.title} - ${cleanSnippet}`);
-          }
-        }
-      }
-    } catch (_) {}
-  }
-
-  // Source 3: DuckDuckGo Snippets
-  if (snippets.length === 0) {
-    try {
-      const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query + " soccer live score status")}`;
-      const response = await fetch(searchUrl, {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-          "Accept": "text/html"
-        },
-        signal: AbortSignal.timeout(2000)
-      });
-      if (response.ok) {
-        const html = await response.text();
-        let match;
-        while ((match = REGEX_DDG_SNIPPET.exec(html)) !== null && snippets.length < 5) {
-          const snippetText = match[1].replace(REGEX_HTML_TAGS, " ").replace(REGEX_WHITESPACE, " ").trim();
-          if (snippetText) snippets.push(snippetText);
-        }
-      }
-    } catch (_) {}
-  }
-
-  if (snippets.length === 0) {
-    return `Web search retrieved live query for ${query}. Match status live check in progress.`;
-  }
-
-  return snippets.join("\n\n");
-}
-
 async function updateTableMatch(supabase: any, tableName: string, match: LiveScoreMatch) {
-  const scoreParts = match.score.split(" - ");
-  const hScore = Number(scoreParts[0]) || 0;
-  const aScore = Number(scoreParts[1]) || 0;
-  const homeAway = match.fixture.split(" vs ");
-  const hName = homeAway[0]?.trim() || "Home";
-  const aName = homeAway[1]?.trim() || "Away";
+  const scoreParts = (match.score || "0 - 0").split(" - ");
+  const hScore = Number(scoreParts[0]) || match.home_score || 0;
+  const aScore = Number(scoreParts[1]) || match.away_score || 0;
+  const homeAway = (match.fixture || "").split(" vs ");
+  const hName = match.home_team || homeAway[0]?.trim() || "Home";
+  const aName = match.away_team || homeAway[1]?.trim() || "Away";
 
   const payload = {
     home_team_score: hScore,
@@ -1048,11 +980,14 @@ async function updateTableMatch(supabase: any, tableName: string, match: LiveSco
     away_score: aScore,
     status: match.status,
     score: match.score,
+    minute: match.minute,
+    league: match.league,
+    pool_number: match.pool_number,
     log: match.log,
-    last_checked: match.lastChecked
+    last_checked: match.lastChecked || new Date().toISOString()
   };
 
-  const hasValidId = match.id && !match.id.startsWith("mock-") && !match.id.startsWith("sim-");
+  const hasValidId = match.id && !String(match.id).startsWith("mock-") && !String(match.id).startsWith("sim-");
   const numId = Number(match.id);
 
   try {
@@ -1076,6 +1011,7 @@ async function saveLiveScoresToDatabase() {
 
   try {
     for (const match of liveScores) {
+      await updateTableMatch(supabase, "livescores", match);
       await updateTableMatch(supabase, "live_scores", match);
     }
   } catch (_) {}
@@ -1085,7 +1021,14 @@ async function ensureLiveScoresLoaded() {
   const supabase = getSupabaseClient(true) || getSupabaseClient(false);
   if (supabase) {
     try {
-      const res = await supabase.from("live_scores").select("*").limit(50);
+      // 1. Try querying livescores table first
+      let res = await supabase.from("livescores").select("*").order("id", { ascending: true }).limit(50);
+      
+      // 2. Fallback to live_scores if livescores is not available
+      if (res.error || !res.data || res.data.length === 0) {
+        res = await supabase.from("live_scores").select("*").limit(50);
+      }
+
       if (!res.error && res.data && Array.isArray(res.data) && res.data.length > 0) {
         const dbMatches = res.data
           .map((r: any) => {
@@ -1098,8 +1041,16 @@ async function ensureLiveScoresLoaded() {
             return {
               id: String(r.id || Math.random()),
               fixture: fixtureStr,
+              home_team: hTeam || fixtureStr.split(" vs ")[0]?.trim(),
+              away_team: aTeam || fixtureStr.split(" vs ")[1]?.trim(),
+              home_score: hScore,
+              away_score: aScore,
               score: r.score || `${hScore} - ${aScore}`,
               status: rawStatus as any,
+              minute: r.minute || (rawStatus === 'finished' ? 'FT' : ''),
+              league: r.league || '',
+              time: r.time || r.kickoff || '',
+              pool_number: r.pool_number || undefined,
               lastChecked: r.last_checked || new Date().toISOString(),
               log: r.log || ""
             };
@@ -1112,117 +1063,6 @@ async function ensureLiveScoresLoaded() {
       }
     } catch (_) {}
   }
-}
-
-async function updateLiveScoresInternal(forceAll: boolean = false) {
-  if (isLivescoreAgentStopped && !forceAll) return;
-  if (isCheckingLiveScores) return;
-  isCheckingLiveScores = true;
-
-  await ensureLiveScoresLoaded();
-
-  const timestamp = new Date().toLocaleTimeString();
-  globalLog.unshift(`[${timestamp}] Live check running for ${liveScores.length} matches...`);
-  globalLog = globalLog.slice(0, 30);
-
-  const openaiKey = process.env.OPENAI_API_KEY || process.env.OPEN_API_KEY;
-  const hasOpenAI = openaiKey && openaiKey !== "MY_OPENAI_API_KEY" && openaiKey !== "";
-  const ai = getGeminiClient();
-
-  const runSimulatedMatchUpdate = (match: LiveScoreMatch, reason: string) => {
-    if (match.status === "finished" || match.status === "postponed") return;
-    const prevScore = match.score;
-
-    let startedTime = new Date();
-    const startMatch = match.log ? match.log.match(REGEX_STARTED_TOKEN) : null;
-    if (startMatch) {
-      const parsed = new Date(startMatch[1]);
-      if (!isNaN(parsed.getTime())) startedTime = parsed;
-    }
-
-    const logStartedToken = ` [Started: ${startedTime.toISOString()}]`;
-
-    if (match.status === "not_started" || match.score === "-:-") {
-      match.status = "live";
-      match.score = match.score === "-:-" ? "0 - 0" : match.score;
-      match.lastChecked = new Date().toISOString();
-      match.log = `Match started! Score: ${match.score}. Minute: 1'.${logStartedToken} (${reason})`;
-    } else if (match.status === "live") {
-      const elapsedMs = Date.now() - startedTime.getTime();
-      const elapsedMins = Math.floor((elapsedMs * 15) / 60000) + 1;
-
-      if (elapsedMins >= 90) {
-        match.status = "finished";
-        match.lastChecked = new Date().toISOString();
-        match.log = `Full-time whistle. FT: ${match.score}. (Complete)${logStartedToken}`;
-      } else {
-        if (Math.random() < 0.15) {
-          const parts = match.score.split(" - ");
-          let h = Number(parts[0]) || 0;
-          let a = Number(parts[1]) || 0;
-          if (Math.random() < 0.5) h += 1;
-          else a += 1;
-          match.score = `${h} - ${a}`;
-          match.lastChecked = new Date().toISOString();
-          match.log = `Goal! Changed from ${prevScore} to ${match.score}. Minute: ${elapsedMins}'. (${reason})${logStartedToken}`;
-        } else {
-          match.lastChecked = new Date().toISOString();
-          match.log = `Latest: ${match.score}. Game ongoing. Minute: ${elapsedMins}'. (${reason})${logStartedToken}`;
-        }
-      }
-    }
-  };
-
-  // Perform updates
-  if (hasOpenAI) {
-    try {
-      for (const match of liveScores.slice(0, 5)) {
-        if (!forceAll && (match.status === "finished" || match.status === "postponed")) continue;
-        const searchContext = await searchWebForMatch(match.fixture);
-
-        if (searchContext.includes("[ESPN LIVE SCORE MATCH]:")) {
-          const espnMatch = searchContext.match(REGEX_ESPN_MATCH);
-          if (espnMatch) {
-            match.score = `${espnMatch[1]} - ${espnMatch[2]}`;
-            match.status = espnMatch[3].toLowerCase() === "live" ? "live" : "finished";
-            match.lastChecked = new Date().toISOString();
-            match.log = `ESPN Live Feed Verified: ${espnMatch[4]} (${timestamp})`;
-            continue;
-          }
-        }
-        runSimulatedMatchUpdate(match, "Simulation Engine");
-      }
-      await saveLiveScoresToDatabase();
-      isCheckingLiveScores = false;
-      return;
-    } catch (_) {}
-  }
-
-  if (ai) {
-    try {
-      for (const match of liveScores.slice(0, 5)) {
-        if (!forceAll && (match.status === "finished" || match.status === "postponed")) continue;
-        runSimulatedMatchUpdate(match, "Simulation Engine");
-      }
-      await saveLiveScoresToDatabase();
-      isCheckingLiveScores = false;
-      return;
-    } catch (_) {}
-  }
-
-  for (const match of liveScores) {
-    runSimulatedMatchUpdate(match, "Simulation Engine");
-  }
-
-  await saveLiveScoresToDatabase();
-  isCheckingLiveScores = false;
-}
-
-// Background poll only for local development - never on Vercel serverless to save CPU compute
-if (!process.env.VERCEL) {
-  setInterval(() => {
-    updateLiveScoresInternal().catch((e) => console.error("Polling error:", e));
-  }, 30000);
 }
 
 // Live Score Endpoints
@@ -1357,15 +1197,157 @@ app.post("/api/livescores/agent/stop", (req, res) => {
 
 app.post("/api/livescores/agent/start", (req, res) => {
   isLivescoreAgentStopped = false;
-  globalLog.unshift(`[${new Date().toLocaleTimeString()}] LiveScore Agent Started.`);
-  updateLiveScoresInternal(true).catch(() => {});
+  globalLog.unshift(`[${new Date().toLocaleTimeString()}] LiveScore Ready.`);
+  ensureLiveScoresLoaded().catch(() => {});
   res.json({ success: true, active: true, message: "Agent started." });
+});
+
+app.post("/api/livescores", async (req, res) => {
+  try {
+    const { home_team, away_team, home_score = 0, away_score = 0, status = "not_started", league, pool_number, minute } = req.body || {};
+    const hTeam = (home_team || "").trim();
+    const aTeam = (away_team || "").trim();
+
+    if (!hTeam || !aTeam) {
+      return res.status(400).json({ success: false, error: "Home team and Away team are required." });
+    }
+
+    const fixtureStr = `${hTeam} vs ${aTeam}`;
+    const scoreStr = `${Number(home_score) || 0} - ${Number(away_score) || 0}`;
+    const newMatch: LiveScoreMatch = {
+      id: `match-${Date.now()}`,
+      fixture: fixtureStr,
+      home_team: hTeam,
+      away_team: aTeam,
+      home_score: Number(home_score) || 0,
+      away_score: Number(away_score) || 0,
+      score: scoreStr,
+      status: status as any,
+      minute: minute || (status === 'live' ? "1'" : status === 'finished' ? 'FT' : ''),
+      league: league || 'Pool League Match',
+      pool_number: pool_number || (liveScores.length + 1),
+      lastChecked: new Date().toISOString(),
+      log: `Added by administrator on ${new Date().toLocaleDateString()}`
+    };
+
+    liveScores.unshift(newMatch);
+
+    // Save to Supabase
+    const supabase = getSupabaseClient(true) || getSupabaseClient(false);
+    if (supabase) {
+      try {
+        await supabase.from("livescores").insert([{
+          fixture: fixtureStr,
+          home_team: hTeam,
+          away_team: aTeam,
+          home_score: Number(home_score) || 0,
+          away_score: Number(away_score) || 0,
+          score: scoreStr,
+          status: status,
+          minute: newMatch.minute,
+          league: newMatch.league,
+          pool_number: newMatch.pool_number,
+          last_checked: newMatch.lastChecked
+        }]);
+      } catch (_) {}
+      try {
+        await supabase.from("live_scores").insert([{
+          fixture: fixtureStr,
+          home_team: hTeam,
+          away_team: aTeam,
+          home_team_score: Number(home_score) || 0,
+          away_team_score: Number(away_score) || 0,
+          score: scoreStr,
+          live_score_status: status,
+          status: status,
+          last_checked: newMatch.lastChecked
+        }]);
+      } catch (_) {}
+    }
+
+    res.json({ success: true, match: newMatch, matches: liveScores });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || String(err) });
+  }
+});
+
+app.post("/api/livescores/delete", async (req, res) => {
+  try {
+    const { id } = req.body || {};
+    if (!id) {
+      return res.status(400).json({ success: false, error: "Match ID is required." });
+    }
+
+    const matchToDelete = liveScores.find(m => String(m.id) === String(id));
+    liveScores = liveScores.filter(m => String(m.id) !== String(id));
+
+    // Delete in Supabase if exists
+    const supabase = getSupabaseClient(true) || getSupabaseClient(false);
+    if (supabase) {
+      const numId = Number(id);
+      try {
+        if (!isNaN(numId)) {
+          await supabase.from("livescores").delete().eq("id", numId);
+          await supabase.from("live_scores").delete().eq("id", numId);
+        } else if (matchToDelete) {
+          const parts = matchToDelete.fixture.split(" vs ");
+          if (parts.length === 2) {
+            await supabase.from("livescores").delete().eq("home_team", parts[0].trim()).eq("away_team", parts[1].trim());
+            await supabase.from("live_scores").delete().eq("home_team", parts[0].trim()).eq("away_team", parts[1].trim());
+          }
+        }
+      } catch (_) {}
+    }
+
+    res.json({ success: true, message: "Match deleted.", matches: liveScores });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || String(err) });
+  }
+});
+
+app.post("/api/livescores/update-status", async (req, res) => {
+  try {
+    const { id, status, score, minute } = req.body || {};
+    if (!id) {
+      return res.status(400).json({ success: false, error: "Match ID is required." });
+    }
+
+    const match = liveScores.find(m => String(m.id) === String(id));
+    if (!match) {
+      return res.status(404).json({ success: false, error: "Match not found." });
+    }
+
+    if (status) match.status = status;
+    if (score) {
+      match.score = score;
+      const parts = score.split(" - ");
+      if (parts.length === 2) {
+        match.home_score = Number(parts[0]) || 0;
+        match.away_score = Number(parts[1]) || 0;
+      }
+    }
+    if (minute !== undefined) match.minute = minute;
+    else if (status === 'finished') match.minute = 'FT';
+    else if (status === 'live' && !match.minute) match.minute = "1'";
+
+    match.lastChecked = new Date().toISOString();
+
+    const supabase = getSupabaseClient(true) || getSupabaseClient(false);
+    if (supabase) {
+      await updateTableMatch(supabase, "livescores", match);
+      await updateTableMatch(supabase, "live_scores", match);
+    }
+
+    res.json({ success: true, match, matches: liveScores });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || String(err) });
+  }
 });
 
 app.post("/api/livescores/trigger-update", async (req, res) => {
   try {
-    await updateLiveScoresInternal(true);
-    res.json({ success: true, matches: liveScores, logs: globalLog });
+    await ensureLiveScoresLoaded();
+    res.json({ success: true, matches: liveScores, logs: ["Records refreshed from database."] });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message || String(err) });
   }

@@ -181,7 +181,10 @@ export default function ExpertBlogView({
     const stored = localStorage.getItem('fastpool_pool_results_list');
     if (stored) {
       try {
-        return JSON.parse(stored);
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0 && parsed[0]?.results_table?.[0]?.home_team === 'Bristol C.') {
+          return parsed;
+        }
       } catch (_) {}
     }
     return db?.pool_results || [];
@@ -321,13 +324,17 @@ export default function ExpertBlogView({
   const activeResultRows = activeResult ? (activeResult.results_table || []).filter((row: any) => {
     if (!resultsTableSearch) return true;
     const s = resultsTableSearch.toLowerCase();
+    const home = (row.home_team || row.homeTeam || '').toLowerCase();
+    const away = (row.away_team || row.awayTeam || '').toLowerCase();
+    const rowId = String(row.id ?? row.matchNo ?? '');
+    const hScore = String(row.home_team_score ?? '');
+    const aScore = String(row.away_team_score ?? '');
     return (
-      row.homeTeam?.toLowerCase().includes(s) ||
-      row.awayTeam?.toLowerCase().includes(s) ||
-      row.outcome?.toLowerCase().includes(s) ||
-      row.payoutStatus?.toLowerCase().includes(s) ||
-      row.matchNo?.toString().includes(s) ||
-      row.fullTimeScore?.toString().includes(s)
+      home.includes(s) ||
+      away.includes(s) ||
+      rowId.includes(s) ||
+      hScore.includes(s) ||
+      aScore.includes(s)
     );
   }) : [];
 
@@ -1429,45 +1436,49 @@ INSERT INTO public.championship_results (
                         </div>
 
                         {/* Matches List Table */}
-                        <div className="overflow-x-auto max-h-[350px] overflow-y-auto">
+                        <div className="overflow-x-auto max-h-[380px] overflow-y-auto">
                           <table className="w-full text-left border-collapse text-xs">
                             <thead>
-                              <tr className="bg-zinc-50/80 text-zinc-500 font-mono text-[8.5px] font-bold uppercase tracking-widest border-b border-zinc-200 select-none">
-                                <th className="py-2.5 px-3 text-center w-12">No</th>
-                                <th className="py-2.5 px-3">Fixture Match</th>
-                                <th className="py-2.5 px-3 text-center w-16">Score</th>
-                                <th className="py-2.5 px-3 text-center w-20">Outcome</th>
+                              <tr className="bg-zinc-50/80 text-zinc-500 font-mono text-[9px] font-bold uppercase tracking-wider border-b border-zinc-200 select-none">
+                                <th className="py-2.5 px-3 text-center w-12 border-r border-zinc-200">id</th>
+                                <th className="py-2.5 px-3 border-r border-zinc-200">home_team</th>
+                                <th className="py-2.5 px-3 border-r border-zinc-200">away_team</th>
+                                <th className="py-2.5 px-3 text-center w-28 border-r border-zinc-200">home_team_score</th>
+                                <th className="py-2.5 px-3 text-center w-28">away_team_score</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-zinc-100 font-bold text-zinc-700">
                               {activeResultRows.length === 0 ? (
                                 <tr>
-                                  <td colSpan={4} className="py-8 px-4 text-center text-zinc-450 font-bold">
+                                  <td colSpan={5} className="py-8 px-4 text-center text-zinc-450 font-bold">
                                     No matches match your criteria.
                                   </td>
                                 </tr>
                               ) : (
                                 activeResultRows.map((row: any, rIdx: number) => {
-                                  const isDraw = row.outcome === 'DRAW';
+                                  const rowId = row.id ?? row.matchNo ?? (rIdx + 1);
+                                  const homeTeam = row.home_team || row.homeTeam || '';
+                                  const awayTeam = row.away_team || row.awayTeam || '';
+                                  const homeScore = row.home_team_score !== undefined ? row.home_team_score : Number(row.fullTimeScore?.split('-')[0]?.trim() || 0);
+                                  const awayScore = row.away_team_score !== undefined ? row.away_team_score : Number(row.fullTimeScore?.split('-')[1]?.trim() || 0);
+                                  const isDraw = homeScore === awayScore;
+
                                   return (
-                                    <tr key={rIdx} className={`hover:bg-zinc-50/50 transition ${isDraw ? 'bg-amber-500/5' : ''}`}>
-                                      <td className="py-2 px-3 text-center text-rose-600 font-mono text-[11px]">
-                                        {row.matchNo}
+                                    <tr key={rIdx} className={`hover:bg-zinc-50/70 transition ${isDraw ? 'bg-amber-500/10' : ''}`}>
+                                      <td className="py-2.5 px-3 text-center text-rose-600 font-mono text-[11px] border-r border-zinc-100 font-bold bg-zinc-50/50">
+                                        {rowId}
                                       </td>
-                                      <td className="py-2 px-3 text-zinc-800 text-[11px]">
-                                        {row.homeTeam} <span className="text-zinc-400 font-medium">vs</span> {row.awayTeam}
+                                      <td className="py-2.5 px-3 text-zinc-900 text-[11px] border-r border-zinc-100 font-semibold">
+                                        {homeTeam}
                                       </td>
-                                      <td className="py-2 px-3 text-center font-mono text-zinc-900 text-[11px]">
-                                        {row.fullTimeScore}
+                                      <td className="py-2.5 px-3 text-zinc-900 text-[11px] border-r border-zinc-100 font-semibold">
+                                        {awayTeam}
                                       </td>
-                                      <td className="py-2 px-3 text-center">
-                                        <span className={`text-[8.5px] font-mono font-black px-1.5 py-0.5 rounded border ${
-                                          isDraw
-                                            ? 'bg-amber-50 text-amber-700 border-amber-200/50'
-                                            : 'bg-zinc-50 text-zinc-550 border-zinc-150'
-                                        }`}>
-                                          {row.outcome}
-                                        </span>
+                                      <td className="py-2.5 px-3 text-center font-mono text-zinc-900 text-[12px] font-black border-r border-zinc-100 bg-zinc-50/30">
+                                        {homeScore}
+                                      </td>
+                                      <td className="py-2.5 px-3 text-center font-mono text-zinc-900 text-[12px] font-black bg-zinc-50/30">
+                                        {awayScore}
                                       </td>
                                     </tr>
                                   );
