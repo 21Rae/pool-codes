@@ -355,7 +355,7 @@ export default function CustomerPortal({
     );
   }
 
-  const [activeSubTab, setActiveSubTab] = useState<'dashboard' | 'picks' | 'comparison' | 'streaming' | 'results' | 'subscription' | 'profile'>('dashboard');
+  const [activeSubTab, setActiveSubTab] = useState<'dashboard' | 'picks' | 'picks_bet9ja' | 'picks_betking' | 'comparison' | 'streaming' | 'results' | 'subscription' | 'profile'>('dashboard');
 
   const [codeTypeFilter, setCodeTypeFilter] = useState<'all' | 'uk' | 'aussie' | 'international'>('all');
   const [bookmakerFilter, setBookmakerFilter] = useState<string>('all');
@@ -1914,7 +1914,23 @@ export default function CustomerPortal({
           
           <div>
             <span className="text-xs font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-300 uppercase tracking-wider block">
-              {activeSubTab === 'dashboard' ? 'Arena Dashboard' : activeSubTab === 'results' ? 'Pool Results' : activeSubTab === 'subscription' ? 'VIP Premium' : 'User Profile'}
+              {activeSubTab === 'dashboard'
+                ? 'Arena Dashboard'
+                : activeSubTab === 'picks_bet9ja'
+                ? 'Picks (Bet9ja)'
+                : activeSubTab === 'picks_betking'
+                ? 'Picks (BetKing)'
+                : activeSubTab === 'picks'
+                ? 'Weekly Pool Picks'
+                : activeSubTab === 'comparison'
+                ? 'Codes Comparison'
+                : activeSubTab === 'streaming'
+                ? 'Live Scores'
+                : activeSubTab === 'results'
+                ? 'Pool Results'
+                : activeSubTab === 'subscription'
+                ? 'VIP Premium'
+                : 'User Profile'}
             </span>
           </div>
         </div>
@@ -2029,6 +2045,57 @@ export default function CustomerPortal({
                     )}
                   </button>
 
+                  {/* WEEKLY POOL PICKS (BET9JA) */}
+                  <button
+                    onClick={() => {
+                      setActiveSubTab('picks_bet9ja');
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className={`flex items-center justify-between px-3.5 py-3 rounded-lg text-xs font-bold tracking-wide transition duration-150 ${
+                      activeSubTab === 'picks_bet9ja'
+                        ? 'bg-gradient-to-r from-emerald-555/15 to-emerald-500/5 text-emerald-400 border-l-4 border-emerald-500 pl-2.5'
+                        : 'hover:bg-slate-800/60 text-slate-400 hover:text-slate-150'
+                    }`}
+                  >
+                    <span className="flex items-center gap-3">
+                      <Target className="w-4 h-4 text-emerald-400" />
+                      <span>PICKS (BET9JA)</span>
+                    </span>
+                    {isPaidUser ? (
+                      <span className="text-[8.5px] bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 px-2 py-0.5 rounded font-black font-mono tracking-widest leading-none uppercase">
+                        VIP
+                      </span>
+                    ) : (
+                      <Lock className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
+                    )}
+                  </button>
+
+                  {/* WEEKLY POOL PICKS (BETKING) */}
+                  <button
+                    onClick={() => {
+                      setActiveSubTab('picks_betking');
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className={`flex items-center justify-between px-3.5 py-3 rounded-lg text-xs font-bold tracking-wide transition duration-150 ${
+                      activeSubTab === 'picks_betking'
+                        ? 'bg-gradient-to-r from-blue-500/15 to-blue-500/5 text-amber-400 border-l-4 border-amber-400 pl-2.5'
+                        : 'hover:bg-slate-800/60 text-slate-400 hover:text-slate-150'
+                    }`}
+                  >
+                    <span className="flex items-center gap-3">
+                      <Target className="w-4 h-4 text-amber-400" />
+                      <span>PICKS (BETKING)</span>
+                    </span>
+                    {isPaidUser ? (
+                      <span className="text-[8.5px] bg-amber-500/20 border border-amber-500/30 text-amber-400 px-2 py-0.5 rounded font-black font-mono tracking-widest leading-none uppercase">
+                        VIP
+                      </span>
+                    ) : (
+                      <Lock className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
+                    )}
+                  </button>
+
+                  {/* WEEKLY POOL PICKS (ALL / UK) */}
                   <button
                     onClick={() => {
                       setActiveSubTab('picks');
@@ -2238,17 +2305,18 @@ export default function CustomerPortal({
               )}
             </button>
 
+            {/* WEEKLY POOL PICKS (BET9JA) */}
             <button
-              onClick={() => setActiveSubTab('picks')}
+              onClick={() => setActiveSubTab('picks_bet9ja')}
               className={`flex items-center justify-between px-3.5 py-3 rounded-lg text-xs font-bold tracking-wide transition duration-150 ${
-                activeSubTab === 'picks'
+                activeSubTab === 'picks_bet9ja'
                   ? 'bg-gradient-to-r from-emerald-550/15 to-emerald-500/5 text-emerald-400 border-l-4 border-emerald-500 pl-2.5'
                   : 'hover:bg-slate-800/60 text-slate-400 hover:text-slate-150'
               }`}
             >
               <span className="flex items-center gap-3">
                 <Target className="w-4 h-4 text-emerald-400" />
-                <span>WEEKLY POOL PICKS</span>
+                <span>PICKS (BET9JA)</span>
               </span>
               {isPaidUser ? (
                 <span className="text-[8.5px] bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 px-2 py-0.5 rounded font-black font-mono tracking-widest leading-none uppercase">
@@ -2258,6 +2326,30 @@ export default function CustomerPortal({
                 <Lock className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
               )}
             </button>
+
+            {/* WEEKLY POOL PICKS (BETKING) */}
+            <button
+              onClick={() => setActiveSubTab('picks_betking')}
+              className={`flex items-center justify-between px-3.5 py-3 rounded-lg text-xs font-bold tracking-wide transition duration-150 ${
+                activeSubTab === 'picks_betking'
+                  ? 'bg-gradient-to-r from-blue-500/15 to-blue-500/5 text-amber-400 border-l-4 border-amber-400 pl-2.5'
+                  : 'hover:bg-slate-800/60 text-slate-400 hover:text-slate-150'
+              }`}
+            >
+              <span className="flex items-center gap-3">
+                <Target className="w-4 h-4 text-amber-400" />
+                <span>PICKS (BETKING)</span>
+              </span>
+              {isPaidUser ? (
+                <span className="text-[8.5px] bg-amber-500/20 border border-amber-500/30 text-amber-400 px-2 py-0.5 rounded font-black font-mono tracking-widest leading-none uppercase">
+                  VIP
+                </span>
+              ) : (
+                <Lock className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
+              )}
+            </button>
+
+
 
             <button
               onClick={() => setActiveSubTab('comparison')}
@@ -4968,7 +5060,43 @@ export default function CustomerPortal({
                 );
               })()}
 
-              {/* SUBTAB: WEEKLY POOL PICKS (STRICTLY SUBSCRIBED CUSTOMERS ONLY) */}
+              {/* SUBTAB: WEEKLY POOL PICKS (BET9JA) */}
+              {activeSubTab === 'picks_bet9ja' && (
+                <div className="flex flex-col gap-6" id="weekly-pool-picks-bet9ja-container">
+                  <WeeklyPoolPicksTable
+                    currentUser={currentUser}
+                    activePlan={activePlan}
+                    isPaidUser={isPaidUser}
+                    bypassPremium={bypassPremium}
+                    activeWeekNumber={activeWeekNumber}
+                    triggerToast={triggerToast}
+                    onUpgradeClick={() => setActiveSubTab('subscription')}
+                    tableName="weekly pool picks(Bet9ja)"
+                    tableDisplayName="Weekly Pool Picks (Bet9ja)"
+                    bookmakerBrand="bet9ja"
+                  />
+                </div>
+              )}
+
+              {/* SUBTAB: WEEKLY POOL PICKS (BETKING) */}
+              {activeSubTab === 'picks_betking' && (
+                <div className="flex flex-col gap-6" id="weekly-pool-picks-betking-container">
+                  <WeeklyPoolPicksTable
+                    currentUser={currentUser}
+                    activePlan={activePlan}
+                    isPaidUser={isPaidUser}
+                    bypassPremium={bypassPremium}
+                    activeWeekNumber={activeWeekNumber}
+                    triggerToast={triggerToast}
+                    onUpgradeClick={() => setActiveSubTab('subscription')}
+                    tableName="weekly pool picks(betking)"
+                    tableDisplayName="Weekly Pool Picks (BetKing)"
+                    bookmakerBrand="betking"
+                  />
+                </div>
+              )}
+
+              {/* SUBTAB: WEEKLY POOL PICKS (GENERAL / ALL) */}
               {activeSubTab === 'picks' && (
                 <div className="flex flex-col gap-6" id="weekly-pool-picks-tab-container">
                   <WeeklyPoolPicksTable
@@ -4979,6 +5107,9 @@ export default function CustomerPortal({
                     activeWeekNumber={activeWeekNumber}
                     triggerToast={triggerToast}
                     onUpgradeClick={() => setActiveSubTab('subscription')}
+                    tableName="weekly pool picks"
+                    tableDisplayName="Weekly Pool Picks"
+                    bookmakerBrand="general"
                   />
                 </div>
               )}

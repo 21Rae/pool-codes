@@ -7,7 +7,7 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 dotenv.config();
 
 // Pre-compiled regular expressions for ultra-fast parsing without catastrophic backtracking
-const REGEX_TABLE_NAME = /^[a-zA-Z0-9_\- %]+$/;
+const REGEX_TABLE_NAME = /^[a-zA-Z0-9_\- %().]+$/;
 const REGEX_CLEAN_TABLE = /[^a-z0-9_]/g;
 const REGEX_CLEAN_USERNAME = /[^a-z0-9_]/g;
 const REGEX_HTML_TAGS = /<[^>]*>/g;
@@ -230,6 +230,8 @@ app.get("/api/database/tables", async (req, res) => {
     "championship_results", "championships", "results", "pool_results",
     "pool codes comparison", "pool_codes_comparison", "pool_codes", "pool_code", "pool_comparison", "pool_codes_table",
     "weekly pool picks", "weekly_pool_picks", "weekly_picks", "pool_picks", "weekly pool picks table", "weekly_pool_picks_table", "weekly_picks_table", "pool_picks_table",
+    "weekly pool picks(Bet9ja)", "weekly pool picks (Bet9ja)", "weekly pool picks(bet9ja)", "weekly_pool_picks_bet9ja", "weekly_picks_bet9ja", "weekly pool picks bet9ja",
+    "weekly pool picks(betking)", "weekly pool picks (betking)", "weekly pool picks(Betking)", "weekly_pool_picks_betking", "weekly_picks_betking", "weekly pool picks betking",
     "pool_weeks", "weeks", "bookmakers", "bookmaker", "bookies", "providers",
     "subscription_plans", "user_subscriptions", "users_subscriptions", "subscriptions", "purchases", "purchases_access_log", "subscriptions_access_log", "plan_purchased", "plans_purchased",
     "notifications", "user_downloads", "downloads", "transactions", "payments", "support_tickets",
@@ -306,6 +308,8 @@ async function checkUserTableAccess(
     "pool_codes_comparison", "pool codes comparison", "pool_code_comparison", "pool_comparison",
     "poolcodes_comparison", "pool_codes_comparisons", "weekly_picks", "weekly_pool_picks",
     "weekly pool picks", "weekly_picks_table", "purchases_access_log", "subscriptions_access_log",
+    "weekly_pool_picks_bet9ja", "weeklypoolpicksbet9ja", "weekly_picks_bet9ja", "weeklypicksbet9ja",
+    "weekly_pool_picks_betking", "weeklypoolpicksbetking", "weekly_picks_betking", "weeklypicksbetking",
     "plan_purchased", "plans_purchased", "user_subscriptions", "users_subscriptions", "subscriptions"
   ]);
 
@@ -527,6 +531,10 @@ app.get("/api/tables/:tableName", async (req, res) => {
   const normalizedKey = decodedName.toLowerCase().replace(/[\s_\-]+/g, "_");
   if (normalizedKey.includes("pool_codes_comparison") || normalizedKey.includes("poolcodes_comparison")) {
     actualTableName = "pool codes comparison";
+  } else if (normalizedKey.includes("bet9ja") && (normalizedKey.includes("weekly") || normalizedKey.includes("pick"))) {
+    actualTableName = "weekly pool picks(Bet9ja)";
+  } else if (normalizedKey.includes("betking") && (normalizedKey.includes("weekly") || normalizedKey.includes("pick"))) {
+    actualTableName = "weekly pool picks(betking)";
   } else if (normalizedKey.includes("weekly_pool_picks") || normalizedKey.includes("weekly_picks")) {
     actualTableName = "weekly pool picks";
   }
@@ -585,6 +593,52 @@ app.get("/api/tables/:tableName", async (req, res) => {
         count = altRes.count;
         error = null;
         actualTableName = alternate;
+      }
+    } else if ((error || !data || data.length === 0) && (actualTableName === "weekly pool picks(Bet9ja)" || actualTableName.includes("bet9ja"))) {
+      const candidates = [
+        "weekly pool picks(Bet9ja)",
+        "weekly pool picks (Bet9ja)",
+        "weekly pool picks(bet9ja)",
+        "weekly pool picks (bet9ja)",
+        "weekly_pool_picks_bet9ja",
+        "weekly_picks_bet9ja",
+        "weekly pool picks bet9ja",
+        "bet9ja_weekly_pool_picks",
+        "bet9ja_weekly_picks"
+      ];
+      for (const cand of candidates) {
+        if (cand === actualTableName) continue;
+        const altRes = await supabase.from(cand).select("*", { count: "exact" });
+        if (!altRes.error && altRes.data && altRes.data.length > 0) {
+          data = altRes.data;
+          count = altRes.count;
+          error = null;
+          actualTableName = cand;
+          break;
+        }
+      }
+    } else if ((error || !data || data.length === 0) && (actualTableName === "weekly pool picks(betking)" || actualTableName.includes("betking"))) {
+      const candidates = [
+        "weekly pool picks(betking)",
+        "weekly pool picks (betking)",
+        "weekly pool picks(Betking)",
+        "weekly pool picks (Betking)",
+        "weekly_pool_picks_betking",
+        "weekly_picks_betking",
+        "weekly pool picks betking",
+        "betking_weekly_pool_picks",
+        "betking_weekly_picks"
+      ];
+      for (const cand of candidates) {
+        if (cand === actualTableName) continue;
+        const altRes = await supabase.from(cand).select("*", { count: "exact" });
+        if (!altRes.error && altRes.data && altRes.data.length > 0) {
+          data = altRes.data;
+          count = altRes.count;
+          error = null;
+          actualTableName = cand;
+          break;
+        }
       }
     } else if ((error || !data || data.length === 0) && (actualTableName === "weekly pool picks" || actualTableName === "weekly_pool_picks" || actualTableName === "weekly_picks")) {
       const candidates = ["weekly pool picks", "weekly_pool_picks", "weekly_picks"];
