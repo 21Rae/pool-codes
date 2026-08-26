@@ -27,9 +27,12 @@ export default function HelpCenterPage({ onBack, triggerToast, onNavigateToCodes
   const [copiedEmail, setCopiedEmail] = useState(false);
   const [copiedPhone, setCopiedPhone] = useState(false);
 
-  const emailAddress = "support@fastpoolcodes.com";
-  const whatsappNumber = "+234 800 766 5435";
-  const whatsappLink = "https://wa.me/2348007665435?text=Hello%20FastPoolCodes%20Support,%20I%20have%20a%20complaint%20or%20inquiry:";
+  const emailAddress = "fastpoolcodes@gmail.com";
+  const whatsappNumber = "+234 - 803 058 7933";
+  const whatsappNumber2 = "+234 - 903 759 5705";
+  const supportCall1 = "+234 - 803 058 7933";
+  const supportCall2 = "+234 - 806 469 5138";
+  const whatsappLink = "https://wa.me/2348030587933?text=Hello%20FastPoolCodes%20Support,%20I%20have%20a%20complaint%20or%20inquiry:";
 
   const handleCopy = (text: string, type: 'email' | 'phone') => {
     navigator.clipboard.writeText(text);

@@ -1142,9 +1142,6 @@ export default function WeeklyPoolPicksTable({
                 <span>{sourceTableName}</span>
               </span>
             </div>
-            <p className="text-xs sm:text-sm text-slate-300 max-w-3xl leading-relaxed">
-              Official decrypted Week {activeWeekNumber} UK Pools banker draw selections, booking codes, match odds, and kickoff times verified for {brandTheme.brandName} coupon stakers and pools players.
-            </p>
           </div>
 
           {/* Top Quick Actions */}

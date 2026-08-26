@@ -155,16 +155,23 @@ export default function Footer({ triggerToast, className = '', onOpenTerms, onNa
           <h4 className={`font-extrabold tracking-widest uppercase mb-3.5 text-[10.5px] ${isDark ? 'text-emerald-400' : 'text-zinc-800'}`}>
             SUPPORT & ENQUIRIES
           </h4>
-          <div className="space-y-2.5 font-bold">
-            <a href="mailto:Fastpoolcodes@gmail.com" className={`hover:text-[#fa3e65] text-sm transition block ${isDark ? 'text-slate-200' : 'text-zinc-800'}`}>
-              📧 Fastpoolcodes@gmail.com
+          <div className="space-y-2 font-bold">
+            <a href="mailto:fastpoolcodes@gmail.com" className={`hover:text-emerald-400 text-xs transition block ${isDark ? 'text-slate-200' : 'text-zinc-800'}`}>
+              📧 fastpoolcodes@gmail.com
             </a>
-            <a href="https://wa.me/2348030587933" target="_blank" rel="noopener noreferrer" className={`hover:text-emerald-400 text-sm transition block ${isDark ? 'text-slate-200' : 'text-zinc-800'}`}>
-              💬 WhatsApp: 0803 058 7933
-            </a>
-            <p className={`font-medium text-[11px] select-none leading-relaxed ${isDark ? 'text-slate-500' : 'text-zinc-400'}`}>
-              Our direct forecasting helpdesk is available 24/7 to clear doubts about sequence keysets.
-            </p>
+            <div className="space-y-1">
+              <a href="https://wa.me/2348030587933" target="_blank" rel="noopener noreferrer" className={`hover:text-emerald-400 text-xs transition block ${isDark ? 'text-slate-200' : 'text-zinc-800'}`}>
+                💬 WhatsApp: +234 - 803 058 7933
+              </a>
+              <a href="https://wa.me/2349037595705" target="_blank" rel="noopener noreferrer" className={`hover:text-emerald-400 text-xs transition block ${isDark ? 'text-slate-200' : 'text-zinc-800'}`}>
+                💬 WhatsApp: +234 - 903 759 5705
+              </a>
+            </div>
+            <div className={`text-[11px] font-medium pt-1 ${isDark ? 'text-slate-400' : 'text-zinc-500'}`}>
+              <span className="font-bold text-slate-300 block">Customer Support (24 Hrs):</span>
+              <p>Call: +234 - 803 058 7933</p>
+              <p>Call: +234 - 806 469 5138</p>
+            </div>
           </div>
         </div>
 

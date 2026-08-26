@@ -1635,10 +1635,10 @@ export default function OfficePoolStopHome({
                       ✉️ Helpdesk & support
                     </span>
                     <h2 className="text-3xl font-black text-white tracking-tight uppercase">
-                      Contact FastPool.com
+                      Contact FastPoolCodes
                     </h2>
                     <p className="text-slate-400 text-xs md:text-sm max-w-xl leading-relaxed font-semibold">
-                      Need help decrypting coupons or retrieving premium files? Get in touch directly via Email or WhatsApp. Our forecasters are online 24/7.
+                      Need assistance, payment verification, or pool code inquiries? Get in touch directly via Email, WhatsApp, or Phone. Our customer support desk is available 24/7.
                     </p>
                   </div>
 
@@ -1651,33 +1651,77 @@ export default function OfficePoolStopHome({
                         </h3>
                         
                         <div className="space-y-4 font-semibold text-xs text-slate-300">
+                          {/* Official Support Email */}
                           <div className="space-y-1">
                             <span className="text-[10px] text-slate-500 uppercase font-mono block">Official Support Email</span>
                             <a 
-                              href="mailto:Fastpoolcodes@gmail.com" 
-                              className="text-white hover:text-[#fa3e65] text-sm font-extrabold transition block"
+                              href="mailto:fastpoolcodes@gmail.com" 
+                              className="text-white hover:text-emerald-400 text-sm font-extrabold transition flex items-center gap-1.5"
                             >
-                              📧 Fastpoolcodes@gmail.com
+                              <span>📧</span>
+                              <span>fastpoolcodes@gmail.com</span>
                             </a>
                           </div>
 
-                          <div className="space-y-1">
-                            <span className="text-[10px] text-slate-500 uppercase font-mono block">WhatsApp Hotline Support</span>
-                            <a 
-                              href="https://wa.me/2348030587933" 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="text-white hover:text-emerald-500 text-sm font-extrabold transition block"
-                            >
-                              💬 +234 803 058 7933 (WhatsApp Only)
-                            </a>
+                          {/* WhatsApp Hotlines Support */}
+                          <div className="space-y-1.5">
+                            <span className="text-[10px] text-slate-500 uppercase font-mono block">WhatsApp Hotlines Support</span>
+                            <div className="space-y-1">
+                              <a 
+                                href="https://wa.me/2348030587933" 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-white hover:text-emerald-400 text-sm font-extrabold transition flex items-center gap-1.5"
+                              >
+                                <span>💬</span>
+                                <span>+234 - 803 058 7933</span>
+                              </a>
+                              <a 
+                                href="https://wa.me/2349037595705" 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-white hover:text-emerald-400 text-sm font-extrabold transition flex items-center gap-1.5"
+                              >
+                                <span>💬</span>
+                                <span>+234 - 903 759 5705</span>
+                              </a>
+                            </div>
                           </div>
 
+                          {/* Active Office Hours */}
                           <div className="space-y-1">
-                            <span className="text-[10px] text-slate-500 uppercase font-mono block">Active Forecasting Office Hours</span>
-                            <p className="text-white">
-                              Tuesday 9:00 AM — Sunday 6:00 PM (GMT +1)
-                            </p>
+                            <span className="text-[10px] text-slate-500 uppercase font-mono block">Active Office Hours</span>
+                            <div className="text-white text-xs space-y-0.5 font-medium">
+                              <p className="flex items-center justify-between">
+                                <span className="text-slate-400">Mondays – Saturdays:</span>
+                                <span className="font-bold text-slate-200">8:00 am to 7:00pm</span>
+                              </p>
+                              <p className="flex items-center justify-between">
+                                <span className="text-slate-400">Sundays:</span>
+                                <span className="font-bold text-slate-200">12noon – 6:00 pm</span>
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Customer Support (24 Hrs) */}
+                          <div className="space-y-1.5 pt-1 border-t border-emerald-950/60">
+                            <span className="text-[10px] text-slate-500 uppercase font-mono block">Customer Support (24 Hrs)</span>
+                            <div className="space-y-1 text-white text-xs">
+                              <a 
+                                href="tel:+2348030587933" 
+                                className="hover:text-emerald-400 font-bold transition flex items-center gap-1.5"
+                              >
+                                <span>📞</span>
+                                <span>Call: +234 - 803 058 7933</span>
+                              </a>
+                              <a 
+                                href="tel:+2348064695138" 
+                                className="hover:text-emerald-400 font-bold transition flex items-center gap-1.5"
+                              >
+                                <span>📞</span>
+                                <span>Call: +234 - 806 469 5138</span>
+                              </a>
+                            </div>
                           </div>
                         </div>
                       </div>
