@@ -415,6 +415,51 @@ export default function App() {
         if (data && Array.isArray(data)) {
           setDb(prev => {
             if (data.length > 0) {
+              if (tableName === 'pool_result' || tableName === 'pool_results') {
+                const mappedRows = data.map((r: any) => {
+                  const isDraw = r.status === 'ScoreDraw' || r.status === 'noScoreDraw';
+                  const outcome = isDraw ? 'DRAW' : (r.status === 'Home' ? 'HOME WIN' : 'AWAY WIN');
+                  return {
+                    id: r.id,
+                    matchNo: r.id,
+                    home_team: r.home_team,
+                    away_team: r.away_team,
+                    status: r.status,
+                    pool_result: r.pool_result,
+                    homeTeam: r.home_team,
+                    awayTeam: r.away_team,
+                    fullTimeScore: (r.pool_result || '').replace('-:-', ' - '),
+                    outcome,
+                    payoutStatus: 'CLEARED'
+                  };
+                });
+
+                const currentResults = prev.pool_results || [];
+                const updatedPoolResults = currentResults.map(sheet => ({
+                  ...sheet,
+                  results_table: mappedRows
+                }));
+
+                return {
+                  ...prev,
+                  pool_results: updatedPoolResults.length > 0 ? updatedPoolResults : [{
+                    id: 'pr-w43',
+                    pool_week_id: 'pw-week-43',
+                    bookmaker_id: 'bm-bet9ja',
+                    uploaded_by: 'usr-admin-777',
+                    results_content: 'Official pool_result table fixtures',
+                    file_url: null,
+                    created_at: new Date().toISOString(),
+                    title: 'UK Pool Results Sheet',
+                    week_number: 43,
+                    season_year: 2026,
+                    pool_type: 'uk',
+                    fixture_date: '2026-08-22',
+                    comments_count: 0,
+                    results_table: mappedRows
+                  }]
+                };
+              }
               return {
                 ...prev,
                 [dbKey]: data
@@ -444,7 +489,7 @@ export default function App() {
       logAndSetTable('bookmakers', 'bookmakers', 'SELECT * FROM bookmakers;'),
       logAndSetTable('pool_weeks', 'pool_weeks', 'SELECT * FROM pool_weeks;'),
       logAndSetTable('pool_codes', 'pool_codes', 'SELECT * FROM pool_codes;'),
-      logAndSetTable('pool_results', 'pool_results', 'SELECT * FROM pool_results;'),
+      logAndSetTable('pool_result', 'pool_results', 'SELECT * FROM pool_result;'),
       logAndSetTable('notifications', 'notifications', 'SELECT * FROM notifications;'),
       logAndSetTable('user_downloads', 'user_downloads', 'SELECT * FROM user_downloads;'),
       logAndSetTable('bet9ja', 'bet9ja', 'SELECT * FROM bet9ja;'),

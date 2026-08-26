@@ -227,7 +227,7 @@ app.get("/api/database/tables", async (req, res) => {
     "blogs", "blog", "posts", "articles", "news", "expert_blogs", "expert_blog",
     "users", "profiles", "accounts",
     "livescores", "live_scores", "live_score", "matches", "fixtures", "predictions", "games", "coupons",
-    "championship_results", "championships", "results", "pool_results",
+    "championship_results", "championships", "results", "pool_result", "pool_results",
     "pool codes comparison", "pool_codes_comparison", "pool_codes", "pool_code", "pool_comparison", "pool_codes_table",
     "weekly pool picks", "weekly_pool_picks", "weekly_picks", "pool_picks", "weekly pool picks table", "weekly_pool_picks_table", "weekly_picks_table", "pool_picks_table",
     "weekly pool picks(Bet9ja)", "weekly pool picks (Bet9ja)", "weekly pool picks(bet9ja)", "weekly_pool_picks_bet9ja", "weekly_picks_bet9ja", "weekly pool picks bet9ja",
@@ -529,7 +529,9 @@ app.get("/api/tables/:tableName", async (req, res) => {
 
   let actualTableName = decodedName;
   const normalizedKey = decodedName.toLowerCase().replace(/[\s_\-]+/g, "_");
-  if (normalizedKey.includes("pool_codes_comparison") || normalizedKey.includes("poolcodes_comparison")) {
+  if (normalizedKey === "pool_results" || normalizedKey === "pool_result") {
+    actualTableName = "pool_result";
+  } else if (normalizedKey.includes("pool_codes_comparison") || normalizedKey.includes("poolcodes_comparison")) {
     actualTableName = "pool codes comparison";
   } else if (normalizedKey.includes("bet9ja") && (normalizedKey.includes("weekly") || normalizedKey.includes("pick"))) {
     actualTableName = "weekly pool picks(Bet9ja)";
