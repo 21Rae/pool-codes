@@ -5711,9 +5711,6 @@ export default function CustomerPortal({
                         <h2 className="text-xl sm:text-2xl font-extrabold tracking-wider text-slate-100 font-mono uppercase mt-1.5">
                           POOL RESULTS DIRECTORY
                         </h2>
-                        <p className="text-slate-400 text-xs mt-1 font-sans">
-                          Current database schema: <code className="text-emerald-400 font-mono">id</code>, <code className="text-emerald-400 font-mono">home_team</code>, <code className="text-emerald-400 font-mono">pool_result</code>, <code className="text-emerald-400 font-mono">away_team</code>, and <code className="text-emerald-400 font-mono">status</code>.
-                        </p>
                       </div>
 
                       <div className="flex flex-wrap items-center gap-2">
