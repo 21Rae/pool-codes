@@ -671,18 +671,18 @@ export const POOL_RESULT_ROWS: PoolResultRecord[] = [
 
 export const INITIAL_POOL_RESULTS: PoolResult[] = [
   {
-    id: 'pr-w43',
-    pool_week_id: 'pw-week-43',
+    id: 'pr-w49',
+    pool_week_id: 'pw-week-49',
     bookmaker_id: 'bm-bet9ja',
     uploaded_by: 'usr-admin-777',
-    results_content: '--- WEEK 43 OFFICIAL RESULTS ---\nMatch 7: Sheff Utd. 0-0 Birmingham (DRAW)\nMatch 9: Burnley 2-2 West Ham (DRAW)\nMatch 11: Blackpool 1-1 Wycombe (DRAW)\nMatch 13: Burton A. 1-1 Stevenage (DRAW)\nMatch 21: R. Santander 2-2 Villarreal (DRAW)',
-    file_url: 'https://storage.poolcodes.com/results/w43-results.pdf',
-    created_at: '2026-04-27T10:00:00Z',
-    title: 'Week 43 UK Pool results: Official pool_result Table Matches',
-    week_number: 43,
+    results_content: '--- WEEK 49 OFFICIAL RESULTS ---\nMatch 7: Sheff Utd. 0-0 Birmingham (noScoreDraw)\nMatch 9: Burnley 2-2 West Ham (ScoreDraw)\nMatch 11: Blackpool 1-1 Wycombe (ScoreDraw)\nMatch 13: Burton A. 1-1 Stevenage (ScoreDraw)\nMatch 21: R. Santander 2-2 Villarreal (ScoreDraw)',
+    file_url: 'https://storage.poolcodes.com/results/w49-results.pdf',
+    created_at: '2026-06-08T10:00:00Z',
+    title: 'Week 49 UK Pool results: Official pool_result Table Matches',
+    week_number: 49,
     season_year: 2026,
     pool_type: 'uk',
-    fixture_date: '2026-04-25',
+    fixture_date: '2026-06-06',
     comments_count: 0,
     results_table: POOL_RESULT_ROWS.map(r => {
       const isDraw = r.status === 'ScoreDraw' || r.status === 'noScoreDraw';
@@ -1315,7 +1315,10 @@ function createBookmakerTableRows(
       awaywin: awayOdds,
       bet: assignedTip,
       status: m.status || 'Active',
-      kickoff: m.kickoff || '3:00 PM'
+      kickoff: m.kickoff || '3:00 PM',
+      week_no: 49,
+      week: 49,
+      week_number: 49
     };
   });
 }

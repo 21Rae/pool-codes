@@ -440,21 +440,22 @@ export default function App() {
                   results_table: mappedRows
                 }));
 
+                const activeWeekNum = prev.pool_weeks?.find(w => w.status === 'active')?.week_number || 49;
                 return {
                   ...prev,
                   pool_results: updatedPoolResults.length > 0 ? updatedPoolResults : [{
-                    id: 'pr-w43',
-                    pool_week_id: 'pw-week-43',
+                    id: `pr-w${activeWeekNum}`,
+                    pool_week_id: `pw-week-${activeWeekNum}`,
                     bookmaker_id: 'bm-bet9ja',
                     uploaded_by: 'usr-admin-777',
                     results_content: 'Official pool_result table fixtures',
                     file_url: null,
                     created_at: new Date().toISOString(),
-                    title: 'UK Pool Results Sheet',
-                    week_number: 43,
+                    title: `Week ${activeWeekNum} UK Pool results: Official pool_result Table Matches`,
+                    week_number: activeWeekNum,
                     season_year: 2026,
                     pool_type: 'uk',
-                    fixture_date: '2026-08-22',
+                    fixture_date: '2026-06-06',
                     comments_count: 0,
                     results_table: mappedRows
                   }]

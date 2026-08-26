@@ -5583,15 +5583,23 @@ export default function CustomerPortal({
 
               {/* SUBTAB 3: RESULTS CENTER OF GAME PAYOUTS */}
               {activeSubTab === 'results' && (() => {
+                const effectiveWeek = (activeWeekNumber && activeWeekNumber !== 'NULL') ? activeWeekNumber : '49';
                 const uniqueSeasons = Array.from(new Set(poolResults.map((r: any) => String(r.season_year || 2026)))).sort();
-                const uniqueWeeks = Array.from(new Set(poolResults.map((r: any) => Number(r.week_number || 43)))).sort((a: any, b: any) => Number(a) - Number(b));
+                const uniqueWeeks = Array.from(new Set(poolResults.map((r: any) => Number((activeWeekNumber && activeWeekNumber !== 'NULL') ? activeWeekNumber : (r.week_number || 49))))).sort((a: any, b: any) => Number(a) - Number(b));
 
-                const filteredResults = poolResults.filter((sheet: any) => {
+                const filteredResults = poolResults.map((sheet: any) => {
+                  const resolvedWeek = (activeWeekNumber && activeWeekNumber !== 'NULL') ? Number(activeWeekNumber) : (sheet.week_number || 49);
+                  return {
+                    ...sheet,
+                    week_number: resolvedWeek,
+                    title: sheet.title ? sheet.title.replace(/Week\s*\d+/i, `Week ${resolvedWeek}`) : `Week ${resolvedWeek} UK Pool results: Official pool_result Table Matches`
+                  };
+                }).filter((sheet: any) => {
                   if (filterSeason !== 'all') {
                     if (String(sheet.season_year || 2026) !== filterSeason) return false;
                   }
                   if (filterWeek !== 'all') {
-                    if (String(sheet.week_number || 43) !== filterWeek) return false;
+                    if (String(sheet.week_number || 49) !== filterWeek) return false;
                   }
                   if (filterFixtureDate !== '') {
                     if (sheet.fixture_date !== filterFixtureDate) return false;
@@ -5704,7 +5712,7 @@ export default function CustomerPortal({
                           POOL RESULTS DIRECTORY
                         </h2>
                         <p className="text-slate-400 text-xs mt-1 font-sans">
-                          Current database schema: <code className="text-emerald-400 font-mono">id</code>, <code className="text-emerald-400 font-mono">home_team</code>, <code className="text-emerald-400 font-mono">away_team</code>, <code className="text-emerald-400 font-mono">status</code>, and <code className="text-emerald-400 font-mono">pool_result</code>.
+                          Current database schema: <code className="text-emerald-400 font-mono">id</code>, <code className="text-emerald-400 font-mono">home_team</code>, <code className="text-emerald-400 font-mono">pool_result</code>, <code className="text-emerald-400 font-mono">away_team</code>, and <code className="text-emerald-400 font-mono">status</code>.
                         </p>
                       </div>
 
@@ -5748,14 +5756,16 @@ export default function CustomerPortal({
                             }}
                             className="w-full bg-slate-950 text-white border border-slate-800 rounded-xl px-4 py-2.5 text-xs font-mono font-bold focus:outline-none focus:border-emerald-500 transition cursor-pointer appearance-none pr-10"
                           >
-                            {poolResults.map((res: any) => {
+                            {filteredResults.map((res: any) => {
                               const draws = (res.results_table || []).filter((x: any) => {
                                 const st = x.status || '';
                                 return st === 'ScoreDraw' || st === 'noScoreDraw';
                               }).length;
+                              const wkDisplay = (activeWeekNumber && activeWeekNumber !== 'NULL') ? activeWeekNumber : (res.week_number || 49);
+                              const titleDisplay = (res.title || `Week ${wkDisplay} UK Pool results`).replace(/Week\s*\d+/i, `Week ${wkDisplay}`);
                               return (
                                 <option key={res.id} value={res.id} className="bg-slate-950 text-white py-2">
-                                  WEEK {res.week_number} • Year {res.season_year || 2026} ({res.pool_type?.toUpperCase() || 'UK'}) — {res.title} [{draws} Draws]
+                                  WEEK {wkDisplay} • Year {res.season_year || 2026} ({res.pool_type?.toUpperCase() || 'UK'}) — {titleDisplay} [{draws} Draws]
                                 </option>
                               );
                             })}
@@ -5857,10 +5867,10 @@ export default function CustomerPortal({
                             <div className="flex-grow bg-[#004D40] text-slate-100 flex flex-col items-start md:items-center justify-center py-5 px-4 md:px-10 text-left md:text-center relative">
                               <div className="absolute inset-0 bg-[#10B981]/15 mix-blend-overlay"></div>
                               <h1 className="font-black text-lg md:text-2xl tracking-tight md:tracking-widest text-[#FFF] uppercase leading-none drop-shadow-md whitespace-normal break-words">
-                                {activeResult.pool_type?.toUpperCase() === 'AUSSIE' ? 'AUSSIE' : 'UK'} POOL RESULTS TABLE
+                                {activeResult.pool_type?.toUpperCase() === 'AUSSIE' ? 'AUSSIE' : 'UK'} WEEK {(activeWeekNumber && activeWeekNumber !== 'NULL') ? activeWeekNumber : (activeResult.week_number || 49)} POOL RESULTS TABLE
                               </h1>
                               <p className="text-[10px] md:text-xs tracking-wider text-emerald-300 font-bold mt-1.5 drop-shadow-sm font-mono uppercase">
-                                CURRENT `pool_result` TABLE: id • home_team • away_team • status • pool_result
+                                CURRENT `pool_result` TABLE: id • home_team • pool_result • away_team • status
                               </p>
                             </div>
                           </div>
@@ -5869,9 +5879,9 @@ export default function CustomerPortal({
                           <div className="flex border-b border-slate-800 bg-slate-900/80 font-mono text-[11px] font-extrabold text-slate-200">
                             <div className="w-[70px] shrink-0 border-r border-slate-800 p-3 text-center uppercase tracking-wider bg-slate-950/40">id</div>
                             <div className="flex-1 min-w-[180px] border-r border-slate-800 p-3 text-left pl-4 uppercase tracking-wider">home_team</div>
+                            <div className="w-[140px] shrink-0 border-r border-slate-800 p-3 text-center uppercase tracking-wider bg-slate-950/40">pool_result</div>
                             <div className="flex-1 min-w-[180px] border-r border-slate-800 p-3 text-left pl-4 uppercase tracking-wider">away_team</div>
-                            <div className="w-[150px] shrink-0 border-r border-slate-800 p-3 text-center uppercase tracking-wider bg-slate-950/40">status</div>
-                            <div className="w-[140px] shrink-0 p-3 text-center uppercase tracking-wider bg-slate-950/40">pool_result</div>
+                            <div className="w-[150px] shrink-0 p-3 text-center uppercase tracking-wider bg-slate-950/40">status</div>
                           </div>
 
                           {/* Rows: Matching the current pool_result table */}
@@ -5969,21 +5979,21 @@ export default function CustomerPortal({
                                     {homeTeam}
                                   </div>
 
+                                  {/* pool_result */}
+                                  <div className="w-[140px] shrink-0 border-r border-slate-800 p-3 text-center font-black text-sm flex items-center justify-center bg-slate-950/30">
+                                    <span className="px-3 py-1 bg-slate-900 border border-slate-700/80 rounded-lg text-amber-300 font-mono tracking-wider shadow-inner">
+                                      {poolResult}
+                                    </span>
+                                  </div>
+
                                   {/* away_team */}
                                   <div className="flex-1 min-w-[180px] border-r border-slate-800 p-3 text-left pl-4 font-bold text-slate-100 flex items-center">
                                     {awayTeam}
                                   </div>
 
                                   {/* status */}
-                                  <div className="w-[150px] shrink-0 border-r border-slate-800 p-3 text-center flex items-center justify-center bg-slate-950/20">
+                                  <div className="w-[150px] shrink-0 p-3 text-center flex items-center justify-center bg-slate-950/20">
                                     {getStatusBadge(status)}
-                                  </div>
-
-                                  {/* pool_result */}
-                                  <div className="w-[140px] shrink-0 p-3 text-center font-black text-sm flex items-center justify-center bg-slate-950/30">
-                                    <span className="px-3 py-1 bg-slate-900 border border-slate-700/80 rounded-lg text-amber-300 font-mono tracking-wider shadow-inner">
-                                      {poolResult}
-                                    </span>
                                   </div>
                                 </div>
                               );

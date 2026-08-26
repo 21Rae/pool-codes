@@ -1344,10 +1344,10 @@ export default function OfficePoolStopHome({
                               <thead>
                                 <tr className="bg-[#020b08] text-emerald-400 font-mono text-[11px] font-black uppercase tracking-wider border-b border-emerald-950">
                                   <th className="py-3.5 px-4 text-center w-16 border-r border-emerald-950/60 bg-emerald-950/20">id</th>
-                                  <th className="py-3.5 px-4 border-r border-emerald-950/60">Home_Team</th>
-                                  <th className="py-3.5 px-4 text-center w-36 border-r border-emerald-950/60 bg-emerald-950/20">Home_Team_Score</th>
-                                  <th className="py-3.5 px-4 text-center w-36 border-r border-emerald-950/60 bg-emerald-950/20">Away_Team_Score</th>
-                                  <th className="py-3.5 px-4">Away_Team</th>
+                                  <th className="py-3.5 px-4 border-r border-emerald-950/60">home_team</th>
+                                  <th className="py-3.5 px-4 text-center w-36 border-r border-emerald-950/60 bg-emerald-950/20">pool_result</th>
+                                  <th className="py-3.5 px-4 border-r border-emerald-950/60">away_team</th>
+                                  <th className="py-3.5 px-4 text-center w-32 bg-emerald-950/20">status</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-emerald-950/35 font-semibold text-slate-300">
@@ -1360,11 +1360,11 @@ export default function OfficePoolStopHome({
                                 ) : (
                                   activeResultRows.map((row: any, rIdx: number) => {
                                     const rowId = row.id ?? row.matchNo ?? (rIdx + 1);
-                                    const homeTeam = row.Home_Team || row.home_team || row.homeTeam || '';
-                                    const awayTeam = row.Away_Team || row.away_team || row.awayTeam || '';
-                                    const homeScore = row.Home_Team_Score !== undefined ? row.Home_Team_Score : (row.home_team_score !== undefined ? row.home_team_score : Number(row.fullTimeScore?.split('-')[0]?.trim() || 0));
-                                    const awayScore = row.Away_Team_Score !== undefined ? row.Away_Team_Score : (row.away_team_score !== undefined ? row.away_team_score : Number(row.fullTimeScore?.split('-')[1]?.trim() || 0));
-                                    const isDraw = homeScore === awayScore;
+                                    const homeTeam = row.home_team || row.Home_Team || row.homeTeam || '';
+                                    const awayTeam = row.away_team || row.Away_Team || row.awayTeam || '';
+                                    const poolResult = row.pool_result || row.fullTimeScore?.replace(' - ', '-:-') || '0-:-0';
+                                    const status = row.status || (row.outcome === 'DRAW' ? 'ScoreDraw' : (row.outcome === 'HOME WIN' ? 'Home' : 'Away'));
+                                    const isDraw = status === 'ScoreDraw' || status === 'noScoreDraw';
 
                                     return (
                                       <tr key={rIdx} className={`hover:bg-emerald-950/30 transition-colors ${isDraw ? 'bg-amber-950/15' : ''}`}>
@@ -1375,13 +1375,22 @@ export default function OfficePoolStopHome({
                                           {homeTeam}
                                         </td>
                                         <td className="py-3 px-4 text-center font-mono font-black text-amber-300 text-sm border-r border-emerald-950/50 bg-slate-950/20">
-                                          {homeScore}
+                                          <span className="px-2.5 py-0.5 bg-slate-900 border border-slate-700/80 rounded text-amber-300 font-mono text-xs">
+                                            {poolResult}
+                                          </span>
                                         </td>
-                                        <td className="py-3 px-4 text-center font-mono font-black text-amber-300 text-sm border-r border-emerald-950/50 bg-slate-950/20">
-                                          {awayScore}
-                                        </td>
-                                        <td className="py-3 px-4 text-white font-semibold">
+                                        <td className="py-3 px-4 text-white font-semibold border-r border-emerald-950/50">
                                           {awayTeam}
+                                        </td>
+                                        <td className="py-3 px-4 text-center font-mono text-xs">
+                                          <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase ${
+                                            status === 'ScoreDraw' ? 'bg-emerald-950 text-emerald-300 border border-emerald-700' :
+                                            status === 'noScoreDraw' ? 'bg-teal-950 text-teal-300 border border-teal-700' :
+                                            status === 'Home' ? 'bg-blue-950 text-blue-300 border border-blue-700' :
+                                            'bg-purple-950 text-purple-300 border border-purple-700'
+                                          }`}>
+                                            {status}
+                                          </span>
                                         </td>
                                       </tr>
                                     );
