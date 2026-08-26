@@ -324,11 +324,11 @@ export default function ExpertBlogView({
   const activeResultRows = activeResult ? (activeResult.results_table || []).filter((row: any) => {
     if (!resultsTableSearch) return true;
     const s = resultsTableSearch.toLowerCase();
-    const home = (row.home_team || row.homeTeam || '').toLowerCase();
-    const away = (row.away_team || row.awayTeam || '').toLowerCase();
+    const home = (row.Home_Team || row.home_team || row.homeTeam || '').toLowerCase();
+    const away = (row.Away_Team || row.away_team || row.awayTeam || '').toLowerCase();
     const rowId = String(row.id ?? row.matchNo ?? '');
-    const hScore = String(row.home_team_score ?? '');
-    const aScore = String(row.away_team_score ?? '');
+    const hScore = String(row.Home_Team_Score ?? row.home_team_score ?? '');
+    const aScore = String(row.Away_Team_Score ?? row.away_team_score ?? '');
     return (
       home.includes(s) ||
       away.includes(s) ||
@@ -1441,10 +1441,10 @@ INSERT INTO public.championship_results (
                             <thead>
                               <tr className="bg-zinc-50/80 text-zinc-500 font-mono text-[9px] font-bold uppercase tracking-wider border-b border-zinc-200 select-none">
                                 <th className="py-2.5 px-3 text-center w-12 border-r border-zinc-200">id</th>
-                                <th className="py-2.5 px-3 border-r border-zinc-200">home_team</th>
-                                <th className="py-2.5 px-3 border-r border-zinc-200">away_team</th>
-                                <th className="py-2.5 px-3 text-center w-28 border-r border-zinc-200">home_team_score</th>
-                                <th className="py-2.5 px-3 text-center w-28">away_team_score</th>
+                                <th className="py-2.5 px-3 border-r border-zinc-200">Home_Team</th>
+                                <th className="py-2.5 px-3 text-center w-28 border-r border-zinc-200">Home_Team_Score</th>
+                                <th className="py-2.5 px-3 text-center w-28 border-r border-zinc-200">Away_Team_Score</th>
+                                <th className="py-2.5 px-3">Away_Team</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-zinc-100 font-bold text-zinc-700">
@@ -1457,10 +1457,10 @@ INSERT INTO public.championship_results (
                               ) : (
                                 activeResultRows.map((row: any, rIdx: number) => {
                                   const rowId = row.id ?? row.matchNo ?? (rIdx + 1);
-                                  const homeTeam = row.home_team || row.homeTeam || '';
-                                  const awayTeam = row.away_team || row.awayTeam || '';
-                                  const homeScore = row.home_team_score !== undefined ? row.home_team_score : Number(row.fullTimeScore?.split('-')[0]?.trim() || 0);
-                                  const awayScore = row.away_team_score !== undefined ? row.away_team_score : Number(row.fullTimeScore?.split('-')[1]?.trim() || 0);
+                                  const homeTeam = row.Home_Team || row.home_team || row.homeTeam || '';
+                                  const awayTeam = row.Away_Team || row.away_team || row.awayTeam || '';
+                                  const homeScore = row.Home_Team_Score !== undefined ? row.Home_Team_Score : (row.home_team_score !== undefined ? row.home_team_score : Number(row.fullTimeScore?.split('-')[0]?.trim() || 0));
+                                  const awayScore = row.Away_Team_Score !== undefined ? row.Away_Team_Score : (row.away_team_score !== undefined ? row.away_team_score : Number(row.fullTimeScore?.split('-')[1]?.trim() || 0));
                                   const isDraw = homeScore === awayScore;
 
                                   return (
@@ -1471,14 +1471,14 @@ INSERT INTO public.championship_results (
                                       <td className="py-2.5 px-3 text-zinc-900 text-[11px] border-r border-zinc-100 font-semibold">
                                         {homeTeam}
                                       </td>
-                                      <td className="py-2.5 px-3 text-zinc-900 text-[11px] border-r border-zinc-100 font-semibold">
-                                        {awayTeam}
-                                      </td>
                                       <td className="py-2.5 px-3 text-center font-mono text-zinc-900 text-[12px] font-black border-r border-zinc-100 bg-zinc-50/30">
                                         {homeScore}
                                       </td>
-                                      <td className="py-2.5 px-3 text-center font-mono text-zinc-900 text-[12px] font-black bg-zinc-50/30">
+                                      <td className="py-2.5 px-3 text-center font-mono text-zinc-900 text-[12px] font-black border-r border-zinc-100 bg-zinc-50/30">
                                         {awayScore}
+                                      </td>
+                                      <td className="py-2.5 px-3 text-zinc-900 text-[11px] font-semibold">
+                                        {awayTeam}
                                       </td>
                                     </tr>
                                   );

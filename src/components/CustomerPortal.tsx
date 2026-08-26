@@ -809,14 +809,20 @@ export default function CustomerPortal({
 
   const exportResultToCSV = (result: typeof db.pool_results[0]) => {
     try {
-      const headers = ['id', 'home_team', 'away_team', 'home_team_score', 'away_team_score'];
-      const rows = (result.results_table || []).map((row: any) => [
-        row.id ?? row.matchNo ?? '',
-        `"${row.home_team || row.homeTeam || ''}"`,
-        `"${row.away_team || row.awayTeam || ''}"`,
-        row.home_team_score !== undefined ? row.home_team_score : (row.fullTimeScore?.split('-')[0]?.trim() ?? 0),
-        row.away_team_score !== undefined ? row.away_team_score : (row.fullTimeScore?.split('-')[1]?.trim() ?? 0)
-      ]);
+      const headers = ['id', 'Home_Team', 'Home_Team_Score', 'Away_Team_Score', 'Away_Team'];
+      const rows = (result.results_table || []).map((row: any) => {
+        const homeTeam = row.Home_Team || row.home_team || row.homeTeam || '';
+        const awayTeam = row.Away_Team || row.away_team || row.awayTeam || '';
+        const homeScore = row.Home_Team_Score !== undefined ? row.Home_Team_Score : (row.home_team_score !== undefined ? row.home_team_score : (row.fullTimeScore?.split('-')[0]?.trim() ?? 0));
+        const awayScore = row.Away_Team_Score !== undefined ? row.Away_Team_Score : (row.away_team_score !== undefined ? row.away_team_score : (row.fullTimeScore?.split('-')[1]?.trim() ?? 0));
+        return [
+          row.id ?? row.matchNo ?? '',
+          `"${homeTeam}"`,
+          homeScore,
+          awayScore,
+          `"${awayTeam}"`
+        ];
+      });
       const csvContent = "data:text/csv;charset=utf-8," 
         + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
       
@@ -5732,10 +5738,10 @@ export default function CustomerPortal({
                           {/* Row 2: Column header tags */}
                           <div className="flex border-b border-slate-800 bg-slate-900/60 font-mono text-[11px] font-extrabold text-slate-300">
                             <div className="w-[80px] shrink-0 border-r border-slate-800 p-2 text-center uppercase tracking-wider bg-slate-950/25">id</div>
-                            <div className="flex-1 min-w-[150px] border-r border-slate-800 p-2 text-left pl-4 uppercase tracking-wider">home_team</div>
-                            <div className="flex-1 min-w-[150px] border-r border-slate-800 p-2 text-left pl-4 uppercase tracking-wider">away_team</div>
-                            <div className="w-[140px] shrink-0 border-r border-slate-800 p-2 text-center uppercase tracking-wider bg-slate-950/25">home_team_score</div>
-                            <div className="w-[140px] shrink-0 p-2 text-center uppercase tracking-wider bg-slate-950/25">away_team_score</div>
+                            <div className="flex-1 min-w-[150px] border-r border-slate-800 p-2 text-left pl-4 uppercase tracking-wider">Home_Team</div>
+                            <div className="w-[140px] shrink-0 border-r border-slate-800 p-2 text-center uppercase tracking-wider bg-slate-950/25">Home_Team_Score</div>
+                            <div className="w-[140px] shrink-0 border-r border-slate-800 p-2 text-center uppercase tracking-wider bg-slate-950/25">Away_Team_Score</div>
+                            <div className="flex-1 min-w-[150px] p-2 text-left pl-4 uppercase tracking-wider">Away_Team</div>
                           </div>
 
                           {/* Rows: Results rows representing the actual football matches */}
@@ -5744,8 +5750,8 @@ export default function CustomerPortal({
                             const filtered = baseRows.filter((row: any) => {
                               if (!championshipSearchQuery) return true;
                               const q = championshipSearchQuery.toLowerCase();
-                              const home = (row.home_team || row.homeTeam || '').toLowerCase();
-                              const away = (row.away_team || row.awayTeam || '').toLowerCase();
+                              const home = (row.Home_Team || row.home_team || row.homeTeam || '').toLowerCase();
+                              const away = (row.Away_Team || row.away_team || row.awayTeam || '').toLowerCase();
                               const rowId = String(row.id ?? row.matchNo ?? '');
                               return (
                                 home.includes(q) ||
@@ -5768,10 +5774,10 @@ export default function CustomerPortal({
 
                             return filtered.map((row: any, idx: number) => {
                               const rowId = row.id ?? row.matchNo ?? (idx + 1);
-                              const homeTeam = row.home_team || row.homeTeam || '';
-                              const awayTeam = row.away_team || row.awayTeam || '';
-                              const homeScore = row.home_team_score !== undefined ? row.home_team_score : Number(row.fullTimeScore?.split('-')[0]?.trim() || 0);
-                              const awayScore = row.away_team_score !== undefined ? row.away_team_score : Number(row.fullTimeScore?.split('-')[1]?.trim() || 0);
+                              const homeTeam = row.Home_Team || row.home_team || row.homeTeam || '';
+                              const awayTeam = row.Away_Team || row.away_team || row.awayTeam || '';
+                              const homeScore = row.Home_Team_Score !== undefined ? row.Home_Team_Score : (row.home_team_score !== undefined ? row.home_team_score : Number(row.fullTimeScore?.split('-')[0]?.trim() || 0));
+                              const awayScore = row.Away_Team_Score !== undefined ? row.Away_Team_Score : (row.away_team_score !== undefined ? row.away_team_score : Number(row.fullTimeScore?.split('-')[1]?.trim() || 0));
                               const isDraw = homeScore === awayScore;
                               
                               return (
@@ -5786,24 +5792,24 @@ export default function CustomerPortal({
                                     {rowId}
                                   </div>
 
-                                  {/* home_team */}
+                                  {/* Home_Team */}
                                   <div className="flex-1 min-w-[150px] border-r border-slate-800 p-3 text-left pl-4 font-bold text-slate-100 flex items-center">
                                     {homeTeam}
                                   </div>
 
-                                  {/* away_team */}
-                                  <div className="flex-1 min-w-[150px] border-r border-slate-800 p-3 text-left pl-4 font-bold text-slate-100 flex items-center">
-                                    {awayTeam}
-                                  </div>
-
-                                  {/* home_team_score */}
+                                  {/* Home_Team_Score */}
                                   <div className="w-[140px] shrink-0 border-r border-slate-800 p-3 text-center text-amber-300 font-black text-sm flex items-center justify-center bg-slate-950/20">
                                     {homeScore}
                                   </div>
 
-                                  {/* away_team_score */}
-                                  <div className="w-[140px] shrink-0 p-3 text-center text-amber-300 font-black text-sm flex items-center justify-center bg-slate-950/20">
+                                  {/* Away_Team_Score */}
+                                  <div className="w-[140px] shrink-0 border-r border-slate-800 p-3 text-center text-amber-300 font-black text-sm flex items-center justify-center bg-slate-950/20">
                                     {awayScore}
+                                  </div>
+
+                                  {/* Away_Team */}
+                                  <div className="flex-1 min-w-[150px] p-3 text-left pl-4 font-bold text-slate-100 flex items-center">
+                                    {awayTeam}
                                   </div>
                                 </div>
                               );

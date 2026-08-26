@@ -618,27 +618,27 @@ export const INITIAL_POOL_CODES: PoolCode[] = [
 ];
 
 export const POOL_RESULT_ROWS: PoolResultRecord[] = [
-  { id: 1, home_team: 'Bristol C.', away_team: 'Millwall', home_team_score: 0, away_team_score: 2 },
-  { id: 2, home_team: 'Charlton', away_team: 'Derby', home_team_score: 2, away_team_score: 1 },
-  { id: 3, home_team: 'Middlesbro', away_team: 'Lincoln', home_team_score: 2, away_team_score: 1 },
-  { id: 4, home_team: 'Norwich', away_team: 'West Brom', home_team_score: 1, away_team_score: 2 },
-  { id: 5, home_team: 'Portsmouth', away_team: 'Q.P.R.', home_team_score: 1, away_team_score: 3 },
-  { id: 6, home_team: 'Stoke', away_team: 'Swansea', home_team_score: 1, away_team_score: 2 },
-  { id: 7, home_team: 'Sheff Utd.', away_team: 'Birmingham', home_team_score: 0, away_team_score: 0 },
-  { id: 8, home_team: 'Watford', away_team: 'Southampton', home_team_score: 2, away_team_score: 1 },
-  { id: 9, home_team: 'Burnley', away_team: 'West Ham', home_team_score: 2, away_team_score: 2 },
-  { id: 10, home_team: 'Barnsley', away_team: 'Bromley', home_team_score: 0, away_team_score: 1 },
-  { id: 11, home_team: 'Blackpool', away_team: 'Wycombe', home_team_score: 1, away_team_score: 1 },
-  { id: 12, home_team: 'Bradford C', away_team: 'Peterboro', home_team_score: 2, away_team_score: 0 },
-  { id: 13, home_team: 'Burton A.', away_team: 'Stevenage', home_team_score: 1, away_team_score: 1 },
-  { id: 14, home_team: 'Cambridge', away_team: 'Wigan A.', home_team_score: 3, away_team_score: 2 },
-  { id: 15, home_team: 'Huddersfie', away_team: 'A.Wimbledon', home_team_score: 3, away_team_score: 0 },
-  { id: 16, home_team: 'Leyton O.', away_team: 'Sheff Wed.', home_team_score: 1, away_team_score: 2 },
-  { id: 17, home_team: 'Mansfield', away_team: 'Doncaster', home_team_score: 2, away_team_score: 1 },
-  { id: 18, home_team: 'Plymouth', away_team: 'Stockport', home_team_score: 1, away_team_score: 3 },
-  { id: 19, home_team: 'Dep. Alaves', away_team: 'Getafe', home_team_score: 3, away_team_score: 0 },
-  { id: 20, home_team: 'Sevilla', away_team: 'R. Vallecano', home_team_score: 2, away_team_score: 1 },
-  { id: 21, home_team: 'R. Santander', away_team: 'Villarreal', home_team_score: 2, away_team_score: 2 }
+  { id: 1, Home_Team: 'Bristol C.', Home_Team_Score: 0, Away_Team_Score: 2, Away_Team: 'Millwall', home_team: 'Bristol C.', home_team_score: 0, away_team_score: 2, away_team: 'Millwall' },
+  { id: 2, Home_Team: 'Charlton', Home_Team_Score: 2, Away_Team_Score: 1, Away_Team: 'Derby', home_team: 'Charlton', home_team_score: 2, away_team_score: 1, away_team: 'Derby' },
+  { id: 3, Home_Team: 'Middlesbro', Home_Team_Score: 2, Away_Team_Score: 1, Away_Team: 'Lincoln', home_team: 'Middlesbro', home_team_score: 2, away_team_score: 1, away_team: 'Lincoln' },
+  { id: 4, Home_Team: 'Norwich', Home_Team_Score: 1, Away_Team_Score: 2, Away_Team: 'West Brom', home_team: 'Norwich', home_team_score: 1, away_team_score: 2, away_team: 'West Brom' },
+  { id: 5, Home_Team: 'Portsmouth', Home_Team_Score: 1, Away_Team_Score: 3, Away_Team: 'Q.P.R.', home_team: 'Portsmouth', home_team_score: 1, away_team_score: 3, away_team: 'Q.P.R.' },
+  { id: 6, Home_Team: 'Stoke', Home_Team_Score: 1, Away_Team_Score: 2, Away_Team: 'Swansea', home_team: 'Stoke', home_team_score: 1, away_team_score: 2, away_team: 'Swansea' },
+  { id: 7, Home_Team: 'Sheff Utd.', Home_Team_Score: 0, Away_Team_Score: 0, Away_Team: 'Birmingham', home_team: 'Sheff Utd.', home_team_score: 0, away_team_score: 0, away_team: 'Birmingham' },
+  { id: 8, Home_Team: 'Watford', Home_Team_Score: 2, Away_Team_Score: 1, Away_Team: 'Southampton', home_team: 'Watford', home_team_score: 2, away_team_score: 1, away_team: 'Southampton' },
+  { id: 9, Home_Team: 'Burnley', Home_Team_Score: 2, Away_Team_Score: 2, Away_Team: 'West Ham', home_team: 'Burnley', home_team_score: 2, away_team_score: 2, away_team: 'West Ham' },
+  { id: 10, Home_Team: 'Barnsley', Home_Team_Score: 0, Away_Team_Score: 1, Away_Team: 'Bromley', home_team: 'Barnsley', home_team_score: 0, away_team_score: 1, away_team: 'Bromley' },
+  { id: 11, Home_Team: 'Blackpool', Home_Team_Score: 1, Away_Team_Score: 1, Away_Team: 'Wycombe', home_team: 'Blackpool', home_team_score: 1, away_team_score: 1, away_team: 'Wycombe' },
+  { id: 12, Home_Team: 'Bradford C', Home_Team_Score: 2, Away_Team_Score: 0, Away_Team: 'Peterboro', home_team: 'Bradford C', home_team_score: 2, away_team_score: 0, away_team: 'Peterboro' },
+  { id: 13, Home_Team: 'Burton A.', Home_Team_Score: 1, Away_Team_Score: 1, Away_Team: 'Stevenage', home_team: 'Burton A.', home_team_score: 1, away_team_score: 1, away_team: 'Stevenage' },
+  { id: 14, Home_Team: 'Cambridge', Home_Team_Score: 3, Away_Team_Score: 2, Away_Team: 'Wigan A.', home_team: 'Cambridge', home_team_score: 3, away_team_score: 2, away_team: 'Wigan A.' },
+  { id: 15, Home_Team: 'Huddersfie', Home_Team_Score: 3, Away_Team_Score: 0, Away_Team: 'A.Wimbledon', home_team: 'Huddersfie', home_team_score: 3, away_team_score: 0, away_team: 'A.Wimbledon' },
+  { id: 16, Home_Team: 'Leyton O.', Home_Team_Score: 1, Away_Team_Score: 2, Away_Team: 'Sheff Wed.', home_team: 'Leyton O.', home_team_score: 1, away_team_score: 2, away_team: 'Sheff Wed.' },
+  { id: 17, Home_Team: 'Mansfield', Home_Team_Score: 2, Away_Team_Score: 1, Away_Team: 'Doncaster', home_team: 'Mansfield', home_team_score: 2, away_team_score: 1, away_team: 'Doncaster' },
+  { id: 18, Home_Team: 'Plymouth', Home_Team_Score: 1, Away_Team_Score: 3, Away_Team: 'Stockport', home_team: 'Plymouth', home_team_score: 1, away_team_score: 3, away_team: 'Stockport' },
+  { id: 19, Home_Team: 'Dep. Alaves', Home_Team_Score: 3, Away_Team_Score: 0, Away_Team: 'Getafe', home_team: 'Dep. Alaves', home_team_score: 3, away_team_score: 0, away_team: 'Getafe' },
+  { id: 20, Home_Team: 'Sevilla', Home_Team_Score: 2, Away_Team_Score: 1, Away_Team: 'R. Vallecano', home_team: 'Sevilla', home_team_score: 2, away_team_score: 1, away_team: 'R. Vallecano' },
+  { id: 21, Home_Team: 'R. Santander', Home_Team_Score: 2, Away_Team_Score: 2, Away_Team: 'Villarreal', home_team: 'R. Santander', home_team_score: 2, away_team_score: 2, away_team: 'Villarreal' }
 ];
 
 export const INITIAL_POOL_RESULTS: PoolResult[] = [
@@ -656,19 +656,29 @@ export const INITIAL_POOL_RESULTS: PoolResult[] = [
     pool_type: 'uk',
     fixture_date: '2026-04-25',
     comments_count: 0,
-    results_table: POOL_RESULT_ROWS.map(r => ({
-      id: r.id,
-      matchNo: r.id,
-      home_team: r.home_team,
-      away_team: r.away_team,
-      home_team_score: r.home_team_score,
-      away_team_score: r.away_team_score,
-      homeTeam: r.home_team,
-      awayTeam: r.away_team,
-      fullTimeScore: `${r.home_team_score} - ${r.away_team_score}`,
-      outcome: r.home_team_score === r.away_team_score ? 'DRAW' : (r.home_team_score > r.away_team_score ? 'HOME WIN' : 'AWAY WIN'),
-      payoutStatus: 'CLEARED'
-    }))
+    results_table: POOL_RESULT_ROWS.map(r => {
+      const hTeam = r.Home_Team || r.home_team || '';
+      const aTeam = r.Away_Team || r.away_team || '';
+      const hScore = r.Home_Team_Score !== undefined ? r.Home_Team_Score : (r.home_team_score ?? 0);
+      const aScore = r.Away_Team_Score !== undefined ? r.Away_Team_Score : (r.away_team_score ?? 0);
+      return {
+        id: r.id,
+        matchNo: r.id,
+        Home_Team: hTeam,
+        Home_Team_Score: hScore,
+        Away_Team_Score: aScore,
+        Away_Team: aTeam,
+        home_team: hTeam,
+        home_team_score: hScore,
+        away_team_score: aScore,
+        away_team: aTeam,
+        homeTeam: hTeam,
+        awayTeam: aTeam,
+        fullTimeScore: `${hScore} - ${aScore}`,
+        outcome: hScore === aScore ? 'DRAW' : (hScore > aScore ? 'HOME WIN' : 'AWAY WIN'),
+        payoutStatus: 'CLEARED'
+      };
+    })
   }
 ];
 
@@ -913,17 +923,17 @@ export const DB_SCHEMAS: TableSchema[] = [
     description: 'Stores weekly match scoreline results featuring home/away teams and their respective match scores.',
     sql: `CREATE TABLE pool_result (
   id SERIAL PRIMARY KEY,
-  home_team VARCHAR(100) NOT NULL,
-  away_team VARCHAR(100) NOT NULL,
-  home_team_score INT NOT NULL DEFAULT 0,
-  away_team_score INT NOT NULL DEFAULT 0
+  Home_Team VARCHAR(100) NOT NULL,
+  Home_Team_Score INT NOT NULL DEFAULT 0,
+  Away_Team_Score INT NOT NULL DEFAULT 0,
+  Away_Team VARCHAR(100) NOT NULL
 );`,
     columns: [
       { name: 'id', type: 'SERIAL / INT', constraints: ['PRIMARY KEY', 'AUTO_INCREMENT'], description: 'Sequential match ID.' },
-      { name: 'home_team', type: 'VARCHAR(100)', constraints: ['NOT NULL'], description: 'Home playing team name (e.g. Bristol C., Charlton).' },
-      { name: 'away_team', type: 'VARCHAR(100)', constraints: ['NOT NULL'], description: 'Away playing team name (e.g. Millwall, Derby).' },
-      { name: 'home_team_score', type: 'INT', constraints: ['NOT NULL', 'DEFAULT 0'], description: 'Goals scored by the home team.' },
-      { name: 'away_team_score', type: 'INT', constraints: ['NOT NULL', 'DEFAULT 0'], description: 'Goals scored by the away team.' }
+      { name: 'Home_Team', type: 'VARCHAR(100)', constraints: ['NOT NULL'], description: 'Home playing team name (e.g. Bristol C., Charlton).' },
+      { name: 'Home_Team_Score', type: 'INT', constraints: ['NOT NULL', 'DEFAULT 0'], description: 'Goals scored by the home team.' },
+      { name: 'Away_Team_Score', type: 'INT', constraints: ['NOT NULL', 'DEFAULT 0'], description: 'Goals scored by the away team.' },
+      { name: 'Away_Team', type: 'VARCHAR(100)', constraints: ['NOT NULL'], description: 'Away playing team name (e.g. Millwall, Derby).' }
     ],
     relationships: []
   },

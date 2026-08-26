@@ -165,10 +165,14 @@ export interface PoolCode {
 
 export interface PoolResultRecord {
   id: number;
-  home_team: string;
-  away_team: string;
-  home_team_score: number;
-  away_team_score: number;
+  home_team?: string;
+  away_team?: string;
+  home_team_score?: number;
+  away_team_score?: number;
+  Home_Team?: string;
+  Home_Team_Score?: number;
+  Away_Team_Score?: number;
+  Away_Team?: string;
 }
 
 export interface ResultRow {
@@ -178,6 +182,10 @@ export interface ResultRow {
   away_team?: string;
   home_team_score?: number;
   away_team_score?: number;
+  Home_Team?: string;
+  Home_Team_Score?: number;
+  Away_Team_Score?: number;
+  Away_Team?: string;
   homeTeam?: string;
   awayTeam?: string;
   fullTimeScore?: string;
