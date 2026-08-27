@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import {
   Trophy,
   Users,
@@ -34,7 +36,12 @@ import {
   ChevronDown,
   LayoutDashboard,
   LogIn,
-  LogOut
+  LogOut,
+  Table,
+  LayoutList,
+  Printer,
+  Download,
+  Filter
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import ExpertBlogView from './ExpertBlogView';
@@ -205,6 +212,44 @@ export default function OfficePoolStopHome({
   const [selectedResultId, setSelectedResultId] = useState<string | null>(null);
   const [resultsSearchQuery, setResultsSearchQuery] = useState('');
   const [resultsTableSearch, setResultsTableSearch] = useState('');
+  const [resultsOutcomeFilter, setResultsOutcomeFilter] = useState<'all' | 'draws' | 'home' | 'away'>('all');
+  const [resultsViewMode, setResultsViewMode] = useState<'table' | 'cards'>('table');
+
+  const handleExportResultsToPdf = (activeResult: any) => {
+    if (!activeResult) return;
+    try {
+      const doc = new jsPDF();
+      doc.setFontSize(16);
+      doc.text(`Official Pool Results: Week ${activeResult.week_number} (${activeResult.season_year || 2026})`, 14, 18);
+      doc.setFontSize(10);
+      doc.text(`${activeResult.title || 'Weekly Results Sheet'} | Generated from FastPool`, 14, 25);
+
+      const tableData = (activeResult.results_table || []).map((row: any, idx: number) => {
+        const rowId = row.id ?? row.matchNo ?? (idx + 1);
+        const homeTeam = row.home_team || row.Home_Team || row.homeTeam || '';
+        const awayTeam = row.away_team || row.Away_Team || row.awayTeam || '';
+        const poolResult = row.pool_result || (row.Home_Team_Score !== undefined ? `${row.Home_Team_Score}-:-${row.Away_Team_Score}` : row.fullTimeScore?.replace(' - ', '-:-')) || '0-:-0';
+        const status = row.status || (row.outcome === 'DRAW' ? 'ScoreDraw' : (row.outcome === 'HOME WIN' ? 'Home' : 'Away'));
+        return [rowId, homeTeam, poolResult, awayTeam, status];
+      });
+
+      autoTable(doc, {
+        startY: 30,
+        head: [['ID', 'HOME TEAM', 'POOL RESULT', 'AWAY TEAM', 'STATUS']],
+        body: tableData,
+        theme: 'striped',
+        headStyles: { fillColor: [5, 150, 105], textColor: [255, 255, 255], fontStyle: 'bold' },
+        styles: { fontSize: 8, cellPadding: 2.5 }
+      });
+
+      doc.save(`Pool_Results_Week_${activeResult.week_number}_${activeResult.season_year || 2026}.pdf`);
+      triggerToast('Results sheet PDF downloaded successfully', 'success');
+    } catch (err: any) {
+      console.error('PDF Export Error:', err);
+      triggerToast('Failed to generate PDF export', 'error');
+    }
+  };
+
   const [contactForm, setContactForm] = useState({ name: '', email: '', subject: '', message: '' });
   const [isSendingContact, setIsSendingContact] = useState(false);
   const [showSystemAuth, setShowSystemAuth] = useState(false);
@@ -1227,32 +1272,47 @@ export default function OfficePoolStopHome({
                       );
                     }
 
-                    const totalDraws = (activeResult.results_table || []).filter((x: any) => x.outcome === 'DRAW').length;
+                    const totalDraws = (activeResult.results_table || []).filter((x: any) => x.outcome === 'DRAW' || x.status === 'ScoreDraw' || x.status === 'noScoreDraw').length;
                     const totalMatches = (activeResult.results_table || []).length;
+                    const homeWinsCount = (activeResult.results_table || []).filter((x: any) => x.outcome === 'HOME WIN' || x.status === 'Home').length;
+                    const awayWinsCount = (activeResult.results_table || []).filter((x: any) => x.outcome === 'AWAY WIN' || x.status === 'Away').length;
 
                     const activeResultRows = (activeResult.results_table || []).filter((row: any) => {
+                      const status = row.status || (row.outcome === 'DRAW' ? 'ScoreDraw' : (row.outcome === 'HOME WIN' ? 'Home' : 'Away'));
+                      const isDraw = status === 'ScoreDraw' || status === 'noScoreDraw' || row.outcome === 'DRAW';
+                      
+                      // Outcome Filter
+                      if (resultsOutcomeFilter === 'draws' && !isDraw) return false;
+                      if (resultsOutcomeFilter === 'home' && status !== 'Home' && row.outcome !== 'HOME WIN') return false;
+                      if (resultsOutcomeFilter === 'away' && status !== 'Away' && row.outcome !== 'AWAY WIN') return false;
+
+                      // Text Search Filter
                       if (!resultsTableSearch) return true;
-                      const s = resultsTableSearch.toLowerCase();
+                      const s = resultsTableSearch.toLowerCase().trim();
                       const home = (row.Home_Team || row.home_team || row.homeTeam || '').toLowerCase();
                       const away = (row.Away_Team || row.away_team || row.awayTeam || '').toLowerCase();
                       const rowId = String(row.id ?? row.matchNo ?? '');
                       const hScore = String(row.Home_Team_Score ?? row.home_team_score ?? '');
                       const aScore = String(row.Away_Team_Score ?? row.away_team_score ?? '');
+                      const poolRes = String(row.pool_result || '').toLowerCase();
+                      const stat = String(status).toLowerCase();
                       return (
                         home.includes(s) ||
                         away.includes(s) ||
                         rowId.includes(s) ||
                         hScore.includes(s) ||
-                        aScore.includes(s)
+                        aScore.includes(s) ||
+                        poolRes.includes(s) ||
+                        stat.includes(s)
                       );
                     });
 
                     return (
-                      <div className="space-y-5">
-                        {/* Dropdown Selector Bar & Fixtures Search */}
-                        <div className="bg-[#071310]/80 border border-emerald-950/90 rounded-2xl p-4 sm:p-5 shadow-xl flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+                      <div className="space-y-4 sm:space-y-5">
+                        {/* Selector Controls Bar */}
+                        <div className="bg-[#071310]/90 border border-emerald-950/90 rounded-2xl p-3.5 sm:p-5 shadow-xl flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 sm:gap-4">
                           {/* Week Dropdown */}
-                          <div className="flex-1 min-w-0 space-y-1.5">
+                          <div className="flex-1 min-w-0 space-y-1">
                             <label className="text-[10px] font-mono font-black text-emerald-400 uppercase tracking-wider block">
                               Select Pool Results Week
                             </label>
@@ -1263,10 +1323,10 @@ export default function OfficePoolStopHome({
                                   setSelectedResultId(e.target.value);
                                   setResultsTableSearch('');
                                 }}
-                                className="w-full bg-[#030a07] text-white border border-emerald-900/60 rounded-xl px-4 py-3 text-xs sm:text-sm font-mono font-bold focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition cursor-pointer appearance-none pr-10"
+                                className="w-full bg-[#030a07] text-white border border-emerald-900/60 rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-mono font-bold focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition cursor-pointer appearance-none pr-10"
                               >
                                 {resultsList.map((res: any) => {
-                                  const draws = (res.results_table || []).filter((x: any) => x.outcome === 'DRAW').length;
+                                  const draws = (res.results_table || []).filter((x: any) => x.outcome === 'DRAW' || x.status === 'ScoreDraw').length;
                                   return (
                                     <option key={res.id} value={res.id} className="bg-slate-950 text-white py-2">
                                       WEEK {res.week_number} • Year {res.season_year || 2026} — {res.title} ({draws} Draws)
@@ -1274,29 +1334,29 @@ export default function OfficePoolStopHome({
                                   );
                                 })}
                               </select>
-                              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3.5 text-emerald-400">
+                              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-emerald-400">
                                 <ChevronDown className="w-4 h-4" />
                               </div>
                             </div>
                           </div>
 
-                          {/* Fixtures Search in Active Sheet */}
-                          <div className="w-full lg:w-80 space-y-1.5">
+                          {/* Search Filter Input */}
+                          <div className="w-full lg:w-72 space-y-1">
                             <label className="text-[10px] font-mono font-black text-slate-400 uppercase tracking-wider block">
                               Filter Fixtures / Teams
                             </label>
                             <div className="relative">
                               <input
                                 type="text"
-                                placeholder="Filter e.g. Arsenal, Chelsea, DRAW..."
+                                placeholder="Filter team, draw, #ID..."
                                 value={resultsTableSearch}
                                 onChange={(e) => setResultsTableSearch(e.target.value)}
-                                className="w-full bg-[#030a07] border border-emerald-900/60 rounded-xl px-3.5 py-3 text-xs text-white focus:outline-none focus:border-emerald-500 transition font-mono placeholder:text-slate-600"
+                                className="w-full bg-[#030a07] border border-emerald-900/60 rounded-xl px-3.5 py-2.5 sm:py-3 text-xs text-white focus:outline-none focus:border-emerald-500 transition font-mono placeholder:text-slate-600"
                               />
                               {resultsTableSearch && (
                                 <button
                                   onClick={() => setResultsTableSearch('')}
-                                  className="absolute right-3 top-3 text-[10px] text-slate-400 hover:text-white uppercase font-mono font-bold"
+                                  className="absolute right-3 top-2.5 sm:top-3 text-[10px] text-slate-400 hover:text-white uppercase font-mono font-bold"
                                 >
                                   Clear
                                 </button>
@@ -1305,99 +1365,176 @@ export default function OfficePoolStopHome({
                           </div>
                         </div>
 
-                        {/* Active Result Card & Table */}
-                        <div className="bg-[#071310]/60 border border-emerald-950/80 rounded-2xl overflow-hidden shadow-xl flex flex-col">
+                        {/* Filter Chips & View Mode Switcher */}
+                        <div className="flex flex-wrap items-center justify-between gap-2.5 bg-[#05100d]/70 p-2.5 sm:p-3 rounded-xl border border-emerald-950/70">
+                          {/* Outcome Filter Chips */}
+                          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                            <button
+                              onClick={() => setResultsOutcomeFilter('all')}
+                              className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] font-mono font-bold transition flex items-center gap-1.5 ${
+                                resultsOutcomeFilter === 'all'
+                                  ? 'bg-emerald-600 text-white shadow-md'
+                                  : 'bg-emerald-950/40 text-slate-300 hover:bg-emerald-950 border border-emerald-900/40'
+                              }`}
+                            >
+                              <span>All Matches</span>
+                              <span className="bg-black/30 px-1.5 py-0.2 rounded text-[10px]">{totalMatches}</span>
+                            </button>
+
+                            <button
+                              onClick={() => setResultsOutcomeFilter('draws')}
+                              className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] font-mono font-bold transition flex items-center gap-1.5 ${
+                                resultsOutcomeFilter === 'draws'
+                                  ? 'bg-amber-500 text-slate-950 font-black shadow-md'
+                                  : 'bg-amber-950/30 text-amber-300 hover:bg-amber-950/60 border border-amber-900/40'
+                              }`}
+                            >
+                              <span>Draws Only</span>
+                              <span className="bg-black/40 px-1.5 py-0.2 rounded text-[10px]">{totalDraws}</span>
+                            </button>
+
+                            <button
+                              onClick={() => setResultsOutcomeFilter('home')}
+                              className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] font-mono font-bold transition flex items-center gap-1.5 ${
+                                resultsOutcomeFilter === 'home'
+                                  ? 'bg-blue-600 text-white shadow-md'
+                                  : 'bg-blue-950/30 text-blue-300 hover:bg-blue-950/60 border border-blue-900/40'
+                              }`}
+                            >
+                              <span>Home Wins</span>
+                              <span className="bg-black/30 px-1.5 py-0.2 rounded text-[10px]">{homeWinsCount}</span>
+                            </button>
+
+                            <button
+                              onClick={() => setResultsOutcomeFilter('away')}
+                              className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] font-mono font-bold transition flex items-center gap-1.5 ${
+                                resultsOutcomeFilter === 'away'
+                                  ? 'bg-purple-600 text-white shadow-md'
+                                  : 'bg-purple-950/30 text-purple-300 hover:bg-purple-950/60 border border-purple-900/40'
+                              }`}
+                            >
+                              <span>Away Wins</span>
+                              <span className="bg-black/30 px-1.5 py-0.2 rounded text-[10px]">{awayWinsCount}</span>
+                            </button>
+                          </div>
+
+                          {/* Export to PDF Action */}
+                          <div className="flex items-center gap-2 ml-auto">
+                            <button
+                              onClick={() => handleExportResultsToPdf(activeResult)}
+                              className="px-2.5 sm:px-3 py-1.5 bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-800/60 rounded-lg text-[10px] sm:text-xs font-mono font-bold flex items-center gap-1.5 transition shadow-sm"
+                              title="Export Results Sheet PDF"
+                            >
+                              <Printer className="w-3.5 h-3.5" />
+                              <span>Export PDF</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Active Result Card Container */}
+                        <div className="bg-[#071310]/80 border border-emerald-950/80 rounded-2xl overflow-hidden shadow-2xl flex flex-col">
                           {/* Active Header with Badges */}
-                          <div className="p-4 sm:p-5 border-b border-emerald-950/80 bg-gradient-to-r from-[#071310] via-[#04120e] to-[#020b08] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <div className="p-3.5 sm:p-5 border-b border-emerald-950/80 bg-gradient-to-r from-[#071310] via-[#04120e] to-[#020b08] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             <div className="space-y-1">
                               <div className="flex flex-wrap items-center gap-2">
                                 <span className="text-[9px] font-mono font-black text-amber-400 uppercase tracking-widest bg-amber-950/40 border border-amber-900/40 px-2 py-0.5 rounded">
-                                  Active Record Sheet
+                                  Official Record Sheet
                                 </span>
                                 <span className="text-[10px] font-mono font-black text-emerald-400">
                                   Week {activeResult.week_number} • Year {activeResult.season_year || 2026}
                                 </span>
                               </div>
-                              <h3 className="text-white font-extrabold text-base sm:text-lg uppercase tracking-wide">
+                              <h3 className="text-white font-extrabold text-sm sm:text-base md:text-lg uppercase tracking-wide">
                                 {activeResult.title}
                               </h3>
                             </div>
 
-                            <div className="flex flex-wrap items-center gap-2 font-mono text-xs">
-                              <span className="bg-emerald-950/80 text-emerald-400 text-[10px] font-black px-2.5 py-1.5 rounded-lg border border-emerald-900/40">
+                            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 font-mono text-xs">
+                              <span className="bg-emerald-950/90 text-emerald-400 text-[10px] font-black px-2.5 py-1 rounded-lg border border-emerald-900/50 shadow-sm">
                                 {totalDraws} DRAWS CLEARED
                               </span>
-                              <span className="bg-slate-900 text-slate-300 text-[10px] font-bold px-2.5 py-1.5 rounded-lg border border-slate-800">
-                                {totalMatches} FIXTURES
+                              <span className="bg-slate-900 text-slate-300 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-slate-800">
+                                {activeResultRows.length} of {totalMatches} FIXTURES
                               </span>
                               {activeResult.fixture_date && (
-                                <span className="bg-slate-900/80 text-slate-400 text-[10px] font-bold px-2.5 py-1.5 rounded-lg border border-slate-800">
+                                <span className="bg-slate-900/80 text-slate-400 text-[10px] font-bold px-2 py-1 rounded-lg border border-slate-800 hidden sm:inline-block">
                                   {activeResult.fixture_date}
                                 </span>
                               )}
                             </div>
                           </div>
 
-                          {/* Full Width Fixtures Table Rendering pool_result Structure */}
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse text-xs">
-                              <thead>
-                                <tr className="bg-[#020b08] text-emerald-400 font-mono text-[11px] font-black uppercase tracking-wider border-b border-emerald-950">
-                                  <th className="py-3.5 px-4 text-center w-16 border-r border-emerald-950/60 bg-emerald-950/20">id</th>
-                                  <th className="py-3.5 px-4 border-r border-emerald-950/60">home_team</th>
-                                  <th className="py-3.5 px-4 text-center w-36 border-r border-emerald-950/60 bg-emerald-950/20">pool_result</th>
-                                  <th className="py-3.5 px-4 border-r border-emerald-950/60">away_team</th>
-                                  <th className="py-3.5 px-4 text-center w-32 bg-emerald-950/20">status</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-emerald-950/35 font-semibold text-slate-300">
-                                {activeResultRows.length === 0 ? (
-                                  <tr>
-                                    <td colSpan={5} className="py-10 text-center text-slate-500 font-mono text-xs">
-                                      No matches found matching filter "{resultsTableSearch}".
-                                    </td>
-                                  </tr>
-                                ) : (
-                                  activeResultRows.map((row: any, rIdx: number) => {
-                                    const rowId = row.id ?? row.matchNo ?? (rIdx + 1);
-                                    const homeTeam = row.home_team || row.Home_Team || row.homeTeam || '';
-                                    const awayTeam = row.away_team || row.Away_Team || row.awayTeam || '';
-                                    const poolResult = row.pool_result || row.fullTimeScore?.replace(' - ', '-:-') || '0-:-0';
-                                    const status = row.status || (row.outcome === 'DRAW' ? 'ScoreDraw' : (row.outcome === 'HOME WIN' ? 'Home' : 'Away'));
-                                    const isDraw = status === 'ScoreDraw' || status === 'noScoreDraw';
+                          {/* Card Display Only */}
+                          <div className="p-3 sm:p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3 bg-[#030c09]">
+                            {activeResultRows.length === 0 ? (
+                              <div className="col-span-full py-12 text-center text-slate-500 font-mono text-xs">
+                                No matches found matching the current filters.
+                              </div>
+                            ) : (
+                              activeResultRows.map((row: any, rIdx: number) => {
+                                const rowId = row.id ?? row.matchNo ?? (rIdx + 1);
+                                const homeTeam = row.home_team || row.Home_Team || row.homeTeam || '';
+                                const awayTeam = row.away_team || row.Away_Team || row.awayTeam || '';
+                                const poolResult = row.pool_result || (row.Home_Team_Score !== undefined ? `${row.Home_Team_Score}-:-${row.Away_Team_Score}` : row.fullTimeScore?.replace(' - ', '-:-')) || '0-:-0';
+                                const status = row.status || (row.outcome === 'DRAW' ? 'ScoreDraw' : (row.outcome === 'HOME WIN' ? 'Home' : 'Away'));
+                                const isDraw = status === 'ScoreDraw' || status === 'noScoreDraw' || row.outcome === 'DRAW';
 
-                                    return (
-                                      <tr key={rIdx} className={`hover:bg-emerald-950/30 transition-colors ${isDraw ? 'bg-amber-950/15' : ''}`}>
-                                        <td className="py-3 px-4 text-center text-amber-400 font-mono font-bold border-r border-emerald-950/50 bg-slate-950/30">
-                                          {rowId}
-                                        </td>
-                                        <td className="py-3 px-4 text-white font-semibold border-r border-emerald-950/50">
+                                return (
+                                  <div
+                                    key={rIdx}
+                                    className={`p-3 rounded-xl border transition-all ${
+                                      isDraw
+                                        ? 'bg-[#051812] border-emerald-700/80 shadow-md ring-1 ring-emerald-500/20'
+                                        : 'bg-[#040f0c] border-emerald-950/80 hover:border-emerald-900'
+                                    }`}
+                                  >
+                                    {/* Top Row: ID & Status */}
+                                    <div className="flex items-center justify-between gap-2 mb-2 pb-1.5 border-b border-emerald-950/60">
+                                      <span className="font-mono text-xs font-black text-amber-400 bg-black/50 px-2 py-0.5 rounded border border-emerald-900/40">
+                                        #{rowId}
+                                      </span>
+                                      <span
+                                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider ${
+                                          status === 'ScoreDraw'
+                                            ? 'bg-emerald-950 text-emerald-300 border border-emerald-700'
+                                            : status === 'noScoreDraw'
+                                            ? 'bg-teal-950 text-teal-300 border border-teal-700'
+                                            : status === 'Home'
+                                            ? 'bg-blue-950 text-blue-300 border border-blue-700'
+                                            : 'bg-purple-950 text-purple-300 border border-purple-700'
+                                        }`}
+                                      >
+                                        {isDraw && (
+                                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                                        )}
+                                        {status}
+                                      </span>
+                                    </div>
+
+                                    {/* Match Teams & Centered Score */}
+                                    <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 py-1">
+                                      <div className="text-right">
+                                        <div className="font-extrabold text-white text-xs sm:text-sm leading-snug break-words">
                                           {homeTeam}
-                                        </td>
-                                        <td className="py-3 px-4 text-center font-mono font-black text-amber-300 text-sm border-r border-emerald-950/50 bg-slate-950/20">
-                                          <span className="px-2.5 py-0.5 bg-slate-900 border border-slate-700/80 rounded text-amber-300 font-mono text-xs">
-                                            {poolResult}
-                                          </span>
-                                        </td>
-                                        <td className="py-3 px-4 text-white font-semibold border-r border-emerald-950/50">
+                                        </div>
+                                        <span className="text-[9px] font-mono text-slate-500 uppercase">Home</span>
+                                      </div>
+
+                                      <div className="px-2.5 py-1 rounded-lg bg-[#071a14] border border-emerald-800/80 text-amber-300 font-mono font-black text-xs sm:text-sm text-center min-w-[58px] shadow-sm">
+                                        {poolResult}
+                                      </div>
+
+                                      <div className="text-left">
+                                        <div className="font-extrabold text-white text-xs sm:text-sm leading-snug break-words">
                                           {awayTeam}
-                                        </td>
-                                        <td className="py-3 px-4 text-center font-mono text-xs">
-                                          <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase ${
-                                            status === 'ScoreDraw' ? 'bg-emerald-950 text-emerald-300 border border-emerald-700' :
-                                            status === 'noScoreDraw' ? 'bg-teal-950 text-teal-300 border border-teal-700' :
-                                            status === 'Home' ? 'bg-blue-950 text-blue-300 border border-blue-700' :
-                                            'bg-purple-950 text-purple-300 border border-purple-700'
-                                          }`}>
-                                            {status}
-                                          </span>
-                                        </td>
-                                      </tr>
-                                    );
-                                  })
-                                )}
-                              </tbody>
-                            </table>
+                                        </div>
+                                        <span className="text-[9px] font-mono text-slate-500 uppercase">Away</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })
+                            )}
                           </div>
                         </div>
                       </div>

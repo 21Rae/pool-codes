@@ -30,7 +30,10 @@ import {
   Megaphone,
   ArrowUpRight,
   Database,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Table,
+  LayoutList,
+  Filter
 } from 'lucide-react';
 import { getSupabaseClient } from '../lib/supabase';
 import GoogleAdBanner from './GoogleAdBanner';
@@ -245,6 +248,8 @@ export default function ExpertBlogView({
   const [selectedResultId, setSelectedResultId] = useState<string>('');
   const [resultsSearchQuery, setResultsSearchQuery] = useState('');
   const [resultsTableSearch, setResultsTableSearch] = useState('');
+  const [blogResultsViewMode, setBlogResultsViewMode] = useState<'table' | 'cards'>('table');
+  const [blogOutcomeFilter, setBlogOutcomeFilter] = useState<'all' | 'draws' | 'home' | 'away'>('table' === 'table' ? 'all' : 'all');
 
   // Publishing to Supabase state
   const [newArticleTitle, setNewArticleTitle] = useState('FastPoolCodes Weekly Key Analysis & Draw Predictions');
@@ -366,14 +371,7 @@ export default function ExpertBlogView({
     setProbeLoading(false);
   };
 
-  const filteredResults = resultsList.map(sheet => {
-    const resolvedWeek = (activeWeekNumber && activeWeekNumber !== 'NULL') ? Number(activeWeekNumber) : (sheet.week_number || 49);
-    return {
-      ...sheet,
-      week_number: resolvedWeek,
-      title: sheet.title ? sheet.title.replace(/Week\s*\d+/i, `Week ${resolvedWeek}`) : `Week ${resolvedWeek} UK Pool results: Official pool_result Table Matches`
-    };
-  }).filter(r => 
+  const filteredResults = resultsList.filter(r => 
     r.title?.toLowerCase().includes(resultsSearchQuery.toLowerCase()) || 
     r.week_number?.toString().includes(resultsSearchQuery)
   );
@@ -1411,161 +1409,164 @@ INSERT INTO public.championship_results (
               )}
 
               {/* COPY OF THE POOL RESULTS ON THE BLOG PAGE */}
-              <div className="flex flex-col gap-6 text-left mt-8" id="pool-results-arena">
+              <div className="flex flex-col gap-4 text-left mt-8" id="pool-results-arena">
                 {/* Interactive Pool Result Table Component */}
-                {activeResult && (
-                  <div className="flex flex-col mt-1">
-                    <div className="w-full overflow-x-auto custom-scrollbar rounded-xl border border-slate-800/80 shadow-2xl">
-                      <div className="flex flex-col bg-[#0B0F19] min-w-[850px]">
-                        {/* Table Container */}
-                        <div className="flex flex-col">
-                          {/* Title Banner */}
-                          <div className="flex border-b border-slate-800">
-                            {/* Row index indicator */}
-                            <div className="w-[50px] shrink-0 bg-[#0F172A] border-r border-slate-800 flex items-center justify-center font-mono text-[10px] text-slate-500 select-none">
-                              #
-                            </div>
-                            {/* Header Banner */}
-                            <div className="flex-grow bg-[#004D40] text-slate-100 flex flex-col items-start md:items-center justify-center py-5 px-4 md:px-10 text-left md:text-center relative">
-                              <div className="absolute inset-0 bg-[#10B981]/15 mix-blend-overlay"></div>
-                              <h1 className="font-black text-lg md:text-2xl tracking-tight md:tracking-widest text-[#FFF] uppercase leading-none drop-shadow-md whitespace-normal break-words">
-                                {activeResult.pool_type?.toUpperCase() === 'AUSSIE' ? 'AUSSIE' : 'UK'} WEEK {(activeWeekNumber && activeWeekNumber !== 'NULL') ? activeWeekNumber : (activeResult.week_number || 49)} POOL RESULTS TABLE
-                              </h1>
-                              <p className="text-[10px] md:text-xs tracking-wider text-emerald-300 font-bold mt-1.5 drop-shadow-sm font-mono uppercase">
-                                CURRENT `pool_result` TABLE: id • home_team • pool_result • away_team • status
-                              </p>
-                            </div>
+                {activeResult && (() => {
+                  const baseRows = activeResult.results_table || [];
+                  const totalDraws = baseRows.filter((x: any) => x.outcome === 'DRAW' || x.status === 'ScoreDraw' || x.status === 'noScoreDraw').length;
+                  const homeWins = baseRows.filter((x: any) => x.outcome === 'HOME WIN' || x.status === 'Home').length;
+                  const awayWins = baseRows.filter((x: any) => x.outcome === 'AWAY WIN' || x.status === 'Away').length;
+
+                  const filtered = baseRows.filter((row: any) => {
+                    const status = row.status || (row.outcome === 'DRAW' ? 'ScoreDraw' : (row.outcome === 'HOME WIN' ? 'Home' : 'Away'));
+                    const isDraw = status === 'ScoreDraw' || status === 'noScoreDraw' || row.outcome === 'DRAW';
+
+                    if (blogOutcomeFilter === 'draws' && !isDraw) return false;
+                    if (blogOutcomeFilter === 'home' && status !== 'Home' && row.outcome !== 'HOME WIN') return false;
+                    if (blogOutcomeFilter === 'away' && status !== 'Away' && row.outcome !== 'AWAY WIN') return false;
+
+                    if (!resultsTableSearch) return true;
+                    const q = resultsTableSearch.toLowerCase().trim();
+                    const home = (row.home_team || row.Home_Team || row.homeTeam || '').toLowerCase();
+                    const away = (row.away_team || row.Away_Team || row.awayTeam || '').toLowerCase();
+                    const st = String(status).toLowerCase();
+                    const resStr = String(row.pool_result || '').toLowerCase();
+                    const rowId = String(row.id ?? row.matchNo ?? '');
+                    return (
+                      home.includes(q) ||
+                      away.includes(q) ||
+                      st.includes(q) ||
+                      resStr.includes(q) ||
+                      rowId.includes(q)
+                    );
+                  });
+
+                  const getStatusBadge = (st: string) => {
+                    if (st === 'ScoreDraw') {
+                      return (
+                        <span className="px-1 sm:px-2 py-0.5 rounded text-[7.5px] sm:text-[10px] font-black font-mono tracking-tighter sm:tracking-wider uppercase bg-emerald-950/90 text-emerald-300 border border-emerald-700/80 inline-flex items-center justify-center gap-0.5 sm:gap-1 shadow-sm whitespace-nowrap">
+                          <span className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
+                          <span className="hidden xs:inline sm:inline">ScoreDraw</span>
+                          <span className="xs:hidden">Draw</span>
+                        </span>
+                      );
+                    }
+                    if (st === 'noScoreDraw') {
+                      return (
+                        <span className="px-1 sm:px-2 py-0.5 rounded text-[7.5px] sm:text-[10px] font-black font-mono tracking-tighter sm:tracking-wider uppercase bg-teal-950/90 text-teal-300 border border-teal-700/80 inline-flex items-center justify-center gap-0.5 sm:gap-1 shadow-sm whitespace-nowrap">
+                          <span className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-teal-400 shrink-0"></span>
+                          <span className="hidden xs:inline sm:inline">noScore</span>
+                          <span className="xs:hidden">0-0</span>
+                        </span>
+                      );
+                    }
+                    if (st === 'Home') {
+                      return (
+                        <span className="px-1 sm:px-2 py-0.5 rounded text-[7.5px] sm:text-[10px] font-black font-mono tracking-tighter sm:tracking-wider uppercase bg-blue-950/90 text-blue-300 border border-blue-700/80 inline-flex items-center justify-center gap-0.5 sm:gap-1 whitespace-nowrap">
+                          Home
+                        </span>
+                      );
+                    }
+                    if (st === 'Away') {
+                      return (
+                        <span className="px-1 sm:px-2 py-0.5 rounded text-[7.5px] sm:text-[10px] font-black font-mono tracking-tighter sm:tracking-wider uppercase bg-purple-950/90 text-purple-300 border border-purple-700/80 inline-flex items-center justify-center gap-0.5 sm:gap-1 whitespace-nowrap">
+                          Away
+                        </span>
+                      );
+                    }
+                    return (
+                      <span className="px-1 sm:px-2 py-0.5 rounded text-[7.5px] sm:text-[10px] font-bold font-mono tracking-tighter sm:tracking-wider uppercase bg-slate-900 text-slate-300 border border-slate-700 whitespace-nowrap">
+                        {st}
+                      </span>
+                    );
+                  };
+
+                  return (
+                    <div className="flex flex-col gap-3 mt-1">
+                      {/* Main Cards Wrapper */}
+                      <div className="w-full rounded-xl border border-slate-800/80 shadow-2xl overflow-hidden bg-[#0B0F19]">
+                        {/* Title Banner */}
+                        <div className="flex border-b border-slate-800">
+                          {/* Row index indicator */}
+                          <div className="w-8 sm:w-12 shrink-0 bg-[#0F172A] border-r border-slate-800 flex items-center justify-center font-mono text-[9px] sm:text-xs text-slate-500 select-none">
+                            #
                           </div>
-
-                          {/* Column Headers (Strictly Matching pool_result schema) */}
-                          <div className="flex border-b border-slate-800 bg-slate-900/80 font-mono text-[11px] font-extrabold text-slate-200">
-                            <div className="w-[70px] shrink-0 border-r border-slate-800 p-3 text-center uppercase tracking-wider bg-slate-950/40">id</div>
-                            <div className="flex-1 min-w-[180px] border-r border-slate-800 p-3 text-left pl-4 uppercase tracking-wider">home_team</div>
-                            <div className="w-[140px] shrink-0 border-r border-slate-800 p-3 text-center uppercase tracking-wider bg-slate-950/40">pool_result</div>
-                            <div className="flex-1 min-w-[180px] border-r border-slate-800 p-3 text-left pl-4 uppercase tracking-wider">away_team</div>
-                            <div className="w-[150px] shrink-0 p-3 text-center uppercase tracking-wider bg-slate-950/40">status</div>
+                          {/* Header Banner */}
+                          <div className="flex-grow bg-[#004D40] text-slate-100 flex flex-col items-start md:items-center justify-center py-2.5 sm:py-4 px-2.5 sm:px-6 text-left md:text-center relative">
+                            <div className="absolute inset-0 bg-[#10B981]/15 mix-blend-overlay"></div>
+                            <h1 className="font-black text-xs sm:text-base md:text-xl tracking-tight sm:tracking-widest text-[#FFF] uppercase leading-tight drop-shadow-md">
+                              WEEKLY POOL RESULTS
+                            </h1>
+                            <p className="text-[8px] sm:text-xs tracking-wide sm:tracking-wider text-emerald-300 font-bold mt-0.5 drop-shadow-sm font-mono uppercase">
+                              CURRENT `pool_result` CARDS: id • home_team • pool_result • away_team • status
+                            </p>
                           </div>
+                        </div>
 
-                          {/* Rows */}
-                          {(() => {
-                            const baseRows = activeResult.results_table || [];
-                            const filtered = baseRows.filter((row: any) => {
-                              if (!resultsTableSearch) return true;
-                              const q = resultsTableSearch.toLowerCase();
-                              const home = (row.home_team || row.Home_Team || row.homeTeam || '').toLowerCase();
-                              const away = (row.away_team || row.Away_Team || row.awayTeam || '').toLowerCase();
-                              const status = (row.status || '').toLowerCase();
-                              const resStr = (row.pool_result || '').toLowerCase();
-                              const rowId = String(row.id ?? row.matchNo ?? '');
-                              return (
-                                home.includes(q) ||
-                                away.includes(q) ||
-                                status.includes(q) ||
-                                resStr.includes(q) ||
-                                rowId.includes(q)
-                              );
-                            });
-
-                            if (filtered.length === 0) {
-                              return (
-                                <div className="flex border-b border-slate-800 font-mono text-xs text-center py-10 justify-center text-slate-500 italic">
-                                  <div className="flex-1">
-                                    {baseRows.length === 0
-                                      ? "No match records in pool_result table yet."
-                                      : "No matches found matching your filter criteria."}
-                                  </div>
-                                </div>
-                              );
-                            }
-
-                            const getStatusBadge = (st: string) => {
-                              if (st === 'ScoreDraw') {
-                                return (
-                                  <span className="px-2.5 py-1 rounded-md text-[10px] font-black font-mono tracking-wider uppercase bg-emerald-950/60 text-emerald-300 border border-emerald-700/60 inline-flex items-center gap-1 shadow-sm">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                                    ScoreDraw
-                                  </span>
-                                );
-                              }
-                              if (st === 'noScoreDraw') {
-                                return (
-                                  <span className="px-2.5 py-1 rounded-md text-[10px] font-black font-mono tracking-wider uppercase bg-teal-950/60 text-teal-300 border border-teal-700/60 inline-flex items-center gap-1 shadow-sm">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-teal-400"></span>
-                                    noScoreDraw
-                                  </span>
-                                );
-                              }
-                              if (st === 'Home') {
-                                return (
-                                  <span className="px-2.5 py-1 rounded-md text-[10px] font-black font-mono tracking-wider uppercase bg-blue-950/60 text-blue-300 border border-blue-700/60 inline-flex items-center gap-1">
-                                    Home
-                                  </span>
-                                );
-                              }
-                              if (st === 'Away') {
-                                return (
-                                  <span className="px-2.5 py-1 rounded-md text-[10px] font-black font-mono tracking-wider uppercase bg-purple-950/60 text-purple-300 border border-purple-700/60 inline-flex items-center gap-1">
-                                    Away
-                                  </span>
-                                );
-                              }
-                              return (
-                                <span className="px-2.5 py-1 rounded-md text-[10px] font-bold font-mono tracking-wider uppercase bg-slate-900 text-slate-300 border border-slate-700">
-                                  {st}
-                                </span>
-                              );
-                            };
-
-                            return filtered.map((row: any, idx: number) => {
+                        {/* Cards Display Only */}
+                        <div className="p-2.5 sm:p-3.5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 bg-[#070b13]">
+                          {filtered.length === 0 ? (
+                            <div className="col-span-full py-12 text-center text-slate-500 italic text-xs font-mono">
+                              {baseRows.length === 0 ? 'No match records in pool_result table yet.' : 'No matches found matching your filter criteria.'}
+                            </div>
+                          ) : (
+                            filtered.map((row: any, idx: number) => {
                               const rowId = row.id ?? row.matchNo ?? (idx + 1);
                               const homeTeam = row.home_team || row.Home_Team || row.homeTeam || '';
                               const awayTeam = row.away_team || row.Away_Team || row.awayTeam || '';
                               const status = row.status || (row.outcome === 'DRAW' ? 'ScoreDraw' : (row.outcome === 'HOME WIN' ? 'Home' : 'Away'));
-                              const poolResult = row.pool_result || row.fullTimeScore?.replace(' - ', '-:-') || '0-:-0';
-                              const isDraw = status === 'ScoreDraw' || status === 'noScoreDraw';
+                              const poolResult = row.pool_result || (row.Home_Team_Score !== undefined ? `${row.Home_Team_Score}-:-${row.Away_Team_Score}` : row.fullTimeScore?.replace(' - ', '-:-')) || '0-:-0';
+                              const isDraw = status === 'ScoreDraw' || status === 'noScoreDraw' || row.outcome === 'DRAW';
 
                               return (
-                                <div 
-                                  key={idx} 
-                                  className={`flex border-b border-slate-800 font-mono text-xs items-stretch transition-colors ${
-                                    isDraw ? 'bg-emerald-950/15 hover:bg-emerald-950/25' : 'hover:bg-slate-900/40'
+                                <div
+                                  key={idx}
+                                  className={`p-3 rounded-xl border transition-all flex flex-col justify-between ${
+                                    isDraw
+                                      ? 'bg-[#051812] border-emerald-600/90 shadow-md ring-1 ring-emerald-500/20'
+                                      : 'bg-[#0B0F19] border-slate-800 hover:border-slate-700'
                                   }`}
                                 >
-                                  {/* id */}
-                                  <div className="w-[70px] shrink-0 border-r border-slate-800 p-3 text-center text-amber-400 font-black flex items-center justify-center bg-slate-950/30">
-                                    {rowId}
-                                  </div>
-
-                                  {/* home_team */}
-                                  <div className="flex-1 min-w-[180px] border-r border-slate-800 p-3 text-left pl-4 font-bold text-slate-100 flex items-center">
-                                    {homeTeam}
-                                  </div>
-
-                                  {/* pool_result */}
-                                  <div className="w-[140px] shrink-0 border-r border-slate-800 p-3 text-center font-black text-sm flex items-center justify-center bg-slate-950/30">
-                                    <span className="px-3 py-1 bg-slate-900 border border-slate-700/80 rounded-lg text-amber-300 font-mono tracking-wider shadow-inner">
-                                      {poolResult}
-                                    </span>
-                                  </div>
-
-                                  {/* away_team */}
-                                  <div className="flex-1 min-w-[180px] border-r border-slate-800 p-3 text-left pl-4 font-bold text-slate-100 flex items-center">
-                                    {awayTeam}
-                                  </div>
-
-                                  {/* status */}
-                                  <div className="w-[150px] shrink-0 p-3 text-center flex items-center justify-center bg-slate-950/20">
+                                  {/* Top Row: #ID and Status */}
+                                  <div className="flex items-center justify-between gap-2 mb-2 pb-1.5 border-b border-slate-800/80">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="font-mono text-xs font-black text-amber-400 bg-black/60 px-2 py-0.5 rounded border border-slate-800">
+                                        #{rowId}
+                                      </span>
+                                      <span className="text-[9px] font-mono text-slate-500 uppercase font-bold">Match</span>
+                                    </div>
                                     {getStatusBadge(status)}
+                                  </div>
+
+                                  {/* Match Teams and Centered Score */}
+                                  <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 py-1.5">
+                                    <div className="text-right flex flex-col items-end justify-center">
+                                      <div className="font-extrabold text-white text-xs sm:text-sm leading-snug break-words">
+                                        {homeTeam}
+                                      </div>
+                                      <span className="text-[8px] sm:text-[9px] font-mono text-emerald-400/70 uppercase font-semibold">Home</span>
+                                    </div>
+
+                                    <div className="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-700 text-amber-300 font-mono font-black text-xs sm:text-sm text-center min-w-[54px] shadow-inner tracking-wider">
+                                      {poolResult}
+                                    </div>
+
+                                    <div className="text-left flex flex-col items-start justify-center">
+                                      <div className="font-extrabold text-white text-xs sm:text-sm leading-snug break-words">
+                                        {awayTeam}
+                                      </div>
+                                      <span className="text-[8px] sm:text-[9px] font-mono text-blue-400/70 uppercase font-semibold">Away</span>
+                                    </div>
                                   </div>
                                 </div>
                               );
-                            });
-                          })()}
+                            })
+                          )}
                         </div>
                       </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
               </div>
 
             </div>

@@ -57,7 +57,9 @@ import {
   Share2,
   Sliders,
   CheckCircle2,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Table,
+  LayoutList
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DatabaseState, User, SubscriptionPlan, UserSubscription, PoolCode, parseComponents } from '../types';
@@ -541,6 +543,8 @@ export default function CustomerPortal({
   const [matrixSearchQuery, setMatrixSearchQuery] = useState('');
   const [trackedMatchesSearch, setTrackedMatchesSearch] = useState('');
   const [championshipSearchQuery, setChampionshipSearchQuery] = useState('');
+  const [portalResultsViewMode, setPortalResultsViewMode] = useState<'table' | 'cards'>('table');
+  const [portalOutcomeFilter, setPortalOutcomeFilter] = useState<'all' | 'draws' | 'home' | 'away'>('all');
 
   // Database Schema & Table Explorer state
   const [dbExplorerTables, setDbExplorerTables] = useState<any[]>(discoveredDbTables || []);
@@ -5699,44 +5703,6 @@ export default function CustomerPortal({
 
                 return (
                   <div className="flex flex-col gap-6" id="pool-results-arena">
-                    {/* Header Banner */}
-                    <div className="border-b border-slate-800 pb-4 mb-2 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-mono font-black text-emerald-400 uppercase tracking-widest bg-emerald-950/40 border border-emerald-900/40 px-2.5 py-1 rounded-full inline-flex items-center gap-1.5">
-                            <Database className="w-3 h-3 text-emerald-400" />
-                            <span>pool_result table structure</span>
-                          </span>
-                        </div>
-                        <h2 className="text-xl sm:text-2xl font-extrabold tracking-wider text-slate-100 font-mono uppercase mt-1.5">
-                          POOL RESULTS DIRECTORY
-                        </h2>
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-2">
-                        {activeResult && (
-                          <>
-                            <button
-                              onClick={() => exportResultToCSV(activeResult)}
-                              className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700/80 rounded-xl text-xs font-mono font-bold uppercase tracking-wider transition flex items-center gap-1.5 cursor-pointer shadow-md"
-                              title="Download spreadsheet in CSV format"
-                            >
-                              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
-                              <span>CSV Export</span>
-                            </button>
-                          </>
-                        )}
-                        {currentUser.role === 'admin' && (
-                          <button
-                            onClick={handleResetResultsLocal}
-                            className="bg-slate-950 hover:bg-slate-900 text-slate-400 hover:text-white border border-slate-800 hover:border-slate-700 text-[10px] font-mono font-bold tracking-wider px-3 py-2 rounded-xl uppercase transition cursor-pointer"
-                          >
-                            Reset Database
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
                     {/* Selector & Search Filters Bar */}
                     <div className="bg-[#0B0F19] border border-slate-800/90 rounded-2xl p-4 sm:p-5 shadow-xl flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
                       {/* Week Select Dropdown */}
@@ -5775,9 +5741,21 @@ export default function CustomerPortal({
 
                       {/* Quick Fixtures & Teams Search Input */}
                       <div className="w-full md:w-80 space-y-1.5">
-                        <label className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider block">
-                          Filter Fixtures / Teams
-                        </label>
+                        <div className="flex items-center justify-between">
+                          <label className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider block">
+                            Filter Fixtures / Teams
+                          </label>
+                          {activeResult && (
+                            <button
+                              onClick={() => exportResultToCSV(activeResult)}
+                              className="text-[10px] font-mono font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 cursor-pointer transition"
+                              title="Download spreadsheet in CSV format"
+                            >
+                              <FileSpreadsheet className="w-3 h-3 text-emerald-400" />
+                              <span>CSV Export</span>
+                            </button>
+                          )}
+                        </div>
                         <div className="relative">
                           <input
                             type="text"
@@ -5845,166 +5823,167 @@ export default function CustomerPortal({
                     })()}
 
                     {/* Interactive Pool Result Table Component */}
-                    {activeResult && (
-                      <div className="flex flex-col mt-1">
-                        <div className="w-full overflow-x-auto custom-scrollbar rounded-xl border border-slate-800/80 shadow-2xl">
-                          <div className="flex flex-col bg-[#0B0F19] min-w-[900px]">
+                    {activeResult && (() => {
+                      const baseRows = activeResult.results_table || [];
+                      let scoreDraws = 0;
+                      let noScoreDraws = 0;
+                      let homeWins = 0;
+                      let awayWins = 0;
+                      baseRows.forEach((r: any) => {
+                        const status = r.status || (r.outcome === 'DRAW' ? 'ScoreDraw' : (r.outcome === 'HOME WIN' ? 'Home' : 'Away'));
+                        if (status === 'ScoreDraw') scoreDraws++;
+                        else if (status === 'noScoreDraw') noScoreDraws++;
+                        else if (status === 'Home') homeWins++;
+                        else if (status === 'Away') awayWins++;
+                      });
 
-                        {/* Table Container */}
-                        <div className="flex flex-col">
-                          
-                          {/* Title Banner */}
-                          <div className="flex border-b border-slate-800">
-                            {/* Row index indicator */}
-                            <div className="w-[50px] shrink-0 bg-[#0F172A] border-r border-slate-800 flex items-center justify-center font-mono text-[10px] text-slate-500 select-none">
-                              #
+                      const filtered = baseRows.filter((row: any) => {
+                        const status = row.status || (row.outcome === 'DRAW' ? 'ScoreDraw' : (row.outcome === 'HOME WIN' ? 'Home' : 'Away'));
+                        const isDraw = status === 'ScoreDraw' || status === 'noScoreDraw' || row.outcome === 'DRAW';
+
+                        if (portalOutcomeFilter === 'draws' && !isDraw) return false;
+                        if (portalOutcomeFilter === 'home' && status !== 'Home' && row.outcome !== 'HOME WIN') return false;
+                        if (portalOutcomeFilter === 'away' && status !== 'Away' && row.outcome !== 'AWAY WIN') return false;
+
+                        if (!championshipSearchQuery) return true;
+                        const q = championshipSearchQuery.toLowerCase().trim();
+                        const home = (row.home_team || row.Home_Team || row.homeTeam || '').toLowerCase();
+                        const away = (row.away_team || row.Away_Team || row.awayTeam || '').toLowerCase();
+                        const st = String(status).toLowerCase();
+                        const resStr = String(row.pool_result || '').toLowerCase();
+                        const rowId = String(row.id ?? row.matchNo ?? '');
+                        return (
+                          home.includes(q) ||
+                          away.includes(q) ||
+                          st.includes(q) ||
+                          resStr.includes(q) ||
+                          rowId.includes(q)
+                        );
+                      });
+
+                      const getStatusBadge = (st: string) => {
+                        if (st === 'ScoreDraw') {
+                          return (
+                            <span className="px-1 sm:px-2 py-0.5 rounded text-[7.5px] sm:text-[10px] font-black font-mono tracking-tighter sm:tracking-wider uppercase bg-emerald-950/90 text-emerald-300 border border-emerald-700/80 inline-flex items-center justify-center gap-0.5 sm:gap-1 shadow-sm whitespace-nowrap">
+                              <span className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
+                              <span className="hidden xs:inline sm:inline">ScoreDraw</span>
+                              <span className="xs:hidden">Draw</span>
+                            </span>
+                          );
+                        }
+                        if (st === 'noScoreDraw') {
+                          return (
+                            <span className="px-1 sm:px-2 py-0.5 rounded text-[7.5px] sm:text-[10px] font-black font-mono tracking-tighter sm:tracking-wider uppercase bg-teal-950/90 text-teal-300 border border-teal-700/80 inline-flex items-center justify-center gap-0.5 sm:gap-1 shadow-sm whitespace-nowrap">
+                              <span className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-teal-400 shrink-0"></span>
+                              <span className="hidden xs:inline sm:inline">noScore</span>
+                              <span className="xs:hidden">0-0</span>
+                            </span>
+                          );
+                        }
+                        if (st === 'Home') {
+                          return (
+                            <span className="px-1 sm:px-2 py-0.5 rounded text-[7.5px] sm:text-[10px] font-black font-mono tracking-tighter sm:tracking-wider uppercase bg-blue-950/90 text-blue-300 border border-blue-700/80 inline-flex items-center justify-center gap-0.5 sm:gap-1 whitespace-nowrap">
+                              Home
+                            </span>
+                          );
+                        }
+                        if (st === 'Away') {
+                          return (
+                            <span className="px-1 sm:px-2 py-0.5 rounded text-[7.5px] sm:text-[10px] font-black font-mono tracking-tighter sm:tracking-wider uppercase bg-purple-950/90 text-purple-300 border border-purple-700/80 inline-flex items-center justify-center gap-0.5 sm:gap-1 whitespace-nowrap">
+                              Away
+                            </span>
+                          );
+                        }
+                        return (
+                          <span className="px-1 sm:px-2 py-0.5 rounded text-[7.5px] sm:text-[10px] font-bold font-mono tracking-tighter sm:tracking-wider uppercase bg-slate-900 text-slate-300 border border-slate-700 whitespace-nowrap">
+                            {st}
+                          </span>
+                        );
+                      };
+
+                      return (
+                        <div className="flex flex-col gap-3 mt-1">
+                          <div className="w-full rounded-xl border border-slate-800/80 shadow-2xl overflow-hidden bg-[#0B0F19]">
+                            {/* Title Banner */}
+                            <div className="flex border-b border-slate-800">
+                              <div className="w-8 sm:w-12 shrink-0 bg-[#0F172A] border-r border-slate-800 flex items-center justify-center font-mono text-[9px] sm:text-xs text-slate-500 select-none">
+                                #
+                              </div>
+                              <div className="flex-grow bg-[#004D40] text-slate-100 flex flex-col items-start md:items-center justify-center py-2.5 sm:py-4 px-2.5 sm:px-6 text-left md:text-center relative">
+                                <div className="absolute inset-0 bg-[#10B981]/15 mix-blend-overlay"></div>
+                                <h1 className="font-black text-xs sm:text-base md:text-xl tracking-tight sm:tracking-widest text-[#FFF] uppercase leading-tight drop-shadow-md">
+                                  WEEKLY POOL RESULTS
+                                </h1>
+                                <p className="text-[8px] sm:text-xs tracking-wide sm:tracking-wider text-emerald-300 font-bold mt-0.5 drop-shadow-sm font-mono uppercase">
+                                  CURRENT `pool_result` CARDS: id • home_team • pool_result • away_team • status
+                                </p>
+                              </div>
                             </div>
-                            
-                            {/* Header Banner */}
-                            <div className="flex-grow bg-[#004D40] text-slate-100 flex flex-col items-start md:items-center justify-center py-5 px-4 md:px-10 text-left md:text-center relative">
-                              <div className="absolute inset-0 bg-[#10B981]/15 mix-blend-overlay"></div>
-                              <h1 className="font-black text-lg md:text-2xl tracking-tight md:tracking-widest text-[#FFF] uppercase leading-none drop-shadow-md whitespace-normal break-words">
-                                {activeResult.pool_type?.toUpperCase() === 'AUSSIE' ? 'AUSSIE' : 'UK'} WEEK {(activeWeekNumber && activeWeekNumber !== 'NULL') ? activeWeekNumber : (activeResult.week_number || 49)} POOL RESULTS TABLE
-                              </h1>
-                              <p className="text-[10px] md:text-xs tracking-wider text-emerald-300 font-bold mt-1.5 drop-shadow-sm font-mono uppercase">
-                                CURRENT `pool_result` TABLE: id • home_team • pool_result • away_team • status
-                              </p>
+
+                            {/* Cards Display Only */}
+                            <div className="p-2.5 sm:p-3.5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 bg-[#070b13]">
+                              {filtered.length === 0 ? (
+                                <div className="col-span-full py-12 text-center text-slate-500 italic text-xs font-mono">
+                                  {baseRows.length === 0 ? 'No match records in pool_result table yet.' : 'No matches found matching your filter criteria.'}
+                                </div>
+                              ) : (
+                                filtered.map((row: any, idx: number) => {
+                                  const rowId = row.id ?? row.matchNo ?? (idx + 1);
+                                  const homeTeam = row.home_team || row.Home_Team || row.homeTeam || '';
+                                  const awayTeam = row.away_team || row.Away_Team || row.awayTeam || '';
+                                  const status = row.status || (row.outcome === 'DRAW' ? 'ScoreDraw' : (row.outcome === 'HOME WIN' ? 'Home' : 'Away'));
+                                  const poolResult = row.pool_result || (row.Home_Team_Score !== undefined ? `${row.Home_Team_Score}-:-${row.Away_Team_Score}` : row.fullTimeScore?.replace(' - ', '-:-')) || '0-:-0';
+                                  const isDraw = status === 'ScoreDraw' || status === 'noScoreDraw' || row.outcome === 'DRAW';
+
+                                  return (
+                                    <div
+                                      key={idx}
+                                      className={`p-3 rounded-xl border transition-all flex flex-col justify-between ${
+                                        isDraw
+                                          ? 'bg-[#051812] border-emerald-600/90 shadow-md ring-1 ring-emerald-500/20'
+                                          : 'bg-[#0B0F19] border-slate-800 hover:border-slate-700'
+                                      }`}
+                                    >
+                                      {/* Header: #ID and Status Badge */}
+                                      <div className="flex items-center justify-between gap-2 mb-2 pb-1.5 border-b border-slate-800/80">
+                                        <div className="flex items-center gap-1.5">
+                                          <span className="font-mono text-xs font-black text-amber-400 bg-black/60 px-2 py-0.5 rounded border border-slate-800">
+                                            #{rowId}
+                                          </span>
+                                          <span className="text-[9px] font-mono text-slate-500 uppercase font-bold">Match</span>
+                                        </div>
+                                        {getStatusBadge(status)}
+                                      </div>
+
+                                      {/* Matchup: Home Team - Score - Away Team */}
+                                      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 py-1.5">
+                                        <div className="text-right flex flex-col items-end justify-center">
+                                          <div className="font-extrabold text-white text-xs sm:text-sm leading-snug break-words">
+                                            {homeTeam}
+                                          </div>
+                                          <span className="text-[8px] sm:text-[9px] font-mono text-emerald-400/70 uppercase font-semibold">Home</span>
+                                        </div>
+
+                                        <div className="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-700 text-amber-300 font-mono font-black text-xs sm:text-sm text-center min-w-[54px] shadow-inner tracking-wider">
+                                          {poolResult}
+                                        </div>
+
+                                        <div className="text-left flex flex-col items-start justify-center">
+                                          <div className="font-extrabold text-white text-xs sm:text-sm leading-snug break-words">
+                                            {awayTeam}
+                                          </div>
+                                          <span className="text-[8px] sm:text-[9px] font-mono text-blue-400/70 uppercase font-semibold">Away</span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })
+                              )}
                             </div>
                           </div>
-
-                          {/* Column Headers (Strictly Matching pool_result schema) */}
-                          <div className="flex border-b border-slate-800 bg-slate-900/80 font-mono text-[11px] font-extrabold text-slate-200">
-                            <div className="w-[70px] shrink-0 border-r border-slate-800 p-3 text-center uppercase tracking-wider bg-slate-950/40">id</div>
-                            <div className="flex-1 min-w-[180px] border-r border-slate-800 p-3 text-left pl-4 uppercase tracking-wider">home_team</div>
-                            <div className="w-[140px] shrink-0 border-r border-slate-800 p-3 text-center uppercase tracking-wider bg-slate-950/40">pool_result</div>
-                            <div className="flex-1 min-w-[180px] border-r border-slate-800 p-3 text-left pl-4 uppercase tracking-wider">away_team</div>
-                            <div className="w-[150px] shrink-0 p-3 text-center uppercase tracking-wider bg-slate-950/40">status</div>
-                          </div>
-
-                          {/* Rows: Matching the current pool_result table */}
-                          {(() => {
-                            const baseRows = activeResult.results_table || [];
-                            const filtered = baseRows.filter((row: any) => {
-                              if (!championshipSearchQuery) return true;
-                              const q = championshipSearchQuery.toLowerCase();
-                              const home = (row.home_team || row.Home_Team || row.homeTeam || '').toLowerCase();
-                              const away = (row.away_team || row.Away_Team || row.awayTeam || '').toLowerCase();
-                              const status = (row.status || '').toLowerCase();
-                              const resStr = (row.pool_result || '').toLowerCase();
-                              const rowId = String(row.id ?? row.matchNo ?? '');
-                              return (
-                                home.includes(q) ||
-                                away.includes(q) ||
-                                status.includes(q) ||
-                                resStr.includes(q) ||
-                                rowId.includes(q)
-                              );
-                            });
-
-                            if (filtered.length === 0) {
-                              return (
-                                <div className="flex border-b border-slate-800 font-mono text-xs text-center py-10 justify-center text-slate-500 italic">
-                                  <div className="flex-1">
-                                    {baseRows.length === 0
-                                      ? "No match records in pool_result table yet."
-                                      : "No matches found matching your filter criteria."}
-                                  </div>
-                                </div>
-                              );
-                            }
-
-                            return filtered.map((row: any, idx: number) => {
-                              const rowId = row.id ?? row.matchNo ?? (idx + 1);
-                              const homeTeam = row.home_team || row.Home_Team || row.homeTeam || '';
-                              const awayTeam = row.away_team || row.Away_Team || row.awayTeam || '';
-                              const status = row.status || (row.outcome === 'DRAW' ? 'ScoreDraw' : (row.outcome === 'HOME WIN' ? 'Home' : 'Away'));
-                              const poolResult = row.pool_result || row.fullTimeScore?.replace(' - ', '-:-') || '0-:-0';
-                              const isDraw = status === 'ScoreDraw' || status === 'noScoreDraw';
-                              
-                              const getStatusBadge = (st: string) => {
-                                if (st === 'ScoreDraw') {
-                                  return (
-                                    <span className="px-2.5 py-1 rounded-md text-[10px] font-black font-mono tracking-wider uppercase bg-emerald-950/60 text-emerald-300 border border-emerald-700/60 inline-flex items-center gap-1 shadow-sm">
-                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                                      ScoreDraw
-                                    </span>
-                                  );
-                                }
-                                if (st === 'noScoreDraw') {
-                                  return (
-                                    <span className="px-2.5 py-1 rounded-md text-[10px] font-black font-mono tracking-wider uppercase bg-teal-950/60 text-teal-300 border border-teal-700/60 inline-flex items-center gap-1 shadow-sm">
-                                      <span className="w-1.5 h-1.5 rounded-full bg-teal-400"></span>
-                                      noScoreDraw
-                                    </span>
-                                  );
-                                }
-                                if (st === 'Home') {
-                                  return (
-                                    <span className="px-2.5 py-1 rounded-md text-[10px] font-black font-mono tracking-wider uppercase bg-blue-950/60 text-blue-300 border border-blue-700/60 inline-flex items-center gap-1">
-                                      Home
-                                    </span>
-                                  );
-                                }
-                                if (st === 'Away') {
-                                  return (
-                                    <span className="px-2.5 py-1 rounded-md text-[10px] font-black font-mono tracking-wider uppercase bg-purple-950/60 text-purple-300 border border-purple-700/60 inline-flex items-center gap-1">
-                                      Away
-                                    </span>
-                                  );
-                                }
-                                return (
-                                  <span className="px-2.5 py-1 rounded-md text-[10px] font-bold font-mono tracking-wider uppercase bg-slate-900 text-slate-300 border border-slate-700">
-                                    {st}
-                                  </span>
-                                );
-                              };
-
-                              return (
-                                <div 
-                                  key={idx} 
-                                  className={`flex border-b border-slate-800 font-mono text-xs items-stretch transition-colors ${
-                                    isDraw ? 'bg-emerald-950/15 hover:bg-emerald-950/25' : 'hover:bg-slate-900/40'
-                                  }`}
-                                >
-                                  {/* id */}
-                                  <div className="w-[70px] shrink-0 border-r border-slate-800 p-3 text-center text-amber-400 font-black flex items-center justify-center bg-slate-950/30">
-                                    {rowId}
-                                  </div>
-
-                                  {/* home_team */}
-                                  <div className="flex-1 min-w-[180px] border-r border-slate-800 p-3 text-left pl-4 font-bold text-slate-100 flex items-center">
-                                    {homeTeam}
-                                  </div>
-
-                                  {/* pool_result */}
-                                  <div className="w-[140px] shrink-0 border-r border-slate-800 p-3 text-center font-black text-sm flex items-center justify-center bg-slate-950/30">
-                                    <span className="px-3 py-1 bg-slate-900 border border-slate-700/80 rounded-lg text-amber-300 font-mono tracking-wider shadow-inner">
-                                      {poolResult}
-                                    </span>
-                                  </div>
-
-                                  {/* away_team */}
-                                  <div className="flex-1 min-w-[180px] border-r border-slate-800 p-3 text-left pl-4 font-bold text-slate-100 flex items-center">
-                                    {awayTeam}
-                                  </div>
-
-                                  {/* status */}
-                                  <div className="w-[150px] shrink-0 p-3 text-center flex items-center justify-center bg-slate-950/20">
-                                    {getStatusBadge(status)}
-                                  </div>
-                                </div>
-                              );
-                            });
-                          })()}
                         </div>
-
-                        </div>
-                        </div>
-
-
-
-                      </div>
-                    )}
+                      );
+                    })()}
 
                     {!activeResult && (
                       <div className="flex flex-col items-center justify-center text-center p-12 bg-slate-900/40 border border-slate-800 rounded-2xl gap-3 animate-fadeIn mt-2">
