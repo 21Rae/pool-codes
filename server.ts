@@ -156,7 +156,8 @@ app.get("/api/config", (req, res) => {
   const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "";
   const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || "";
   const paystackPublicKey = process.env.VITE_PAYSTACK_PUBLIC_KEY || process.env.PAYSTACK_PUBLIC_KEY || "";
-  res.json({ supabaseUrl, supabaseAnonKey, paystackPublicKey });
+  const paystackGhanaPublicKey = process.env.VITE_PAYSTACK_GHANA_PUBLIC_KEY || process.env.PAYSTACK_GHANA_PUBLIC_KEY || "";
+  res.json({ supabaseUrl, supabaseAnonKey, paystackPublicKey, paystackGhanaPublicKey });
 });
 
 // API Route - Securely Query blogs from Supabase with SWR Memory Cache
@@ -290,6 +291,46 @@ app.get("/api/database/tables", async (req, res) => {
   }
 });
 
+function normalizeBookmakerKey(val: string): string {
+  if (!val) return '';
+  const s = String(val).toLowerCase().trim();
+  const cleaned = s.replace(/^bm-/, '').replace(/[\s_]+/g, '-');
+
+  // Check Ghana SportyBet FIRST to avoid collision with Nigeria SportyBet
+  if (
+    (cleaned.includes('sporty') || cleaned.includes('sb')) &&
+    (cleaned.includes('ghana') || cleaned.includes('-gh') || cleaned.endsWith('gh') || cleaned === 'sportybet-ghana' || cleaned === 'sportybetghana' || cleaned === 'sb-gh')
+  ) {
+    return 'sportybet-ghana';
+  }
+
+  // Nigerian SportyBet (only when NOT Ghana)
+  if (cleaned.includes('sporty') || cleaned === 'sb' || cleaned === 'sportybet' || cleaned === 'sporty-bet') {
+    return 'sportybet';
+  }
+
+  // Other bookmakers
+  if (cleaned.includes('bet9ja')) return 'bet9ja';
+  if (cleaned.includes('betking')) return 'betking';
+  if (cleaned.includes('msport')) return 'msport';
+  if (cleaned.includes('betway')) return 'betway';
+  if (cleaned.includes('premierbet') || cleaned.includes('premier-bet')) return 'premierbet';
+  if (cleaned.includes('soccabet') || cleaned.includes('socca-bet')) return 'soccabet';
+
+  return cleaned.replace(/[^a-z0-9-]/g, '');
+}
+
+function matchBookmakerComponent(comp: string, target: string): boolean {
+  if (!comp || !target) return false;
+  const cNorm = normalizeBookmakerKey(comp);
+  const tNorm = normalizeBookmakerKey(target);
+
+  if (cNorm === 'all' || tNorm === 'all') return true;
+  if (!cNorm || !tNorm) return false;
+
+  return cNorm === tNorm;
+}
+
 // Helper: Ultra-Fast User Table & Bookmaker Permission Check with Short-Term Memoization
 async function checkUserTableAccess(
   userId?: string,
@@ -299,6 +340,7 @@ async function checkUserTableAccess(
   if (!targetTable) return { allowed: false, reason: "No target bookmaker or table specified." };
 
   const cleanTable = targetTable.toLowerCase().trim().replace(REGEX_CLEAN_TABLE, "");
+  const targetKey = normalizeBookmakerKey(cleanTable);
 
   // 1. FAST-PATH: Public Tables (Zero I/O, Instant CPU Return)
   const PUBLIC_TABLES = new Set([
@@ -435,10 +477,28 @@ async function checkUserTableAccess(
               return resObj;
             }
 
-            const isMatched = comps.some((c) => {
-              const cClean = c.replace(/[^a-z0-9]/g, "");
-              return cClean === cleanTable || cleanTable.includes(cClean) || cClean.includes(cleanTable);
-            }) || ptitle.includes(cleanTable);
+            let planBookieKey = '';
+            if (ptitle.includes('sporty') && (ptitle.includes('ghana') || ptitle.includes('gh'))) {
+              planBookieKey = 'sportybet-ghana';
+            } else if (ptitle.includes('sporty')) {
+              planBookieKey = 'sportybet';
+            } else if (ptitle.includes('bet9ja')) {
+              planBookieKey = 'bet9ja';
+            } else if (ptitle.includes('betking')) {
+              planBookieKey = 'betking';
+            } else if (ptitle.includes('msport')) {
+              planBookieKey = 'msport';
+            } else if (ptitle.includes('premierbet')) {
+              planBookieKey = 'premierbet';
+            } else if (ptitle.includes('betway')) {
+              planBookieKey = 'betway';
+            } else if (ptitle.includes('soccabet')) {
+              planBookieKey = 'soccabet';
+            }
+
+            const isMatched =
+              comps.some((c) => matchBookmakerComponent(c, targetKey)) ||
+              (planBookieKey !== '' && matchBookmakerComponent(planBookieKey, targetKey));
 
             if (isMatched) {
               const resObj = { allowed: true };

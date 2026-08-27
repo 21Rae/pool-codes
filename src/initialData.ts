@@ -382,6 +382,46 @@ export function getSortedComparisonPlans(dbPlans?: SubscriptionPlan[], isGhana =
   });
 }
 
+export function normalizeBookmakerKey(val: string): string {
+  if (!val) return '';
+  const s = String(val).toLowerCase().trim();
+  const cleaned = s.replace(/^bm-/, '').replace(/[\s_]+/g, '-');
+
+  // Check Ghana SportyBet FIRST to avoid collision with Nigeria SportyBet
+  if (
+    (cleaned.includes('sporty') || cleaned.includes('sb')) &&
+    (cleaned.includes('ghana') || cleaned.includes('-gh') || cleaned.endsWith('gh') || cleaned === 'sportybet-ghana' || cleaned === 'sportybetghana' || cleaned === 'sb-gh')
+  ) {
+    return 'sportybet-ghana';
+  }
+
+  // Nigerian SportyBet (only when NOT Ghana)
+  if (cleaned.includes('sporty') || cleaned === 'sb' || cleaned === 'sportybet' || cleaned === 'sporty-bet') {
+    return 'sportybet';
+  }
+
+  // Other bookmakers
+  if (cleaned.includes('bet9ja')) return 'bet9ja';
+  if (cleaned.includes('betking')) return 'betking';
+  if (cleaned.includes('msport')) return 'msport';
+  if (cleaned.includes('betway')) return 'betway';
+  if (cleaned.includes('premierbet') || cleaned.includes('premier-bet')) return 'premierbet';
+  if (cleaned.includes('soccabet') || cleaned.includes('socca-bet')) return 'soccabet';
+
+  return cleaned.replace(/[^a-z0-9-]/g, '');
+}
+
+export function matchBookmakerComponent(comp: string, target: string): boolean {
+  if (!comp || !target) return false;
+  const cNorm = normalizeBookmakerKey(comp);
+  const tNorm = normalizeBookmakerKey(target);
+
+  if (cNorm === 'all' || tNorm === 'all') return true;
+  if (!cNorm || !tNorm) return false;
+
+  return cNorm === tNorm;
+}
+
 export function isGhanaBookmaker(b: any): boolean {
   if (!b) return false;
   const country = String(b.country || '').toLowerCase();

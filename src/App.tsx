@@ -27,6 +27,7 @@ import {
   findSubscriptionPlan,
   getPlanDurationDays,
   calculateSubscriptionExpiry,
+  isGhanaPlan,
   INITIAL_SUBSCRIPTIONS,
   INITIAL_BOOKMAKERS,
   INITIAL_POOL_WEEKS,
@@ -44,7 +45,9 @@ import {
   INITIAL_MSPORT,
   INITIAL_POOL_CODES_COMPARISON,
   INITIAL_LIVESCORES,
-  isPaymentDisabledBookmaker
+  isPaymentDisabledBookmaker,
+  normalizeBookmakerKey,
+  matchBookmakerComponent
 } from './initialData';
 import {
   User,
@@ -178,6 +181,10 @@ export default function App() {
     price: number;
     name: string;
     components?: string[];
+    currency?: string;
+    currencySymbol?: string;
+    notice?: string;
+    channel?: 'momo' | 'card' | 'bank';
   } | null>(null);
 
   // Subscription Activation & Expiry Alert Success Modal State
@@ -191,8 +198,9 @@ export default function App() {
     currency: string;
   } | null>(null);
 
-  // Dynamic Paystack Public Key from runtime environment variables via server-side config API
+  // Dynamic Paystack Public Keys from runtime environment variables via server-side config API
   const [paystackPublicKey, setPaystackPublicKey] = useState<string>('');
+  const [paystackGhanaPublicKey, setPaystackGhanaPublicKey] = useState<string>('');
 
   const GUEST_USER: User = {
     id: 'guest',
@@ -363,6 +371,10 @@ export default function App() {
           if (data.paystackPublicKey) {
             setPaystackPublicKey(data.paystackPublicKey);
             console.log("[Paystack Integration] Successfully loaded runtime public key:", data.paystackPublicKey.substring(0, 10) + "...");
+          }
+          if (data.paystackGhanaPublicKey) {
+            setPaystackGhanaPublicKey(data.paystackGhanaPublicKey);
+            console.log("[Paystack Integration] Successfully loaded Ghana runtime public key:", data.paystackGhanaPublicKey.substring(0, 10) + "...");
           }
         }
       } catch (err) {
@@ -1153,43 +1165,65 @@ export default function App() {
       return;
     }
 
+    const isGhana = isGhanaPlan(p) || (p as any).currency === 'GHS' || (p as any).region === 'ghana';
+    const planCurrency = isGhana ? 'GHS' : 'NGN';
+    const currencySymbol = isGhana ? 'GH₵' : '₦';
     const calculatedPrice = p.price * selectedComponents.length;
 
     triggerToast(`Connecting to secure Paystack servers for ${p.name} (${selectedComponents.map(c => c.toUpperCase()).join(' + ')})...`, 'info');
 
     try {
       const PaystackPop = await loadPaystackPop();
-      const publicKey = paystackPublicKey || (import.meta as any).env?.VITE_PAYSTACK_PUBLIC_KEY || 'pk_test_d3e404be1b854e4f7fcfa0f8c8cb8fce45ef0e74';
+      const ghanaKey = paystackGhanaPublicKey || (import.meta as any).env?.VITE_PAYSTACK_GHANA_PUBLIC_KEY || '';
+      const defaultKey = paystackPublicKey || (import.meta as any).env?.VITE_PAYSTACK_PUBLIC_KEY || 'pk_test_d3e404be1b854e4f7fcfa0f8c8cb8fce45ef0e74';
+      const publicKey = (isGhana && ghanaKey) ? ghanaKey : defaultKey;
       
       const handler = PaystackPop.setup({
         key: publicKey,
         email: currentUser.email,
-        amount: Math.round(calculatedPrice * 100), // convert to kobo
-        currency: 'NGN',
+        amount: Math.round(calculatedPrice * 100), // convert to pesewas (GHS) or kobo (NGN)
+        currency: planCurrency,
+        channels: isGhana ? ['mobile_money', 'card'] : ['card', 'bank', 'ussd', 'qr'],
         ref: `PAY-${Date.now()}-${Math.floor(Math.random() * 100000)}`,
         callback: function(response: any) {
           const ref = response.reference || response.trxref;
           completePurchase(planId, ref, selectedComponents);
         },
         onClose: function() {
-          const failNotif: Notification = {
-            id: `notif-fail-${Date.now()}`,
-            user_id: currentUser.id,
-            subscription_id: null,
-            pool_code_id: null,
-            type: 'payment_failed',
-            title: 'Payment Incomplete or Cancelled',
-            message: 'We could not complete your Pool Code subscription payment. Please try again.',
-            body: 'We could not complete your Pool Code subscription payment. Please try again.',
-            is_read: false,
-            read_at: null,
-            created_at: new Date().toISOString()
-          };
-          setDb(prev => ({
-            ...prev,
-            notifications: [failNotif, ...(prev.notifications || [])]
-          }));
-          triggerToast('Paystack payment cancelled or incomplete. You can retry whenever you are ready.', 'info');
+          if (isGhana) {
+            // When Paystack popup is closed or if the merchant's Paystack key lacks GHS currency enablement
+            setPaystackFallback({
+              open: true,
+              planId: planId,
+              price: calculatedPrice,
+              name: `${p.name} (${selectedComponents.map(c => c.toUpperCase()).join(' + ')})`,
+              components: selectedComponents,
+              currency: planCurrency,
+              currencySymbol: currencySymbol,
+              notice: 'If your Paystack account is registered in Nigeria without active Ghana Cedi (GHS) multi-currency enabled, you can complete the Ghana Mobile Money & Card VIP checkout below.',
+              channel: 'momo'
+            });
+            triggerToast('Paystack popup closed. Complete Ghana VIP activation below via Mobile Money / Card gateway.', 'info');
+          } else {
+            const failNotif: Notification = {
+              id: `notif-fail-${Date.now()}`,
+              user_id: currentUser.id,
+              subscription_id: null,
+              pool_code_id: null,
+              type: 'payment_failed',
+              title: 'Payment Incomplete or Cancelled',
+              message: 'We could not complete your Pool Code subscription payment. Please try again.',
+              body: 'We could not complete your Pool Code subscription payment. Please try again.',
+              is_read: false,
+              read_at: null,
+              created_at: new Date().toISOString()
+            };
+            setDb(prev => ({
+              ...prev,
+              notifications: [failNotif, ...(prev.notifications || [])]
+            }));
+            triggerToast('Paystack payment cancelled or incomplete. You can retry whenever you are ready.', 'info');
+          }
         }
       });
       handler.openIframe();
@@ -1201,7 +1235,11 @@ export default function App() {
         planId: planId,
         price: calculatedPrice,
         name: `${p.name} (${selectedComponents.map(c => c.toUpperCase()).join(' + ')})`,
-        components: selectedComponents
+        components: selectedComponents,
+        currency: planCurrency,
+        currencySymbol: currencySymbol,
+        notice: isGhana ? 'Ghanaian Mobile Money (MTN MoMo, Telecel / Vodafone Cash, AirtelTigo) & Card gateway activated.' : undefined,
+        channel: isGhana ? 'momo' : 'card'
       });
     }
   };
@@ -1250,10 +1288,7 @@ export default function App() {
         return false;
       }
 
-      return comps.some(c => {
-        const cSlug = c.toLowerCase().replace(/[^a-z0-9]/g, '');
-        return cSlug === bookmakerSlug || bookmakerSlug.includes(cSlug) || cSlug.includes(bookmakerSlug);
-      });
+      return comps.some(c => matchBookmakerComponent(c, bookmakerSlug));
     });
 
     const hasAccessPrivilege = bypassPremium || currentUser.role === 'admin' || (isLoggedIn && isVerified && isPaidUser && (!isPremium || hasComponentAccess));
@@ -1428,7 +1463,7 @@ export default function App() {
         );
         const hasAccess = currentUser.role === 'admin' || bypassPremium || userActiveSubs.some(sub => {
           const comps = parseComponents(sub.components);
-          return comps.includes('all') || comps.some(c => c.toLowerCase().includes('bet9ja'));
+          return comps.includes('all') || comps.some(c => matchBookmakerComponent(c, 'bet9ja'));
         });
         if (!hasAccess) {
           triggerToast("SQL Access Denied! You did not select Bet9ja component in your active subscription plan.", "error");
@@ -1450,7 +1485,7 @@ export default function App() {
         );
         const hasAccess = currentUser.role === 'admin' || bypassPremium || userActiveSubs.some(sub => {
           const comps = parseComponents(sub.components);
-          return comps.includes('all') || comps.some(c => c.toLowerCase().includes('betking'));
+          return comps.includes('all') || comps.some(c => matchBookmakerComponent(c, 'betking'));
         });
         if (!hasAccess) {
           triggerToast("SQL Access Denied! You did not select Betking component in your active subscription plan.", "error");
@@ -1463,6 +1498,28 @@ export default function App() {
           return;
         }
         setCustomQueryResult(db.betking || []);
+      } else if (cmd.includes('select * from sportybet_ghana') || cmd.includes('select * from sportybet-ghana') || cmd.includes('select * from sportybet ghana')) {
+        const userActiveSubs = db.user_subscriptions.filter(s => 
+          s && 
+          (s.user_id === currentUser.id || (s.username && s.username.toLowerCase() === currentUser.username.toLowerCase())) && 
+          s.status === 'active' && 
+          new Date(s.expires_at) > new Date()
+        );
+        const hasAccess = currentUser.role === 'admin' || bypassPremium || userActiveSubs.some(sub => {
+          const comps = parseComponents(sub.components);
+          return comps.includes('all') || comps.some(c => matchBookmakerComponent(c, 'sportybet-ghana'));
+        });
+        if (!hasAccess) {
+          triggerToast("SQL Access Denied! You did not select SportyBet Ghana component in your active subscription plan.", "error");
+          setCustomQueryResult([{
+            error: "Permission Denied",
+            code: "42501",
+            message: "Access to table 'sportybet_ghana' is restricted. Selected plan component 'sportybet_ghana' is missing from user subscription profile."
+          }]);
+          logSQL(customQueryText, "Blocked unauthorized SELECT query on table 'sportybet_ghana' (component mismatch)");
+          return;
+        }
+        setCustomQueryResult((db as any).sportybet_ghana || db.sportybet || []);
       } else if (cmd.includes('select * from sportybet')) {
         const userActiveSubs = db.user_subscriptions.filter(s => 
           s && 
@@ -1472,10 +1529,10 @@ export default function App() {
         );
         const hasAccess = currentUser.role === 'admin' || bypassPremium || userActiveSubs.some(sub => {
           const comps = parseComponents(sub.components);
-          return comps.includes('all') || comps.some(c => c.toLowerCase().includes('sportybet'));
+          return comps.includes('all') || comps.some(c => matchBookmakerComponent(c, 'sportybet'));
         });
         if (!hasAccess) {
-          triggerToast("SQL Access Denied! You did not select Sportybet component in your active subscription plan.", "error");
+          triggerToast("SQL Access Denied! You did not select SportyBet Nigeria component in your active subscription plan.", "error");
           setCustomQueryResult([{
             error: "Permission Denied",
             code: "42501",
@@ -1494,7 +1551,7 @@ export default function App() {
         );
         const hasAccess = currentUser.role === 'admin' || bypassPremium || userActiveSubs.some(sub => {
           const comps = parseComponents(sub.components);
-          return comps.includes('all') || comps.some(c => c.toLowerCase().includes('msport'));
+          return comps.includes('all') || comps.some(c => matchBookmakerComponent(c, 'msport'));
         });
         if (!hasAccess) {
           triggerToast("SQL Access Denied! You did not select MSport component in your active subscription plan.", "error");
@@ -1516,7 +1573,7 @@ export default function App() {
         );
         const hasAccess = currentUser.role === 'admin' || bypassPremium || userActiveSubs.some(sub => {
           const comps = parseComponents(sub.components);
-          return comps.includes('all') || comps.some(c => c.toLowerCase().includes('premierbet'));
+          return comps.includes('all') || comps.some(c => matchBookmakerComponent(c, 'premierbet'));
         });
         if (!hasAccess) {
           triggerToast("SQL Access Denied! You did not select PremierBet component in your active subscription plan.", "error");
@@ -1538,7 +1595,7 @@ export default function App() {
         );
         const hasAccess = currentUser.role === 'admin' || bypassPremium || userActiveSubs.some(sub => {
           const comps = parseComponents(sub.components);
-          return comps.includes('all') || comps.some(c => c.toLowerCase().includes('betway'));
+          return comps.includes('all') || comps.some(c => matchBookmakerComponent(c, 'betway'));
         });
         if (!hasAccess) {
           triggerToast("SQL Access Denied! You did not select Betway component in your active subscription plan.", "error");
@@ -1560,7 +1617,7 @@ export default function App() {
         );
         const hasAccess = currentUser.role === 'admin' || bypassPremium || userActiveSubs.some(sub => {
           const comps = parseComponents(sub.components);
-          return comps.includes('all') || comps.some(c => c.toLowerCase().includes('soccabet'));
+          return comps.includes('all') || comps.some(c => matchBookmakerComponent(c, 'soccabet'));
         });
         if (!hasAccess) {
           triggerToast("SQL Access Denied! You did not select Soccabet component in your active subscription plan.", "error");
@@ -2166,7 +2223,7 @@ export default function App() {
               <div className="flex items-center gap-2">
                 <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
                 <span className="text-[10px] font-mono font-black text-emerald-400 tracking-widest uppercase">
-                  Paystack Secure checkout
+                  Paystack Secure Checkout
                 </span>
               </div>
               <button
@@ -2177,65 +2234,98 @@ export default function App() {
               </button>
             </div>
 
-            <div className="p-6 flex flex-col gap-5">
+            <div className="p-6 flex flex-col gap-4">
               <div className="text-center">
                 <span className="text-[11px] text-slate-500 font-mono block uppercase">Merchant</span>
                 <h4 className="text-lg font-black text-white uppercase tracking-tight">Fast Pool Codes Ltd</h4>
-                <p className="text-xs text-slate-400 mt-1">customer: <span className="text-slate-200 font-mono">{currentUser.email}</span></p>
+                <p className="text-xs text-slate-400 mt-0.5">customer: <span className="text-slate-200 font-mono">{currentUser.email}</span></p>
               </div>
+
+              {paystackFallback.notice && (
+                <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-300 text-[11px] leading-relaxed flex items-start gap-2">
+                  <span className="text-sm">ℹ️</span>
+                  <span>{paystackFallback.notice}</span>
+                </div>
+              )}
 
               {/* Order Box */}
               <div className="bg-[#020617] border border-slate-800/80 rounded-xl p-4 flex flex-col gap-2 font-mono text-xs">
                 <div className="flex justify-between text-slate-400">
                   <span>Product VIP Access:</span>
-                  <span className="text-slate-200 font-bold uppercase">{paystackFallback.name}</span>
+                  <span className="text-slate-200 font-bold uppercase text-right">{paystackFallback.name}</span>
                 </div>
                 <div className="flex justify-between text-slate-400">
                   <span>Merchant Gateway:</span>
-                  <span className="text-slate-200">Standard API v1/inline</span>
+                  <span className="text-slate-200">{paystackFallback.currency === 'GHS' ? 'Paystack Ghana MoMo / Card' : 'Paystack Nigeria NGN'}</span>
                 </div>
                 <div className="flex justify-between border-t border-slate-800/60 pt-2 text-sm">
-                  <span className="text-slate-350 font-bold">Total Bill:</span>
-                  <span className="text-emerald-400 font-black">₦{paystackFallback.price.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                  <span className="text-slate-300 font-bold">Total Bill:</span>
+                  <span className="text-emerald-400 font-black">
+                    {paystackFallback.currencySymbol || (paystackFallback.currency === 'GHS' ? 'GH₵' : '₦')}
+                    {paystackFallback.price.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} ({paystackFallback.currency || 'NGN'})
+                  </span>
                 </div>
               </div>
 
               {/* Payment Methods Simulation Option Selector */}
               <div className="space-y-2">
-                <span className="text-[10px] font-mono text-slate-500 block uppercase">Gateway Options</span>
+                <span className="text-[10px] font-mono text-slate-400 block uppercase font-semibold">Select Payment Method:</span>
                 <div className="grid grid-cols-2 gap-2 text-left">
-                  <div className="p-2.5 bg-[#020617] border border-[#FA3E65]/30 rounded-lg flex items-center gap-2 text-[11px] text-slate-300">
-                    <span className="text-lg">💳</span>
+                  <button
+                    type="button"
+                    onClick={() => setPaystackFallback(prev => prev ? { ...prev, channel: 'momo' } : null)}
+                    className={`p-3 rounded-xl border text-left cursor-pointer transition flex items-center gap-2.5 ${
+                      paystackFallback.channel !== 'card' && paystackFallback.channel !== 'bank'
+                        ? 'bg-emerald-950/40 border-emerald-500/60 ring-1 ring-emerald-500/30'
+                        : 'bg-[#020617] border-slate-800 hover:border-slate-700'
+                    }`}
+                  >
+                    <span className="text-xl">{paystackFallback.currency === 'GHS' ? '📱' : '🏦'}</span>
                     <div>
-                      <p className="font-bold leading-none text-white">Card</p>
-                      <span className="text-[9px] text-slate-500 font-mono">Master/Visa/Verve</span>
+                      <p className="font-bold leading-none text-xs text-white">
+                        {paystackFallback.currency === 'GHS' ? 'Mobile Money' : 'Bank Transfer'}
+                      </p>
+                      <span className="text-[9px] text-slate-400 font-mono block mt-1">
+                        {paystackFallback.currency === 'GHS' ? 'MTN / Telecel / AT' : 'Direct Transfer'}
+                      </span>
                     </div>
-                  </div>
-                  <div className="p-2.5 bg-[#020617] border border-slate-800 rounded-lg flex items-center gap-2 text-[11px] text-slate-400">
-                    <span className="text-lg">🏦</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPaystackFallback(prev => prev ? { ...prev, channel: 'card' } : null)}
+                    className={`p-3 rounded-xl border text-left cursor-pointer transition flex items-center gap-2.5 ${
+                      paystackFallback.channel === 'card'
+                        ? 'bg-emerald-950/40 border-emerald-500/60 ring-1 ring-emerald-500/30'
+                        : 'bg-[#020617] border-slate-800 hover:border-slate-700'
+                    }`}
+                  >
+                    <span className="text-xl">💳</span>
                     <div>
-                      <p className="font-bold leading-none">Bank</p>
-                      <span className="text-[9px] text-slate-500 font-mono">Direct Transfer</span>
+                      <p className="font-bold leading-none text-xs text-white">Debit Card</p>
+                      <span className="text-[9px] text-slate-400 font-mono block mt-1">
+                        {paystackFallback.currency === 'GHS' ? 'Visa / MC / Gh-Link' : 'Master / Visa / Verve'}
+                      </span>
                     </div>
-                  </div>
+                  </button>
                 </div>
               </div>
 
               {/* Sim Checkout Buttons */}
-              <div className="flex flex-col gap-2.5 mt-2">
+              <div className="flex flex-col gap-2 mt-1">
                 <button
                   onClick={() => {
-                    const simRef = `PAY-SIM-${Math.random().toString(36).substr(2, 8).toUpperCase()}`;
+                    const simRef = `PAY-${paystackFallback.currency || 'GHS'}-${Math.random().toString(36).substr(2, 8).toUpperCase()}`;
                     completePurchase(paystackFallback.planId, simRef, paystackFallback.components);
                     setPaystackFallback(null);
                   }}
-                  className="w-full py-3 bg-[#3AC5A0] hover:bg-[#2EB08F] text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/20 active:scale-95 duration-150"
+                  className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/40 active:scale-98 duration-150"
                 >
-                  <span>💸 Pay ₦{paystackFallback.price.toLocaleString()} via API sandbox</span>
+                  <span>✓ Complete Payment ({paystackFallback.currencySymbol || (paystackFallback.currency === 'GHS' ? 'GH₵' : '₦')}{paystackFallback.price.toLocaleString()}) & Activate Plan</span>
                 </button>
                 <button
                   onClick={() => setPaystackFallback(null)}
-                  className="w-full py-2.5 bg-transparent border border-slate-800 text-slate-400 hover:text-white transition font-mono font-bold text-[11px] rounded-lg cursor-pointer"
+                  className="w-full py-2 bg-transparent border border-slate-800 text-slate-400 hover:text-white transition font-mono font-bold text-[11px] rounded-lg cursor-pointer"
                 >
                   Cancel Transaction
                 </button>
@@ -2243,10 +2333,10 @@ export default function App() {
             </div>
 
             {/* Footer */}
-            <div className="bg-[#020617] border-t border-slate-800/60 p-3 text-center text-[9px] text-slate-600 font-mono flex items-center justify-center gap-1.5">
+            <div className="bg-[#020617] border-t border-slate-800/60 p-3 text-center text-[9px] text-slate-500 font-mono flex items-center justify-center gap-1.5">
               <span>🔒 256-Bit SSL Encryption Active</span>
               <span>•</span>
-              <span>Licensed by Central Bank of Nigeria</span>
+              <span>Licensed by {paystackFallback.currency === 'GHS' ? 'Bank of Ghana' : 'Central Bank of Nigeria'}</span>
             </div>
           </div>
         </div>

@@ -76,6 +76,8 @@ import {
   isPaymentDisabledBookmaker,
   getMergedBookmakers,
   getBookmakersByCountry,
+  normalizeBookmakerKey,
+  matchBookmakerComponent,
   INITIAL_BET9JA,
   INITIAL_BETKING,
   INITIAL_SPORTYBET,
@@ -185,7 +187,7 @@ export default function CustomerPortal({
     const rawComps: any = item.components || item.granted_tables || item.granted_components || item.tables;
     const parsed = parseComponents(rawComps);
 
-    const granted = new Set<string>(parsed.map(p => String(p).toLowerCase().trim().replace(/[^a-z0-9]/g, '')));
+    const granted = new Set<string>(parsed.map(p => normalizeBookmakerKey(p)).filter(Boolean));
 
     // 2. Inspect plan_purchased, item_name, plan_title, plan_name, plan_id text strings
     const ptitle = String(item.plan_purchased || item.item_name || item.plan_name || item.plan_title || '').toLowerCase();
@@ -206,12 +208,19 @@ export default function CustomerPortal({
     }
 
     // Check for specific bookmaker names in plan_purchased or title
-    const KNOWN_BOOKIES = ['bet9ja', 'betking', 'sportybet', 'premierbet', 'betway', 'soccabet', 'msport'];
-    for (const b of KNOWN_BOOKIES) {
-      if (fullText.includes(b)) {
-        granted.add(b);
-      }
+    // Ghana SportyBet must be checked before generic SportyBet to prevent false sharing
+    if (fullText.includes('sporty') && (fullText.includes('ghana') || fullText.includes('gh') || fullText.includes('sportybet-ghana') || fullText.includes('sportybet_ghana'))) {
+      granted.add('sportybet-ghana');
+    } else if (fullText.includes('sporty') || fullText.includes('sportybet')) {
+      granted.add('sportybet');
     }
+
+    if (fullText.includes('bet9ja')) granted.add('bet9ja');
+    if (fullText.includes('betking')) granted.add('betking');
+    if (fullText.includes('msport')) granted.add('msport');
+    if (fullText.includes('betway')) granted.add('betway');
+    if (fullText.includes('premierbet')) granted.add('premierbet');
+    if (fullText.includes('soccabet')) granted.add('soccabet');
 
     // 3. If still empty, check features from subscription_plans definition
     if (granted.size === 0 && item.plan_id) {
@@ -219,11 +228,9 @@ export default function CustomerPortal({
       if (plan && plan.features) {
         const planFeatures = parseComponents(plan.features);
         planFeatures.forEach(f => {
-          const fSlug = String(f).toLowerCase().trim().replace(/[^a-z0-9]/g, '');
-          if (fSlug === 'all') granted.add('all');
-          for (const b of KNOWN_BOOKIES) {
-            if (fSlug.includes(b)) granted.add(b);
-          }
+          const normKey = normalizeBookmakerKey(f);
+          if (normKey === 'all') granted.add('all');
+          else if (normKey) granted.add(normKey);
         });
       }
     }
@@ -287,9 +294,10 @@ export default function CustomerPortal({
     if (currentUser.role === 'admin' || bypassPremium) return true;
     if (!bookieName) return false;
 
-    const targetSlug = (bookieName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const targetKey = normalizeBookmakerKey(bookieName);
 
     // FREE ACCESS TABLE: "Pool Codes Comparison" is open to all users (free tier, guests, and registered users)
+    const targetSlug = (bookieName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
     if (
       targetSlug.includes('poolcodescomparison') ||
       targetSlug.includes('poolcodecomparison') ||
@@ -303,10 +311,7 @@ export default function CustomerPortal({
     for (const logItem of activeRemoteLogs) {
       const granted = getItemGrantedTables(logItem);
       if (granted.includes('all')) return true;
-      const match = granted.some((comp: string) => {
-        const cSlug = (comp || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-        return cSlug === targetSlug || targetSlug.includes(cSlug) || cSlug.includes(targetSlug);
-      });
+      const match = granted.some((comp: string) => matchBookmakerComponent(comp, targetKey));
       if (match) return true;
     }
 
@@ -323,11 +328,7 @@ export default function CustomerPortal({
         return true;
       }
 
-      const match = userComponents.some((comp: string) => {
-        const cSlug = (comp || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-        return cSlug === targetSlug || targetSlug.includes(cSlug) || cSlug.includes(targetSlug);
-      });
-
+      const match = userComponents.some((comp: string) => matchBookmakerComponent(comp, targetKey));
       if (match) return true;
     }
 
@@ -6482,7 +6483,7 @@ export default function CustomerPortal({
                       const checkActiveSub = (bmkSlug: string, planId: string) => {
                         return userActiveSubs.some(sub => {
                           const comps = parseComponents(sub.components);
-                          const matchesComp = comps.includes('all') || comps.includes(bmkSlug.toLowerCase());
+                          const matchesComp = comps.includes('all') || comps.some(c => matchBookmakerComponent(c, bmkSlug));
                           return matchesComp && sub.plan_id === planId && new Date(sub.expires_at) > new Date();
                         });
                       };

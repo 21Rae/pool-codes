@@ -1279,7 +1279,7 @@ export default function WeeklyPoolPicksTable({
               className="w-full sm:w-auto px-8 py-3.5 bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black rounded-xl text-xs uppercase tracking-wider transition-all shadow-xl shadow-emerald-950/40 cursor-pointer flex items-center justify-center gap-2"
             >
               <CreditCard className="w-4 h-4" />
-              <span>Subscribe Now — From ₦2,500</span>
+              <span>Subscribe to VIP Access</span>
             </button>
             <button
               onClick={() => fetchPicks(false)}
