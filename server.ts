@@ -1628,7 +1628,7 @@ app.post("/api/payment/confirm", async (req, res) => {
 export default app;
 
 async function startServer() {
-  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+  const PORT = 3000;
 
   if (process.env.NODE_ENV !== "production") {
     const { createServer: createViteServer } = await import("vite");
