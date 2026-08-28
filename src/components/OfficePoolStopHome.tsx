@@ -2204,7 +2204,7 @@ export default function OfficePoolStopHome({
               {/* Bookmaker x Billing Cycle Comparison Matrix */}
               {(() => {
                 const isGhana = paywallRegionFilter === 'ghana';
-                const currencySymbol = isGhana ? 'GH₵' : '₦';
+                const currencySymbol = isGhana ? '₦' : '₦';
                 const countryKey = isGhana ? 'ghana' : 'nigeria';
 
                 const countryBookies = getBookmakersByCountry(db.bookmakers, countryKey);

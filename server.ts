@@ -720,6 +720,27 @@ app.get("/api/tables/:tableName", async (req, res) => {
           break;
         }
       }
+    } else if ((error || !data || data.length === 0) && (actualTableName === "pool_result" || actualTableName === "pool_results" || actualTableName === "results" || actualTableName === "championship_results")) {
+      const candidates = [
+        "pool_result",
+        "pool_results",
+        "results",
+        "championship_results",
+        "championships",
+        "pool_results_table",
+        "pool_result_table"
+      ];
+      for (const cand of candidates) {
+        if (cand === actualTableName) continue;
+        const altRes = await supabase.from(cand).select("*", { count: "exact" });
+        if (!altRes.error && altRes.data && altRes.data.length > 0) {
+          data = altRes.data;
+          count = altRes.count;
+          error = null;
+          actualTableName = cand;
+          break;
+        }
+      }
     }
 
     if (error) {

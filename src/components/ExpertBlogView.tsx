@@ -182,18 +182,13 @@ export default function ExpertBlogView({
     }
   };
 
-  const [resultsList, setResultsList] = useState<any[]>(() => {
-    const stored = localStorage.getItem('fastpool_pool_results_list');
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0 && parsed[0]?.results_table?.[0]?.home_team === 'Bristol C.') {
-          return parsed;
-        }
-      } catch (_) {}
+  const [resultsList, setResultsList] = useState<any[]>(() => db?.pool_results || []);
+
+  useEffect(() => {
+    if (db?.pool_results && Array.isArray(db.pool_results) && db.pool_results.length > 0) {
+      setResultsList(db.pool_results);
     }
-    return db?.pool_results || [];
-  });
+  }, [db?.pool_results]);
 
   useEffect(() => {
     const handleSync = (e: any) => {

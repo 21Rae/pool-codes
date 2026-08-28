@@ -1109,26 +1109,19 @@ export default function CustomerPortal({
   }, []);
 
   // Dynamic pool results championship sheets states
-  const [poolResults, setPoolResults] = useState(() => {
-    try {
-      const stored = localStorage.getItem('fastpool_pool_results_list');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0 && parsed[0]?.results_table?.[0]?.home_team === 'Bristol C.') {
-          return parsed;
-        }
-      }
-    } catch (e) {
-      console.warn('LocalStorage read omitted for pool results:', e);
-    }
-    return db.pool_results;
-  });
+  const [poolResults, setPoolResults] = useState<any[]>(() => db.pool_results || []);
 
-  // Persist results immediately and dispatch reactive real-time custom notification events
+  // Synchronize poolResults whenever db.pool_results updates from Supabase/PostgreSQL
+  useEffect(() => {
+    if (db.pool_results && Array.isArray(db.pool_results) && db.pool_results.length > 0) {
+      setPoolResults(db.pool_results);
+    }
+  }, [db.pool_results]);
+
+  // Dispatch reactive real-time custom notification events on local edits
   useEffect(() => {
     try {
       localStorage.setItem('fastpool_pool_results_list', JSON.stringify(poolResults));
-      // Dispatch a client-wide update event for zero-delay cross-tab rendering
       window.dispatchEvent(new CustomEvent('fastpool_results_synced', { detail: poolResults }));
     } catch (err) {
       console.warn('LocalStorage write error for pool results:', err);
@@ -6453,7 +6446,7 @@ export default function CustomerPortal({
                     {/* View Controls & Bookmaker Filters */}
                     {(() => {
                       const isGhana = pricingRegionFilter === 'ghana';
-                      const currencySymbol = isGhana ? 'GH₵' : '₦';
+                      const currencySymbol = isGhana ? '₦' : '₦';
                       const countryKey = isGhana ? 'ghana' : 'nigeria';
 
                       const countryBookies = getBookmakersByCountry(db.bookmakers, countryKey);

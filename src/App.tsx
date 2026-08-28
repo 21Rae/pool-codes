@@ -431,50 +431,69 @@ export default function App() {
         if (data && Array.isArray(data)) {
           setDb(prev => {
             if (data.length > 0) {
-              if (tableName === 'pool_result' || tableName === 'pool_results') {
-                const mappedRows = data.map((r: any) => {
-                  const isDraw = r.status === 'ScoreDraw' || r.status === 'noScoreDraw';
-                  const outcome = isDraw ? 'DRAW' : (r.status === 'Home' ? 'HOME WIN' : 'AWAY WIN');
+              if (tableName === 'pool_result' || tableName === 'pool_results' || tableName === 'results' || tableName === 'championship_results') {
+                const mappedRows = data.map((r: any, idx: number) => {
+                  const rawStatus = r.status || r.outcome || r.result_status || '';
+                  const isDraw = rawStatus === 'ScoreDraw' || rawStatus === 'noScoreDraw' || rawStatus === 'Draw' || rawStatus === 'DRAW' || String(rawStatus).toLowerCase().includes('draw');
+                  const outcome = isDraw ? 'DRAW' : (rawStatus === 'Home' || rawStatus === 'HOME WIN' || rawStatus === 'HOME' ? 'HOME WIN' : 'AWAY WIN');
+                  const statusFormatted = rawStatus === 'ScoreDraw' ? 'ScoreDraw' : (rawStatus === 'noScoreDraw' ? 'noScoreDraw' : (isDraw ? 'ScoreDraw' : (outcome === 'HOME WIN' ? 'Home' : 'Away')));
+
+                  const homeTeam = r.home_team || r.Home_Team || r.homeTeam || r.team_home || r.home || '';
+                  const awayTeam = r.away_team || r.Away_Team || r.awayTeam || r.team_away || r.away || '';
+
+                  const homeScore = r.Home_Team_Score !== undefined ? r.Home_Team_Score : (r.home_team_score !== undefined ? r.home_team_score : (r.homeScore !== undefined ? r.homeScore : (r.pool_result ? r.pool_result.split('-:-')[0] : '')));
+                  const awayScore = r.Away_Team_Score !== undefined ? r.Away_Team_Score : (r.away_team_score !== undefined ? r.away_team_score : (r.awayScore !== undefined ? r.awayScore : (r.pool_result ? r.pool_result.split('-:-')[1] : '')));
+                  const poolResultStr = r.pool_result || (homeScore !== '' && awayScore !== '' ? `${homeScore}-:-${awayScore}` : (r.fullTimeScore ? r.fullTimeScore.replace(' - ', '-:-') : '0-:-0'));
+                  const matchId = r.id ?? r.matchNo ?? r.match_no ?? (idx + 1);
+
                   return {
-                    id: r.id,
-                    matchNo: r.id,
-                    home_team: r.home_team,
-                    away_team: r.away_team,
-                    status: r.status,
-                    pool_result: r.pool_result,
-                    homeTeam: r.home_team,
-                    awayTeam: r.away_team,
-                    fullTimeScore: (r.pool_result || '').replace('-:-', ' - '),
+                    id: matchId,
+                    matchNo: matchId,
+                    home_team: homeTeam,
+                    away_team: awayTeam,
+                    Home_Team: homeTeam,
+                    Away_Team: awayTeam,
+                    homeTeam: homeTeam,
+                    awayTeam: awayTeam,
+                    status: statusFormatted,
+                    pool_result: poolResultStr,
+                    home_team_score: homeScore,
+                    away_team_score: awayScore,
+                    Home_Team_Score: homeScore,
+                    Away_Team_Score: awayScore,
+                    fullTimeScore: poolResultStr.replace('-:-', ' - '),
                     outcome,
                     payoutStatus: 'CLEARED'
                   };
                 });
 
                 const currentResults = prev.pool_results || [];
-                const updatedPoolResults = currentResults.map(sheet => ({
-                  ...sheet,
-                  results_table: mappedRows
-                }));
-
                 const activeWeekNum = prev.pool_weeks?.find(w => w.status === 'active')?.week_number || 49;
+                const updatedPoolResults = currentResults.length > 0
+                  ? currentResults.map(sheet => ({
+                      ...sheet,
+                      results_table: mappedRows
+                    }))
+                  : [{
+                      id: `pr-w${activeWeekNum}`,
+                      pool_week_id: `pw-week-${activeWeekNum}`,
+                      bookmaker_id: 'bm-bet9ja',
+                      uploaded_by: 'usr-admin-777',
+                      results_content: 'Official pool_result table fixtures',
+                      file_url: null,
+                      created_at: new Date().toISOString(),
+                      title: `Week ${activeWeekNum} UK Pool results: Official pool_result Table Matches`,
+                      week_number: activeWeekNum,
+                      season_year: 2026,
+                      pool_type: 'uk',
+                      fixture_date: '2026-06-06',
+                      comments_count: 0,
+                      results_table: mappedRows
+                    }];
+
                 return {
                   ...prev,
-                  pool_results: updatedPoolResults.length > 0 ? updatedPoolResults : [{
-                    id: `pr-w${activeWeekNum}`,
-                    pool_week_id: `pw-week-${activeWeekNum}`,
-                    bookmaker_id: 'bm-bet9ja',
-                    uploaded_by: 'usr-admin-777',
-                    results_content: 'Official pool_result table fixtures',
-                    file_url: null,
-                    created_at: new Date().toISOString(),
-                    title: `Week ${activeWeekNum} UK Pool results: Official pool_result Table Matches`,
-                    week_number: activeWeekNum,
-                    season_year: 2026,
-                    pool_type: 'uk',
-                    fixture_date: '2026-06-06',
-                    comments_count: 0,
-                    results_table: mappedRows
-                  }]
+                  pool_results: updatedPoolResults
                 };
               }
               return {
@@ -538,7 +557,19 @@ export default function App() {
       fetchRealSupabaseData(true);
     }, 500);
 
-    // 2. Supabase Realtime WebSocket subscription on all public schema tables (Push-based only, zero continuous CPU polling)
+    // 2. Active background sync interval so database edits reflect in real-time
+    const intervalTimer = setInterval(() => {
+      fetchRealSupabaseData(true);
+    }, 10000);
+
+    // 3. Sync immediately when window is refocused or becomes visible
+    const handleFocus = () => {
+      fetchRealSupabaseData(true);
+    };
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleFocus);
+
+    // 4. Supabase Realtime WebSocket subscription on all public schema tables
     const supabase = getSupabaseClient();
     let channel: any = null;
     if (supabase) {
@@ -566,6 +597,9 @@ export default function App() {
 
     return () => {
       clearTimeout(timer);
+      clearInterval(intervalTimer);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleFocus);
       if (supabase && channel) {
         try {
           supabase.removeChannel(channel);
@@ -862,7 +896,7 @@ export default function App() {
     // Calculate exact duration and expiration from plan data
     const { expiresAt, durationDays } = calculateSubscriptionExpiry(p, now);
 
-    const currencySymbol = (p.id.includes('ghana') || p.name.includes('Ghana') || (p as any).currency === 'GHS') ? 'GHS' : 'NGN';
+    const currencySymbol = 'NGN';
     const amountPaid = Number(p.price || 0) * (components.includes('all') ? 1 : Math.max(1, components.length));
     const itemName = `${p.name} (${components.map(c => String(c).toUpperCase()).join(' + ')})`;
     const formattedExpiry = expiresAt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -1260,9 +1294,9 @@ export default function App() {
       return;
     }
 
-    const isGhana = isGhanaPlan(p) || (p as any).currency === 'GHS' || (p as any).region === 'ghana';
-    const planCurrency = isGhana ? 'GHS' : 'NGN';
-    const currencySymbol = isGhana ? 'GH₵' : '₦';
+    const isGhana = isGhanaPlan(p) || (p as any).region === 'ghana';
+    const planCurrency = 'NGN';
+    const currencySymbol = '₦';
     const calculatedPrice = p.price * selectedComponents.length;
 
     triggerToast(`Connecting to secure Paystack servers for ${p.name} (${selectedComponents.map(c => c.toUpperCase()).join(' + ')})...`, 'info');
@@ -1276,9 +1310,9 @@ export default function App() {
       const handler = PaystackPop.setup({
         key: publicKey,
         email: currentUser.email,
-        amount: Math.round(calculatedPrice * 100), // convert to pesewas (GHS) or kobo (NGN)
-        currency: planCurrency,
-        channels: isGhana ? ['mobile_money', 'card'] : ['card', 'bank', 'ussd', 'qr'],
+        amount: Math.round(calculatedPrice * 100), // convert to kobo (NGN)
+        currency: 'NGN',
+        channels: ['card', 'bank', 'ussd', 'mobile_money', 'qr'],
         ref: `PAY-${Date.now()}-${Math.floor(Math.random() * 100000)}`,
         callback: function(response: any) {
           const ref = response.reference || response.trxref;
@@ -1286,19 +1320,19 @@ export default function App() {
         },
         onClose: function() {
           if (isGhana) {
-            // When Paystack popup is closed or if the merchant's Paystack key lacks GHS currency enablement
+            // When Paystack popup is closed, user can complete via simulated fallback
             setPaystackFallback({
               open: true,
               planId: planId,
               price: calculatedPrice,
               name: `${p.name} (${selectedComponents.map(c => c.toUpperCase()).join(' + ')})`,
               components: selectedComponents,
-              currency: planCurrency,
-              currencySymbol: currencySymbol,
-              notice: 'If your Paystack account is registered in Nigeria without active Ghana Cedi (GHS) multi-currency enabled, you can complete the Ghana Mobile Money & Card VIP checkout below.',
+              currency: 'NGN',
+              currencySymbol: '₦',
+              notice: 'Paystack checkout closed. You can complete your Ghana plan activation at the standard Naira equivalent rate via Mobile Money / Card gateway below.',
               channel: 'momo'
             });
-            triggerToast('Paystack popup closed. Complete Ghana VIP activation below via Mobile Money / Card gateway.', 'info');
+            triggerToast('Paystack popup closed. You can complete VIP activation below.', 'info');
           } else {
             const failNotif: Notification = {
               id: `notif-fail-${Date.now()}`,
@@ -2351,13 +2385,13 @@ export default function App() {
                 </div>
                 <div className="flex justify-between text-slate-400">
                   <span>Merchant Gateway:</span>
-                  <span className="text-slate-200">{paystackFallback.currency === 'GHS' ? 'Paystack Ghana MoMo / Card' : 'Paystack Nigeria NGN'}</span>
+                  <span className="text-slate-200">{paystackFallback.currency === 'GHS' ? 'Paystack Ghana MoMo / Card (NGN Eqv)' : 'Paystack Nigeria NGN'}</span>
                 </div>
                 <div className="flex justify-between border-t border-slate-800/60 pt-2 text-sm">
                   <span className="text-slate-300 font-bold">Total Bill:</span>
                   <span className="text-emerald-400 font-black">
-                    {paystackFallback.currencySymbol || (paystackFallback.currency === 'GHS' ? 'GH₵' : '₦')}
-                    {paystackFallback.price.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} ({paystackFallback.currency || 'NGN'})
+                    {paystackFallback.currencySymbol || '₦'}
+                    {paystackFallback.price.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} (NGN)
                   </span>
                 </div>
               </div>
