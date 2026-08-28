@@ -6356,7 +6356,7 @@ export default function CustomerPortal({
                                           }
                                         }}
                                         className="bg-slate-900 hover:bg-slate-800 border border-slate-700 text-emerald-400 hover:text-emerald-300 text-[10px] font-mono px-2 py-1 rounded transition flex items-center gap-1 cursor-pointer"
-                                        title="Download License Receipt & Codesheet (.txt)"
+                                        title="Download License Receipt & Codesheet (.pdf)"
                                       >
                                         <Download className="w-3 h-3" />
                                         <span>Receipt</span>
@@ -7751,7 +7751,7 @@ export default function CustomerPortal({
                         }
                       }}
                       className="bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-mono text-[10px] uppercase tracking-wider p-2 rounded-lg transition cursor-pointer flex items-center justify-center"
-                      title="Download License Receipt & Codesheet (.txt)"
+                      title="Download License Receipt & Codesheet (.pdf)"
                     >
                       <Download className="w-3.5 h-3.5" />
                     </button>

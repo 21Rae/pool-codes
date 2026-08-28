@@ -2469,7 +2469,7 @@ export default function OfficePoolStopHome({
                   <div className="space-y-0.5">
                     <p className="text-[10px] font-mono font-black text-[#FBBF24] uppercase">Instant Phone/PC Download Active</p>
                     <p className="text-[10px] text-slate-400 leading-normal">
-                      Upon subscription completion, the complete premium decrypted pool codesheet file (.txt) will automatically trigger a download to your device (mobile phone, tablet, or PC) immediately.
+                      Upon subscription completion, the complete premium decrypted pool codesheet file (.pdf) will automatically trigger a download to your device (mobile phone, tablet, or PC) immediately.
                     </p>
                   </div>
                 </div>

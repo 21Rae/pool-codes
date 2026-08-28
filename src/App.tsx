@@ -1,4 +1,6 @@
 import React, { useState, useEffect, FormEvent } from 'react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import {
   Database,
   Shield,
@@ -636,73 +638,163 @@ export default function App() {
       
       const secHash = `SHA256:${Math.random().toString(36).substring(2, 10).toUpperCase()}-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
 
-      let fileText = `========================================================================\n`;
-      fileText += `FASTPOOL CODES - PREMIUM VERIFIED CODESHEET LICENSE\n`;
-      fileText += `========================================================================\n\n`;
-      fileText += `[LICENSE REGISTRATION DETAILS]\n`;
-      fileText += `------------------------------------------------------------------------\n`;
-      fileText += `Account Nickname : ${nickname}\n`;
-      fileText += `Account Email    : ${email}\n`;
-      fileText += `Active License   : ${planName}\n`;
-      fileText += `Payment Reference: ${refCode}\n`;
-      fileText += `Verification Date: ${formattedDate}\n`;
-      fileText += `Pool Week Target : WEEK ${weekNum} (AUSSIE/UK COMBINED SEASON)\n`;
-      fileText += `Security Hash    : ${secHash}\n`;
-      fileText += `------------------------------------------------------------------------\n\n`;
-      fileText += `[DECRYPTED CODESHEET KEYSETS]\n`;
-      fileText += `------------------------------------------------------------------------\n\n`;
+      // Initialize Portrait A4 PDF (210mm x 297mm)
+      const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      // 1. Header background banner
+      doc.setFillColor(15, 23, 42); // slate-900
+      doc.rect(0, 0, 210, 38, 'F');
+
+      // Accent gold strip
+      doc.setFillColor(245, 158, 11); // amber-500
+      doc.rect(0, 38, 210, 2, 'F');
+
+      // Title & Subtitle
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(16);
+      doc.setTextColor(245, 158, 11); // Gold
+      doc.text('FASTPOOL CODES - OFFICIAL VIP CODESHEET', 14, 15);
+
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(255, 255, 255);
+      doc.text(`PREMIUM VERIFIED SLIP & LICENSE CERTIFICATE • WEEK ${weekNum}`, 14, 23);
+
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(148, 163, 184); // slate-400
+      doc.text(`Official Delivery Syndicate • www.fastpoolcodes.com • 256-Bit SSL Decrypted`, 14, 30);
+
+      // Verified Seal Badge on top right
+      doc.setFillColor(16, 185, 129); // emerald-500
+      doc.roundedRect(148, 10, 48, 18, 2, 2, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.5);
+      doc.setTextColor(255, 255, 255);
+      doc.text('✓ VERIFIED VIP LICENSE', 152, 17);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.5);
+      doc.text('ACTIVE & AUTHENTICATED', 152, 23);
+
+      // 2. License Details Table
+      autoTable(doc, {
+        startY: 44,
+        margin: { left: 14, right: 14 },
+        theme: 'plain',
+        styles: {
+          fontSize: 8,
+          cellPadding: 2,
+          font: 'helvetica'
+        },
+        columnStyles: {
+          0: { fontStyle: 'bold', textColor: [71, 85, 105], cellWidth: 38 },
+          1: { fontStyle: 'bold', textColor: [15, 23, 42], cellWidth: 55 },
+          2: { fontStyle: 'bold', textColor: [71, 85, 105], cellWidth: 38 },
+          3: { fontStyle: 'bold', textColor: [15, 23, 42], cellWidth: 51 }
+        },
+        body: [
+          ['Account Nickname:', nickname, 'Payment Reference:', refCode],
+          ['Account Email:', email, 'Verification Date:', formattedDate],
+          ['Active Plan / Tier:', planName, 'Target Pool Week:', `WEEK ${weekNum} (AUSSIE/UK)`],
+          ['Security Signature:', secHash, 'License Status:', 'AUTHENTICATED ✓']
+        ]
+      });
+
+      // 3. Prepare Decrypted Codes data
+      const codesTableRows: string[][] = [];
 
       if (relatedCodes.length === 0) {
-        fileText += `1. [BET9JA] (FREE ACCESS)\n`;
-        fileText += `   Content:\n`;
-        fileText += `   --- WEEK ${weekNum} Aussie Bet9ja Pool Codes ---\n`;
-        fileText += `   1. Arsenal vs Chelsea -> Code: [4129]\n`;
-        fileText += `   2. Liverpool vs Leeds -> Code: [3312]\n`;
-        fileText += `   3. Man City vs Everton -> Code: [5091]\n`;
-        fileText += `   4. Napoli vs Juventus -> Code: [9023]\n`;
-        fileText += `   5. Real Madrid vs Sevilla -> Code: [1114]\n`;
-        fileText += `   ------------------------------------------------------------------\n\n`;
-        fileText += `2. [BETKING] (PREMIUM ACCESS)\n`;
-        fileText += `   Content:\n`;
-        fileText += `   --- WEEK ${weekNum} Aussie BetKing Premium ---\n`;
-        fileText += `   SECRET HIGH-ODDS COMBO CODES:\n`;
-        fileText += `   6. Roma vs Milan -> Code: [BK-7721] (Draw Chance: 84%)\n`;
-        fileText += `   7. Aston Villa vs Wolves -> Code: [BK-3392] (Pool Tip: Match to Draw)\n`;
-        fileText += `   8. Tottenham vs Brentford -> Code: [BK-5522] (Home win/Draw)\n`;
-        fileText += `   ------------------------------------------------------------------\n\n`;
-        fileText += `3. [SPORTYBET] (PREMIUM ACCESS)\n`;
-        fileText += `   Content:\n`;
-        fileText += `   --- WEEK ${weekNum} Aussie Sportybet VIP Codes ---\n`;
-        fileText += `   9. Leicester vs West Ham -> Code: [SB-1104]\n`;
-        fileText += `   10. Valencia vs Villarreal -> Code: [SB-9031]\n`;
-        fileText += `   ------------------------------------------------------------------\n\n`;
+        codesTableRows.push(
+          ['1', 'BET9JA (VIP)', `Arsenal vs Chelsea [Code: 4129]\nLiverpool vs Leeds [Code: 3312]\nMan City vs Everton [Code: 5091]\nNapoli vs Juventus [Code: 9023]\nReal Madrid vs Sevilla [Code: 1114]`, 'FREE / STARTER', 'DECRYPTED ✓'],
+          ['2', 'BETKING (PREMIUM)', `SECRET HIGH-ODDS COMBO CODES:\nRoma vs Milan -> [BK-7721] (Draw Prob: 84%)\nAston Villa vs Wolves -> [BK-3392] (Match Draw)\nTottenham vs Brentford -> [BK-5522] (Home/Draw)`, 'PREMIUM VIP', 'DECRYPTED ✓'],
+          ['3', 'SPORTYBET (VIP)', `WEEK ${weekNum} Aussie Sportybet VIP Codes:\nLeicester vs West Ham -> [SB-1104]\nValencia vs Villarreal -> [SB-9031]\nFiorentina vs Lazio -> [SB-4402] (Perm Banker)`, 'VIP DIAMOND', 'DECRYPTED ✓'],
+          ['4', 'GHANA BOOKIES', `PremierBet Ghana: Asante Kotoko vs Hearts -> [PB-1992]\nBetway Ghana: Medeama vs Aduana -> [BW-8831]\nSportyBet Ghana: Berekum vs Legon -> [SBGH-3011]`, 'GHANA VIP', 'DECRYPTED ✓']
+        );
       } else {
         relatedCodes.forEach((c, idx) => {
           const bookmaker = db.bookmakers.find(b => b.id === c.bookmaker_id)?.name || 'SportyBet';
-          const contentLines = c.codes_content.split('\n').map(l => `   ${l}`).join('\n');
-          fileText += `${idx + 1}. [${(bookmaker || '').toUpperCase()}] (${(c.access_level || 'standard').toUpperCase()} ACCESS)\n`;
-          fileText += `   Content:\n${contentLines}\n`;
-          fileText += `   ------------------------------------------------------------------\n\n`;
+          codesTableRows.push([
+            String(idx + 1),
+            bookmaker.toUpperCase(),
+            c.codes_content,
+            (c.access_level || 'standard').toUpperCase(),
+            'DECRYPTED ✓'
+          ]);
         });
       }
 
-      fileText += `========================================================================\n`;
-      fileText += `SECURITY NOTICE: This codesheet file is licensed solely to ${nickname}.\n`;
-      fileText += `Any unauthorized distribution, multi-device token scraping, or public perming\n`;
-      fileText += `resale will result in immediate permanent account suspension with no refund.\n`;
-      fileText += `========================================================================\n`;
+      // Decrypted Codes Table
+      autoTable(doc, {
+        startY: (doc as any).lastAutoTable ? (doc as any).lastAutoTable.finalY + 4 : 70,
+        margin: { left: 14, right: 14 },
+        head: [['#', 'Bookmaker Table', 'Decrypted Slip Codes & Banker Predictions', 'Access Level', 'Status']],
+        body: codesTableRows,
+        theme: 'grid',
+        headStyles: {
+          fillColor: [15, 23, 42],
+          textColor: [245, 158, 11],
+          fontSize: 8.5,
+          fontStyle: 'bold',
+          halign: 'left'
+        },
+        bodyStyles: {
+          fontSize: 8,
+          textColor: [30, 41, 59],
+          cellPadding: 3,
+          valign: 'middle'
+        },
+        columnStyles: {
+          0: { cellWidth: 10, halign: 'center', fontStyle: 'bold' },
+          1: { cellWidth: 38, fontStyle: 'bold', textColor: [15, 23, 42] },
+          2: { cellWidth: 84, fontStyle: 'normal' },
+          3: { cellWidth: 26, fontStyle: 'bold', textColor: [5, 150, 105], halign: 'center' },
+          4: { cellWidth: 24, fontStyle: 'bold', textColor: [16, 185, 129], halign: 'center' }
+        },
+        alternateRowStyles: {
+          fillColor: [248, 250, 252]
+        },
+        willDrawPage: () => {
+          // Watermark
+          doc.saveGraphicsState();
+          doc.setTextColor(235, 240, 245);
+          doc.setFontSize(14);
+          doc.setFont('helvetica', 'bold');
+          const watermarkText = `FASTPOOLCODES • ${nickname} • VERIFIED VIP`;
+          for (let x = -20; x < 220; x += 110) {
+            for (let y = 50; y < 290; y += 60) {
+              doc.text(watermarkText, x, y, { angle: -30 });
+            }
+          }
+          doc.restoreGraphicsState();
+        },
+        didDrawPage: () => {
+          // Security Box & Footer
+          const pageHeight = doc.internal.pageSize.height || 297;
+          
+          doc.setFillColor(241, 245, 249);
+          doc.rect(14, pageHeight - 24, 182, 14, 'F');
+          
+          doc.setFontSize(6.5);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(100, 116, 139);
+          doc.text(`SECURITY & ANTI-PIRACY NOTICE:`, 16, pageHeight - 19);
+          doc.setFont('helvetica', 'normal');
+          doc.text(`This official codesheet PDF is registered exclusively to ${nickname} (${email}). Unauthorized sharing or resale will result in immediate license revocation.`, 16, pageHeight - 14);
+          
+          doc.setFontSize(6.5);
+          doc.setTextColor(148, 163, 184);
+          doc.text(`FastPoolCodes Official Classified VIP Sheet • Week ${weekNum} • Licensed to ${email}`, 14, pageHeight - 5);
+          doc.text(`Support: +234 8030587933, +234 9037595705`, 196, pageHeight - 5, { align: 'right' });
+        }
+      });
 
-      const blob = new Blob([fileText], { type: 'text/plain;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `FastPoolCodes_Week_${weekNum}_VIP_Codesheet.txt`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      doc.save(`FastPoolCodes_Week_${weekNum}_VIP_Codesheet.pdf`);
 
-      triggerToast('Downloaded decrypted VIP pool codes & receipt automatically!', 'success');
+      triggerToast('Downloaded decrypted VIP pool codes & PDF receipt successfully!', 'success');
     } catch (err) {
       console.warn("Graceful error during automatic codes download trigger:", err);
     }
