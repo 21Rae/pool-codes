@@ -604,7 +604,12 @@ app.get("/api/tables/:tableName", async (req, res) => {
   const userId = (req.query.user_id || req.query.userId || req.headers["x-user-id"] || "") as string;
   const username = (req.query.username || req.query.user_name || req.headers["x-username"] || req.headers["x-user-name"] || "") as string;
 
-  const KNOWN_BOOKIES = new Set(["bet9ja", "betking", "sportybet", "msport", "premierbet", "betway", "soccabet", "arena_games"]);
+  const KNOWN_BOOKIES = new Set([
+    "bet9ja", "betking", "sportybet", "sportybet_ghana", "sportybet-ghana",
+    "msport", "premierbet", "premierbet_ghana", "premierbet-ghana",
+    "betway", "betway_ghana", "betway-ghana",
+    "soccabet", "soccabet_ghana", "soccabet-ghana", "arena_games"
+  ]);
   const isBookmakerTable = KNOWN_BOOKIES.has(normalizedKey);
 
   if (isBookmakerTable) {

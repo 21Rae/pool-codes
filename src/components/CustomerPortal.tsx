@@ -81,6 +81,7 @@ import {
   INITIAL_BET9JA,
   INITIAL_BETKING,
   INITIAL_SPORTYBET,
+  INITIAL_SPORTYBET_GHANA,
   INITIAL_PREMIERBET,
   INITIAL_BETWAY,
   INITIAL_SOCCABET,
@@ -1006,22 +1007,40 @@ export default function CustomerPortal({
     const b9Rows = (dbState.bet9ja && dbState.bet9ja.length > 0) ? dbState.bet9ja : [];
     const bkRows = (dbState.betking && dbState.betking.length > 0) ? dbState.betking : [];
     const sbRows = (dbState.sportybet && dbState.sportybet.length > 0) ? dbState.sportybet : [];
-    const pbRows = (dbState.premierbet && dbState.premierbet.length > 0) ? dbState.premierbet : [];
-    const bwRows = (dbState.betway && dbState.betway.length > 0) ? dbState.betway : [];
-    const scRows = (dbState.soccabet && dbState.soccabet.length > 0) ? dbState.soccabet : [];
+    const sbGhRows = ((dbState as any).sportybet_ghana && (dbState as any).sportybet_ghana.length > 0)
+      ? (dbState as any).sportybet_ghana
+      : ((dbState as any)['sportybet-ghana'] && (dbState as any)['sportybet-ghana'].length > 0)
+      ? (dbState as any)['sportybet-ghana']
+      : [];
+    const pbRows = (dbState.premierbet && dbState.premierbet.length > 0)
+      ? dbState.premierbet
+      : ((dbState as any).premierbet_ghana && (dbState as any).premierbet_ghana.length > 0)
+      ? (dbState as any).premierbet_ghana
+      : [];
+    const bwRows = (dbState.betway && dbState.betway.length > 0)
+      ? dbState.betway
+      : ((dbState as any).betway_ghana && (dbState as any).betway_ghana.length > 0)
+      ? (dbState as any).betway_ghana
+      : [];
+    const scRows = (dbState.soccabet && dbState.soccabet.length > 0)
+      ? dbState.soccabet
+      : ((dbState as any).soccabet_ghana && (dbState as any).soccabet_ghana.length > 0)
+      ? (dbState as any).soccabet_ghana
+      : [];
     const msRows = ((dbState as any).msport && (dbState as any).msport.length > 0) ? (dbState as any).msport : [];
     const agRows = (dbState as any).arena_games && (dbState as any).arena_games.length > 0 ? (dbState as any).arena_games : [];
 
     const b9 = mapBookieRows(b9Rows, 'bet9ja', 'Bet9ja');
     const bk = mapBookieRows(bkRows, 'betking', 'BetKing');
     const sb = mapBookieRows(sbRows, 'sportybet', 'SportyBet');
-    const pb = mapBookieRows(pbRows, 'premierbet', 'PremierBet');
-    const bw = mapBookieRows(bwRows, 'betway', 'Betway');
-    const sc = mapBookieRows(scRows, 'soccabet', 'Soccabet');
+    const sbGh = mapBookieRows(sbGhRows, 'sportybet-ghana', 'SportyBet Ghana');
+    const pb = mapBookieRows(pbRows, 'premierbet', 'PremierBet Ghana');
+    const bw = mapBookieRows(bwRows, 'betway', 'Betway Ghana');
+    const sc = mapBookieRows(scRows, 'soccabet', 'Soccabet Ghana');
     const ms = mapBookieRows(msRows, 'msport', 'MSport');
     const ag = mapBookieRows(agRows, 'arena_games', 'Bet9ja');
 
-    return [...b9, ...bk, ...sb, ...pb, ...bw, ...sc, ...ms, ...ag];
+    return [...b9, ...bk, ...sb, ...sbGh, ...pb, ...bw, ...sc, ...ms, ...ag];
   };
 
   // Dynamic posted games coupon states
@@ -1036,9 +1055,14 @@ export default function CustomerPortal({
     db.bet9ja,
     db.betking,
     db.sportybet,
+    (db as any).sportybet_ghana,
+    (db as any)['sportybet-ghana'],
     db.premierbet,
+    (db as any).premierbet_ghana,
     db.betway,
+    (db as any).betway_ghana,
     db.soccabet,
+    (db as any).soccabet_ghana,
     (db as any).msport,
     (db as any).arena_games,
     db.bookmakers
@@ -1183,14 +1207,19 @@ export default function CustomerPortal({
       return anyGameWithWeek.weekNo;
     }
 
-    // 3. Try checking raw database tables (bet9ja, betking, sportybet, etc.)
+    // 3. Try checking raw database tables (bet9ja, betking, sportybet, sportybet_ghana, etc.)
     const allDbTables = [
       db.bet9ja,
       db.betking,
       db.sportybet,
+      (db as any).sportybet_ghana,
+      (db as any)['sportybet-ghana'],
       db.premierbet,
+      (db as any).premierbet_ghana,
       db.betway,
+      (db as any).betway_ghana,
       db.soccabet,
+      (db as any).soccabet_ghana,
       (db as any).msport,
       (db as any).arena_games
     ];

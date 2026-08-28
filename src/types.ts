@@ -288,9 +288,14 @@ export interface DatabaseState {
   bet9ja?: BookmakerTableRecord[];
   betking?: BookmakerTableRecord[];
   sportybet?: BookmakerTableRecord[];
+  sportybet_ghana?: BookmakerTableRecord[];
+  'sportybet-ghana'?: BookmakerTableRecord[];
   premierbet?: BookmakerTableRecord[];
+  premierbet_ghana?: BookmakerTableRecord[];
   betway?: BookmakerTableRecord[];
+  betway_ghana?: BookmakerTableRecord[];
   soccabet?: BookmakerTableRecord[];
+  soccabet_ghana?: BookmakerTableRecord[];
   msport?: BookmakerTableRecord[];
   arena_games?: BookmakerTableRecord[];
   pool_codes_comparison?: PoolCodesComparisonRecord[];

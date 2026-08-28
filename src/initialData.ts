@@ -1366,6 +1366,7 @@ function createBookmakerTableRows(
 export const INITIAL_BET9JA: BookmakerTableRecord[] = createBookmakerTableRows('B9', 'bet9ja (draw)');
 export const INITIAL_BETKING: BookmakerTableRecord[] = createBookmakerTableRows('BK', 'betking (draw)');
 export const INITIAL_SPORTYBET: BookmakerTableRecord[] = createBookmakerTableRows('SB', 'sportybet (draw)');
+export const INITIAL_SPORTYBET_GHANA: BookmakerTableRecord[] = createBookmakerTableRows('SBGH', 'sportybet (draw)');
 export const INITIAL_PREMIERBET: BookmakerTableRecord[] = createBookmakerTableRows('PB', 'bet9ja (draw)');
 export const INITIAL_BETWAY: BookmakerTableRecord[] = createBookmakerTableRows('BW', 'betking (draw)');
 export const INITIAL_SOCCABET: BookmakerTableRecord[] = createBookmakerTableRows('SC', 'sportybet (draw)');
