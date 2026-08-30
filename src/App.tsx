@@ -612,6 +612,27 @@ export default function App() {
     };
   }, []);
 
+  // Global listener for #contact hash routing and advert click events
+  useEffect(() => {
+    const handleCheckContactHash = () => {
+      if (window.location.hash === '#contact' || window.location.hash === '#contact-us') {
+        setInitialHomeView('contact');
+        setViewMode('homepage');
+      }
+    };
+    handleCheckContactHash();
+    window.addEventListener('hashchange', handleCheckContactHash);
+    const handleNavContactEvent = () => {
+      setInitialHomeView('contact');
+      setViewMode('homepage');
+    };
+    window.addEventListener('fastpool_navigate_contact', handleNavContactEvent);
+    return () => {
+      window.removeEventListener('hashchange', handleCheckContactHash);
+      window.removeEventListener('fastpool_navigate_contact', handleNavContactEvent);
+    };
+  }, []);
+
   // Re-verify profile is administrator when switching tabs
   useEffect(() => {
     if (currentAppSelector === 'admin') {
@@ -2153,6 +2174,10 @@ export default function App() {
             isInsidePortal={livescoresOrigin === 'portal'}
             onBack={() => {
               setViewMode(livescoresOrigin);
+            }}
+            onNavigateToContact={() => {
+              setInitialHomeView('contact');
+              setViewMode('homepage');
             }}
           />
           {renderFooter(true)}

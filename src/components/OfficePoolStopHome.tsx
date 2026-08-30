@@ -209,6 +209,22 @@ export default function OfficePoolStopHome({
       setCurrentView(initialView);
     }
   }, [initialView]);
+
+  useEffect(() => {
+    const checkHash = () => {
+      if (window.location.hash === '#contact' || window.location.hash === '#contact-us') {
+        setCurrentView('contact');
+      }
+    };
+    checkHash();
+    window.addEventListener('hashchange', checkHash);
+    const handleNavContact = () => setCurrentView('contact');
+    window.addEventListener('fastpool_navigate_contact', handleNavContact);
+    return () => {
+      window.removeEventListener('hashchange', checkHash);
+      window.removeEventListener('fastpool_navigate_contact', handleNavContact);
+    };
+  }, []);
   const [selectedResultId, setSelectedResultId] = useState<string | null>(null);
   const [resultsSearchQuery, setResultsSearchQuery] = useState('');
   const [resultsTableSearch, setResultsTableSearch] = useState('');
@@ -916,7 +932,10 @@ export default function OfficePoolStopHome({
 
       {/* Top Page Header Ad Banner */}
       <div className="max-w-[1360px] mx-auto px-4 pt-4">
-        <GoogleAdBanner className="bg-[#020b08] border border-emerald-950/80 rounded-xl p-2 shadow-md" />
+        <GoogleAdBanner 
+          className="bg-[#020b08] border border-emerald-950/80 rounded-xl p-2 shadow-md"
+          onNavigateToContact={() => setCurrentView('contact')}
+        />
       </div>
 
       {/* 3. CORE VIEWS GENERATOR */}

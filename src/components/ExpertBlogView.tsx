@@ -645,7 +645,10 @@ export default function ExpertBlogView({
               </div>
 
               {/* Google AdSense Banner */}
-              <GoogleAdBanner className="bg-white p-2 rounded-lg border border-zinc-200 shadow-xs" />
+              <GoogleAdBanner 
+                className="bg-white p-2 rounded-lg border border-zinc-200 shadow-xs"
+                onNavigateToContact={onNavigateToContact}
+              />
 
               {/* CARD 1: MAIN FEATURED HERO ARTICLE CONTAINER */}
               {sortedBlogPosts[0] && (
@@ -1573,7 +1576,10 @@ INSERT INTO public.championship_results (
             <div className="col-span-12 lg:col-span-12 xl:col-span-2.5 space-y-4">
               
               {/* Google AdSense Sidebar Banner */}
-              <GoogleAdBanner className="bg-white p-2 rounded-lg border border-zinc-200 shadow-xs" />
+              <GoogleAdBanner 
+                className="bg-white p-2 rounded-lg border border-zinc-200 shadow-xs"
+                onNavigateToContact={onNavigateToContact}
+              />
 
               {/* VIP Decryptor Suite Features */}
               <div className="bg-white border border-zinc-200 rounded p-4 text-left shadow-sm">

@@ -2614,6 +2614,7 @@ export default function CustomerPortal({
           adFormat="horizontal"
           fullWidthResponsive={false}
           className="bg-slate-900/40 border border-slate-800/60 rounded-xl px-3 py-1 max-w-2xl mx-auto my-2" 
+          onNavigateToContact={onNavigateToContact}
         />
 
 

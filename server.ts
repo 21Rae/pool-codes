@@ -150,6 +150,13 @@ app.get("/api/health", (req, res) => {
   res.json({ status: "ok", timestamp: Date.now() });
 });
 
+// Route - Ads.txt for Google AdSense Crawler
+app.get("/ads.txt", (req, res) => {
+  res.setHeader("Content-Type", "text/plain; charset=utf-8");
+  res.setHeader("Cache-Control", "public, max-age=86400");
+  res.send("google.com, pub-5745254500272059, DIRECT, f08c47fec0942fa0\n");
+});
+
 // API Route - Dynamic public configuration retrieval for client-side SPA (Edge Cached 24h)
 app.get("/api/config", (req, res) => {
   setCacheHeaders(res, 3600, 86400, 604800);

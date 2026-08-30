@@ -27,13 +27,15 @@ interface LiveScoresPageProps {
   triggerToast: (msg: string, type?: 'success' | 'info' | 'error') => void;
   onBack: () => void;
   isInsidePortal?: boolean;
+  onNavigateToContact?: () => void;
 }
 
 export default function LiveScoresPage({
   currentUser,
   triggerToast,
   onBack,
-  isInsidePortal = false
+  isInsidePortal = false,
+  onNavigateToContact
 }: LiveScoresPageProps) {
   const [liveScoresData, setLiveScoresData] = useState<any[]>([]);
   const [liveLogData, setLiveLogData] = useState<string[]>([]);
@@ -290,7 +292,10 @@ export default function LiveScoresPage({
         </div>
 
         {/* Google AdSense Banner */}
-        <GoogleAdBanner className="bg-emerald-950/20 border border-emerald-900/30 p-2 rounded-2xl" />
+        <GoogleAdBanner 
+          className="bg-emerald-950/20 border border-emerald-900/30 p-2 rounded-2xl"
+          onNavigateToContact={onNavigateToContact}
+        />
 
         {/* ADMIN CONTROL SECTION */}
         {isAdmin && (
