@@ -224,7 +224,10 @@ export default function OfficePoolStopHome({
       doc.setFontSize(10);
       doc.text(`${activeResult.title || 'Weekly Results Sheet'} | Generated from FastPool`, 14, 25);
 
-      const tableData = (activeResult.results_table || []).map((row: any, idx: number) => {
+      const tableData = (activeResult.results_table || [])
+        .slice()
+        .sort((a: any, b: any) => (Number(a.id ?? a.matchNo) || 0) - (Number(b.id ?? b.matchNo) || 0))
+        .map((row: any, idx: number) => {
         const rowId = row.id ?? row.matchNo ?? (idx + 1);
         const homeTeam = row.home_team || row.Home_Team || row.homeTeam || '';
         const awayTeam = row.away_team || row.Away_Team || row.awayTeam || '';
@@ -1305,7 +1308,7 @@ export default function OfficePoolStopHome({
                         poolRes.includes(s) ||
                         stat.includes(s)
                       );
-                    });
+                    }).sort((a: any, b: any) => (Number(a.id ?? a.matchNo) || 0) - (Number(b.id ?? b.matchNo) || 0));
 
                     return (
                       <div className="space-y-4 sm:space-y-5">

@@ -465,6 +465,10 @@ export default function App() {
                     outcome,
                     payoutStatus: 'CLEARED'
                   };
+                }).sort((a, b) => {
+                  const numA = Number(a.id ?? a.matchNo) || 0;
+                  const numB = Number(b.id ?? b.matchNo) || 0;
+                  return numA - numB;
                 });
 
                 const currentResults = prev.pool_results || [];

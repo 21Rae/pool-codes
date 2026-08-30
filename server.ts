@@ -751,6 +751,9 @@ app.get("/api/tables/:tableName", async (req, res) => {
     }
 
     let rows = data || [];
+    if (actualTableName === "pool_result" || actualTableName === "pool_results" || actualTableName === "results" || actualTableName === "championship_results") {
+      rows.sort((a: any, b: any) => (Number(a.id ?? a.match_no ?? a.matchNo) || 0) - (Number(b.id ?? b.match_no ?? b.matchNo) || 0));
+    }
     if (actualTableName === "users" && serverMemoryUsers.length > 0) {
       const map = new Map(rows.map((r: any) => [r.id, r]));
       for (const u of serverMemoryUsers) {

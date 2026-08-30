@@ -211,7 +211,10 @@ export default function ExpertBlogView({
   const exportResultToCSV = (result: any) => {
     try {
       const headers = ['id', 'home_team', 'away_team', 'status', 'pool_result'];
-      const rows = (result.results_table || []).map((row: any, idx: number) => {
+      const rows = (result.results_table || [])
+        .slice()
+        .sort((a: any, b: any) => (Number(a.id ?? a.matchNo) || 0) - (Number(b.id ?? b.matchNo) || 0))
+        .map((row: any, idx: number) => {
         const homeTeam = row.home_team || row.Home_Team || row.homeTeam || '';
         const awayTeam = row.away_team || row.Away_Team || row.awayTeam || '';
         const status = row.status || 'Home';
@@ -388,7 +391,7 @@ export default function ExpertBlogView({
       hScore.includes(s) ||
       aScore.includes(s)
     );
-  }) : [];
+  }).sort((a: any, b: any) => (Number(a.id ?? a.matchNo) || 0) - (Number(b.id ?? b.matchNo) || 0)) : [];
 
   const handlePdfClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -1434,7 +1437,7 @@ INSERT INTO public.championship_results (
                       resStr.includes(q) ||
                       rowId.includes(q)
                     );
-                  });
+                  }).sort((a: any, b: any) => (Number(a.id ?? a.matchNo) || 0) - (Number(b.id ?? b.matchNo) || 0));
 
                   const getStatusBadge = (st: string) => {
                     if (st === 'ScoreDraw') {
