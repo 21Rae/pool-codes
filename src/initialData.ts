@@ -581,35 +581,35 @@ export const INITIAL_POOL_WEEKS: PoolWeek[] = [
     created_at: '2026-05-18T09:00:00Z'
   },
   {
-    id: 'pw-week-49',
-    week_number: 49,
-    season_year: 2026,
-    pool_type: 'aussie',
-    fixture_date: '2026-06-06', // Current week based on local time 2026-06-06
-    status: 'active',
-    published_at: '2026-06-01T08:00:00Z',
-    created_at: '2026-05-25T09:00:00Z'
-  },
-  {
     id: 'pw-week-50',
     week_number: 50,
     season_year: 2026,
-    pool_type: 'uk',
+    pool_type: 'aussie',
     fixture_date: '2026-06-13',
+    status: 'active',
+    published_at: '2026-06-08T08:00:00Z',
+    created_at: '2026-06-01T09:00:00Z'
+  },
+  {
+    id: 'pw-week-51',
+    week_number: 51,
+    season_year: 2026,
+    pool_type: 'uk',
+    fixture_date: '2026-06-20',
     status: 'upcoming',
     published_at: null,
-    created_at: '2026-06-01T09:00:00Z'
+    created_at: '2026-06-08T09:00:00Z'
   }
 ];
 
 export const INITIAL_POOL_CODES: PoolCode[] = [
   {
     id: 'pc-001',
-    pool_week_id: 'pw-week-49', // Week 49 Aussie (ACTIVE)
+    pool_week_id: 'pw-week-50', // Week 50 Aussie (ACTIVE)
     bookmaker_id: 'bm-bet9ja',
     uploaded_by: 'usr-admin-777',
-    codes_content: '--- WEEK 49 Aussie Bet9ja Pool Codes ---\n1. Arsenal vs Chelsea -> Code: [4129]\n2. Liverpool vs Leeds -> Code: [3312]\n3. Man City vs Everton -> Code: [5091]\n4. Napoli vs Juventus -> Code: [9023]\n5. Real Madrid vs Sevilla -> Code: [1114]',
-    file_url: 'https://storage.poolcodes.com/files/w49-bet9ja.txt',
+    codes_content: '--- Aussie Bet9ja Pool Codes ---\n1. Arsenal vs Chelsea -> Code: [4129]\n2. Liverpool vs Leeds -> Code: [3312]\n3. Man City vs Everton -> Code: [5091]\n4. Napoli vs Juventus -> Code: [9023]\n5. Real Madrid vs Sevilla -> Code: [1114]',
+    file_url: 'https://storage.poolcodes.com/files/bet9ja.txt',
     access_level: 'free',
     download_count: 32,
     is_active: true,
@@ -618,11 +618,11 @@ export const INITIAL_POOL_CODES: PoolCode[] = [
   },
   {
     id: 'pc-002',
-    pool_week_id: 'pw-week-49', // Week 49 Aussie (ACTIVE)
+    pool_week_id: 'pw-week-50', // Week 50 Aussie (ACTIVE)
     bookmaker_id: 'bm-betking',
     uploaded_by: 'usr-admin-777',
-    codes_content: '--- WEEK 49 Aussie BetKing Premium ---\nSECRET HIGH-ODDS COMBO CODES:\n6. Roma vs Milan -> Code: [BK-7721] (Draw Chance: 84%)\n7. Aston Villa vs Wolves -> Code: [BK-3392] (Pool Tip: Match to Draw)\n8. Tottenham vs Brentford -> Code: [BK-5522] (Home win/Draw)',
-    file_url: 'https://storage.poolcodes.com/files/w49-betking-premium.pdf',
+    codes_content: '--- Aussie BetKing Premium ---\nSECRET HIGH-ODDS COMBO CODES:\n6. Roma vs Milan -> Code: [BK-7721] (Draw Chance: 84%)\n7. Aston Villa vs Wolves -> Code: [BK-3392] (Pool Tip: Match to Draw)\n8. Tottenham vs Brentford -> Code: [BK-5522] (Home win/Draw)',
+    file_url: 'https://storage.poolcodes.com/files/betking-premium.pdf',
     access_level: 'premium',
     download_count: 12,
     is_active: true,
@@ -631,10 +631,10 @@ export const INITIAL_POOL_CODES: PoolCode[] = [
   },
   {
     id: 'pc-003',
-    pool_week_id: 'pw-week-49', // Week 49 Aussie (ACTIVE)
+    pool_week_id: 'pw-week-50', // Week 50 Aussie (ACTIVE)
     bookmaker_id: 'bm-sportybet',
     uploaded_by: 'usr-admin-777',
-    codes_content: '--- WEEK 49 Aussie Sportybet VIP Codes ---\n9. Leicester vs West Ham -> Code: [SB-1104]\n10. Valencia vs Villarreal -> Code: [SB-9031]',
+    codes_content: '--- Aussie Sportybet VIP Codes ---\n9. Leicester vs West Ham -> Code: [SB-1104]\n10. Valencia vs Villarreal -> Code: [SB-9031]',
     file_url: null,
     access_level: 'premium',
     download_count: 5,
@@ -647,7 +647,7 @@ export const INITIAL_POOL_CODES: PoolCode[] = [
     pool_week_id: 'pw-week-48', // Older closed week
     bookmaker_id: 'bm-bet9ja',
     uploaded_by: 'usr-admin-777',
-    codes_content: '--- WEEK 48 ARCHIVED CODES ---\nArsenal vs Newcastle -> Code: [1021]\nEverton vs Man Utd -> Code: [8492]',
+    codes_content: '--- ARCHIVED CODES ---\nArsenal vs Newcastle -> Code: [1021]\nEverton vs Man Utd -> Code: [8492]',
     file_url: null,
     access_level: 'free',
     download_count: 85,
@@ -711,15 +711,15 @@ export const POOL_RESULT_ROWS: PoolResultRecord[] = [
 
 export const INITIAL_POOL_RESULTS: PoolResult[] = [
   {
-    id: 'pr-w49',
-    pool_week_id: 'pw-week-49',
+    id: 'pr-w50',
+    pool_week_id: 'pw-week-50',
     bookmaker_id: 'bm-bet9ja',
     uploaded_by: 'usr-admin-777',
-    results_content: '--- WEEK 49 OFFICIAL RESULTS ---\nMatch 7: Sheff Utd. 0-0 Birmingham (noScoreDraw)\nMatch 9: Burnley 2-2 West Ham (ScoreDraw)\nMatch 11: Blackpool 1-1 Wycombe (ScoreDraw)\nMatch 13: Burton A. 1-1 Stevenage (ScoreDraw)\nMatch 21: R. Santander 2-2 Villarreal (ScoreDraw)',
-    file_url: 'https://storage.poolcodes.com/results/w49-results.pdf',
+    results_content: '--- OFFICIAL RESULTS ---\nMatch 7: Sheff Utd. 0-0 Birmingham (noScoreDraw)\nMatch 9: Burnley 2-2 West Ham (ScoreDraw)\nMatch 11: Blackpool 1-1 Wycombe (ScoreDraw)\nMatch 13: Burton A. 1-1 Stevenage (ScoreDraw)\nMatch 21: R. Santander 2-2 Villarreal (ScoreDraw)',
+    file_url: 'https://storage.poolcodes.com/results/results.pdf',
     created_at: '2026-06-08T10:00:00Z',
-    title: 'Week 49 UK Pool results: Official pool_result Table Matches',
-    week_number: 49,
+    title: 'UK Pool results: Official pool_result Table Matches',
+    week_number: 50,
     season_year: 2026,
     pool_type: 'uk',
     fixture_date: '2026-06-06',
@@ -751,7 +751,7 @@ export const INITIAL_NOTIFICATIONS: Notification[] = [
     pool_code_id: 'pc-002',
     type: 'new_codes',
     title: 'Secret Premium Codes Released!',
-    body: 'Admin uploaded Week 49 Premium BetKing Codes! View them now on your VIP dashboard.',
+    body: 'Admin uploaded Premium BetKing Codes! View them now on your VIP dashboard.',
     is_read: false,
     read_at: null,
     created_at: '2026-06-02T10:05:00Z'
@@ -761,8 +761,8 @@ export const INITIAL_NOTIFICATIONS: Notification[] = [
     user_id: 'usr-free-101', // john_doe_free
     pool_code_id: 'pc-001',
     type: 'new_codes',
-    title: 'Week 49 Free Codes Available',
-    body: 'Bet9ja Aussie Pool Week 49 Free fixtures are active. Start compiling your coupons!',
+    title: 'Free Codes Available',
+    body: 'Bet9ja Aussie Pool Free fixtures are active. Start compiling your coupons!',
     is_read: true,
     read_at: '2026-06-01T15:00:00Z',
     created_at: '2026-06-01T09:35:00Z'
@@ -773,7 +773,7 @@ export const INITIAL_DOWNLOADS: UserDownload[] = [
   {
     id: 'ud-01',
     user_id: 'usr-free-101',
-    pool_code_id: 'pc-001', // Free Week 49 Bet9ja codes
+    pool_code_id: 'pc-001', // Free Bet9ja codes
     downloaded_at: '2026-06-01T15:00:00Z'
   },
   {
@@ -1356,9 +1356,9 @@ function createBookmakerTableRows(
       bet: assignedTip,
       status: m.status || 'Active',
       kickoff: m.kickoff || '3:00 PM',
-      week_no: 49,
-      week: 49,
-      week_number: 49
+      week_no: 50,
+      week: 50,
+      week_number: 50
     };
   });
 }

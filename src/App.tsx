@@ -158,7 +158,7 @@ export default function App() {
   });
 
   // Administrative form state overrides for pool publication
-  const [formWeekId, setFormWeekId] = useState<string>('pw-week-49');
+  const [formWeekId, setFormWeekId] = useState<string>('pw-week-50');
   const [formBookmakerId, setFormBookmakerId] = useState<string>('bm-bet9ja');
   const [formAccessLevel, setFormAccessLevel] = useState<'free' | 'premium'>('free');
   const [formContent, setFormContent] = useState<string>('');
@@ -472,7 +472,7 @@ export default function App() {
                 });
 
                 const currentResults = prev.pool_results || [];
-                const activeWeekNum = prev.pool_weeks?.find(w => w.status === 'active')?.week_number || 49;
+                const activeWeekNum = prev.pool_weeks?.find(w => w.status === 'active')?.week_number || 50;
                 const updatedPoolResults = currentResults.length > 0
                   ? currentResults.map(sheet => ({
                       ...sheet,
@@ -681,9 +681,9 @@ export default function App() {
       const plans = getMergedSubscriptionPlans(db.subscription_plans);
       const plan = plans.find(p => p.id === planId) || plans[0] || INITIAL_PLANS[0];
       const activeWeek = db.pool_weeks.find(w => w.status === 'active') || db.pool_weeks[0];
-      const weekNum = activeWeek ? activeWeek.week_number : '49';
+      const weekNum = activeWeek ? activeWeek.week_number : '50';
       
-      const relatedCodes = db.pool_codes.filter(c => c.pool_week_id === (activeWeek?.id || 'pw-week-49'));
+      const relatedCodes = db.pool_codes.filter(c => c.pool_week_id === (activeWeek?.id || 'pw-week-50'));
       
       const rawUser = userObj?.username || currentUser?.username || 'kingeme';
       const nickname = rawUser.startsWith('@') ? rawUser : `@${rawUser}`;

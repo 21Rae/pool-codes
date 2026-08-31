@@ -1317,7 +1317,7 @@ export default function CustomerPortal({
       status: adminStatus,
       kickOff: adminKickOff,
       bookmaker: adminBookmakerCode,
-      week: 'Week 49 Aussie'
+      week: 'Week 50 Aussie'
     };
     setPostedGames(prev => [...prev, newGame]);
     triggerToast(`Game #${newGame.poolNo} [${newGame.home} vs ${newGame.away}] posted live!`, 'success');
@@ -1338,7 +1338,7 @@ export default function CustomerPortal({
       status: adminStatus,
       kickoff: adminKickOff,
       bookmaker: adminBookmakerCode,
-      week: 'Week 49 Aussie'
+      week: 'Week 50 Aussie'
     };
     fetch(`/api/tables/${targetTable}/insert`, {
       method: 'POST',
@@ -3199,7 +3199,7 @@ export default function CustomerPortal({
                               {isPaperMode && (
                                 <div className="border-b-4 border-[#161D2E] pb-3 mb-4 text-center">
                                   <div className="text-xl font-extrabold tracking-widest font-serif text-slate-950 uppercase italic">
-                                    ★★★ WEEK 49 AUTHENTIC DRAW CLASSIFICATION SHEET ★★★
+                                    ★★★ AUTHENTIC DRAW CLASSIFICATION SHEET ★★★
                                   </div>
                                   <div className="text-[11px] font-mono font-bold text-gray-700 tracking-wider mt-1">
                                     FAST POOL OFFICIAL FIXTURE RELEASE — AUSSIE FOOTBALL POOLS
@@ -3658,7 +3658,7 @@ export default function CustomerPortal({
                     venue: 'Estadio Azteca (Mexico City)',
                     matchingCodeId: 'pc-001',
                     bookmaker: 'Bet9ja',
-                    week: 'Week 49 Aussie'
+                    week: 'Week 50 Aussie'
                   },
                   {
                     id: 'f-2',
@@ -3677,7 +3677,7 @@ export default function CustomerPortal({
                     venue: 'Emirates Stadium (London)',
                     matchingCodeId: 'pc-001',
                     bookmaker: 'Bet9ja',
-                    week: 'Week 49 Aussie'
+                    week: 'Week 50 Aussie'
                   },
                   {
                     id: 'f-3',
@@ -3696,7 +3696,7 @@ export default function CustomerPortal({
                     venue: 'Anfield (Liverpool)',
                     matchingCodeId: 'pc-002',
                     bookmaker: 'BetKing',
-                    week: 'Week 49 Aussie'
+                    week: 'Week 50 Aussie'
                   },
                   {
                     id: 'f-4',
@@ -3715,7 +3715,7 @@ export default function CustomerPortal({
                     venue: 'Diego Armando Maradona (Naples)',
                     matchingCodeId: 'pc-003',
                     bookmaker: 'SportyBet',
-                    week: 'Week 49 Aussie'
+                    week: 'Week 50 Aussie'
                   },
                   {
                     id: 'f-5',
@@ -3753,7 +3753,7 @@ export default function CustomerPortal({
                     venue: 'Allianz Arena (Munich)',
                     matchingCodeId: 'pc-001',
                     bookmaker: 'Bet9ja',
-                    week: 'Week 49 Aussie'
+                    week: 'Week 50 Aussie'
                   },
                   {
                     id: 'f-7',
@@ -3772,7 +3772,7 @@ export default function CustomerPortal({
                     venue: 'Cairo International Stadium',
                     matchingCodeId: 'pc-001',
                     bookmaker: 'Bet9ja',
-                    week: 'Week 49'
+                    week: 'Week 50'
                   },
                   {
                     id: 'f-8',
@@ -3791,7 +3791,7 @@ export default function CustomerPortal({
                     venue: 'Cairo International Stadium',
                     matchingCodeId: 'pc-002',
                     bookmaker: 'BetKing',
-                    week: 'Week 49 Aussie'
+                    week: 'Week 50 Aussie'
                   },
                   {
                     id: 'f-9',
@@ -3810,7 +3810,7 @@ export default function CustomerPortal({
                     venue: 'Stade du 5 Juillet (Algiers)',
                     matchingCodeId: 'pc-003',
                     bookmaker: 'SportyBet',
-                    week: 'Week 49 Aussie'
+                    week: 'Week 50 Aussie'
                   },
                   {
                     id: 'h-1',
@@ -3829,7 +3829,7 @@ export default function CustomerPortal({
                     venue: 'TD Garden (Boston)',
                     matchingCodeId: 'pc-001',
                     bookmaker: 'Bet9ja',
-                    week: 'Week 49 Aussie'
+                    week: 'Week 50 Aussie'
                   },
                   {
                     id: 'b-1',
@@ -3848,7 +3848,7 @@ export default function CustomerPortal({
                     venue: 'Crypto.com Arena (LA)',
                     matchingCodeId: 'pc-002',
                     bookmaker: 'BetKing',
-                    week: 'Week 49 Aussie'
+                    week: 'Week 50 Aussie'
                   },
                   {
                     id: 't-1',
@@ -3867,7 +3867,7 @@ export default function CustomerPortal({
                     venue: 'Center Court (London)',
                     matchingCodeId: 'pc-003',
                     bookmaker: 'SportyBet',
-                    week: 'Week 49 Aussie'
+                    week: 'Week 50 Aussie'
                   },
                   {
                     id: 'c-1',
@@ -3886,7 +3886,7 @@ export default function CustomerPortal({
                     venue: 'Wankhede Stadium (Mumbai)',
                     matchingCodeId: 'pc-001',
                     bookmaker: 'Bet9ja',
-                    week: 'Week 49 Aussie'
+                    week: 'Week 50 Aussie'
                   }
                 ];
 
@@ -4418,7 +4418,7 @@ export default function CustomerPortal({
                                         {/* Decoder indicators box */}
                                         <div className="bg-[#03060C] border border-[#0B1E28]/60 p-4 rounded-xl font-mono text-[11.5px] leading-relaxed block relative select-text border-l-4 border-l-emerald-500">
                                           <div className="text-[8px] text-slate-500 uppercase font-black mb-1.5 pb-1 border-b border-slate-850/60 font-mono tracking-widest">
-                                            ✓ {activeMatch?.bookmaker || 'BET9JA'} VERIFIED POOL SEQUENCE DETAILS ({activeMatch?.week || 'Week 49'})
+                                            ✓ {activeMatch?.bookmaker || 'BET9JA'} VERIFIED POOL SEQUENCE DETAILS ({activeMatch?.week || 'CURRENT WEEK'})
                                           </div>
                                           <div className="text-emerald-400 select-text font-medium font-sans whitespace-pre-wrap leading-relaxed">
                                             {associatedCode.codes_content}
@@ -5614,12 +5614,12 @@ export default function CustomerPortal({
 
               {/* SUBTAB 3: RESULTS CENTER OF GAME PAYOUTS */}
               {activeSubTab === 'results' && (() => {
-                const effectiveWeek = (activeWeekNumber && activeWeekNumber !== 'NULL') ? activeWeekNumber : '49';
+                const effectiveWeek = (activeWeekNumber && activeWeekNumber !== 'NULL') ? activeWeekNumber : '50';
                 const uniqueSeasons = Array.from(new Set(poolResults.map((r: any) => String(r.season_year || 2026)))).sort();
-                const uniqueWeeks = Array.from(new Set(poolResults.map((r: any) => Number((activeWeekNumber && activeWeekNumber !== 'NULL') ? activeWeekNumber : (r.week_number || 49))))).sort((a: any, b: any) => Number(a) - Number(b));
+                const uniqueWeeks = Array.from(new Set(poolResults.map((r: any) => Number((activeWeekNumber && activeWeekNumber !== 'NULL') ? activeWeekNumber : (r.week_number || 50))))).sort((a: any, b: any) => Number(a) - Number(b));
 
                 const filteredResults = poolResults.map((sheet: any) => {
-                  const resolvedWeek = (activeWeekNumber && activeWeekNumber !== 'NULL') ? Number(activeWeekNumber) : (sheet.week_number || 49);
+                  const resolvedWeek = (activeWeekNumber && activeWeekNumber !== 'NULL') ? Number(activeWeekNumber) : (sheet.week_number || 50);
                   return {
                     ...sheet,
                     week_number: resolvedWeek,
@@ -5630,7 +5630,7 @@ export default function CustomerPortal({
                     if (String(sheet.season_year || 2026) !== filterSeason) return false;
                   }
                   if (filterWeek !== 'all') {
-                    if (String(sheet.week_number || 49) !== filterWeek) return false;
+                    if (String(sheet.week_number || 50) !== filterWeek) return false;
                   }
                   if (filterFixtureDate !== '') {
                     if (sheet.fixture_date !== filterFixtureDate) return false;
@@ -5751,7 +5751,7 @@ export default function CustomerPortal({
                                 const st = x.status || '';
                                 return st === 'ScoreDraw' || st === 'noScoreDraw';
                               }).length;
-                              const wkDisplay = (activeWeekNumber && activeWeekNumber !== 'NULL') ? activeWeekNumber : (res.week_number || 49);
+                              const wkDisplay = (activeWeekNumber && activeWeekNumber !== 'NULL') ? activeWeekNumber : (res.week_number || 50);
                               const titleDisplay = (res.title || `Week ${wkDisplay} UK Pool results`).replace(/Week\s*\d+/i, `Week ${wkDisplay}`);
                               return (
                                 <option key={res.id} value={res.id} className="bg-slate-950 text-white py-2">
@@ -5941,9 +5941,6 @@ export default function CustomerPortal({
                                 <h1 className="font-black text-xs sm:text-base md:text-xl tracking-tight sm:tracking-widest text-[#FFF] uppercase leading-tight drop-shadow-md">
                                   WEEKLY POOL RESULTS
                                 </h1>
-                                <p className="text-[8px] sm:text-xs tracking-wide sm:tracking-wider text-emerald-300 font-bold mt-0.5 drop-shadow-sm font-mono uppercase">
-                                  CURRENT `pool_result` CARDS: id • home_team • pool_result • away_team • status
-                                </p>
                               </div>
                             </div>
 

@@ -36,6 +36,81 @@ interface ChatbotSectionProps {
   triggerToast: (message: string, type?: 'success' | 'info' | 'error') => void;
 }
 
+function cleanBotMessageText(raw: any): string {
+  if (raw === null || raw === undefined) return '';
+  if (typeof raw === 'string') {
+    let str = raw.trim();
+    // Parse stringified JSON if found
+    if ((str.startsWith('{') && str.endsWith('}')) || (str.startsWith('[') && str.endsWith(']'))) {
+      try {
+        const parsed = JSON.parse(str);
+        const unwrapped = cleanBotMessageText(parsed);
+        if (unwrapped) return unwrapped;
+      } catch (_) {}
+    }
+    // Parse markdown JSON code block
+    const codeBlockMatch = str.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+    if (codeBlockMatch) {
+      try {
+        const parsed = JSON.parse(codeBlockMatch[1]);
+        const unwrapped = cleanBotMessageText(parsed);
+        if (unwrapped) return unwrapped;
+      } catch (_) {}
+    }
+    // Remove wrapping quotes
+    if (str.startsWith('"') && str.endsWith('"') && str.length >= 2) {
+      try {
+        const unquoted = JSON.parse(str);
+        if (typeof unquoted === 'string') return unquoted.trim();
+      } catch (_) {}
+    }
+    return str;
+  }
+
+  if (Array.isArray(raw)) {
+    if (raw.length === 0) return '';
+    for (const item of raw) {
+      const itemText = cleanBotMessageText(item);
+      if (itemText) return itemText;
+    }
+    return '';
+  }
+
+  if (typeof raw === 'object') {
+    const candidateKeys = [
+      'output',
+      'reply',
+      'response',
+      'message',
+      'text',
+      'content',
+      'answer',
+      'result',
+      'data',
+      'chatOutput'
+    ];
+    for (const key of candidateKeys) {
+      if (raw[key] !== undefined && raw[key] !== null) {
+        const candidate = cleanBotMessageText(raw[key]);
+        if (candidate) return candidate;
+      }
+    }
+    if (Array.isArray(raw.choices) && raw.choices[0]) {
+      const choice = raw.choices[0];
+      if (choice.message?.content) return cleanBotMessageText(choice.message.content);
+      if (choice.text) return cleanBotMessageText(choice.text);
+    }
+    for (const val of Object.values(raw)) {
+      if (typeof val === 'string' && val.trim().length > 0) {
+        return cleanBotMessageText(val);
+      }
+    }
+    return '';
+  }
+
+  return String(raw);
+}
+
 export default function ChatbotSection({ currentUser, isLoggedIn, triggerToast }: ChatbotSectionProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -120,7 +195,8 @@ export default function ChatbotSection({ currentUser, isLoggedIn, triggerToast }
 
       const botMessageId = `msg-bot-${Date.now()}`;
       const isError = !data.success || data.isError || false;
-      const textToDisplay = data.reply || (isError ? 'Message failed to send.' : 'No response payload received from webhook.');
+      const rawText = data.reply || data.output || data.response || data.text || data.message || (isError ? 'Message failed to send.' : 'No response payload received from webhook.');
+      const textToDisplay = cleanBotMessageText(rawText) || (isError ? 'Message failed to send.' : 'No response received.');
 
       const newBotMessage: Message = {
         id: botMessageId,
@@ -185,8 +261,8 @@ export default function ChatbotSection({ currentUser, isLoggedIn, triggerToast }
   // Preset query templates for easy testing
   const presets = [
     {
-      label: 'Aussie Week 49 Predictions',
-      text: 'Query soccer draw predictions and fixture summaries for Aussie Season Week 49.',
+      label: 'Aussie Draw Predictions',
+      text: 'Query soccer draw predictions and fixture summaries for Aussie Season.',
       date: '2026-07-04'
     },
     {

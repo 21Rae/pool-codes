@@ -1231,7 +1231,7 @@ let liveComments: {
   {
     id: "lc-1",
     username: "PoolMaster_99",
-    comment: "Week 49 looking very strong on draw perms! Keep eyes on match 12 and 18.",
+    comment: "Current pool matches looking very strong on draw perms! Keep eyes on match 12 and 18.",
     team_tag: "Draw Banker",
     created_at: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
     likes: 6
@@ -1505,6 +1505,84 @@ app.post("/api/livescores/trigger-update", async (req, res) => {
   }
 });
 
+function cleanChatbotReply(raw: any): string {
+  if (raw === null || raw === undefined) return "";
+  if (typeof raw === "string") {
+    let str = raw.trim();
+    // Try parsing stringified JSON
+    if ((str.startsWith("{") && str.endsWith("}")) || (str.startsWith("[") && str.endsWith("]"))) {
+      try {
+        const parsed = JSON.parse(str);
+        const unwrapped = cleanChatbotReply(parsed);
+        if (unwrapped) return unwrapped;
+      } catch (_) {}
+    }
+    // Try parsing markdown codeblocks containing JSON
+    const codeBlockMatch = str.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+    if (codeBlockMatch) {
+      try {
+        const parsed = JSON.parse(codeBlockMatch[1]);
+        const unwrapped = cleanChatbotReply(parsed);
+        if (unwrapped) return unwrapped;
+      } catch (_) {}
+    }
+    // Strip leading/trailing quote marks if accidentally double-stringified
+    if (str.startsWith('"') && str.endsWith('"') && str.length >= 2) {
+      try {
+        const unquoted = JSON.parse(str);
+        if (typeof unquoted === "string") return unquoted.trim();
+      } catch (_) {}
+    }
+    return str;
+  }
+
+  if (Array.isArray(raw)) {
+    if (raw.length === 0) return "";
+    for (const item of raw) {
+      const itemText = cleanChatbotReply(item);
+      if (itemText) return itemText;
+    }
+    return "";
+  }
+
+  if (typeof raw === "object") {
+    // Check known bot output property keys in order of precedence
+    const candidateKeys = [
+      "output",
+      "reply",
+      "response",
+      "message",
+      "text",
+      "content",
+      "answer",
+      "result",
+      "data",
+      "chatOutput"
+    ];
+    for (const key of candidateKeys) {
+      if (raw[key] !== undefined && raw[key] !== null) {
+        const candidate = cleanChatbotReply(raw[key]);
+        if (candidate) return candidate;
+      }
+    }
+    // Check LLM / OpenAI style response choices
+    if (Array.isArray(raw.choices) && raw.choices[0]) {
+      const choice = raw.choices[0];
+      if (choice.message?.content) return cleanChatbotReply(choice.message.content);
+      if (choice.text) return cleanChatbotReply(choice.text);
+    }
+    // Check first string value found
+    for (const val of Object.values(raw)) {
+      if (typeof val === "string" && val.trim().length > 0) {
+        return cleanChatbotReply(val);
+      }
+    }
+    return "";
+  }
+
+  return String(raw);
+}
+
 // API Route - Chatbot with Full SSE Streaming & I/O Separation
 app.post("/api/chatbot", async (req, res) => {
   const body = req.body || {};
@@ -1540,16 +1618,17 @@ app.post("/api/chatbot", async (req, res) => {
 
       if (response.ok) {
         const responseText = await response.text();
-        let reply = responseText.trim();
+        let reply = "";
         try {
-          const json = JSON.parse(responseText);
-          if (typeof json === "string") reply = json;
-          else if (Array.isArray(json) && json[0]) {
-            reply = typeof json[0] === "string" ? json[0] : json[0].reply || json[0].response || JSON.stringify(json[0]);
-          } else if (json && typeof json === "object") {
-            reply = json.reply || json.response || json.message || json.output || json.text || JSON.stringify(json);
-          }
-        } catch (_) {}
+          const parsedJson = JSON.parse(responseText);
+          reply = cleanChatbotReply(parsedJson);
+        } catch (_) {
+          reply = cleanChatbotReply(responseText);
+        }
+
+        if (!reply) {
+          reply = responseText.trim();
+        }
 
         return res.json({
           success: true,
@@ -1617,7 +1696,7 @@ Keep responses concise, clear, and formatted in clean Markdown.`;
   if (lower.includes("predict") || lower.includes("draw") || lower.includes("banker")) {
     offlineReply = `🔮 **Fast Pool Codes Draw Prediction System**\n\n- **Match Highlight**: Liverpool vs Chelsea (Draw Index: **84%**)\n- **Banker Prediction**: Arsenal vs Man City (Low scoring expectation)\n- **Secondary Draws**: Coupon #14 & #27.`;
   } else if (lower.includes("code") || lower.includes("coupon") || lower.includes("week")) {
-    offlineReply = `📋 **Football Pool Coupon & Weekly Codes**\n\n- **Week 49 Codes**: Verified & active on premium.\n- **Coupon Draws**: Explore the Dashboard coupon sheets.`;
+    offlineReply = `📋 **Football Pool Coupon & Weekly Codes**\n\n- **Verified Pool Codes**: Active on premium VIP.\n- **Coupon Draws**: Explore the Dashboard coupon sheets.`;
   }
 
   return res.json({
@@ -1704,8 +1783,8 @@ app.post("/api/payment/confirm", async (req, res) => {
     components
   }).catch(() => {});
 
-  const pdfUrl = "https://storage.poolcodes.com/files/w49-betking-premium.pdf";
-  const pdfName = "FastPoolCodes_Week_49_VIP_Codesheet.pdf";
+  const pdfUrl = "https://storage.poolcodes.com/files/betking-premium.pdf";
+  const pdfName = "FastPoolCodes_VIP_Codesheet.pdf";
 
   return res.json({
     success: true,

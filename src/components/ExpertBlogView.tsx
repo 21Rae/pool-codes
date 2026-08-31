@@ -233,7 +233,7 @@ export default function ExpertBlogView({
       const encodedUri = encodeURI(csvContent);
       const link = document.createElement("a");
       link.setAttribute("href", encodedUri);
-      link.setAttribute("download", `pool_result_week_${result.week_number || activeWeekNumber || 49}.csv`);
+      link.setAttribute("download", `pool_result_week_${result.week_number || activeWeekNumber || 50}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -1180,7 +1180,7 @@ CREATE TABLE IF NOT EXISTS public.arena_games (
     status VARCHAR(50) DEFAULT 'Friday',
     kick_off VARCHAR(50) DEFAULT '11:00 AM',
     bookmaker VARCHAR(100) DEFAULT 'Bet9ja',
-    week VARCHAR(100) DEFAULT 'Week 49 Aussie',
+    week VARCHAR(100) DEFAULT 'Week 50 Aussie',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
@@ -1221,14 +1221,14 @@ CREATE POLICY "Allow admin write access on arena games"
 TRUNCATE TABLE public.arena_games;
 INSERT INTO public.arena_games (pool_no, bet_code, home, away, home_win, draw, away_win, bet_tips, status, kick_off, bookmaker, week)
 VALUES 
-  (1, '2531', 'Marconi S.', 'Sydney FC', 1.40, 4.35, 6.40, 'Ov 2.5', 'Friday', '11:00 AM', 'Bet9ja', 'Week 49 Aussie'),
-  (2, '4922', 'Apia L. Tigers', 'Rockdale City', 2.10, 3.85, 3.10, 'Draw (X)', 'Saturday', '03:15 PM', 'Bet9ja', 'Week 49 Aussie'),
-  (3, '1853', 'Wollongong Wolves', 'Manly United', 1.85, 4.00, 4.50, 'Un 2.5', 'Saturday', '04:30 PM', 'Bet9ja', 'Week 49 Aussie'),
-  (4, '7721', 'Melbourne Knights', 'Oakleigh Cannons', 2.45, 3.60, 2.20, 'Home Draw', 'Sunday', '05:00 PM', 'BetKing', 'Week 49 Aussie'),
-  (5, '8824', 'Hume City', 'South Melbourne', 3.10, 3.40, 1.95, 'Away Win', 'Sunday', '07:30 PM', 'SportyBet', 'Week 49 Aussie'),
-  (6, '9012', 'St George FC', 'Sutherland Sharks', 1.70, 4.20, 5.10, 'Ov 1.5', 'Friday', '12:45 PM', 'MSport', 'Week 49 Aussie'),
-  (7, '3104', 'Sydney Olympic', 'Western Sydney', 2.05, 3.70, 2.85, 'Home To Win', 'Saturday', '06:00 PM', 'Bet9ja', 'Week 49 Aussie'),
-  (8, '1540', 'St George City', 'NWS Spirit', 1.90, 3.90, 3.40, 'Draw (X)', 'Saturday', '04:15 PM', 'BetKing', 'Week 49 Aussie');`}
+  (1, '2531', 'Marconi S.', 'Sydney FC', 1.40, 4.35, 6.40, 'Ov 2.5', 'Friday', '11:00 AM', 'Bet9ja', 'Week 50 Aussie'),
+  (2, '4922', 'Apia L. Tigers', 'Rockdale City', 2.10, 3.85, 3.10, 'Draw (X)', 'Saturday', '03:15 PM', 'Bet9ja', 'Week 50 Aussie'),
+  (3, '1853', 'Wollongong Wolves', 'Manly United', 1.85, 4.00, 4.50, 'Un 2.5', 'Saturday', '04:30 PM', 'Bet9ja', 'Week 50 Aussie'),
+  (4, '7721', 'Melbourne Knights', 'Oakleigh Cannons', 2.45, 3.60, 2.20, 'Home Draw', 'Sunday', '05:00 PM', 'BetKing', 'Week 50 Aussie'),
+  (5, '8824', 'Hume City', 'South Melbourne', 3.10, 3.40, 1.95, 'Away Win', 'Sunday', '07:30 PM', 'SportyBet', 'Week 50 Aussie'),
+  (6, '9012', 'St George FC', 'Sutherland Sharks', 1.70, 4.20, 5.10, 'Ov 1.5', 'Friday', '12:45 PM', 'MSport', 'Week 50 Aussie'),
+  (7, '3104', 'Sydney Olympic', 'Western Sydney', 2.05, 3.70, 2.85, 'Home To Win', 'Saturday', '06:00 PM', 'Bet9ja', 'Week 50 Aussie'),
+  (8, '1540', 'St George City', 'NWS Spirit', 1.90, 3.90, 3.40, 'Draw (X)', 'Saturday', '04:15 PM', 'BetKing', 'Week 50 Aussie');`}
                             </pre>
                           </div>
 
@@ -1498,9 +1498,6 @@ INSERT INTO public.championship_results (
                             <h1 className="font-black text-xs sm:text-base md:text-xl tracking-tight sm:tracking-widest text-[#FFF] uppercase leading-tight drop-shadow-md">
                               WEEKLY POOL RESULTS
                             </h1>
-                            <p className="text-[8px] sm:text-xs tracking-wide sm:tracking-wider text-emerald-300 font-bold mt-0.5 drop-shadow-sm font-mono uppercase">
-                              CURRENT `pool_result` CARDS: id • home_team • pool_result • away_team • status
-                            </p>
                           </div>
                         </div>
 

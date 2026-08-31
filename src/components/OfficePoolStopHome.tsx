@@ -856,7 +856,7 @@ export default function OfficePoolStopHome({
             {liveScoresData.length === 0 ? (
               <div className="flex items-center gap-2 text-emerald-500/80 font-mono text-[9px] uppercase tracking-widest pl-2">
                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500/30 animate-pulse"></span>
-                <span>Pre-season fixtures indexing... Week 49 starts soon</span>
+                <span>Pre-season fixtures indexing... Live fixtures start soon</span>
               </div>
             ) : (
               <div className="flex items-center gap-3 whitespace-nowrap h-full">
