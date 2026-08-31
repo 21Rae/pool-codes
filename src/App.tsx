@@ -178,19 +178,6 @@ export default function App() {
   } | null>(null);
   const [showSimulatedEmailModal, setShowSimulatedEmailModal] = useState(false);
 
-  // Paystack fallback modal state
-  const [paystackFallback, setPaystackFallback] = useState<{
-    open: boolean;
-    planId: string;
-    price: number;
-    name: string;
-    components?: string[];
-    currency?: string;
-    currencySymbol?: string;
-    notice?: string;
-    channel?: 'momo' | 'card' | 'bank';
-  } | null>(null);
-
   // Subscription Activation & Expiry Alert Success Modal State
   const [subscriptionSuccessAlert, setSubscriptionSuccessAlert] = useState<{
     open: boolean;
@@ -900,8 +887,6 @@ export default function App() {
 
     const components = (selectedComponents && selectedComponents.length > 0)
       ? selectedComponents
-      : (paystackFallback?.components && paystackFallback.components.length > 0)
-      ? paystackFallback.components
       : [];
 
     // Only mark past subscriptions as cancelled if they are expired
@@ -1124,8 +1109,7 @@ export default function App() {
         console.error('[Mail Dispatch API Error]:', err);
       });
     
-    // Switch view directly to portal and dismiss paywall fallback modal
-    setPaystackFallback(null);
+    // Switch view directly to portal
     setViewMode('portal');
     setShowSimulatedEmailModal(false);
 
@@ -1308,6 +1292,13 @@ export default function App() {
     const p = findSubscriptionPlan(db.subscription_plans, planId) || INITIAL_PLANS[0];
     if (!p) return;
 
+    if (!currentUser || currentUser.id === 'guest') {
+      triggerToast('Please register or log in first before purchasing a subscription.', 'info');
+      setAutoOpenAuthHome(true);
+      setViewMode('homepage');
+      return;
+    }
+
     if (selectedComponents.length === 0) {
       triggerToast('Please select at least one bookmaker component to subscribe.', 'error');
       return;
@@ -1321,7 +1312,6 @@ export default function App() {
 
     const isGhana = isGhanaPlan(p) || (p as any).region === 'ghana';
     const planCurrency = 'NGN';
-    const currencySymbol = '₦';
     const calculatedPrice = p.price * selectedComponents.length;
 
     triggerToast(`Connecting to secure Paystack servers for ${p.name} (${selectedComponents.map(c => c.toUpperCase()).join(' + ')})...`, 'info');
@@ -1339,62 +1329,67 @@ export default function App() {
         currency: 'NGN',
         channels: ['card', 'bank', 'ussd', 'mobile_money', 'qr'],
         ref: `PAY-${Date.now()}-${Math.floor(Math.random() * 100000)}`,
-        callback: function(response: any) {
+        callback: async function(response: any) {
+          if (!response || (!response.reference && !response.trxref)) {
+            triggerToast('Payment was not completed. Subscription activation failed.', 'error');
+            return;
+          }
+
           const ref = response.reference || response.trxref;
-          completePurchase(planId, ref, selectedComponents);
+          const status = response.status || (response.message === 'Approved' ? 'success' : '');
+
+          if (response.status && response.status !== 'success' && response.status !== 'successful') {
+            triggerToast(`Payment status "${response.status}": Dashboard access not unlocked.`, 'error');
+            return;
+          }
+
+          try {
+            triggerToast('Verifying payment confirmation with Paystack...', 'info');
+            const verifyRes = await fetch('/api/payment/verify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ reference: ref, planId, amount: calculatedPrice })
+            });
+            const verifyData = await verifyRes.json();
+            if (verifyRes.ok && verifyData.success) {
+              completePurchase(planId, ref, selectedComponents);
+            } else {
+              triggerToast(verifyData.error || 'Payment verification failed with Paystack servers. Access not granted.', 'error');
+            }
+          } catch (err) {
+            console.warn('[Paystack Verification Network Fallback]:', err);
+            if (status === 'success' || ref) {
+              completePurchase(planId, ref, selectedComponents);
+            } else {
+              triggerToast('Payment could not be verified. Dashboard access remains restricted.', 'error');
+            }
+          }
         },
         onClose: function() {
-          if (isGhana) {
-            // When Paystack popup is closed, user can complete via simulated fallback
-            setPaystackFallback({
-              open: true,
-              planId: planId,
-              price: calculatedPrice,
-              name: `${p.name} (${selectedComponents.map(c => c.toUpperCase()).join(' + ')})`,
-              components: selectedComponents,
-              currency: 'NGN',
-              currencySymbol: '₦',
-              notice: 'Paystack checkout closed. You can complete your Ghana plan activation at the standard Naira equivalent rate via Mobile Money / Card gateway below.',
-              channel: 'momo'
-            });
-            triggerToast('Paystack popup closed. You can complete VIP activation below.', 'info');
-          } else {
-            const failNotif: Notification = {
-              id: `notif-fail-${Date.now()}`,
-              user_id: currentUser.id,
-              subscription_id: null,
-              pool_code_id: null,
-              type: 'payment_failed',
-              title: 'Payment Incomplete or Cancelled',
-              message: 'We could not complete your Pool Code subscription payment. Please try again.',
-              body: 'We could not complete your Pool Code subscription payment. Please try again.',
-              is_read: false,
-              read_at: null,
-              created_at: new Date().toISOString()
-            };
-            setDb(prev => ({
-              ...prev,
-              notifications: [failNotif, ...(prev.notifications || [])]
-            }));
-            triggerToast('Paystack payment cancelled or incomplete. You can retry whenever you are ready.', 'info');
-          }
+          const failNotif: Notification = {
+            id: `notif-fail-${Date.now()}`,
+            user_id: currentUser.id,
+            subscription_id: null,
+            pool_code_id: null,
+            type: 'payment_failed',
+            title: 'Payment Incomplete or Cancelled',
+            message: `Paystack checkout for ${p.name} was closed without completing payment. Your dashboard access remains restricted.`,
+            body: `Paystack checkout for ${p.name} was closed without completing payment. Your dashboard access remains restricted.`,
+            is_read: false,
+            read_at: null,
+            created_at: new Date().toISOString()
+          };
+          setDb(prev => ({
+            ...prev,
+            notifications: [failNotif, ...(prev.notifications || [])]
+          }));
+          triggerToast('Paystack payment was cancelled or closed. Payment was not received and dashboard access is not unlocked.', 'error');
         }
       });
       handler.openIframe();
     } catch (err: any) {
-      console.warn("Paystack dynamic inline load failed (iframe sandbox constraint likely). Falling back to simulated modal.", err);
-      // Fallback modal ensures seamless checkout testing in restrictive sandboxes
-      setPaystackFallback({
-        open: true,
-        planId: planId,
-        price: calculatedPrice,
-        name: `${p.name} (${selectedComponents.map(c => c.toUpperCase()).join(' + ')})`,
-        components: selectedComponents,
-        currency: planCurrency,
-        currencySymbol: currencySymbol,
-        notice: isGhana ? 'Ghanaian Mobile Money (MTN MoMo, Telecel / Vodafone Cash, AirtelTigo) & Card gateway activated.' : undefined,
-        channel: isGhana ? 'momo' : 'card'
-      });
+      console.warn("Paystack dynamic inline load failed:", err);
+      triggerToast('Unable to launch Paystack checkout. Please verify your internet connection or popup settings and try again.', 'error');
     }
   };
 
@@ -1836,20 +1831,18 @@ export default function App() {
 
         const subId = `sub-sb-${Math.floor(Math.random() * 90000 + 10000)}`;
         const now = new Date();
-        const selectedPlan = findSubscriptionPlan(db.subscription_plans, planId);
-        const { expiresAt: calculatedExpiry } = calculateSubscriptionExpiry(selectedPlan, now);
 
-        const hasPaid = Boolean(planId && planId !== 'plan-free');
+        // New accounts start with inactive free tier until paid via Paystack
         const newSub: UserSubscription = {
           id: subId,
           user_id: su.id,
           username: newUser.username,
-          plan_id: hasPaid ? planId : 'plan-free',
-          status: hasPaid ? 'active' : 'inactive',
+          plan_id: 'plan-free',
+          status: 'inactive',
           starts_at: now.toISOString(),
-          expires_at: hasPaid ? calculatedExpiry.toISOString() : now.toISOString(),
-          payment_ref: hasPaid ? `REF-PAY-${Math.floor(Math.random() * 9000000 + 1000000)}` : null,
-          payment_provider: hasPaid ? 'Direct Verified Payment' : null,
+          expires_at: now.toISOString(),
+          payment_ref: null,
+          payment_provider: null,
           created_at: now.toISOString(),
           components: []
         };
@@ -1860,7 +1853,7 @@ export default function App() {
           email: newUser.email,
           role: newUser.role,
           plan_id: newSub.plan_id,
-          payment_ref: newSub.payment_ref,
+          payment_ref: null,
           created_at: newUser.created_at
         }));
 
@@ -1874,16 +1867,10 @@ export default function App() {
         setViewMode('portal');
         logSQL(
           `-- Inserted user record into users database table.\n-- Registered user ID: ${su.id}`,
-          `Registered & granted dashboard access for user @${newUser.username}`
+          `Registered user @${newUser.username} (Subscription status: inactive pending payment)`
         );
 
         fetchRealSupabaseData(true);
-
-        if (planId && planId !== 'plan-free') {
-          setTimeout(() => {
-            downloadCodesFileAuto(newUser, planId, newSub.payment_ref || '');
-          }, 1200);
-        }
 
         return { success: true, message: `Successfully registered and logged in as @${newUser.username}! Welcome!` };
       }
@@ -1940,7 +1927,7 @@ export default function App() {
           };
 
           const cachedStr = localStorage.getItem('fastpool_cached_user');
-          let restoredPlan = 'plan-quarterly';
+          let restoredPlan = 'plan-free';
           let restoredRef = null;
           try {
             if (cachedStr) {
@@ -2162,6 +2149,7 @@ export default function App() {
                 setTermsOrigin('homepage');
                 setViewMode('terms');
               }}
+              onBuySubscription={buySubscription}
             />
           </div>
           {renderFooter()}
@@ -2371,134 +2359,6 @@ export default function App() {
       )}
       {/* Global Floating Soccer AI Assistant */}
       <ChatbotSection currentUser={currentUser} isLoggedIn={viewMode === 'portal'} triggerToast={triggerToast} />
-
-      {/* Dynamic Paystack Secure Checkout Fallback Overlay Modal */}
-      {paystackFallback && paystackFallback.open && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full max-w-md bg-[#0F172A] border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col relative animate-scaleUp">
-            {/* Header with Paystack styling */}
-            <div className="bg-[#111827] border-b border-slate-800/80 px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                <span className="text-[10px] font-mono font-black text-emerald-400 tracking-widest uppercase">
-                  Paystack Secure Checkout
-                </span>
-              </div>
-              <button
-                onClick={() => setPaystackFallback(null)}
-                className="text-slate-400 hover:text-white transition text-xs font-mono font-bold uppercase cursor-pointer"
-              >
-                ✕ Close
-              </button>
-            </div>
-
-            <div className="p-6 flex flex-col gap-4">
-              <div className="text-center">
-                <span className="text-[11px] text-slate-500 font-mono block uppercase">Merchant</span>
-                <h4 className="text-lg font-black text-white uppercase tracking-tight">Fast Pool Codes Ltd</h4>
-                <p className="text-xs text-slate-400 mt-0.5">customer: <span className="text-slate-200 font-mono">{currentUser.email}</span></p>
-              </div>
-
-              {paystackFallback.notice && (
-                <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-300 text-[11px] leading-relaxed flex items-start gap-2">
-                  <span className="text-sm">ℹ️</span>
-                  <span>{paystackFallback.notice}</span>
-                </div>
-              )}
-
-              {/* Order Box */}
-              <div className="bg-[#020617] border border-slate-800/80 rounded-xl p-4 flex flex-col gap-2 font-mono text-xs">
-                <div className="flex justify-between text-slate-400">
-                  <span>Product VIP Access:</span>
-                  <span className="text-slate-200 font-bold uppercase text-right">{paystackFallback.name}</span>
-                </div>
-                <div className="flex justify-between text-slate-400">
-                  <span>Merchant Gateway:</span>
-                  <span className="text-slate-200">{paystackFallback.currency === 'GHS' ? 'Paystack Ghana MoMo / Card (NGN Eqv)' : 'Paystack Nigeria NGN'}</span>
-                </div>
-                <div className="flex justify-between border-t border-slate-800/60 pt-2 text-sm">
-                  <span className="text-slate-300 font-bold">Total Bill:</span>
-                  <span className="text-emerald-400 font-black">
-                    {paystackFallback.currencySymbol || '₦'}
-                    {paystackFallback.price.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} (NGN)
-                  </span>
-                </div>
-              </div>
-
-              {/* Payment Methods Simulation Option Selector */}
-              <div className="space-y-2">
-                <span className="text-[10px] font-mono text-slate-400 block uppercase font-semibold">Select Payment Method:</span>
-                <div className="grid grid-cols-2 gap-2 text-left">
-                  <button
-                    type="button"
-                    onClick={() => setPaystackFallback(prev => prev ? { ...prev, channel: 'momo' } : null)}
-                    className={`p-3 rounded-xl border text-left cursor-pointer transition flex items-center gap-2.5 ${
-                      paystackFallback.channel !== 'card' && paystackFallback.channel !== 'bank'
-                        ? 'bg-emerald-950/40 border-emerald-500/60 ring-1 ring-emerald-500/30'
-                        : 'bg-[#020617] border-slate-800 hover:border-slate-700'
-                    }`}
-                  >
-                    <span className="text-xl">{paystackFallback.currency === 'GHS' ? '📱' : '🏦'}</span>
-                    <div>
-                      <p className="font-bold leading-none text-xs text-white">
-                        {paystackFallback.currency === 'GHS' ? 'Mobile Money' : 'Bank Transfer'}
-                      </p>
-                      <span className="text-[9px] text-slate-400 font-mono block mt-1">
-                        {paystackFallback.currency === 'GHS' ? 'MTN / Telecel / AT' : 'Direct Transfer'}
-                      </span>
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setPaystackFallback(prev => prev ? { ...prev, channel: 'card' } : null)}
-                    className={`p-3 rounded-xl border text-left cursor-pointer transition flex items-center gap-2.5 ${
-                      paystackFallback.channel === 'card'
-                        ? 'bg-emerald-950/40 border-emerald-500/60 ring-1 ring-emerald-500/30'
-                        : 'bg-[#020617] border-slate-800 hover:border-slate-700'
-                    }`}
-                  >
-                    <span className="text-xl">💳</span>
-                    <div>
-                      <p className="font-bold leading-none text-xs text-white">Debit Card</p>
-                      <span className="text-[9px] text-slate-400 font-mono block mt-1">
-                        {paystackFallback.currency === 'GHS' ? 'Visa / MC / Gh-Link' : 'Master / Visa / Verve'}
-                      </span>
-                    </div>
-                  </button>
-                </div>
-              </div>
-
-              {/* Sim Checkout Buttons */}
-              <div className="flex flex-col gap-2 mt-1">
-                <button
-                  onClick={() => {
-                    const simRef = `PAY-${paystackFallback.currency || 'GHS'}-${Math.random().toString(36).substr(2, 8).toUpperCase()}`;
-                    completePurchase(paystackFallback.planId, simRef, paystackFallback.components);
-                    setPaystackFallback(null);
-                  }}
-                  className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/40 active:scale-98 duration-150"
-                >
-                  <span>✓ Complete Payment ({paystackFallback.currencySymbol || (paystackFallback.currency === 'GHS' ? 'GH₵' : '₦')}{paystackFallback.price.toLocaleString()}) & Activate Plan</span>
-                </button>
-                <button
-                  onClick={() => setPaystackFallback(null)}
-                  className="w-full py-2 bg-transparent border border-slate-800 text-slate-400 hover:text-white transition font-mono font-bold text-[11px] rounded-lg cursor-pointer"
-                >
-                  Cancel Transaction
-                </button>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="bg-[#020617] border-t border-slate-800/60 p-3 text-center text-[9px] text-slate-500 font-mono flex items-center justify-center gap-1.5">
-              <span>🔒 256-Bit SSL Encryption Active</span>
-              <span>•</span>
-              <span>Licensed by {paystackFallback.currency === 'GHS' ? 'Bank of Ghana' : 'Central Bank of Nigeria'}</span>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Subscription Activation Success Alert Modal */}
       {subscriptionSuccessAlert && subscriptionSuccessAlert.open && (

@@ -63,6 +63,7 @@ interface OfficePoolStopHomeProps {
   onLoginUser?: (usernameOrEmail: string, password?: string) => Promise<{ success: boolean; error?: string; message?: string }>;
   onChangePassword?: (usernameOrEmail: string, newPassword: string) => Promise<{ success: boolean; error?: string; message?: string }>;
   onOpenTerms?: () => void;
+  onBuySubscription?: (planId: string, selectedComponents?: string[]) => void;
   autoOpenAuth?: boolean;
   onResetAutoOpenAuth?: () => void;
   initialView?: 'blog' | 'comparison' | 'livescores' | 'results' | 'about' | 'contact';
@@ -197,6 +198,7 @@ export default function OfficePoolStopHome({
   onLoginUser,
   onChangePassword,
   onOpenTerms,
+  onBuySubscription,
   autoOpenAuth,
   onResetAutoOpenAuth,
   initialView
@@ -687,49 +689,50 @@ export default function OfficePoolStopHome({
       triggerToast(`Payment portal for selected bookmaker (${selectedPaywallBookmaker}) is currently disabled. Please choose another bookmaker.`, 'error');
       return;
     }
-    if (!paywallForm.cardholder || !paywallForm.cardNumber || !paywallForm.expiry || !paywallForm.cvv) {
-      triggerToast('Please enter all credit card details to authorize access.', 'error');
-      return;
-    }
 
-    setIsProcessingPayment(true);
-    triggerToast('Connecting to payment gateways & establishing user profile...', 'info');
-
-    const username = pendingUser?.username || authFields.username || 'VIP_User';
-    const email = pendingUser?.email || authFields.email;
-    if (!email) {
-      triggerToast('Please provide a valid email to complete subscription.', 'error');
-      setIsProcessingPayment(false);
-      return;
-    }
-    const password = pendingUser?.password || authFields.password;
-
-    setTimeout(() => {
+    const username = pendingUser?.username || authFields.username || (currentUser?.username && currentUser.username !== 'guest' ? currentUser.username : 'VIP_User');
+    const email = pendingUser?.email || authFields.email || (currentUser?.email && currentUser.email !== 'guest@fastpoolcodes.com' ? currentUser.email : '');
+    
+    if (!currentUser || currentUser.id === 'guest') {
+      if (!email) {
+        triggerToast('Please provide your email to proceed with Paystack checkout.', 'error');
+        setShowPaywall(false);
+        setShowSystemAuth(true);
+        setAuthMode('signup');
+        return;
+      }
+      const password = pendingUser?.password || authFields.password || 'FastPool2026!';
+      
+      setIsProcessingPayment(true);
+      triggerToast('Initializing user profile and connecting to Paystack...', 'info');
+      
       if (onRegisterUser) {
-        onRegisterUser(username, email, password, paywallPlan)
+        onRegisterUser(username, email, password, 'plan-free')
           .then((res) => {
             setIsProcessingPayment(false);
             if (res.success) {
-              triggerToast(res.message || `Payment Authorized! Premium account registered for @${username}. Welcome!`, 'success');
               setShowPaywall(false);
               setPendingUser(null);
-              onSignIn();
+              if (onBuySubscription) {
+                onBuySubscription(paywallPlan, [selectedPaywallBookmaker]);
+              }
             } else {
-              triggerToast(res.error || 'Registration failed.', 'error');
+              triggerToast(res.error || 'Account setup failed.', 'error');
             }
           })
           .catch((err) => {
             setIsProcessingPayment(false);
-            triggerToast(err.message || 'Payment processing failed.', 'error');
+            triggerToast(err.message || 'Account setup failed.', 'error');
           });
-      } else {
-        setIsProcessingPayment(false);
-        triggerToast(`Payment Authorized! Premium access package activated.`, 'success');
-        setShowPaywall(false);
-        setPendingUser(null);
-        onSignIn();
       }
-    }, 1800);
+      return;
+    }
+
+    // User is already logged in
+    setShowPaywall(false);
+    if (onBuySubscription) {
+      onBuySubscription(paywallPlan, [selectedPaywallBookmaker]);
+    }
   };
 
   return (
@@ -2408,94 +2411,72 @@ export default function OfficePoolStopHome({
                 );
               })()}
 
-              <form onSubmit={handlePaymentSubmit} className="space-y-4 pt-2 border-t border-slate-800">
-                <div className="text-xs font-mono font-bold text-amber-400 mb-2 flex items-center gap-1.5">
-                  <ShieldCheck className="w-4 h-4 text-amber-400" />
-                  <span>AUTHORIZE PAYMENT DEPOSIT FOR SELECTED PACKAGE ({selectedPaywallBookmaker.toUpperCase()})</span>
-                </div>
+              {(() => {
+                const plansList = getMergedSubscriptionPlans(db.subscription_plans) || INITIAL_PLANS;
+                const selectedPlanObj = plansList.find(p => p.id === paywallPlan) || plansList[0];
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div className="space-y-1.5 text-xs">
-                    <label className="block text-slate-300 font-extrabold font-mono tracking-wider uppercase text-[10px]">Cardholder Name</label>
-                    <input
-                      type="text"
-                      required
-                      value={paywallForm.cardholder}
-                      onChange={(e) => setPaywallForm({ ...paywallForm, cardholder: e.target.value })}
-                      className="w-full bg-[#020b08] border border-emerald-900 rounded-lg p-3 text-[#A7F3D0] focus:ring-1 focus:ring-amber-400 focus:outline-none placeholder:text-emerald-950"
-                      placeholder="e.g. Mikhail de Guzman"
-                    />
-                  </div>
+                return (
+                  <form onSubmit={handlePaymentSubmit} className="space-y-4 pt-2 border-t border-slate-800">
+                    <div className="text-xs font-mono font-bold text-emerald-400 mb-2 flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                      <span>PAYSTACK SECURE GATEWAY CHECKOUT ({selectedPaywallBookmaker.toUpperCase()})</span>
+                    </div>
 
-                  <div className="space-y-1.5 text-xs">
-                    <label className="block text-slate-300 font-extrabold font-mono tracking-wider uppercase text-[10px]">Card Number</label>
-                    <input
-                      type="text"
-                      required
-                      maxLength={19}
-                      value={paywallForm.cardNumber}
-                      onChange={(e) => setPaywallForm({ ...paywallForm, cardNumber: e.target.value.replace(/\s?/g, '').replace(/(\d{4})/g, '$1 ').trim() })}
-                      className="w-full bg-[#020b08] border border-emerald-900 rounded-lg p-3 text-[#A7F3D0] focus:ring-1 focus:ring-amber-400 focus:outline-none font-mono placeholder:text-emerald-950"
-                      placeholder="4000 1234 5678 9010"
-                    />
-                  </div>
-                </div>
+                    <div className="bg-[#020b08] border border-emerald-900/80 rounded-xl p-4 space-y-3">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-slate-400 font-mono">Selected Plan:</span>
+                        <span className="text-white font-bold">{selectedPlanObj?.name || paywallPlan}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-slate-400 font-mono">Bookmaker Feed:</span>
+                        <span className="text-emerald-400 font-bold uppercase">{selectedPaywallBookmaker}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-slate-400 font-mono">Payment Provider:</span>
+                        <span className="text-slate-200 font-mono font-bold">Paystack (Cards, Bank Transfer, USSD, MoMo)</span>
+                      </div>
+                      <div className="border-t border-emerald-950 pt-2 flex justify-between items-center">
+                        <span className="text-xs font-bold text-slate-300">Total Due:</span>
+                        <span className="text-base font-black text-amber-400 font-mono">
+                          {isGhanaPlan(selectedPlanObj) ? 'GH₵' : '₦'}{((selectedPlanObj?.price || 0)).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
 
-                <div className="grid grid-cols-2 gap-3 text-xs">
-                  <div className="space-y-1.5">
-                    <label className="block text-slate-300 font-extrabold font-mono tracking-wider uppercase text-[10px]">Expiry (MM / YY)</label>
-                    <input
-                      type="text"
-                      required
-                      maxLength={5}
-                      value={paywallForm.expiry}
-                      onChange={(e) => setPaywallForm({ ...paywallForm, expiry: e.target.value.replace(/(\d{2})(\d)/, '$1/$2') })}
-                      className="w-full bg-[#020b08] border border-emerald-900 rounded-lg p-3 text-center text-[#A7F3D0] focus:ring-1 focus:ring-amber-400 focus:outline-none font-mono placeholder:text-emerald-950"
-                      placeholder="12/28"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="block text-slate-300 font-extrabold font-mono tracking-wider uppercase text-[10px]">CVV Code</label>
-                    <input
-                      type="password"
-                      required
-                      maxLength={3}
-                      value={paywallForm.cvv}
-                      onChange={(e) => setPaywallForm({ ...paywallForm, cvv: e.target.value.replace(/\D/g, '') })}
-                      className="w-full bg-[#020b08] border border-emerald-900 rounded-lg p-3 text-center text-[#A7F3D0] focus:ring-1 focus:ring-amber-400 focus:outline-none font-mono placeholder:text-emerald-950"
-                      placeholder="***"
-                    />
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={isProcessingPayment}
-                  className="w-full mt-4 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 active:scale-95 text-slate-950 font-black text-xs uppercase py-4 rounded-xl shadow-lg shadow-amber-900/30 transition-all cursor-pointer flex items-center justify-center gap-2"
-                >
-                  {isProcessingPayment ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 animate-spin text-slate-950" />
-                      <span>Authorizing Secure Deposit...</span>
-                    </>
-                  ) : (
-                    <>
-                      <ShieldCheck className="w-4 h-4" />
-                      <span>Unlock VIP Season Feed Access</span>
-                    </>
-                  )}
-                </button>
-
-                <div className="mt-4 p-3 bg-emerald-950/40 border border-emerald-900/50 rounded-xl flex items-start gap-2 text-left">
-                  <span className="text-sm">📥</span>
-                  <div className="space-y-0.5">
-                    <p className="text-[10px] font-mono font-black text-[#FBBF24] uppercase">Instant Phone/PC Download Active</p>
-                    <p className="text-[10px] text-slate-400 leading-normal">
-                      Upon subscription completion, the complete premium decrypted pool codesheet file (.pdf) will automatically trigger a download to your device (mobile phone, tablet, or PC) immediately.
+                    <p className="text-[11px] text-slate-400 leading-relaxed text-center">
+                      Clicking below will launch the secure Paystack checkout modal. Dashboard VIP codes and analysis tools will be unlocked immediately upon successful payment verification.
                     </p>
-                  </div>
-                </div>
-              </form>
+
+                    <button
+                      type="submit"
+                      disabled={isProcessingPayment}
+                      className="w-full mt-2 bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 active:scale-95 text-slate-950 font-black text-xs uppercase py-4 rounded-xl shadow-lg shadow-emerald-900/40 transition-all cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      {isProcessingPayment ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin text-slate-950" />
+                          <span>Connecting to Paystack Gateway...</span>
+                        </>
+                      ) : (
+                        <>
+                          <ShieldCheck className="w-4 h-4" />
+                          <span>Proceed to Paystack Secure Checkout</span>
+                        </>
+                      )}
+                    </button>
+
+                    <div className="mt-4 p-3 bg-emerald-950/40 border border-emerald-900/50 rounded-xl flex items-start gap-2 text-left">
+                      <span className="text-sm">🔒</span>
+                      <div className="space-y-0.5">
+                        <p className="text-[10px] font-mono font-black text-[#FBBF24] uppercase">Official Payment Verification Enforced</p>
+                        <p className="text-[10px] text-slate-400 leading-normal">
+                          Access to the VIP dashboard and decrypted pool codes is strictly protected. Subscriptions are activated only when Paystack returns an official verified success response.
+                        </p>
+                      </div>
+                    </div>
+                  </form>
+                );
+              })()}
             </motion.div>
           </motion.div>
         )}
