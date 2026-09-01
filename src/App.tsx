@@ -882,25 +882,62 @@ export default function App() {
     }
   };
 
-  // Load Paystack Inline script dynamically
+  // Load Paystack Inline script dynamically with resilient fallbacks
   const loadPaystackPop = (): Promise<any> => {
     return new Promise((resolve, reject) => {
       if ((window as any).PaystackPop) {
         resolve((window as any).PaystackPop);
         return;
       }
-      const script = document.createElement('script');
-      script.src = 'https://js.paystack.co/v1/inline.js';
-      script.async = true;
-      script.onload = () => {
-        if ((window as any).PaystackPop) {
-          resolve((window as any).PaystackPop);
-        } else {
-          reject(new Error("Paystack SDK loaded but not found on window"));
-        }
-      };
-      script.onerror = () => reject(new Error("Failed to load Paystack inline JS"));
-      document.body.appendChild(script);
+
+      // Check if already in DOM
+      const existingScript = document.querySelector('script[src*="paystack"]');
+      if (existingScript) {
+        let retries = 0;
+        const interval = setInterval(() => {
+          retries++;
+          if ((window as any).PaystackPop) {
+            clearInterval(interval);
+            resolve((window as any).PaystackPop);
+          } else if (retries > 20) {
+            clearInterval(interval);
+            // Re-inject fresh script
+            injectScript();
+          }
+        }, 100);
+        return;
+      }
+
+      function injectScript() {
+        const script = document.createElement('script');
+        script.src = 'https://js.paystack.co/v1/inline.js';
+        script.async = true;
+        script.onload = () => {
+          if ((window as any).PaystackPop) {
+            resolve((window as any).PaystackPop);
+          } else {
+            reject(new Error("Paystack SDK loaded but not found on window object."));
+          }
+        };
+        script.onerror = () => {
+          // Try fallback CDN or v2 script
+          const fallbackScript = document.createElement('script');
+          fallbackScript.src = 'https://unpkg.com/@paystack/inline-js';
+          fallbackScript.async = true;
+          fallbackScript.onload = () => {
+            if ((window as any).PaystackPop) {
+              resolve((window as any).PaystackPop);
+            } else {
+              reject(new Error("Failed to initialize Paystack Pop SDK from network."));
+            }
+          };
+          fallbackScript.onerror = () => reject(new Error("Paystack script blocked or network unreachable. Check adblockers or browser security extensions."));
+          document.head.appendChild(fallbackScript);
+        };
+        document.head.appendChild(script);
+      }
+
+      injectScript();
     });
   };
 
@@ -1349,6 +1386,9 @@ export default function App() {
     const isGhana = isGhanaPlan(p) || (p as any).region === 'ghana';
     const planCurrency = 'NGN';
     const calculatedPrice = p.price * selectedComponents.length;
+    const userEmail = (currentUser?.email && currentUser.email.includes('@')) 
+      ? currentUser.email.trim() 
+      : `${currentUser?.username || 'customer'}@fastpoolcodes.com`;
 
     triggerToast(`Connecting to secure Paystack servers for ${p.name} (${selectedComponents.map(c => c.toUpperCase()).join(' + ')})...`, 'info');
 
@@ -1360,8 +1400,8 @@ export default function App() {
       
       const handler = PaystackPop.setup({
         key: publicKey,
-        email: currentUser.email,
-        amount: Math.round(calculatedPrice * 100), // convert to kobo (NGN)
+        email: userEmail,
+        amount: Math.max(100, Math.round(calculatedPrice * 100)), // convert to kobo (NGN), min 1 NGN
         currency: 'NGN',
         channels: ['card', 'bank', 'ussd', 'mobile_money', 'qr'],
         ref: `PAY-${Date.now()}-${Math.floor(Math.random() * 100000)}`,
@@ -1424,8 +1464,9 @@ export default function App() {
       });
       handler.openIframe();
     } catch (err: any) {
-      console.warn("Paystack dynamic inline load failed:", err);
-      triggerToast('Unable to launch Paystack checkout. Please verify your internet connection or popup settings and try again.', 'error');
+      console.error("[Paystack Launch Failure]:", err);
+      const errMsg = err?.message || 'Unable to launch Paystack checkout.';
+      triggerToast(`${errMsg} Please check your connection or disable adblockers/pop-up blockers and try again.`, 'error');
     }
   };
 
