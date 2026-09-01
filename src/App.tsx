@@ -487,6 +487,38 @@ export default function App() {
                   pool_results: updatedPoolResults
                 };
               }
+
+              if (dbKey === 'purchases_access_log' && Array.isArray(data)) {
+                const mappedSubs: UserSubscription[] = data.map((log: any) => ({
+                  id: log.id,
+                  user_id: log.user_id,
+                  username: log.username,
+                  plan_id: log.plan_id || 'plan-weekly',
+                  plan_name: log.plan_purchased,
+                  status: (log.access_status === 'active' || (!log.expiry_date || new Date(log.expiry_date) > new Date())) ? 'active' : 'expired',
+                  starts_at: log.paid_date || log.created_at || new Date().toISOString(),
+                  started_at: log.paid_date || log.created_at,
+                  expires_at: log.expiry_date || new Date(Date.now() + 7 * 86400000).toISOString(),
+                  payment_ref: log.payment_ref,
+                  payment_reference: log.payment_ref,
+                  payment_provider: log.payment_provider || 'Paystack API Gateway',
+                  currency: log.currency || 'NGN',
+                  amount_paid: log.amount,
+                  components: Array.isArray(log.components) ? log.components : (typeof log.components === 'string' ? (() => { try { return JSON.parse(log.components); } catch (_) { return [log.components]; } })() : []),
+                  created_at: log.created_at || log.paid_date,
+                  updated_at: log.updated_at
+                }));
+
+                const existingSubIds = new Set(mappedSubs.map(s => s.id));
+                const otherSubs = (prev.user_subscriptions || []).filter(s => !existingSubIds.has(s.id));
+
+                return {
+                  ...prev,
+                  purchases_access_log: data,
+                  user_subscriptions: [...mappedSubs, ...otherSubs]
+                };
+              }
+
               return {
                 ...prev,
                 [dbKey]: data
@@ -1939,9 +1971,47 @@ export default function App() {
             }
           } catch (_) {}
 
-          const existingSub = prev.user_subscriptions.find(s => s.user_id === su.id);
+          const matchUser = (item: any) =>
+            item && (
+              (item.user_id && su.id && String(item.user_id).toLowerCase() === String(su.id).toLowerCase()) ||
+              (item.username && (su.username || username) && String(item.username).toLowerCase() === String(su.username || username).toLowerCase()) ||
+              (item.email && email && String(item.email).toLowerCase() === String(email).toLowerCase())
+            );
+
+          const activePurchases = (prev.purchases_access_log || []).filter(item => {
+            if (!matchUser(item)) return false;
+            const expDate = item.expiry_date || item.expires_at;
+            const statusStr = String(item.access_status || item.status || 'active').toLowerCase();
+            const isStatusActive = statusStr === 'active' || statusStr === 'successful' || statusStr === 'completed' || statusStr === 'paid';
+            return isStatusActive && (!expDate || new Date(expDate) > new Date());
+          });
+
+          const existingSub = prev.user_subscriptions.find(s => matchUser(s) && s.status === 'active' && new Date(s.expires_at) > new Date());
           let updatedSubs = prev.user_subscriptions;
-          if (!existingSub) {
+
+          if (!existingSub && activePurchases.length > 0) {
+            const latestPurchase = activePurchases[0];
+            const activeSubFromPurchase: UserSubscription = {
+              id: latestPurchase.id || `sub-sb-${Math.floor(Math.random() * 90000 + 10000)}`,
+              user_id: su.id,
+              username: su.username || username,
+              plan_id: latestPurchase.plan_id || 'plan-weekly',
+              plan_name: latestPurchase.plan_purchased,
+              status: 'active',
+              starts_at: latestPurchase.paid_date || latestPurchase.created_at || new Date().toISOString(),
+              started_at: latestPurchase.paid_date || latestPurchase.created_at,
+              expires_at: latestPurchase.expiry_date || new Date(Date.now() + 7 * 86400000).toISOString(),
+              payment_ref: latestPurchase.payment_ref,
+              payment_reference: latestPurchase.payment_ref,
+              payment_provider: latestPurchase.payment_provider || 'Paystack API Gateway',
+              currency: latestPurchase.currency || 'NGN',
+              amount_paid: latestPurchase.amount,
+              components: Array.isArray(latestPurchase.components) ? latestPurchase.components : (typeof latestPurchase.components === 'string' ? (() => { try { return JSON.parse(latestPurchase.components); } catch (_) { return [latestPurchase.components]; } })() : []),
+              created_at: latestPurchase.created_at || latestPurchase.paid_date,
+              updated_at: latestPurchase.updated_at
+            };
+            updatedSubs = [activeSubFromPurchase, ...prev.user_subscriptions.filter(s => !matchUser(s))];
+          } else if (!existingSub) {
             const subId = `sub-sb-${Math.floor(Math.random() * 90000 + 10000)}`;
             const now = new Date();
             const newSub: UserSubscription = {
@@ -1967,7 +2037,8 @@ export default function App() {
           };
         });
 
-        const activeSubForUser = db.user_subscriptions.find(s => s.user_id === su.id && s.status === 'active');
+        const activeSubForUser = db.user_subscriptions.find(s => (s.user_id === su.id || (s.username && s.username.toLowerCase() === su.username?.toLowerCase())) && s.status === 'active' && new Date(s.expires_at) > new Date())
+          || (db.purchases_access_log || []).find(p => (p.user_id === su.id || (p.username && p.username.toLowerCase() === su.username?.toLowerCase())) && (p.access_status === 'active' || (!p.expiry_date || new Date(p.expiry_date) > new Date())));
         const userPlanId = activeSubForUser?.plan_id || 'plan-free';
 
         localStorage.setItem('fastpool_cached_user', JSON.stringify({
@@ -1976,7 +2047,7 @@ export default function App() {
           email: email.toLowerCase(),
           role: su.role || 'user',
           plan_id: userPlanId,
-          payment_ref: activeSubForUser?.payment_ref || null,
+          payment_ref: (activeSubForUser as any)?.payment_ref || null,
           created_at: su.created_at || new Date().toISOString()
         }));
 

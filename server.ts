@@ -446,7 +446,7 @@ async function checkUserTableAccess(
           query = query.or(`user_id.eq.${rawUid},user_id.eq.${cleanUid}`);
         }
 
-        const { data: rows } = await query.limit(5);
+        const { data: rows } = await query.order("created_at", { ascending: false }).limit(50);
 
         if (rows && rows.length > 0) {
           for (const row of rows) {
