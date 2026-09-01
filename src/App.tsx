@@ -1405,7 +1405,7 @@ export default function App() {
         currency: 'NGN',
         channels: ['card', 'bank', 'ussd', 'mobile_money', 'qr'],
         ref: `PAY-${Date.now()}-${Math.floor(Math.random() * 100000)}`,
-        callback: async function(response: any) {
+        callback: function(response: any) {
           if (!response || (!response.reference && !response.trxref)) {
             triggerToast('Payment was not completed. Subscription activation failed.', 'error');
             return;
@@ -1419,27 +1419,28 @@ export default function App() {
             return;
           }
 
-          try {
-            triggerToast('Verifying payment confirmation with Paystack...', 'info');
-            const verifyRes = await fetch('/api/payment/verify', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ reference: ref, planId, amount: calculatedPrice })
+          triggerToast('Verifying payment confirmation with Paystack...', 'info');
+          fetch('/api/payment/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reference: ref, planId, amount: calculatedPrice })
+          })
+            .then(async (verifyRes) => {
+              const verifyData = await verifyRes.json().catch(() => ({}));
+              if (verifyRes.ok && verifyData.success) {
+                completePurchase(planId, ref, selectedComponents);
+              } else {
+                triggerToast(verifyData.error || 'Payment verification failed with Paystack servers. Access not granted.', 'error');
+              }
+            })
+            .catch((err) => {
+              console.warn('[Paystack Verification Network Fallback]:', err);
+              if (status === 'success' || ref) {
+                completePurchase(planId, ref, selectedComponents);
+              } else {
+                triggerToast('Payment could not be verified. Dashboard access remains restricted.', 'error');
+              }
             });
-            const verifyData = await verifyRes.json();
-            if (verifyRes.ok && verifyData.success) {
-              completePurchase(planId, ref, selectedComponents);
-            } else {
-              triggerToast(verifyData.error || 'Payment verification failed with Paystack servers. Access not granted.', 'error');
-            }
-          } catch (err) {
-            console.warn('[Paystack Verification Network Fallback]:', err);
-            if (status === 'success' || ref) {
-              completePurchase(planId, ref, selectedComponents);
-            } else {
-              triggerToast('Payment could not be verified. Dashboard access remains restricted.', 'error');
-            }
-          }
         },
         onClose: function() {
           const failNotif: Notification = {
