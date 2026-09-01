@@ -700,7 +700,11 @@ export default function App() {
       const plans = getMergedSubscriptionPlans(db.subscription_plans);
       const plan = plans.find(p => p.id === planId) || plans[0] || INITIAL_PLANS[0];
       const activeWeek = db.pool_weeks.find(w => w.status === 'active') || db.pool_weeks[0];
-      const weekNum = activeWeek ? activeWeek.week_number : '50';
+      const bookmakerWeek = [db.bet9ja, db.betking, db.sportybet, db.premierbet]
+        .flatMap(tbl => Array.isArray(tbl) ? tbl : [])
+        .find(r => r?.week_no ?? r?.weekno ?? r?.week_number ?? r?.week);
+      const rawBmkWk = bookmakerWeek?.week_no ?? bookmakerWeek?.weekno ?? bookmakerWeek?.week_number ?? bookmakerWeek?.week;
+      const weekNum = rawBmkWk ? String(rawBmkWk).replace(/^week\s*/i, '').trim() : (activeWeek ? String(activeWeek.week_number) : '10');
       
       const relatedCodes = db.pool_codes.filter(c => c.pool_week_id === (activeWeek?.id || 'pw-week-50'));
       

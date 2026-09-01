@@ -848,6 +848,25 @@ export default function WeeklyPoolPicksTable({
 
       const primaryEmail = currentUser.email || 'subscriber@fastpoolcodes.com';
 
+      // Dynamically resolve week number from the current bookmaker table's rows/picks
+      const effectiveWeek = (() => {
+        const fromFiltered = filteredPicks.find(p => p.week !== undefined && p.week !== null && String(p.week).trim() !== '' && String(p.week).toUpperCase() !== 'NULL')?.week;
+        if (fromFiltered !== undefined && fromFiltered !== null) return String(fromFiltered).replace(/^week\s*/i, '').trim();
+
+        const fromPicks = picks.find(p => p.week !== undefined && p.week !== null && String(p.week).trim() !== '' && String(p.week).toUpperCase() !== 'NULL')?.week;
+        if (fromPicks !== undefined && fromPicks !== null) return String(fromPicks).replace(/^week\s*/i, '').trim();
+
+        if (Array.isArray(rawRows)) {
+          for (const r of rawRows) {
+            const rawWk = r?.week_no ?? r?.weekno ?? r?.week_number ?? r?.weekNumber ?? r?.week;
+            if (rawWk !== undefined && rawWk !== null && String(rawWk).trim() !== '' && String(rawWk).toUpperCase() !== 'NULL') {
+              return String(rawWk).replace(/^week\s*/i, '').trim();
+            }
+          }
+        }
+        return (activeWeekNumber && activeWeekNumber !== 'NULL') ? String(activeWeekNumber).replace(/^week\s*/i, '').trim() : '10';
+      })();
+
       // Header Banner
       doc.setFillColor(15, 23, 42); // slate-900
       doc.rect(0, 0, 297, 28, 'F');
@@ -861,7 +880,7 @@ export default function WeeklyPoolPicksTable({
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(148, 163, 184); // slate-400
       doc.text(
-        `Week ${activeWeekNumber} Verified Banker Draws & Bet Codes Matrix | Generated: ${new Date().toLocaleDateString(
+        `Week ${effectiveWeek} Verified Banker Draws & Bet Codes Matrix | Generated: ${new Date().toLocaleDateString(
           'en-GB'
         )} | License: @${currentUser.username || 'user'}`,
         14,
@@ -938,7 +957,7 @@ export default function WeeklyPoolPicksTable({
           doc.setFontSize(6.5);
           doc.setTextColor(148, 163, 184);
           doc.text(
-            `FastPoolCodes Official Classified Sheet • Week ${activeWeekNumber} • Licensed to ${primaryEmail} • Single Page Verified Copy`,
+            `FastPoolCodes Official Classified Sheet • Week ${effectiveWeek} • Licensed to ${primaryEmail} • Single Page Verified Copy`,
             14,
             202
           );
@@ -951,8 +970,8 @@ export default function WeeklyPoolPicksTable({
         }
       });
 
-      doc.save(`FastPoolCodes_Week_${activeWeekNumber}_${tableDisplayName.replace(/[\s()]+/g, '_')}.pdf`);
-      triggerToast(`Week ${activeWeekNumber} ${tableDisplayName} PDF downloaded successfully!`, 'success');
+      doc.save(`FastPoolCodes_Week_${effectiveWeek}_${tableDisplayName.replace(/[\s()]+/g, '_')}.pdf`);
+      triggerToast(`Week ${effectiveWeek} ${tableDisplayName} PDF downloaded successfully!`, 'success');
     } catch (err: any) {
       triggerToast(err?.message || 'Failed to export PDF.', 'error');
     }

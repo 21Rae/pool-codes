@@ -7191,6 +7191,43 @@ export default function CustomerPortal({
                             const pdfFilteredGames = Array.from(seenPools.values());
                             pdfFilteredGames.sort((a, b) => (Number(a.poolNo) || 0) - (Number(b.poolNo) || 0));
 
+                            // Dynamically resolve the week number from the current bookmaker page's fixtures / table
+                            const currentBookmakerWeek = (() => {
+                              const gameWithWeek = pdfFilteredGames.find(
+                                g => g.weekNo !== undefined && g.weekNo !== null && String(g.weekNo).trim() !== '' && String(g.weekNo).toUpperCase() !== 'NULL'
+                              );
+                              if (gameWithWeek && gameWithWeek.weekNo) {
+                                return String(gameWithWeek.weekNo).replace(/^week\s*/i, '').trim();
+                              }
+
+                              const rawWithWeek = rawList.find(
+                                g => g.weekNo !== undefined && g.weekNo !== null && String(g.weekNo).trim() !== '' && String(g.weekNo).toUpperCase() !== 'NULL'
+                              );
+                              if (rawWithWeek && rawWithWeek.weekNo) {
+                                return String(rawWithWeek.weekNo).replace(/^week\s*/i, '').trim();
+                              }
+
+                              const dbKey = targetNorm.includes('bet9ja') ? 'bet9ja'
+                                : targetNorm.includes('betking') ? 'betking'
+                                : targetNorm.includes('sporty') ? 'sportybet'
+                                : targetNorm.includes('premier') ? 'premierbet'
+                                : targetNorm.includes('betway') ? 'betway'
+                                : targetNorm.includes('socca') ? 'soccabet'
+                                : targetNorm.includes('msport') ? 'msport'
+                                : null;
+
+                              if (dbKey && Array.isArray((db as any)[dbKey])) {
+                                for (const row of (db as any)[dbKey]) {
+                                  const rawWk = row?.week_no ?? row?.weekno ?? row?.week_number ?? row?.weekNumber ?? row?.week;
+                                  if (rawWk !== undefined && rawWk !== null && String(rawWk).trim() !== '' && String(rawWk).toUpperCase() !== 'NULL') {
+                                    return String(rawWk).replace(/^week\s*/i, '').trim();
+                                  }
+                                }
+                              }
+
+                              return (activeWeekNumber && activeWeekNumber !== 'NULL') ? String(activeWeekNumber).replace(/^week\s*/i, '').trim() : '10';
+                            })();
+
                             const doc = new jsPDF({
                               orientation: 'portrait',
                               unit: 'mm',
@@ -7212,7 +7249,7 @@ export default function CustomerPortal({
                             doc.setTextColor(52, 211, 153); // emerald-400
                             doc.setFontSize(7.5);
                             doc.setFont('helvetica', 'bold');
-                            doc.text(`[${activeBookmaker.toUpperCase()}] OFFICIAL WEEK ${activeWeekNumber} SHEET (49 FIXTURES)`, pageWidth - 8, 8.2, { align: 'right' });
+                            doc.text(`[${activeBookmaker.toUpperCase()}] OFFICIAL WEEK ${currentBookmakerWeek} SHEET (49 FIXTURES)`, pageWidth - 8, 8.2, { align: 'right' });
 
                             // Metadata 1-line bar (Height: 3.8mm)
                             doc.setFillColor(248, 250, 252);
@@ -7239,7 +7276,7 @@ export default function CustomerPortal({
                             doc.text('SEASON:', 118, 13.7);
                             doc.setTextColor(5, 150, 105);
                             doc.setFont('helvetica', 'bold');
-                            doc.text(`WEEK ${activeWeekNumber} (2026)`, 131, 13.7);
+                            doc.text(`WEEK ${currentBookmakerWeek} (2026)`, 131, 13.7);
 
                             doc.setFont('helvetica', 'normal');
                             doc.setTextColor(100, 116, 139);
@@ -7282,7 +7319,7 @@ export default function CustomerPortal({
                               String(game.betTips ?? 'NULL'),
                               String(game.status ?? 'NULL'),
                               String(game.kickOff ?? 'NULL'),
-                              String(game.weekNo ?? 'NULL')
+                              String((game.weekNo && game.weekNo !== 'NULL') ? game.weekNo : currentBookmakerWeek)
                             ]);
 
                             autoTable(doc, {
@@ -7351,7 +7388,7 @@ export default function CustomerPortal({
                                 doc.setFontSize(6.5);
                                 doc.setTextColor(148, 163, 184);
                                 doc.text(
-                                  `FastPoolCodes Official Classified Coupon • Week ${activeWeekNumber} • Licensed to ${currentUser?.email || 'user'} • Single Page Verified Sheet`,
+                                  `FastPoolCodes Official Classified Coupon • Week ${currentBookmakerWeek} • Licensed to ${currentUser?.email || 'user'} • Single Page Verified Sheet`,
                                   5,
                                   pageHeight - 2.5
                                 );
@@ -7364,9 +7401,9 @@ export default function CustomerPortal({
                               }
                             });
 
-                            const filename = `FastPoolCodes_${activeBookmaker}_Week_${activeWeekNumber}.pdf`;
+                            const filename = `FastPoolCodes_${activeBookmaker}_Week_${currentBookmakerWeek}.pdf`;
                             doc.save(filename);
-                            triggerToast('PDF document downloaded successfully!', 'success');
+                            triggerToast(`Week ${currentBookmakerWeek} ${activeBookmaker} PDF document downloaded successfully!`, 'success');
                           } catch (err) {
                             console.error('PDF generation error:', err);
                             triggerToast('Failed to generate PDF document.', 'error');
@@ -7450,45 +7487,90 @@ export default function CustomerPortal({
                   </div>
 
                   <div className="space-y-3 relative z-10">
-                    {/* Header Block */}
-                    <div className="border-b border-slate-950 pb-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <span className="text-base font-black tracking-tighter uppercase font-sans">
-                            ⚽ FAST<span className="text-emerald-700">POOL</span>CODES
-                          </span>
-                          <span className="text-[7.5px] font-mono uppercase bg-slate-950 text-white px-1.5 py-0.5 rounded font-black select-none">
-                            VIP CERTIFIED
-                          </span>
-                        </div>
+                    {(() => {
+                      const normStr = (s: string) => (s || '').replace(/\s+/g, '').toLowerCase();
+                      const targetNorm = normStr(activeBookmaker);
 
-                        <div className="text-right">
-                          <span className="text-[10px] font-mono font-black text-emerald-800 uppercase">
-                            [{activeBookmaker.toUpperCase()}] WEEK {activeWeekNumber} OFFICIAL
-                          </span>
-                        </div>
-                      </div>
+                      const rawList = postedGames.filter(game => {
+                        if (activeBookmaker === 'all') return true;
+                        const gameBookieNorm = normStr(game.bookmaker);
+                        const gameSourceNorm = normStr(game.sourceTable || '');
+                        return gameBookieNorm === targetNorm || gameSourceNorm === targetNorm;
+                      });
 
-                      {/* Header Table Metadata Info Bar */}
-                      <div className="grid grid-cols-4 gap-1 border-t border-slate-200 mt-1.5 pt-1.5 text-[8.5px] font-mono text-slate-700">
-                        <div>
-                          <span className="text-slate-400 block text-[7px] uppercase">LICENSEE:</span>
-                          <span className="font-extrabold text-slate-900 truncate block">@{currentUser?.username || 'user'}</span>
-                        </div>
-                        <div>
-                          <span className="text-slate-400 block text-[7px] uppercase">EMAIL:</span>
-                          <span className="font-extrabold text-slate-900 truncate block">{currentUser?.email || 'user@fastpoolcodes.com'}</span>
-                        </div>
-                        <div>
-                          <span className="text-slate-400 block text-[7px] uppercase">SEASON:</span>
-                          <span className="font-extrabold text-slate-900">WEEK {activeWeekNumber} (2026)</span>
-                        </div>
-                        <div>
-                          <span className="text-slate-400 block text-[7px] uppercase">KEY:</span>
-                          <span className="font-extrabold text-slate-900 truncate block">SHA256:FPC-{(currentUser?.id || 'guest').slice(0, 5).toUpperCase()}</span>
-                        </div>
-                      </div>
-                    </div>
+                      const currentBookmakerWeek = (() => {
+                        const gameWithWeek = rawList.find(
+                          g => g.weekNo !== undefined && g.weekNo !== null && String(g.weekNo).trim() !== '' && String(g.weekNo).toUpperCase() !== 'NULL'
+                        );
+                        if (gameWithWeek && gameWithWeek.weekNo) {
+                          return String(gameWithWeek.weekNo).replace(/^week\s*/i, '').trim();
+                        }
+
+                        const dbKey = targetNorm.includes('bet9ja') ? 'bet9ja'
+                          : targetNorm.includes('betking') ? 'betking'
+                          : targetNorm.includes('sporty') ? 'sportybet'
+                          : targetNorm.includes('premier') ? 'premierbet'
+                          : targetNorm.includes('betway') ? 'betway'
+                          : targetNorm.includes('socca') ? 'soccabet'
+                          : targetNorm.includes('msport') ? 'msport'
+                          : null;
+
+                        if (dbKey && Array.isArray((db as any)[dbKey])) {
+                          for (const row of (db as any)[dbKey]) {
+                            const rawWk = row?.week_no ?? row?.weekno ?? row?.week_number ?? row?.weekNumber ?? row?.week;
+                            if (rawWk !== undefined && rawWk !== null && String(rawWk).trim() !== '' && String(rawWk).toUpperCase() !== 'NULL') {
+                              return String(rawWk).replace(/^week\s*/i, '').trim();
+                            }
+                          }
+                        }
+
+                        return (activeWeekNumber && activeWeekNumber !== 'NULL') ? String(activeWeekNumber).replace(/^week\s*/i, '').trim() : '10';
+                      })();
+
+                      return (
+                        <>
+                          {/* Header Block */}
+                          <div className="border-b border-slate-950 pb-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2">
+                                <span className="text-base font-black tracking-tighter uppercase font-sans">
+                                  ⚽ FAST<span className="text-emerald-700">POOL</span>CODES
+                                </span>
+                                <span className="text-[7.5px] font-mono uppercase bg-slate-950 text-white px-1.5 py-0.5 rounded font-black select-none">
+                                  VIP CERTIFIED
+                                </span>
+                              </div>
+
+                              <div className="text-right">
+                                <span className="text-[10px] font-mono font-black text-emerald-800 uppercase">
+                                  [{activeBookmaker.toUpperCase()}] WEEK {currentBookmakerWeek} OFFICIAL
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Header Table Metadata Info Bar */}
+                            <div className="grid grid-cols-4 gap-1 border-t border-slate-200 mt-1.5 pt-1.5 text-[8.5px] font-mono text-slate-700">
+                              <div>
+                                <span className="text-slate-400 block text-[7px] uppercase">LICENSEE:</span>
+                                <span className="font-extrabold text-slate-900 truncate block">@{currentUser?.username || 'user'}</span>
+                              </div>
+                              <div>
+                                <span className="text-slate-400 block text-[7px] uppercase">EMAIL:</span>
+                                <span className="font-extrabold text-slate-900 truncate block">{currentUser?.email || 'user@fastpoolcodes.com'}</span>
+                              </div>
+                              <div>
+                                <span className="text-slate-400 block text-[7px] uppercase">SEASON:</span>
+                                <span className="font-extrabold text-slate-900">WEEK {currentBookmakerWeek} (2026)</span>
+                              </div>
+                              <div>
+                                <span className="text-slate-400 block text-[7px] uppercase">KEY:</span>
+                                <span className="font-extrabold text-slate-900 truncate block">SHA256:FPC-{(currentUser?.id || 'guest').slice(0, 5).toUpperCase()}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </>
+                      );
+                    })()}
 
                     {/* Classified Coupon Table (12 Official Columns) */}
                     <div className="space-y-1.5 overflow-x-auto">
