@@ -836,9 +836,12 @@ export default function OfficePoolStopHome({
 
         {/* Real-time Sub-Header Scoreboard Ticker */}
         <div className="bg-[#020b08] border-t border-emerald-950/60 py-2.5 px-6 flex items-center">
-          <span className="text-[9px] font-mono text-emerald-400 font-extrabold uppercase tracking-widest flex items-center gap-1 shrink-0 border-r border-emerald-950 pr-4 mr-4">
+          <span 
+            id="latest-pool-scores-badge"
+            className="text-[9px] font-mono text-emerald-400 font-extrabold tracking-widest flex items-center gap-1 shrink-0 border-r border-emerald-950 pr-4 mr-4"
+          >
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
-            LIVE pool matche
+            Latest pool scores
           </span>
           <div 
             ref={scoreboardRef}
