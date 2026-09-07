@@ -486,7 +486,7 @@ export default function LiveScoresPage({
                       <div className="flex items-center justify-between mb-3">
                         <span className="text-[10px] font-mono text-slate-500 font-bold uppercase tracking-wider inline-flex items-center gap-1">
                           <Clock className="w-3 h-3" />
-                          {isLiveStatus ? 'Live Stream Active' : isFinished ? 'Full Time' : isPostponed ? 'Postponed' : 'Upcoming Fixture'}
+                          {isLiveStatus ? 'Live Stream Active' : isFinished ? 'Full Time' : isPostponed ? 'Postponed' : 'SCORE'}
                         </span>
 
                         {isLiveStatus ? (
@@ -503,7 +503,11 @@ export default function LiveScoresPage({
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-mono font-black uppercase tracking-widest bg-amber-950/60 text-amber-500 border border-amber-900/30">
                             <span>PPD</span>
                           </span>
-                        ) : null}
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-mono font-black uppercase tracking-widest bg-emerald-950/40 text-emerald-400 border border-emerald-900/30">
+                            <span>SCORE</span>
+                          </span>
+                        )}
                       </div>
 
                       {/* Middle: Teams and Scoreboard */}

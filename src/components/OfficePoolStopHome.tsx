@@ -1021,7 +1021,7 @@ export default function OfficePoolStopHome({
                                 <span className="text-[10px] font-mono font-black text-emerald-400 uppercase">Full Time</span>
                               )}
                               {!isLive && !isFinished && (
-                                <span className="text-[10px] font-mono font-black text-slate-400 uppercase">Upcoming</span>
+                                <span id={`match-status-score-${idx}`} className="text-[10px] font-mono font-black text-emerald-400 uppercase bg-emerald-950/50 border border-emerald-900/40 px-2 py-0.5 rounded">SCORE</span>
                               )}
                             </span>
                           </div>
