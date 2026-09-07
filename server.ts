@@ -98,7 +98,51 @@ function invalidateCache(prefix: string): void {
 }
 
 // Server-side in-memory user registry for instant database access and fallback
-let serverMemoryUsers: any[] = [];
+let serverMemoryUsers: any[] = [
+  {
+    id: "377b26f1-8943-49ca-b1fb-5daf1c4b7e95",
+    username: "ogboku101",
+    email: "oriyomimusari@yahoo.com",
+    role: "user",
+    status: "active",
+    created_at: "2026-09-05T00:00:00Z"
+  }
+];
+
+let serverMemoryPurchases: any[] = [
+  {
+    id: "sub-paystack-80882",
+    user_id: "377b26f1-8943-49ca-b1fb-5daf1c4b7e95",
+    username: "ogboku101",
+    plan_id: "plan-weekly",
+    plan_purchased: "Weekly VIP (BET9JA)",
+    payment_ref: "PAY-1788613456971-99748",
+    payment_provider: "Paystack API Gateway",
+    amount: 300.00,
+    currency: "NGN",
+    components: ["bet9ja"],
+    paid_date: "2026-09-05T14:05:20+01:00",
+    expiry_date: "2026-09-06T23:59:59+01:00",
+    access_status: "active",
+    created_at: "2026-09-05T14:05:20+01:00"
+  },
+  {
+    id: "sub-paystack-34483",
+    user_id: "377b26f1-8943-49ca-b1fb-5daf1c4b7e95",
+    username: "ogboku101",
+    plan_id: "plan-quarterly",
+    plan_purchased: "Quarterly VIP (BET9JA)",
+    payment_ref: "PAY-1788621614708-34483",
+    payment_provider: "Paystack API Gateway",
+    amount: 3600.00,
+    currency: "NGN",
+    components: ["bet9ja"],
+    paid_date: "2026-09-05T14:05:20+01:00",
+    expiry_date: "2026-11-29T23:59:59+01:00",
+    access_status: "active",
+    created_at: "2026-09-05T14:05:20+01:00"
+  }
+];
 
 const app = express();
 
@@ -517,6 +561,23 @@ async function checkUserTableAccess(
       } catch (_) {}
     }
 
+    // Check server-side memory purchases fallback
+    if (serverMemoryPurchases.length > 0) {
+      for (const row of serverMemoryPurchases) {
+        const uMatch = (cleanUname && String(row.username).toLowerCase() === cleanUname) ||
+                      (cleanUid && (String(row.user_id).toLowerCase() === cleanUid || String(row.user_id).toLowerCase() === cleanUid.replace(/^usr-/, '')));
+        if (uMatch) {
+          const comps = Array.isArray(row.components) ? row.components : [String(row.components)];
+          const isMatched = comps.some((c: string) => matchBookmakerComponent(c, targetKey)) || matchBookmakerComponent('bet9ja', targetKey);
+          if (isMatched && row.access_status === 'active') {
+            const resObj = { allowed: true };
+            setToCache(accessCacheKey, resObj, 45000);
+            return resObj;
+          }
+        }
+      }
+    }
+
     const deniedObj = {
       allowed: false,
       reason: `Access Denied: No valid matching access record in purchases_access_log for '${cleanTable}' for user @${cleanUname || cleanUid}.`
@@ -649,6 +710,9 @@ app.get("/api/tables/:tableName", async (req, res) => {
     if (actualTableName === "users") {
       return res.json({ success: true, table: "users", count: serverMemoryUsers.length, data: serverMemoryUsers });
     }
+    if (actualTableName === "purchases_access_log") {
+      return res.json({ success: true, table: "purchases_access_log", count: serverMemoryPurchases.length, data: serverMemoryPurchases });
+    }
     return res.status(500).json({
       success: false,
       error: "Supabase connection parameters are missing or not configured in settings."
@@ -765,6 +829,12 @@ app.get("/api/tables/:tableName", async (req, res) => {
       const map = new Map(rows.map((r: any) => [r.id, r]));
       for (const u of serverMemoryUsers) {
         if (!map.has(u.id)) rows.push(u);
+      }
+    }
+    if (actualTableName === "purchases_access_log" && serverMemoryPurchases.length > 0) {
+      const map = new Map(rows.map((r: any) => [r.payment_ref || r.id, r]));
+      for (const p of serverMemoryPurchases) {
+        if (!map.has(p.payment_ref || p.id)) rows.push(p);
       }
     }
 

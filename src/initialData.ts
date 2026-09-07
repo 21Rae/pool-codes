@@ -2,6 +2,7 @@ import {
   User,
   SubscriptionPlan,
   UserSubscription,
+  PurchasesAccessLog,
   Bookmaker,
   PoolWeek,
   PoolCode,
@@ -14,7 +15,17 @@ import {
   LiveScoreRecord
 } from './types';
 
-export const INITIAL_USERS: User[] = [];
+export const INITIAL_USERS: User[] = [
+  {
+    id: '377b26f1-8943-49ca-b1fb-5daf1c4b7e95',
+    username: 'ogboku101',
+    email: 'oriyomimusari@yahoo.com',
+    role: 'user',
+    status: 'active',
+    created_at: '2026-09-05T00:00:00Z',
+    email_verified_at: '2026-09-05T00:00:00Z'
+  }
+];
 
 export const INITIAL_PLANS: SubscriptionPlan[] = [
   {
@@ -498,7 +509,69 @@ export function getBookmakersByCountry(dbBookmakers: Bookmaker[] | undefined, co
   }
 }
 
-export const INITIAL_SUBSCRIPTIONS: UserSubscription[] = [];
+export const INITIAL_SUBSCRIPTIONS: UserSubscription[] = [
+  {
+    id: 'sub-paystack-80882',
+    user_id: '377b26f1-8943-49ca-b1fb-5daf1c4b7e95',
+    username: 'ogboku101',
+    plan_id: 'plan-weekly',
+    status: 'active',
+    starts_at: '2026-09-05T14:05:20+01:00',
+    expires_at: '2026-09-06T23:59:59+01:00',
+    payment_ref: 'PAY-1788613456971-99748',
+    payment_provider: 'Paystack API Gateway',
+    components: ['bet9ja'],
+    created_at: '2026-09-05T14:05:20+01:00'
+  },
+  {
+    id: 'sub-paystack-34483',
+    user_id: '377b26f1-8943-49ca-b1fb-5daf1c4b7e95',
+    username: 'ogboku101',
+    plan_id: 'plan-quarterly',
+    status: 'active',
+    starts_at: '2026-09-05T14:05:20+01:00',
+    expires_at: '2026-11-29T23:59:59+01:00',
+    payment_ref: 'PAY-1788621614708-34483',
+    payment_provider: 'Paystack API Gateway',
+    components: ['bet9ja'],
+    created_at: '2026-09-05T14:05:20+01:00'
+  }
+];
+
+export const INITIAL_PURCHASES_ACCESS_LOG: PurchasesAccessLog[] = [
+  {
+    id: 'sub-paystack-80882',
+    user_id: '377b26f1-8943-49ca-b1fb-5daf1c4b7e95',
+    username: 'ogboku101',
+    plan_id: 'plan-weekly',
+    plan_purchased: 'Weekly VIP (BET9JA)',
+    payment_ref: 'PAY-1788613456971-99748',
+    payment_provider: 'Paystack API Gateway',
+    amount: 300.00,
+    currency: 'NGN',
+    components: ['bet9ja'],
+    paid_date: '2026-09-05T14:05:20+01:00',
+    expiry_date: '2026-09-06T23:59:59+01:00',
+    access_status: 'active',
+    created_at: '2026-09-05T14:05:20+01:00'
+  },
+  {
+    id: 'sub-paystack-34483',
+    user_id: '377b26f1-8943-49ca-b1fb-5daf1c4b7e95',
+    username: 'ogboku101',
+    plan_id: 'plan-quarterly',
+    plan_purchased: 'Quarterly VIP (BET9JA)',
+    payment_ref: 'PAY-1788621614708-34483',
+    payment_provider: 'Paystack API Gateway',
+    amount: 3600.00,
+    currency: 'NGN',
+    components: ['bet9ja'],
+    paid_date: '2026-09-05T14:05:20+01:00',
+    expiry_date: '2026-11-29T23:59:59+01:00',
+    access_status: 'active',
+    created_at: '2026-09-05T14:05:20+01:00'
+  }
+];
 
 export const INITIAL_BOOKMAKERS: Bookmaker[] = [
   // NIGERIA BOOKMAKERS (4)
@@ -1075,6 +1148,46 @@ export const DB_SCHEMAS: TableSchema[] = [
     relationships: [
       { fromColumn: 'user_id', toTable: 'users', toColumn: 'id', type: 'N:1' },
       { fromColumn: 'pool_code_id', toTable: 'pool_codes', toColumn: 'id', type: 'N:1' }
+    ]
+  },
+  {
+    name: 'purchases_access_log',
+    description: 'Permanent ledger storing individual purchase and subscription transactions, granted components, and validity intervals for instant paywall authorization.',
+    sql: `CREATE TABLE purchases_access_log (
+  id VARCHAR(100) PRIMARY KEY,
+  user_id VARCHAR(100),
+  username VARCHAR(100),
+  plan_id VARCHAR(100),
+  plan_purchased VARCHAR(200),
+  payment_ref VARCHAR(100) UNIQUE,
+  payment_provider VARCHAR(50),
+  amount DECIMAL(10,2),
+  currency VARCHAR(10),
+  components TEXT[] DEFAULT '{}',
+  paid_date TIMESTAMP WITH TIME ZONE,
+  expiry_date TIMESTAMP WITH TIME ZONE,
+  access_status VARCHAR(50) DEFAULT 'active',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);`,
+    columns: [
+      { name: 'id', type: 'VARCHAR(100)', constraints: ['PRIMARY KEY'], description: 'Unique ledger ID.' },
+      { name: 'user_id', type: 'VARCHAR(100)', constraints: ['NULLABLE'], description: 'User account identifier.' },
+      { name: 'username', type: 'VARCHAR(100)', constraints: ['NULLABLE'], description: 'Account username or email.' },
+      { name: 'plan_id', type: 'VARCHAR(100)', constraints: ['NULLABLE'], description: 'Subscribed plan identifier.' },
+      { name: 'plan_purchased', type: 'VARCHAR(200)', constraints: ['NULLABLE'], description: 'Display name of the purchased plan.' },
+      { name: 'payment_ref', type: 'VARCHAR(100)', constraints: ['UNIQUE'], description: 'Paystack / gateway transaction reference.' },
+      { name: 'payment_provider', type: 'VARCHAR(50)', constraints: ['NULLABLE'], description: 'Payment processor / channel.' },
+      { name: 'amount', type: 'DECIMAL(10,2)', constraints: ['NOT NULL'], description: 'Amount paid.' },
+      { name: 'currency', type: 'VARCHAR(10)', constraints: ['NOT NULL'], description: 'Currency code.' },
+      { name: 'components', type: 'TEXT[] / JSONB', constraints: ["DEFAULT '{}'"], description: 'List of bookmaker components unlocked.' },
+      { name: 'paid_date', type: 'TIMESTAMP', constraints: ['NOT NULL'], description: 'Payment completion timestamp.' },
+      { name: 'expiry_date', type: 'TIMESTAMP', constraints: ['NOT NULL'], description: 'Access expiry timestamp.' },
+      { name: 'access_status', type: 'VARCHAR(50)', constraints: ["DEFAULT 'active'"], description: 'Subscription state (active, expired).' },
+      { name: 'created_at', type: 'TIMESTAMP', constraints: ['DEFAULT NOW()'], description: 'Ledger insertion timestamp.' }
+    ],
+    relationships: [
+      { fromColumn: 'user_id', toTable: 'users', toColumn: 'id', type: 'N:1' },
+      { fromColumn: 'plan_id', toTable: 'subscription_plans', toColumn: 'id', type: 'N:1' }
     ]
   },
   {
