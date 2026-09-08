@@ -7314,50 +7314,51 @@ export default function CustomerPortal({
                               margin: { top: 16.5, bottom: 16, left: 4.5, right: 4.5 },
                               styles: {
                                 font: 'helvetica',
+                                fontStyle: 'bold',
                                 textColor: [0, 0, 0],
-                                lineWidth: 0.25,
+                                lineWidth: 0.32,
                                 lineColor: [0, 0, 0],
-                                cellPadding: [0.65, 0.4]
+                                cellPadding: [0.7, 0.45]
                               },
                               headStyles: {
                                 fillColor: [255, 255, 255],
                                 textColor: [0, 0, 0],
-                                fontSize: 9,
+                                fontSize: 9.2,
                                 fontStyle: 'bold',
                                 font: 'helvetica',
                                 halign: 'center',
                                 valign: 'middle',
-                                cellPadding: [0.8, 0.4],
-                                lineWidth: 0.35,
+                                cellPadding: [0.85, 0.45],
+                                lineWidth: 0.4,
                                 lineColor: [0, 0, 0]
                               },
                               bodyStyles: {
                                 fillColor: [255, 255, 255],
-                                fontSize: 8,
-                                fontStyle: 'normal',
+                                fontSize: 8.2,
+                                fontStyle: 'bold',
                                 font: 'helvetica',
                                 textColor: [0, 0, 0],
-                                cellPadding: [0.6, 0.4],
-                                minCellHeight: 4.2,
-                                lineWidth: 0.2,
+                                cellPadding: [0.65, 0.45],
+                                minCellHeight: 4.3,
+                                lineWidth: 0.28,
                                 lineColor: [0, 0, 0]
                               },
                               alternateRowStyles: {
                                 fillColor: [255, 255, 255],
                               },
                               columnStyles: {
-                                0: { halign: 'center', cellWidth: 10 },
-                                1: { halign: 'center', cellWidth: 15 },
-                                2: { halign: 'center', cellWidth: 16 },
-                                3: { halign: 'left', cellWidth: 28 },
-                                4: { halign: 'left', cellWidth: 28 },
-                                5: { halign: 'center', cellWidth: 11 },
-                                6: { halign: 'center', cellWidth: 11 },
-                                7: { halign: 'center', cellWidth: 11 },
-                                8: { halign: 'center', cellWidth: 18 },
-                                9: { halign: 'center', cellWidth: 16 },
-                                10: { halign: 'center', cellWidth: 18 },
-                                11: { halign: 'center', cellWidth: 15 },
+                                0: { halign: 'center', cellWidth: 10, fontStyle: 'bold' },
+                                1: { halign: 'center', cellWidth: 15, fontStyle: 'bold' },
+                                2: { halign: 'center', cellWidth: 16, fontStyle: 'bold' },
+                                3: { halign: 'left', cellWidth: 28, fontStyle: 'bold' },
+                                4: { halign: 'left', cellWidth: 28, fontStyle: 'bold' },
+                                5: { halign: 'center', cellWidth: 11, fontStyle: 'bold' },
+                                6: { halign: 'center', cellWidth: 11, fontStyle: 'bold' },
+                                7: { halign: 'center', cellWidth: 11, fontStyle: 'bold' },
+                                8: { halign: 'center', cellWidth: 18, fontStyle: 'bold' },
+                                9: { halign: 'center', cellWidth: 16, fontStyle: 'bold' },
+                                10: { halign: 'center', cellWidth: 18, fontStyle: 'bold' },
+                                11: { halign: 'center', cellWidth: 15, fontStyle: 'bold' },
                               },
                               didParseCell: (hookData) => {
                                 const rawHead = String(
@@ -7367,20 +7368,19 @@ export default function CustomerPortal({
                                 );
 
                                 if (isTargetHeader(rawHead)) {
-                                  hookData.cell.styles.font = 'helvetica'; // Arial equivalent in PDF font standard
+                                  hookData.cell.styles.font = 'helvetica'; // Arial equivalent in standard PDF font
+                                  hookData.cell.styles.fontStyle = 'bold'; // Bolder typography
+                                  hookData.cell.styles.textColor = [0, 0, 0];
                                   if (hookData.section === 'head') {
-                                    hookData.cell.styles.fontStyle = 'bold';
-                                    hookData.cell.styles.fontSize = 9; // 9pt
+                                    hookData.cell.styles.fontSize = 9.2; // 9pt bold
                                   } else if (hookData.section === 'body') {
-                                    hookData.cell.styles.fontStyle = 'normal'; // Regular
-                                    hookData.cell.styles.fontSize = 8; // 8pt
+                                    hookData.cell.styles.fontSize = 8.2; // 8pt bold
                                   }
                                 }
 
                                 if (hookData.section === 'body') {
-                                  if (hookData.cell.raw === 'NULL' || hookData.cell.raw === '-') {
-                                    hookData.cell.styles.textColor = [0, 0, 0];
-                                  }
+                                  hookData.cell.styles.textColor = [0, 0, 0];
+                                  hookData.cell.styles.fontStyle = 'bold';
                                 }
                               },
                               willDrawPage: () => {
@@ -7670,7 +7670,7 @@ export default function CustomerPortal({
                         pdfFilteredGames.sort((a, b) => (Number(a.poolNo) || 0) - (Number(b.poolNo) || 0));
 
                         return (
-                          <table className="w-full text-left border-collapse" style={{ fontFamily: 'Arial, sans-serif' }}>
+                          <table className="w-full text-left border-collapse" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                             <thead>
                               <tr className="bg-slate-950 text-white border border-slate-950">
                                 {couponHtmlHeaders.map((col, idx) => {
@@ -7678,8 +7678,8 @@ export default function CustomerPortal({
                                   return (
                                     <th
                                       key={idx}
-                                      className={`py-1 px-1 border ${col.width} ${col.align}`}
-                                      style={matched ? { fontFamily: 'Arial, sans-serif', fontWeight: 'bold', fontSize: '9pt' } : {}}
+                                      className={`py-1.5 px-1 border border-slate-800 ${col.width} ${col.align} uppercase tracking-wider`}
+                                      style={matched ? { fontFamily: 'Arial, Helvetica, sans-serif', fontWeight: '900', fontSize: '9pt', color: '#ffffff' } : {}}
                                     >
                                       {col.label}
                                     </th>
@@ -7687,7 +7687,7 @@ export default function CustomerPortal({
                                 })}
                               </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-200 border">
+                            <tbody className="divide-y divide-slate-300 border border-slate-400">
                               {pdfFilteredGames.length === 0 ? (
                                 <tr>
                                   <td colSpan={12} className="p-4 text-center text-slate-400 font-mono italic text-[9px]">
@@ -7697,32 +7697,32 @@ export default function CustomerPortal({
                               ) : (
                                 pdfFilteredGames.map((game, idx) => {
                                   const rowCells = [
-                                    { header: 'Pool', value: game.poolNo, align: 'text-center', bg: 'bg-slate-100/70', color: 'text-slate-900' },
-                                    { header: 'Bet Code', value: game.betCode, align: 'text-center', bg: 'bg-slate-100/50', color: 'text-slate-800' },
-                                    { header: 'League', value: game.league, align: 'text-center', bg: 'bg-slate-100/30', color: 'text-slate-800' },
-                                    { header: 'Home', value: game.home, align: 'text-left', bg: 'bg-inherit', color: 'text-slate-900', truncate: true },
-                                    { header: 'Away', value: game.away, align: 'text-left', bg: 'bg-inherit', color: 'text-slate-900', truncate: true },
-                                    { header: '1', value: game.homeWin, align: 'text-center', bg: 'bg-inherit', color: 'text-slate-900' },
-                                    { header: 'X', value: game.draw, align: 'text-center', bg: 'bg-inherit', color: 'text-emerald-700' },
-                                    { header: '2', value: game.awayWin, align: 'text-center', bg: 'bg-inherit', color: 'text-slate-900' },
-                                    { header: 'Bet Tips', value: game.betTips, align: 'text-center', bg: 'bg-inherit', color: 'text-amber-800' },
-                                    { header: 'Status', value: game.status, align: 'text-center', bg: 'bg-inherit', color: 'text-slate-700' },
-                                    { header: 'Kick Off', value: game.kickOff, align: 'text-center', bg: 'bg-inherit', color: 'text-slate-700' },
-                                    { header: 'Week No', value: game.weekNo, align: 'text-center', bg: 'bg-inherit', color: 'text-slate-700' },
+                                    { header: 'Pool', value: game.poolNo, align: 'text-center', bg: 'bg-slate-100/90', color: 'text-black font-black' },
+                                    { header: 'Bet Code', value: game.betCode, align: 'text-center', bg: 'bg-slate-100/70', color: 'text-black font-black' },
+                                    { header: 'League', value: game.league, align: 'text-center', bg: 'bg-slate-50', color: 'text-slate-900 font-bold' },
+                                    { header: 'Home', value: game.home, align: 'text-left', bg: 'bg-inherit', color: 'text-black font-extrabold', truncate: true },
+                                    { header: 'Away', value: game.away, align: 'text-left', bg: 'bg-inherit', color: 'text-black font-extrabold', truncate: true },
+                                    { header: '1', value: game.homeWin, align: 'text-center', bg: 'bg-inherit', color: 'text-black font-bold' },
+                                    { header: 'X', value: game.draw, align: 'text-center', bg: 'bg-inherit', color: 'text-emerald-900 font-black' },
+                                    { header: '2', value: game.awayWin, align: 'text-center', bg: 'bg-inherit', color: 'text-black font-bold' },
+                                    { header: 'Bet Tips', value: game.betTips, align: 'text-center', bg: 'bg-inherit', color: 'text-amber-950 font-black uppercase' },
+                                    { header: 'Status', value: game.status, align: 'text-center', bg: 'bg-inherit', color: 'text-slate-900 font-bold' },
+                                    { header: 'Kick Off', value: game.kickOff, align: 'text-center', bg: 'bg-inherit', color: 'text-slate-900 font-bold' },
+                                    { header: 'Week No', value: game.weekNo, align: 'text-center', bg: 'bg-inherit', color: 'text-slate-900 font-bold' },
                                   ];
 
                                   return (
                                     <tr 
                                       key={game.id || idx} 
-                                      className={`leading-tight transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/80'}`}
+                                      className={`leading-tight transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`}
                                     >
                                       {rowCells.map((cell, cIdx) => {
                                         const matched = isMatchedCol(cell.header);
                                         return (
                                           <td
                                             key={cIdx}
-                                            className={`py-0.5 px-1 border ${cell.align} ${cell.bg} ${cell.color} ${cell.truncate ? 'truncate max-w-[110px]' : ''}`}
-                                            style={matched ? { fontFamily: 'Arial, sans-serif', fontWeight: 'normal', fontSize: '8pt' } : {}}
+                                            className={`py-1 px-1 border border-slate-300 ${cell.align} ${cell.bg} ${cell.color} ${cell.truncate ? 'truncate max-w-[110px]' : ''}`}
+                                            style={matched ? { fontFamily: 'Arial, Helvetica, sans-serif', fontWeight: 'bold', fontSize: '8.5pt' } : {}}
                                           >
                                             <span className={cell.value === 'NULL' ? 'text-slate-400 italic text-[7.5px]' : ''}>
                                               {cell.value ?? '-'}

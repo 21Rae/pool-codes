@@ -931,13 +931,13 @@ export default function WeeklyPoolPicksTable({
         },
         bodyStyles: {
           fillColor: [255, 255, 255],
-          fontSize: 8,
-          fontStyle: 'normal',
+          fontSize: 8.5,
+          fontStyle: 'bold',
           font: 'helvetica',
           textColor: [0, 0, 0],
           halign: 'center',
           cellPadding: [2.0, 1.5],
-          lineWidth: 0.25,
+          lineWidth: 0.28,
           lineColor: [15, 23, 42]
         },
         didParseCell: (hookData) => {
@@ -952,12 +952,11 @@ export default function WeeklyPoolPicksTable({
 
           if (matched) {
             hookData.cell.styles.font = 'helvetica';
+            hookData.cell.styles.fontStyle = 'bold';
             if (hookData.section === 'head') {
-              hookData.cell.styles.fontStyle = 'bold';
-              hookData.cell.styles.fontSize = 9;
+              hookData.cell.styles.fontSize = 9.2;
             } else if (hookData.section === 'body') {
-              hookData.cell.styles.fontStyle = 'normal';
-              hookData.cell.styles.fontSize = 8;
+              hookData.cell.styles.fontSize = 8.5;
             }
           }
         },
