@@ -237,9 +237,12 @@ export default function OfficePoolStopHome({
     if (!activeResult) return;
     try {
       const doc = new jsPDF();
+      doc.setFont('helvetica', 'bold');
       doc.setFontSize(16);
+      doc.setTextColor(15, 23, 42);
       doc.text(`Official Pool Results: Week ${activeResult.week_number} (${activeResult.season_year || 2026})`, 14, 18);
       doc.setFontSize(10);
+      doc.setTextColor(5, 150, 105);
       doc.text(`${activeResult.title || 'Weekly Results Sheet'} | Generated from FastPool`, 14, 25);
 
       const tableData = (activeResult.results_table || [])
@@ -258,9 +261,31 @@ export default function OfficePoolStopHome({
         startY: 30,
         head: [['ID', 'HOME TEAM', 'POOL RESULT', 'AWAY TEAM', 'STATUS']],
         body: tableData,
-        theme: 'striped',
-        headStyles: { fillColor: [5, 150, 105], textColor: [255, 255, 255], fontStyle: 'bold' },
-        styles: { fontSize: 8, cellPadding: 2.5 }
+        theme: 'grid',
+        headStyles: {
+          fillColor: [5, 150, 105],
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          fontSize: 9.5,
+          halign: 'center',
+          lineWidth: 0.2,
+          lineColor: [5, 150, 105]
+        },
+        styles: {
+          fontSize: 9.0,
+          fontStyle: 'bold',
+          textColor: [0, 0, 0],
+          cellPadding: 3.0,
+          lineWidth: 0.15,
+          lineColor: [71, 85, 105]
+        },
+        columnStyles: {
+          0: { halign: 'center', fontStyle: 'bold', textColor: [0, 0, 0] },
+          1: { fontStyle: 'bold', textColor: [0, 0, 0] },
+          2: { halign: 'center', fontStyle: 'bold', textColor: [4, 120, 87] },
+          3: { fontStyle: 'bold', textColor: [0, 0, 0] },
+          4: { halign: 'center', fontStyle: 'bold', textColor: [15, 23, 42] }
+        }
       });
 
       doc.save(`Pool_Results_Week_${activeResult.week_number}_${activeResult.season_year || 2026}.pdf`);
@@ -1196,13 +1221,13 @@ export default function OfficePoolStopHome({
                       <table style="width: 100%; border-collapse: collapse; font-size: ${fontSize}; text-align: left; font-family: system-ui, -apple-system, sans-serif; line-height: 1.35; page-break-inside: avoid;">
                         <thead>
                           <tr style="background-color: #0f172a; color: white;">
-                            ${headers.map(h => `<th style="border: 1px solid #0f172a; padding: ${cellPadding}; text-transform: uppercase; font-size: ${fontSize}; font-weight: 800;">${h}</th>`).join('')}
+                            ${headers.map(h => `<th style="border: 1.5px solid #0f172a; padding: ${cellPadding}; text-transform: uppercase; font-size: ${fontSize}; font-weight: 900;">${h}</th>`).join('')}
                           </tr>
                         </thead>
                         <tbody>
                           ${snapshotRows.map((row, rIdx) => `
                             <tr style="background-color: ${rIdx % 2 === 0 ? '#f8fafc' : '#ffffff'}; page-break-inside: avoid; break-inside: avoid;">
-                              ${row.map(cell => `<td style="border: 1px solid #cbd5e1; padding: ${cellPadding}; color: #0f172a; font-weight: 500; word-break: break-word;">${cell}</td>`).join('')}
+                              ${row.map(cell => `<td style="border: 1.5px solid #64748b; padding: ${cellPadding}; color: #000000; font-weight: 800; word-break: break-word;">${cell}</td>`).join('')}
                             </tr>
                           `).join('')}
                         </tbody>

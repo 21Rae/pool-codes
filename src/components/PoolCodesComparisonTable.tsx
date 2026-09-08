@@ -458,30 +458,30 @@ export default function PoolCodesComparisonTable({
 
       // Top compact header banner (Height: 8mm)
       doc.setFillColor(15, 23, 42); // slate-900
-      doc.rect(6, 4, pageWidth - 12, 8, 'F');
+      doc.rect(6, 4, pageWidth - 12, 8.5, 'F');
 
       // Golden accent line
       doc.setFillColor(245, 158, 11); // amber-500
-      doc.rect(6, 12, pageWidth - 12, 0.8, 'F');
+      doc.rect(6, 12.5, pageWidth - 12, 0.8, 'F');
 
       // Title & Branding inside banner
       doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8.5);
-      doc.text('FASTPOOLCODES • POOL CODES COMPARISON (DRAW ODDS MATRIX)', 9, 9.2);
+      doc.setFontSize(9.5);
+      doc.text('FASTPOOLCODES • POOL CODES COMPARISON (DRAW ODDS MATRIX)', 9, 9.6);
 
       // Free badge & date on right side of banner
       doc.setTextColor(52, 211, 153); // emerald-400
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(7);
+      doc.setFontSize(7.8);
       const generatedTime = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-      doc.text(`FREE ACCESS SHEET • ${generatedTime}`, pageWidth - 9, 9.2, { align: 'right' });
+      doc.text(`FREE ACCESS SHEET • ${generatedTime}`, pageWidth - 9, 9.6, { align: 'right' });
 
       // Contact & Notice subheader line (Height: 3.5mm)
-      doc.setTextColor(30, 41, 59); // slate-800
+      doc.setTextColor(0, 0, 0); // pitch black
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(6.5);
-      doc.text('Compiled by Fastpoolcodes.com. For Enquiries Call or WhatsApp: +234 8030587933, +234 9037595705)', 6, 15.8);
+      doc.setFontSize(7.2);
+      doc.text('Compiled by Fastpoolcodes.com. For Enquiries Call or WhatsApp: +234 8030587933, +234 9037595705)', 6, 16.2);
 
       // Table columns & data
       const tableHeaders = [
@@ -502,44 +502,49 @@ export default function PoolCodesComparisonTable({
       autoTable(doc, {
         head: tableHeaders,
         body: tableRows,
-        startY: 17.5,
-        margin: { top: 17.5, bottom: 6, left: 6, right: 6 },
+        startY: 18.0,
+        margin: { top: 18.0, bottom: 6, left: 6, right: 6 },
         theme: 'grid',
         tableWidth: 'auto',
         headStyles: {
           fillColor: [15, 23, 42],
           textColor: [255, 255, 255],
           fontStyle: 'bold',
-          fontSize: 7.2,
+          fontSize: 7.8,
           halign: 'center',
-          cellPadding: [0.8, 1],
-          minCellHeight: 3.5
+          cellPadding: [1.0, 1.0],
+          minCellHeight: 4.0,
+          lineWidth: 0.2,
+          lineColor: [15, 23, 42]
         },
         bodyStyles: {
           fillColor: false,
-          fontSize: 6.5,
-          textColor: [30, 41, 59],
-          cellPadding: [0.45, 0.8],
-          minCellHeight: 3.0,
+          fontSize: 7.0,
+          fontStyle: 'bold',
+          textColor: [0, 0, 0],
+          cellPadding: [0.55, 0.8],
+          minCellHeight: 3.5,
+          lineWidth: 0.15,
+          lineColor: [71, 85, 105]
         },
         alternateRowStyles: {
-          fillColor: false
+          fillColor: [248, 250, 252]
         },
         columnStyles: {
-          0: { cellWidth: 12, halign: 'center', fontStyle: 'bold' },
-          1: { cellWidth: 52, fontStyle: 'bold' },
-          2: { cellWidth: 52, fontStyle: 'bold' },
+          0: { cellWidth: 12, halign: 'center', fontStyle: 'bold', textColor: [0, 0, 0] },
+          1: { cellWidth: 52, fontStyle: 'bold', textColor: [0, 0, 0] },
+          2: { cellWidth: 52, fontStyle: 'bold', textColor: [0, 0, 0] },
           3: { cellWidth: 32, halign: 'center', textColor: [180, 83, 9], fontStyle: 'bold' },
           4: { cellWidth: 32, halign: 'center', textColor: [3, 105, 161], fontStyle: 'bold' },
           5: { cellWidth: 34, halign: 'center', textColor: [190, 24, 93], fontStyle: 'bold' },
-          6: { cellWidth: 35, halign: 'center' },
-          7: { cellWidth: 36, halign: 'center' }
+          6: { cellWidth: 35, halign: 'center', fontStyle: 'bold', textColor: [15, 23, 42] },
+          7: { cellWidth: 36, halign: 'center', fontStyle: 'bold', textColor: [15, 23, 42] }
         },
         didParseCell: (hookData) => {
           if (hookData.section === 'body') {
             if (hookData.cell.raw === 'NULL') {
-              hookData.cell.styles.textColor = [148, 163, 184];
-              hookData.cell.styles.fontStyle = 'italic';
+              hookData.cell.styles.textColor = [100, 116, 139];
+              hookData.cell.styles.fontStyle = 'bold';
             }
           }
         },
@@ -548,7 +553,7 @@ export default function PoolCodesComparisonTable({
           doc.saveGraphicsState();
           doc.setTextColor(240, 244, 248); // Soft, faint watermark contrast under data
           doc.setFontSize(10.5);
-          doc.setFont('helvetica', 'normal');
+          doc.setFont('helvetica', 'bold');
           const watermarkText = `FASTPOOLCODES • ${currentUser?.email || 'FREE ACCESS'}`;
           for (let y = 30; y < pageHeight; y += 65) {
             for (let x = -15; x < pageWidth + 30; x += 140) {
@@ -559,8 +564,9 @@ export default function PoolCodesComparisonTable({
         },
         didDrawPage: () => {
           // Compact footer watermark strictly BELOW the codes on page bottom
-          doc.setFontSize(5.8);
-          doc.setTextColor(100, 116, 139);
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(6.5);
+          doc.setTextColor(51, 65, 85);
           doc.text(
             `FastPoolCodes Comparison Verified Sheet • Licensed to ${currentUser?.email || 'General Access'} • For Enquiries Call/WhatsApp: +234 8030587933, +234 9037595705`,
             6,

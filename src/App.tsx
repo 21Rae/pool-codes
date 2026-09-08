@@ -770,15 +770,17 @@ export default function App() {
         margin: { left: 14, right: 14 },
         theme: 'plain',
         styles: {
-          fontSize: 8,
-          cellPadding: 2,
-          font: 'helvetica'
+          fontSize: 8.5,
+          cellPadding: 2.2,
+          font: 'helvetica',
+          fontStyle: 'bold',
+          textColor: [0, 0, 0]
         },
         columnStyles: {
-          0: { fontStyle: 'bold', textColor: [71, 85, 105], cellWidth: 38 },
-          1: { fontStyle: 'bold', textColor: [15, 23, 42], cellWidth: 55 },
-          2: { fontStyle: 'bold', textColor: [71, 85, 105], cellWidth: 38 },
-          3: { fontStyle: 'bold', textColor: [15, 23, 42], cellWidth: 51 }
+          0: { fontStyle: 'bold', textColor: [51, 65, 85], cellWidth: 38 },
+          1: { fontStyle: 'bold', textColor: [0, 0, 0], cellWidth: 55 },
+          2: { fontStyle: 'bold', textColor: [51, 65, 85], cellWidth: 38 },
+          3: { fontStyle: 'bold', textColor: [0, 0, 0], cellWidth: 51 }
         },
         body: [
           ['Account Nickname:', nickname, 'Payment Reference:', refCode],
@@ -821,22 +823,27 @@ export default function App() {
         headStyles: {
           fillColor: [15, 23, 42],
           textColor: [245, 158, 11],
-          fontSize: 8.5,
+          fontSize: 9.0,
           fontStyle: 'bold',
-          halign: 'left'
+          halign: 'left',
+          lineWidth: 0.2,
+          lineColor: [15, 23, 42]
         },
         bodyStyles: {
-          fontSize: 8,
-          textColor: [30, 41, 59],
-          cellPadding: 3,
-          valign: 'middle'
+          fontSize: 8.5,
+          fontStyle: 'bold',
+          textColor: [0, 0, 0],
+          cellPadding: 3.5,
+          valign: 'middle',
+          lineWidth: 0.15,
+          lineColor: [71, 85, 105]
         },
         columnStyles: {
-          0: { cellWidth: 10, halign: 'center', fontStyle: 'bold' },
-          1: { cellWidth: 38, fontStyle: 'bold', textColor: [15, 23, 42] },
-          2: { cellWidth: 84, fontStyle: 'normal' },
-          3: { cellWidth: 26, fontStyle: 'bold', textColor: [5, 150, 105], halign: 'center' },
-          4: { cellWidth: 24, fontStyle: 'bold', textColor: [16, 185, 129], halign: 'center' }
+          0: { cellWidth: 10, halign: 'center', fontStyle: 'bold', textColor: [0, 0, 0] },
+          1: { cellWidth: 38, fontStyle: 'bold', textColor: [0, 0, 0] },
+          2: { cellWidth: 84, fontStyle: 'bold', textColor: [0, 0, 0] },
+          3: { cellWidth: 26, fontStyle: 'bold', textColor: [4, 120, 87], halign: 'center' },
+          4: { cellWidth: 24, fontStyle: 'bold', textColor: [4, 120, 87], halign: 'center' }
         },
         alternateRowStyles: {
           fillColor: [248, 250, 252]
@@ -862,15 +869,15 @@ export default function App() {
           doc.setFillColor(241, 245, 249);
           doc.rect(14, pageHeight - 24, 182, 14, 'F');
           
-          doc.setFontSize(6.5);
+          doc.setFontSize(7.0);
           doc.setFont('helvetica', 'bold');
-          doc.setTextColor(100, 116, 139);
+          doc.setTextColor(51, 65, 85);
           doc.text(`SECURITY & ANTI-PIRACY NOTICE:`, 16, pageHeight - 19);
-          doc.setFont('helvetica', 'normal');
+          doc.setFont('helvetica', 'bold');
           doc.text(`This official codesheet PDF is registered exclusively to ${nickname} (${email}). Unauthorized sharing or resale will result in immediate license revocation.`, 16, pageHeight - 14);
           
-          doc.setFontSize(6.5);
-          doc.setTextColor(148, 163, 184);
+          doc.setFontSize(7.0);
+          doc.setTextColor(71, 85, 105);
           doc.text(`FastPoolCodes Official Classified VIP Sheet • Week ${weekNum} • Licensed to ${email}`, 14, pageHeight - 5);
           doc.text(`Support: +234 8030587933, +234 9037595705`, 196, pageHeight - 5, { align: 'right' });
         }
@@ -1162,6 +1169,8 @@ export default function App() {
         startsAt: now.toISOString(),
         expiresAt: expiresAt.toISOString(),
         paymentProvider: 'Paystack API Gateway',
+        amount: amountPaid,
+        currency: currencySymbol,
         components: components
       })
     })
@@ -1178,6 +1187,8 @@ export default function App() {
           });
           // Do NOT display full-screen email popup after payment; grant immediate direct access to paid items in portal
           setShowSimulatedEmailModal(false);
+          // Refresh live Supabase state to reflect new purchase logs
+          fetchRealSupabaseData(true);
         }
       })
       .catch(err => {

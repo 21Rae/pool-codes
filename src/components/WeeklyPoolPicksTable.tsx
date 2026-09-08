@@ -873,12 +873,12 @@ export default function WeeklyPoolPicksTable({
 
       doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(14);
+      doc.setFontSize(15);
       doc.text(`FASTPOOLCODES • ${tableDisplayName.toUpperCase()}`, 14, 12);
 
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(148, 163, 184); // slate-400
+      doc.setFontSize(9.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(226, 232, 240); // slate-200 high contrast bold text
       doc.text(
         `Week ${effectiveWeek} Verified Banker Draws & Bet Codes Matrix | Generated: ${new Date().toLocaleDateString(
           'en-GB'
@@ -905,7 +905,7 @@ export default function WeeklyPoolPicksTable({
         p.kick_off || '3:00 PM'
       ]);
 
-      const headerColor: [number, number, number] = bookmakerBrand === 'betking' ? [37, 99, 235] : [16, 185, 129];
+      const headerColor: [number, number, number] = bookmakerBrand === 'betking' ? [30, 64, 175] : [6, 95, 70];
 
       autoTable(doc, {
         head: tableHeaders,
@@ -914,31 +914,38 @@ export default function WeeklyPoolPicksTable({
         theme: 'grid',
         headStyles: {
           fillColor: headerColor,
-          textColor: [15, 23, 42],
+          textColor: [255, 255, 255],
           fontStyle: 'bold',
-          fontSize: 8.5,
-          halign: 'center'
+          fontSize: 9.2,
+          halign: 'center',
+          cellPadding: [2.0, 1.5],
+          lineWidth: 0.25,
+          lineColor: [15, 23, 42]
         },
         bodyStyles: {
           fillColor: [255, 255, 255],
-          fontSize: 8.5,
-          textColor: [15, 23, 42],
-          halign: 'center'
+          fontSize: 9.0,
+          fontStyle: 'bold',
+          textColor: [0, 0, 0],
+          halign: 'center',
+          cellPadding: [1.8, 1.5],
+          lineWidth: 0.2,
+          lineColor: [71, 85, 105]
         },
         alternateRowStyles: {
-          fillColor: [248, 250, 252]
+          fillColor: [241, 245, 249]
         },
         columnStyles: {
-          0: { halign: 'center', fontStyle: 'bold' },
-          1: { halign: 'center', fontStyle: 'bold', textColor: [5, 150, 105] },
-          2: { halign: 'left', fontStyle: 'bold' },
-          3: { halign: 'left', fontStyle: 'bold' },
-          4: { halign: 'center' },
-          5: { halign: 'center', fontStyle: 'bold', textColor: [4, 120, 87] },
-          6: { halign: 'center' },
-          7: { halign: 'center', fontStyle: 'bold', textColor: [133, 77, 14] },
-          8: { halign: 'center', fontStyle: 'bold' },
-          9: { halign: 'center', fontStyle: 'normal' }
+          0: { halign: 'center', fontStyle: 'bold', textColor: [0, 0, 0], cellWidth: 16 },
+          1: { halign: 'center', fontStyle: 'bold', textColor: [4, 120, 87], cellWidth: 24 },
+          2: { halign: 'left', fontStyle: 'bold', textColor: [0, 0, 0], cellWidth: 46 },
+          3: { halign: 'left', fontStyle: 'bold', textColor: [0, 0, 0], cellWidth: 46 },
+          4: { halign: 'center', fontStyle: 'bold', textColor: [15, 23, 42], cellWidth: 23 },
+          5: { halign: 'center', fontStyle: 'bold', textColor: [4, 120, 87], cellWidth: 23 },
+          6: { halign: 'center', fontStyle: 'bold', textColor: [15, 23, 42], cellWidth: 23 },
+          7: { halign: 'center', fontStyle: 'bold', textColor: [180, 83, 9], cellWidth: 18 },
+          8: { halign: 'center', fontStyle: 'bold', textColor: [0, 0, 0], cellWidth: 26 },
+          9: { halign: 'center', fontStyle: 'bold', textColor: [15, 23, 42], cellWidth: 26 }
         },
         willDrawPage: () => {
           doc.saveGraphicsState();
@@ -954,8 +961,9 @@ export default function WeeklyPoolPicksTable({
           doc.restoreGraphicsState();
         },
         didDrawPage: () => {
-          doc.setFontSize(6.5);
-          doc.setTextColor(148, 163, 184);
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(7.5);
+          doc.setTextColor(51, 65, 85);
           doc.text(
             `FastPoolCodes Official Classified Sheet • Week ${effectiveWeek} • Licensed to ${primaryEmail} • Single Page Verified Copy`,
             14,

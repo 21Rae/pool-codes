@@ -7237,59 +7237,52 @@ export default function CustomerPortal({
                             const pageWidth = doc.internal.pageSize.getWidth();
                             const pageHeight = doc.internal.pageSize.getHeight();
 
-                            // Top compact header banner (Height: 7mm)
+                            // Top compact header banner (Height: 8mm)
                             doc.setFillColor(15, 23, 42); // slate-900
-                            doc.rect(5, 3.5, pageWidth - 10, 7, 'F');
+                            doc.rect(4.5, 3, pageWidth - 9, 8, 'F');
                             
                             doc.setTextColor(255, 255, 255);
-                            doc.setFontSize(10);
+                            doc.setFontSize(11);
                             doc.setFont('helvetica', 'bold');
-                            doc.text('FASTPOOLCODES', 8, 8.2);
+                            doc.text('FASTPOOLCODES', 7.5, 8.2);
                             
                             doc.setTextColor(52, 211, 153); // emerald-400
-                            doc.setFontSize(7.5);
+                            doc.setFontSize(8.5);
                             doc.setFont('helvetica', 'bold');
-                            doc.text(`[${activeBookmaker.toUpperCase()}] OFFICIAL WEEK ${currentBookmakerWeek} SHEET (49 FIXTURES)`, pageWidth - 8, 8.2, { align: 'right' });
+                            doc.text(`[${activeBookmaker.toUpperCase()}] OFFICIAL WEEK ${currentBookmakerWeek} SHEET (49 FIXTURES)`, pageWidth - 7.5, 8.2, { align: 'right' });
 
-                            // Metadata 1-line bar (Height: 3.8mm)
+                            // Metadata 1-line bar (Height: 4mm)
                             doc.setFillColor(248, 250, 252);
-                            doc.setDrawColor(226, 232, 240);
-                            doc.rect(5, 11, pageWidth - 10, 3.8, 'FD');
+                            doc.setDrawColor(203, 213, 225);
+                            doc.rect(4.5, 11.5, pageWidth - 9, 4.0, 'FD');
 
-                            doc.setFontSize(6.5);
-                            doc.setTextColor(100, 116, 139);
-                            doc.setFont('helvetica', 'normal');
-                            doc.text('LICENSEE:', 7, 13.7);
-                            doc.setTextColor(15, 23, 42);
+                            doc.setFontSize(7.2);
+                            doc.setTextColor(51, 65, 85);
                             doc.setFont('helvetica', 'bold');
-                            doc.text(`@${currentUser?.username || 'user'}`, 20, 13.7);
+                            doc.text('LICENSEE:', 6.5, 14.3);
+                            doc.setTextColor(0, 0, 0);
+                            doc.text(`@${currentUser?.username || 'user'}`, 21, 14.3);
 
-                            doc.setFont('helvetica', 'normal');
-                            doc.setTextColor(100, 116, 139);
-                            doc.text('EMAIL:', 50, 13.7);
-                            doc.setTextColor(15, 23, 42);
-                            doc.setFont('helvetica', 'bold');
-                            doc.text(currentUser?.email || 'user@fastpoolcodes.com', 60, 13.7);
+                            doc.setTextColor(51, 65, 85);
+                            doc.text('EMAIL:', 50, 14.3);
+                            doc.setTextColor(0, 0, 0);
+                            doc.text(currentUser?.email || 'user@fastpoolcodes.com', 61, 14.3);
 
-                            doc.setFont('helvetica', 'normal');
-                            doc.setTextColor(100, 116, 139);
-                            doc.text('SEASON:', 118, 13.7);
-                            doc.setTextColor(5, 150, 105);
-                            doc.setFont('helvetica', 'bold');
-                            doc.text(`WEEK ${currentBookmakerWeek} (2026)`, 131, 13.7);
+                            doc.setTextColor(51, 65, 85);
+                            doc.text('SEASON:', 116, 14.3);
+                            doc.setTextColor(4, 120, 87);
+                            doc.text(`WEEK ${currentBookmakerWeek} (2026)`, 130, 14.3);
 
-                            doc.setFont('helvetica', 'normal');
-                            doc.setTextColor(100, 116, 139);
-                            doc.text('KEY:', 162, 13.7);
-                            doc.setTextColor(15, 23, 42);
-                            doc.setFont('helvetica', 'bold');
-                            doc.text(`SHA256:FPC-${(currentUser?.id || 'guest').slice(0, 5).toUpperCase()}`, 168, 13.7);
+                            doc.setTextColor(51, 65, 85);
+                            doc.text('KEY:', 160, 14.3);
+                            doc.setTextColor(0, 0, 0);
+                            doc.text(`SHA256:FPC-${(currentUser?.id || 'guest').slice(0, 5).toUpperCase()}`, 168, 14.3);
 
-                            // Compiled By & Contact Enquiries Header Line (Height: 3.5mm)
-                            doc.setFontSize(7);
-                            doc.setTextColor(15, 23, 42);
+                            // Compiled By & Contact Enquiries Header Line (Height: 3.8mm)
+                            doc.setFontSize(7.5);
+                            doc.setTextColor(0, 0, 0);
                             doc.setFont('helvetica', 'bold');
-                            doc.text('Compiled by Fastpoolcodes.com • Enquiries / WhatsApp: +234 8030587933, +234 9037595705', 5, 17.8);
+                            doc.text('Compiled by Fastpoolcodes.com • Enquiries / WhatsApp: +234 8030587933, +234 9037595705', 4.5, 18.8);
 
                             // Table Columns Setup (Strict 12 Bookmaker Columns)
                             const tableHeaders: string[] = [
@@ -7323,49 +7316,54 @@ export default function CustomerPortal({
                             ]);
 
                             autoTable(doc, {
-                              startY: 18.5,
+                              startY: 19.8,
                               head: [tableHeaders],
                               body: tableData.length > 0 ? tableData : [['NULL', 'NULL', 'No classified fixtures found', ...tableHeaders.slice(3).map(() => 'NULL')]],
                               theme: 'grid',
-                              margin: { top: 18.5, bottom: 4.5, left: 4.5, right: 4.5 },
+                              margin: { top: 19.8, bottom: 4.5, left: 4.5, right: 4.5 },
                               headStyles: {
                                 fillColor: [15, 23, 42],
                                 textColor: [255, 255, 255],
-                                fontSize: 6.2,
+                                fontSize: 6.8,
                                 fontStyle: 'bold',
                                 halign: 'center',
-                                cellPadding: [0.5, 0.4],
-                                minCellHeight: 3.8,
+                                cellPadding: [0.6, 0.4],
+                                minCellHeight: 4.0,
+                                lineWidth: 0.2,
+                                lineColor: [15, 23, 42]
                               },
                               bodyStyles: {
                                 fillColor: false,
-                                fontSize: 5.8,
-                                textColor: [15, 23, 42],
-                                cellPadding: [0.35, 0.35],
-                                minCellHeight: 4.2,
+                                fontSize: 6.5,
+                                fontStyle: 'bold',
+                                textColor: [0, 0, 0],
+                                cellPadding: [0.45, 0.35],
+                                minCellHeight: 4.4,
+                                lineWidth: 0.15,
+                                lineColor: [71, 85, 105]
                               },
                               alternateRowStyles: {
-                                fillColor: false,
+                                fillColor: [248, 250, 252],
                               },
                               columnStyles: {
-                                0: { halign: 'center', fontStyle: 'bold', cellWidth: 10 },
-                                1: { halign: 'center', fontStyle: 'bold', cellWidth: 15 },
-                                2: { halign: 'center', cellWidth: 18 },
-                                3: { halign: 'left', fontStyle: 'bold', cellWidth: 29 },
-                                4: { halign: 'left', fontStyle: 'bold', cellWidth: 29 },
-                                5: { halign: 'center', cellWidth: 11 },
-                                6: { halign: 'center', fontStyle: 'bold', textColor: [5, 150, 105], cellWidth: 11 },
-                                7: { halign: 'center', cellWidth: 11 },
+                                0: { halign: 'center', fontStyle: 'bold', textColor: [0, 0, 0], cellWidth: 10 },
+                                1: { halign: 'center', fontStyle: 'bold', textColor: [0, 0, 0], cellWidth: 15 },
+                                2: { halign: 'center', fontStyle: 'bold', textColor: [30, 41, 59], cellWidth: 18 },
+                                3: { halign: 'left', fontStyle: 'bold', textColor: [0, 0, 0], cellWidth: 29 },
+                                4: { halign: 'left', fontStyle: 'bold', textColor: [0, 0, 0], cellWidth: 29 },
+                                5: { halign: 'center', fontStyle: 'bold', textColor: [15, 23, 42], cellWidth: 11 },
+                                6: { halign: 'center', fontStyle: 'bold', textColor: [4, 120, 87], cellWidth: 11 },
+                                7: { halign: 'center', fontStyle: 'bold', textColor: [15, 23, 42], cellWidth: 11 },
                                 8: { halign: 'center', fontStyle: 'bold', textColor: [180, 83, 9], cellWidth: 19 },
-                                9: { halign: 'center', cellWidth: 15 },
-                                10: { halign: 'center', cellWidth: 17 },
-                                11: { halign: 'center', cellWidth: 16 },
+                                9: { halign: 'center', fontStyle: 'bold', textColor: [0, 0, 0], cellWidth: 15 },
+                                10: { halign: 'center', fontStyle: 'bold', textColor: [15, 23, 42], cellWidth: 17 },
+                                11: { halign: 'center', fontStyle: 'bold', textColor: [15, 23, 42], cellWidth: 16 },
                               },
                               didParseCell: (hookData) => {
                                 if (hookData.section === 'body') {
                                   if (hookData.cell.raw === 'NULL') {
-                                    hookData.cell.styles.textColor = [148, 163, 184];
-                                    hookData.cell.styles.fontStyle = 'italic';
+                                    hookData.cell.styles.textColor = [100, 116, 139];
+                                    hookData.cell.styles.fontStyle = 'bold';
                                   }
                                 }
                               },
@@ -7374,7 +7372,7 @@ export default function CustomerPortal({
                                 doc.saveGraphicsState();
                                 doc.setTextColor(240, 244, 248); // Soft, faint watermark contrast under data
                                 doc.setFontSize(10.5);
-                                doc.setFont('helvetica', 'normal');
+                                doc.setFont('helvetica', 'bold');
                                 const watermarkText = `FASTPOOLCODES • ${currentUser?.email || 'user@fastpoolcodes.com'}`;
                                 for (let y = 30; y < pageHeight; y += 65) {
                                   for (let x = -15; x < pageWidth + 30; x += 140) {
@@ -7385,16 +7383,17 @@ export default function CustomerPortal({
                               },
                               didDrawPage: () => {
                                 // Security trace footer strictly BELOW the codes on page bottom
-                                doc.setFontSize(6.5);
-                                doc.setTextColor(148, 163, 184);
+                                doc.setFont('helvetica', 'bold');
+                                doc.setFontSize(6.8);
+                                doc.setTextColor(51, 65, 85);
                                 doc.text(
                                   `FastPoolCodes Official Classified Coupon • Week ${currentBookmakerWeek} • Licensed to ${currentUser?.email || 'user'} • Single Page Verified Sheet`,
-                                  5,
+                                  4.5,
                                   pageHeight - 2.5
                                 );
                                 doc.text(
                                   'Compiled by Fastpoolcodes.com (Call/WhatsApp: +234 8030587933, +234 9037595705)',
-                                  pageWidth - 5,
+                                  pageWidth - 4.5,
                                   pageHeight - 2.5,
                                   { align: 'right' }
                                 );
