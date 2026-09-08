@@ -7231,25 +7231,26 @@ export default function CustomerPortal({
                             const doc = new jsPDF({
                               orientation: 'portrait',
                               unit: 'mm',
-                              format: 'a4',
+                              format: [210, 297], // Strictly 210 x 297 mm A4 size
+                              compress: true
                             });
 
-                            const pageWidth = doc.internal.pageSize.getWidth();
-                            const pageHeight = doc.internal.pageSize.getHeight();
+                            const pageWidth = 210;
+                            const pageHeight = 297;
 
                             // 1. Prominent Centered Title (Exact match to official coupon header)
                             doc.setTextColor(0, 0, 0);
                             doc.setFont('helvetica', 'bold');
-                            doc.setFontSize(13.5);
+                            doc.setFontSize(12.0);
                             const formattedDate = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase().replace(/ /g, '-');
                             const couponTitle = `WEEK ${currentBookmakerWeek} ${activeBookmaker.toUpperCase()} - UK 2026/27  ${formattedDate}`;
-                            doc.text(couponTitle, pageWidth / 2, 10, { align: 'center' });
+                            doc.text(couponTitle, pageWidth / 2, 8.0, { align: 'center' });
 
                             // 2. Centered Enquiries Sub-header
-                            doc.setFontSize(7.8);
+                            doc.setFontSize(7.0);
                             doc.setFont('helvetica', 'bold');
                             doc.setTextColor(0, 0, 0);
-                            doc.text('(For Enquiries Visit : www.fastpoolcodes.com Call or WhatsApp: +234 8030587933, +234 9037595705)', pageWidth / 2, 14.5, { align: 'center' });
+                            doc.text('(For Enquiries Visit : www.fastpoolcodes.com Call or WhatsApp: +234 8030587933, +234 9037595705)', pageWidth / 2, 11.5, { align: 'center' });
 
                             // Table Columns Setup (Matching the official 12 columns / 10 fixtures sheet)
                             const tableHeaders: string[] = [
@@ -7307,57 +7308,57 @@ export default function CustomerPortal({
                             };
 
                             autoTable(doc, {
-                              startY: 16.5,
+                              startY: 14.0,
                               head: [tableHeaders],
                               body: tableData.length > 0 ? tableData : [['-', '-', '-', 'No classified fixtures found', ...tableHeaders.slice(4).map(() => '-')]],
                               theme: 'grid',
-                              margin: { top: 16.5, bottom: 16, left: 4.5, right: 4.5 },
+                              margin: { top: 14.0, bottom: 9.0, left: 4.0, right: 4.0 },
                               styles: {
                                 font: 'helvetica',
                                 fontStyle: 'bold',
                                 textColor: [0, 0, 0],
-                                lineWidth: 0.32,
+                                lineWidth: 0.28,
                                 lineColor: [0, 0, 0],
-                                cellPadding: [0.7, 0.45]
+                                cellPadding: [0.35, 0.2]
                               },
                               headStyles: {
                                 fillColor: [255, 255, 255],
                                 textColor: [0, 0, 0],
-                                fontSize: 9.2,
+                                fontSize: 8.0,
                                 fontStyle: 'bold',
                                 font: 'helvetica',
                                 halign: 'center',
                                 valign: 'middle',
-                                cellPadding: [0.85, 0.45],
-                                lineWidth: 0.4,
+                                cellPadding: [0.6, 0.2],
+                                lineWidth: 0.35,
                                 lineColor: [0, 0, 0]
                               },
                               bodyStyles: {
                                 fillColor: [255, 255, 255],
-                                fontSize: 8.2,
+                                fontSize: 7.2,
                                 fontStyle: 'bold',
                                 font: 'helvetica',
                                 textColor: [0, 0, 0],
-                                cellPadding: [0.65, 0.45],
-                                minCellHeight: 4.3,
-                                lineWidth: 0.28,
+                                cellPadding: [0.35, 0.2],
+                                minCellHeight: 4.0,
+                                lineWidth: 0.25,
                                 lineColor: [0, 0, 0]
                               },
                               alternateRowStyles: {
                                 fillColor: [255, 255, 255],
                               },
                               columnStyles: {
-                                0: { halign: 'center', cellWidth: 10, fontStyle: 'bold' },
+                                0: { halign: 'center', cellWidth: 9, fontStyle: 'bold' },
                                 1: { halign: 'center', cellWidth: 15, fontStyle: 'bold' },
                                 2: { halign: 'center', cellWidth: 16, fontStyle: 'bold' },
-                                3: { halign: 'left', cellWidth: 28, fontStyle: 'bold' },
-                                4: { halign: 'left', cellWidth: 28, fontStyle: 'bold' },
-                                5: { halign: 'center', cellWidth: 11, fontStyle: 'bold' },
-                                6: { halign: 'center', cellWidth: 11, fontStyle: 'bold' },
-                                7: { halign: 'center', cellWidth: 11, fontStyle: 'bold' },
-                                8: { halign: 'center', cellWidth: 18, fontStyle: 'bold' },
-                                9: { halign: 'center', cellWidth: 16, fontStyle: 'bold' },
-                                10: { halign: 'center', cellWidth: 18, fontStyle: 'bold' },
+                                3: { halign: 'left', cellWidth: 34, fontStyle: 'bold' },
+                                4: { halign: 'left', cellWidth: 34, fontStyle: 'bold' },
+                                5: { halign: 'center', cellWidth: 10, fontStyle: 'bold' },
+                                6: { halign: 'center', cellWidth: 10, fontStyle: 'bold' },
+                                7: { halign: 'center', cellWidth: 10, fontStyle: 'bold' },
+                                8: { halign: 'center', cellWidth: 17, fontStyle: 'bold' },
+                                9: { halign: 'center', cellWidth: 15, fontStyle: 'bold' },
+                                10: { halign: 'center', cellWidth: 17, fontStyle: 'bold' },
                                 11: { halign: 'center', cellWidth: 15, fontStyle: 'bold' },
                               },
                               didParseCell: (hookData) => {
@@ -7372,9 +7373,9 @@ export default function CustomerPortal({
                                   hookData.cell.styles.fontStyle = 'bold'; // Bolder typography
                                   hookData.cell.styles.textColor = [0, 0, 0];
                                   if (hookData.section === 'head') {
-                                    hookData.cell.styles.fontSize = 9.2; // 9pt bold
+                                    hookData.cell.styles.fontSize = 8.0;
                                   } else if (hookData.section === 'body') {
-                                    hookData.cell.styles.fontSize = 8.2; // 8pt bold
+                                    hookData.cell.styles.fontSize = 7.2;
                                   }
                                 }
 
@@ -7399,11 +7400,11 @@ export default function CustomerPortal({
                               },
                               didDrawPage: () => {
                                 // Bottom Notes & Disclaimer matching exact photo layout
-                                const currentY = (doc as any).lastAutoTable?.finalY || (pageHeight - 16);
-                                const noteY = Math.min(currentY + 3.8, pageHeight - 11);
+                                const currentY = (doc as any).lastAutoTable?.finalY || (pageHeight - 12);
+                                const noteY = Math.min(currentY + 4.2, pageHeight - 7.8);
                                 
                                 doc.setFont('helvetica', 'bold');
-                                doc.setFontSize(6.8);
+                                doc.setFontSize(6.4);
                                 doc.setTextColor(0, 0, 0);
                                 doc.text(
                                   `N.B: ODDS AS AT ${formattedDate} (Odds are subject to changes; EKO - Early Kick Off, LKO - Late Kick Off)`,
@@ -7412,21 +7413,26 @@ export default function CustomerPortal({
                                   { align: 'center' }
                                 );
 
-                                doc.setFontSize(6.2);
+                                doc.setFontSize(5.8);
                                 doc.text(
                                   'DISCLAIMER: You may not copy, reproduce, distribute, transmit, modify, create derivative works, or in any other',
                                   pageWidth / 2,
-                                  noteY + 3.5,
+                                  noteY + 3.0,
                                   { align: 'center' }
                                 );
                                 doc.text(
                                   'way exploit any part of copyrighted material without the prior written permission from Fastpoolcodes.com',
                                   pageWidth / 2,
-                                  noteY + 6.5,
+                                  noteY + 5.5,
                                   { align: 'center' }
                                 );
                               }
                             });
+
+                            // Guarantee strictly 1 single page
+                            while (doc.getNumberOfPages() > 1) {
+                              doc.deletePage(doc.getNumberOfPages());
+                            }
 
                             const filename = `FastPoolCodes_${activeBookmaker}_Week_${currentBookmakerWeek}.pdf`;
                             doc.save(filename);
