@@ -7237,141 +7237,157 @@ export default function CustomerPortal({
                             const pageWidth = doc.internal.pageSize.getWidth();
                             const pageHeight = doc.internal.pageSize.getHeight();
 
-                            // Top compact header banner (Height: 8mm)
-                            doc.setFillColor(15, 23, 42); // slate-900
-                            doc.rect(4.5, 3, pageWidth - 9, 8, 'F');
-                            
-                            doc.setTextColor(255, 255, 255);
-                            doc.setFontSize(11);
-                            doc.setFont('helvetica', 'bold');
-                            doc.text('FASTPOOLCODES', 7.5, 8.2);
-                            
-                            doc.setTextColor(52, 211, 153); // emerald-400
-                            doc.setFontSize(8.5);
-                            doc.setFont('helvetica', 'bold');
-                            doc.text(`[${activeBookmaker.toUpperCase()}] OFFICIAL WEEK ${currentBookmakerWeek} SHEET (49 FIXTURES)`, pageWidth - 7.5, 8.2, { align: 'right' });
-
-                            // Metadata 1-line bar (Height: 4mm)
-                            doc.setFillColor(248, 250, 252);
-                            doc.setDrawColor(203, 213, 225);
-                            doc.rect(4.5, 11.5, pageWidth - 9, 4.0, 'FD');
-
-                            doc.setFontSize(7.2);
-                            doc.setTextColor(51, 65, 85);
-                            doc.setFont('helvetica', 'bold');
-                            doc.text('LICENSEE:', 6.5, 14.3);
-                            doc.setTextColor(0, 0, 0);
-                            doc.text(`@${currentUser?.username || 'user'}`, 21, 14.3);
-
-                            doc.setTextColor(51, 65, 85);
-                            doc.text('EMAIL:', 50, 14.3);
-                            doc.setTextColor(0, 0, 0);
-                            doc.text(currentUser?.email || 'user@fastpoolcodes.com', 61, 14.3);
-
-                            doc.setTextColor(51, 65, 85);
-                            doc.text('SEASON:', 116, 14.3);
-                            doc.setTextColor(4, 120, 87);
-                            doc.text(`WEEK ${currentBookmakerWeek} (2026)`, 130, 14.3);
-
-                            doc.setTextColor(51, 65, 85);
-                            doc.text('KEY:', 160, 14.3);
-                            doc.setTextColor(0, 0, 0);
-                            doc.text(`SHA256:FPC-${(currentUser?.id || 'guest').slice(0, 5).toUpperCase()}`, 168, 14.3);
-
-                            // Compiled By & Contact Enquiries Header Line (Height: 3.8mm)
-                            doc.setFontSize(7.5);
+                            // 1. Prominent Centered Title (Exact match to official coupon header)
                             doc.setTextColor(0, 0, 0);
                             doc.setFont('helvetica', 'bold');
-                            doc.text('Compiled by Fastpoolcodes.com • Enquiries / WhatsApp: +234 8030587933, +234 9037595705', 4.5, 18.8);
+                            doc.setFontSize(13.5);
+                            const formattedDate = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase().replace(/ /g, '-');
+                            const couponTitle = `WEEK ${currentBookmakerWeek} ${activeBookmaker.toUpperCase()} - UK 2026/27  ${formattedDate}`;
+                            doc.text(couponTitle, pageWidth / 2, 10, { align: 'center' });
 
-                            // Table Columns Setup (Strict 12 Bookmaker Columns)
+                            // 2. Centered Enquiries Sub-header
+                            doc.setFontSize(7.8);
+                            doc.setFont('helvetica', 'bold');
+                            doc.setTextColor(0, 0, 0);
+                            doc.text('(For Enquiries Visit : www.fastpoolcodes.com Call or WhatsApp: +234 8030587933, +234 9037595705)', pageWidth / 2, 14.5, { align: 'center' });
+
+                            // Table Columns Setup (Matching the official 12 columns / 10 fixtures sheet)
                             const tableHeaders: string[] = [
-                              'POOL',
-                              'BET CODE',
-                              'LEAGUE',
-                              'HOME',
-                              'AWAY',
+                              'Pool',
+                              'Bet Code',
+                              'League',
+                              'Home',
+                              'Away',
                               '1',
                               'X',
                               '2',
-                              'BET TIPS',
-                              'STATUS',
-                              'KICK OFF',
-                              'WEEK NO'
+                              'Bet Tips',
+                              'Status',
+                              'Kick Off',
+                              'Week No'
                             ];
 
                             const tableData = pdfFilteredGames.map(game => [
-                              String(game.poolNo ?? 'NULL'),
-                              String(game.betCode ?? 'NULL'),
-                              String(game.league ?? 'NULL'),
-                              String(game.home ?? 'NULL'),
-                              String(game.away ?? 'NULL'),
-                              String(game.homeWin ?? 'NULL'),
-                              String(game.draw ?? 'NULL'),
-                              String(game.awayWin ?? 'NULL'),
-                              String(game.betTips ?? 'NULL'),
-                              String(game.status ?? 'NULL'),
-                              String(game.kickOff ?? 'NULL'),
+                              String(game.poolNo ?? '-'),
+                              String(game.betCode ?? '-'),
+                              String(game.league ?? '-'),
+                              String(game.home ?? '-'),
+                              String(game.away ?? '-'),
+                              String(game.homeWin ?? '-'),
+                              String(game.draw ?? '-'),
+                              String(game.awayWin ?? '-'),
+                              String(game.betTips ?? '-'),
+                              String(game.status ?? 'Saturday'),
+                              String(game.kickOff ?? '3:00 PM'),
                               String((game.weekNo && game.weekNo !== 'NULL') ? game.weekNo : currentBookmakerWeek)
                             ]);
 
+                            const targetColumnsList = [
+                              'pool',
+                              'bet code',
+                              'league',
+                              'home',
+                              'away',
+                              '1',
+                              'x',
+                              '2',
+                              'bet tips',
+                              'status',
+                              'kick off',
+                              'week no'
+                            ];
+
+                            const isTargetHeader = (headerText: string): boolean => {
+                              const norm = String(headerText || '')
+                                .replace(/[\n\r]+/g, ' ')
+                                .replace(/\s+/g, ' ')
+                                .trim()
+                                .toLowerCase();
+                              return targetColumnsList.some(target => norm === target || norm.startsWith(target) || target.startsWith(norm));
+                            };
+
                             autoTable(doc, {
-                              startY: 19.8,
+                              startY: 16.5,
                               head: [tableHeaders],
-                              body: tableData.length > 0 ? tableData : [['NULL', 'NULL', 'No classified fixtures found', ...tableHeaders.slice(3).map(() => 'NULL')]],
+                              body: tableData.length > 0 ? tableData : [['-', '-', '-', 'No classified fixtures found', ...tableHeaders.slice(4).map(() => '-')]],
                               theme: 'grid',
-                              margin: { top: 19.8, bottom: 4.5, left: 4.5, right: 4.5 },
+                              margin: { top: 16.5, bottom: 16, left: 4.5, right: 4.5 },
+                              styles: {
+                                font: 'helvetica',
+                                textColor: [0, 0, 0],
+                                lineWidth: 0.25,
+                                lineColor: [0, 0, 0],
+                                cellPadding: [0.65, 0.4]
+                              },
                               headStyles: {
-                                fillColor: [15, 23, 42],
-                                textColor: [255, 255, 255],
-                                fontSize: 6.8,
+                                fillColor: [255, 255, 255],
+                                textColor: [0, 0, 0],
+                                fontSize: 9,
                                 fontStyle: 'bold',
+                                font: 'helvetica',
                                 halign: 'center',
-                                cellPadding: [0.6, 0.4],
-                                minCellHeight: 4.0,
-                                lineWidth: 0.2,
-                                lineColor: [15, 23, 42]
+                                valign: 'middle',
+                                cellPadding: [0.8, 0.4],
+                                lineWidth: 0.35,
+                                lineColor: [0, 0, 0]
                               },
                               bodyStyles: {
-                                fillColor: false,
-                                fontSize: 6.5,
-                                fontStyle: 'bold',
+                                fillColor: [255, 255, 255],
+                                fontSize: 8,
+                                fontStyle: 'normal',
+                                font: 'helvetica',
                                 textColor: [0, 0, 0],
-                                cellPadding: [0.45, 0.35],
-                                minCellHeight: 4.4,
-                                lineWidth: 0.15,
-                                lineColor: [71, 85, 105]
+                                cellPadding: [0.6, 0.4],
+                                minCellHeight: 4.2,
+                                lineWidth: 0.2,
+                                lineColor: [0, 0, 0]
                               },
                               alternateRowStyles: {
-                                fillColor: [248, 250, 252],
+                                fillColor: [255, 255, 255],
                               },
                               columnStyles: {
-                                0: { halign: 'center', fontStyle: 'bold', textColor: [0, 0, 0], cellWidth: 10 },
-                                1: { halign: 'center', fontStyle: 'bold', textColor: [0, 0, 0], cellWidth: 15 },
-                                2: { halign: 'center', fontStyle: 'bold', textColor: [30, 41, 59], cellWidth: 18 },
-                                3: { halign: 'left', fontStyle: 'bold', textColor: [0, 0, 0], cellWidth: 29 },
-                                4: { halign: 'left', fontStyle: 'bold', textColor: [0, 0, 0], cellWidth: 29 },
-                                5: { halign: 'center', fontStyle: 'bold', textColor: [15, 23, 42], cellWidth: 11 },
-                                6: { halign: 'center', fontStyle: 'bold', textColor: [4, 120, 87], cellWidth: 11 },
-                                7: { halign: 'center', fontStyle: 'bold', textColor: [15, 23, 42], cellWidth: 11 },
-                                8: { halign: 'center', fontStyle: 'bold', textColor: [180, 83, 9], cellWidth: 19 },
-                                9: { halign: 'center', fontStyle: 'bold', textColor: [0, 0, 0], cellWidth: 15 },
-                                10: { halign: 'center', fontStyle: 'bold', textColor: [15, 23, 42], cellWidth: 17 },
-                                11: { halign: 'center', fontStyle: 'bold', textColor: [15, 23, 42], cellWidth: 16 },
+                                0: { halign: 'center', cellWidth: 10 },
+                                1: { halign: 'center', cellWidth: 15 },
+                                2: { halign: 'center', cellWidth: 16 },
+                                3: { halign: 'left', cellWidth: 28 },
+                                4: { halign: 'left', cellWidth: 28 },
+                                5: { halign: 'center', cellWidth: 11 },
+                                6: { halign: 'center', cellWidth: 11 },
+                                7: { halign: 'center', cellWidth: 11 },
+                                8: { halign: 'center', cellWidth: 18 },
+                                9: { halign: 'center', cellWidth: 16 },
+                                10: { halign: 'center', cellWidth: 18 },
+                                11: { halign: 'center', cellWidth: 15 },
                               },
                               didParseCell: (hookData) => {
-                                if (hookData.section === 'body') {
-                                  if (hookData.cell.raw === 'NULL') {
-                                    hookData.cell.styles.textColor = [100, 116, 139];
+                                const rawHead = String(
+                                  hookData.column.raw || 
+                                  (hookData.table.head && hookData.table.head[0] && (hookData.table.head[0][hookData.column.index]?.content || hookData.table.head[0][hookData.column.index])) || 
+                                  ''
+                                );
+
+                                if (isTargetHeader(rawHead)) {
+                                  hookData.cell.styles.font = 'helvetica'; // Arial equivalent in PDF font standard
+                                  if (hookData.section === 'head') {
                                     hookData.cell.styles.fontStyle = 'bold';
+                                    hookData.cell.styles.fontSize = 9; // 9pt
+                                  } else if (hookData.section === 'body') {
+                                    hookData.cell.styles.fontStyle = 'normal'; // Regular
+                                    hookData.cell.styles.fontSize = 8; // 8pt
+                                  }
+                                }
+
+                                if (hookData.section === 'body') {
+                                  if (hookData.cell.raw === 'NULL' || hookData.cell.raw === '-') {
+                                    hookData.cell.styles.textColor = [0, 0, 0];
                                   }
                                 }
                               },
                               willDrawPage: () => {
                                 // Soft security watermark placed strictly BEHIND the table cells and text
                                 doc.saveGraphicsState();
-                                doc.setTextColor(240, 244, 248); // Soft, faint watermark contrast under data
-                                doc.setFontSize(10.5);
+                                doc.setTextColor(245, 245, 245);
+                                doc.setFontSize(11);
                                 doc.setFont('helvetica', 'bold');
                                 const watermarkText = `FASTPOOLCODES • ${currentUser?.email || 'user@fastpoolcodes.com'}`;
                                 for (let y = 30; y < pageHeight; y += 65) {
@@ -7382,20 +7398,32 @@ export default function CustomerPortal({
                                 doc.restoreGraphicsState();
                               },
                               didDrawPage: () => {
-                                // Security trace footer strictly BELOW the codes on page bottom
+                                // Bottom Notes & Disclaimer matching exact photo layout
+                                const currentY = (doc as any).lastAutoTable?.finalY || (pageHeight - 16);
+                                const noteY = Math.min(currentY + 3.8, pageHeight - 11);
+                                
                                 doc.setFont('helvetica', 'bold');
                                 doc.setFontSize(6.8);
-                                doc.setTextColor(51, 65, 85);
+                                doc.setTextColor(0, 0, 0);
                                 doc.text(
-                                  `FastPoolCodes Official Classified Coupon • Week ${currentBookmakerWeek} • Licensed to ${currentUser?.email || 'user'} • Single Page Verified Sheet`,
-                                  4.5,
-                                  pageHeight - 2.5
+                                  `N.B: ODDS AS AT ${formattedDate} (Odds are subject to changes; EKO - Early Kick Off, LKO - Late Kick Off)`,
+                                  pageWidth / 2,
+                                  noteY,
+                                  { align: 'center' }
+                                );
+
+                                doc.setFontSize(6.2);
+                                doc.text(
+                                  'DISCLAIMER: You may not copy, reproduce, distribute, transmit, modify, create derivative works, or in any other',
+                                  pageWidth / 2,
+                                  noteY + 3.5,
+                                  { align: 'center' }
                                 );
                                 doc.text(
-                                  'Compiled by Fastpoolcodes.com (Call/WhatsApp: +234 8030587933, +234 9037595705)',
-                                  pageWidth - 4.5,
-                                  pageHeight - 2.5,
-                                  { align: 'right' }
+                                  'way exploit any part of copyrighted material without the prior written permission from Fastpoolcodes.com',
+                                  pageWidth / 2,
+                                  noteY + 6.5,
+                                  { align: 'center' }
                                 );
                               }
                             });
@@ -7578,108 +7606,138 @@ export default function CustomerPortal({
                         <span className="text-[8.5px] text-emerald-700 font-bold">1-PAGE A4 FORMAT (49 ROWS)</span>
                       </div>
 
-                      <table className="w-full text-left font-sans text-[8.5px] border-collapse">
-                        <thead>
-                          <tr className="bg-slate-950 text-white font-mono uppercase text-[7.5px] tracking-wider border border-slate-950">
-                            <th className="py-1 px-1 border text-center w-[5%]">Pool</th>
-                            <th className="py-1 px-1 border text-center w-[8%]">Bet Code</th>
-                            <th className="py-1 px-1 border text-center w-[9%]">League</th>
-                            <th className="py-1 px-1 border w-[15%]">Home</th>
-                            <th className="py-1 px-1 border w-[15%]">Away</th>
-                            <th className="py-1 px-0.5 border text-center w-[5%]">1</th>
-                            <th className="py-1 px-0.5 border text-center w-[5%]">X</th>
-                            <th className="py-1 px-0.5 border text-center w-[5%]">2</th>
-                            <th className="py-1 px-1 border text-center w-[10%]">Bet Tips</th>
-                            <th className="py-1 px-1 border text-center w-[8%]">Status</th>
-                            <th className="py-1 px-1 border text-center w-[8%]">Kick Off</th>
-                            <th className="py-1 px-1 border text-center w-[7%]">Week No</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-200 border">
-                          {(() => {
-                            const activeBookmaker = pdfConfig.bookmakerFilter || dashboardBookmakerFilter || 'Bet9ja';
-                            const normStr = (s: string) => (s || '').replace(/\s+/g, '').toLowerCase();
-                            const targetNorm = normStr(activeBookmaker);
+                      {(() => {
+                        const targetFormattingCols = [
+                          'pool',
+                          'bet code',
+                          'league',
+                          'home',
+                          'away',
+                          '1',
+                          'x',
+                          '2',
+                          'bet tips',
+                          'status',
+                          'kick off',
+                          'week no'
+                        ];
 
-                            // Filter games according to selected bookmaker table
-                            const rawList = postedGames.filter(game => {
-                              if (activeBookmaker === 'all') return true;
+                        const isMatchedCol = (headerName: string) => {
+                          const norm = String(headerName || '').replace(/[\n\r]+/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+                          return targetFormattingCols.some(t => norm === t || norm.startsWith(t) || t.startsWith(norm));
+                        };
 
-                              const gameBookieNorm = normStr(game.bookmaker);
-                              const gameSourceNorm = normStr(game.sourceTable || '');
-                              return gameBookieNorm === targetNorm || gameSourceNorm === targetNorm;
-                            });
+                        const couponHtmlHeaders = [
+                          { label: 'Pool', width: 'w-[5%]', align: 'text-center' },
+                          { label: 'Bet Code', width: 'w-[8%]', align: 'text-center' },
+                          { label: 'League', width: 'w-[9%]', align: 'text-center' },
+                          { label: 'Home', width: 'w-[15%]', align: 'text-left' },
+                          { label: 'Away', width: 'w-[15%]', align: 'text-left' },
+                          { label: '1', width: 'w-[5%]', align: 'text-center' },
+                          { label: 'X', width: 'w-[5%]', align: 'text-center' },
+                          { label: '2', width: 'w-[5%]', align: 'text-center' },
+                          { label: 'Bet Tips', width: 'w-[10%]', align: 'text-center' },
+                          { label: 'Status', width: 'w-[8%]', align: 'text-center' },
+                          { label: 'Kick Off', width: 'w-[8%]', align: 'text-center' },
+                          { label: 'Week No', width: 'w-[7%]', align: 'text-center' },
+                        ];
 
-                            // Deduplicate strictly by pool number so pool numbers (1 to 50) are NEVER repeated
-                            const seenPools = new Map<string, typeof rawList[0]>();
-                            rawList.forEach(game => {
-                              const key = game.poolNo !== undefined && game.poolNo !== null && String(game.poolNo).trim() !== ''
-                                ? String(game.poolNo)
-                                : game.id;
-                              if (!seenPools.has(key)) {
-                                seenPools.set(key, game);
-                              }
-                            });
+                        const activeBookmaker = pdfConfig.bookmakerFilter || dashboardBookmakerFilter || 'Bet9ja';
+                        const normStr = (s: string) => (s || '').replace(/\s+/g, '').toLowerCase();
+                        const targetNorm = normStr(activeBookmaker);
 
-                            const pdfFilteredGames = Array.from(seenPools.values());
-                            pdfFilteredGames.sort((a, b) => (Number(a.poolNo) || 0) - (Number(b.poolNo) || 0));
+                        // Filter games according to selected bookmaker table
+                        const rawList = postedGames.filter(game => {
+                          if (activeBookmaker === 'all') return true;
 
-                            if (pdfFilteredGames.length === 0) {
-                              return (
+                          const gameBookieNorm = normStr(game.bookmaker);
+                          const gameSourceNorm = normStr(game.sourceTable || '');
+                          return gameBookieNorm === targetNorm || gameSourceNorm === targetNorm;
+                        });
+
+                        // Deduplicate strictly by pool number so pool numbers (1 to 50) are NEVER repeated
+                        const seenPools = new Map<string, typeof rawList[0]>();
+                        rawList.forEach(game => {
+                          const key = game.poolNo !== undefined && game.poolNo !== null && String(game.poolNo).trim() !== ''
+                            ? String(game.poolNo)
+                            : game.id;
+                          if (!seenPools.has(key)) {
+                            seenPools.set(key, game);
+                          }
+                        });
+
+                        const pdfFilteredGames = Array.from(seenPools.values());
+                        pdfFilteredGames.sort((a, b) => (Number(a.poolNo) || 0) - (Number(b.poolNo) || 0));
+
+                        return (
+                          <table className="w-full text-left border-collapse" style={{ fontFamily: 'Arial, sans-serif' }}>
+                            <thead>
+                              <tr className="bg-slate-950 text-white border border-slate-950">
+                                {couponHtmlHeaders.map((col, idx) => {
+                                  const matched = isMatchedCol(col.label);
+                                  return (
+                                    <th
+                                      key={idx}
+                                      className={`py-1 px-1 border ${col.width} ${col.align}`}
+                                      style={matched ? { fontFamily: 'Arial, sans-serif', fontWeight: 'bold', fontSize: '9pt' } : {}}
+                                    >
+                                      {col.label}
+                                    </th>
+                                  );
+                                })}
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-200 border">
+                              {pdfFilteredGames.length === 0 ? (
                                 <tr>
                                   <td colSpan={12} className="p-4 text-center text-slate-400 font-mono italic text-[9px]">
                                     No classified fixtures found for the selected bookmaker ({activeBookmaker}).
                                   </td>
                                 </tr>
-                              );
-                            }
+                              ) : (
+                                pdfFilteredGames.map((game, idx) => {
+                                  const rowCells = [
+                                    { header: 'Pool', value: game.poolNo, align: 'text-center', bg: 'bg-slate-100/70', color: 'text-slate-900' },
+                                    { header: 'Bet Code', value: game.betCode, align: 'text-center', bg: 'bg-slate-100/50', color: 'text-slate-800' },
+                                    { header: 'League', value: game.league, align: 'text-center', bg: 'bg-slate-100/30', color: 'text-slate-800' },
+                                    { header: 'Home', value: game.home, align: 'text-left', bg: 'bg-inherit', color: 'text-slate-900', truncate: true },
+                                    { header: 'Away', value: game.away, align: 'text-left', bg: 'bg-inherit', color: 'text-slate-900', truncate: true },
+                                    { header: '1', value: game.homeWin, align: 'text-center', bg: 'bg-inherit', color: 'text-slate-900' },
+                                    { header: 'X', value: game.draw, align: 'text-center', bg: 'bg-inherit', color: 'text-emerald-700' },
+                                    { header: '2', value: game.awayWin, align: 'text-center', bg: 'bg-inherit', color: 'text-slate-900' },
+                                    { header: 'Bet Tips', value: game.betTips, align: 'text-center', bg: 'bg-inherit', color: 'text-amber-800' },
+                                    { header: 'Status', value: game.status, align: 'text-center', bg: 'bg-inherit', color: 'text-slate-700' },
+                                    { header: 'Kick Off', value: game.kickOff, align: 'text-center', bg: 'bg-inherit', color: 'text-slate-700' },
+                                    { header: 'Week No', value: game.weekNo, align: 'text-center', bg: 'bg-inherit', color: 'text-slate-700' },
+                                  ];
 
-                            return pdfFilteredGames.map((game, idx) => (
-                              <tr 
-                                key={game.id || idx} 
-                                className={`text-[8.5px] leading-tight transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/80'}`}
-                              >
-                                <td className="py-0.5 px-0.5 border text-center font-mono font-black text-slate-900 bg-slate-100/70">
-                                  <span className={game.poolNo === 'NULL' ? 'text-slate-400 font-mono italic text-[7.5px]' : ''}>{game.poolNo}</span>
-                                </td>
-                                <td className="py-0.5 px-0.5 border text-center font-mono font-black text-slate-800 bg-slate-100/50">
-                                  <span className={game.betCode === 'NULL' ? 'text-slate-400 font-mono italic text-[7.5px]' : ''}>{game.betCode}</span>
-                                </td>
-                                <td className="py-0.5 px-0.5 border text-center font-bold text-slate-800 text-[8px] bg-slate-100/30">
-                                  <span className={game.league === 'NULL' ? 'text-slate-400 font-mono italic text-[7.5px]' : ''}>{game.league}</span>
-                                </td>
-                                <td className="py-0.5 px-1 border font-bold text-slate-900 bg-inherit truncate max-w-[110px]">
-                                  <span className={game.home === 'NULL' ? 'text-slate-400 font-mono italic text-[7.5px]' : ''}>{game.home}</span>
-                                </td>
-                                <td className="py-0.5 px-1 border font-bold text-slate-900 bg-inherit truncate max-w-[110px]">
-                                  <span className={game.away === 'NULL' ? 'text-slate-400 font-mono italic text-[7.5px]' : ''}>{game.away}</span>
-                                </td>
-                                <td className="py-0.5 px-0.5 border text-center font-mono text-slate-600 text-[8px] bg-inherit">
-                                  <span className={game.homeWin === 'NULL' ? 'text-slate-400 font-mono italic text-[7.5px]' : ''}>{game.homeWin}</span>
-                                </td>
-                                <td className="py-0.5 px-0.5 border text-center font-mono font-bold text-emerald-700 text-[8px] bg-inherit">
-                                  <span className={game.draw === 'NULL' ? 'text-slate-400 font-mono italic text-[7.5px]' : ''}>{game.draw}</span>
-                                </td>
-                                <td className="py-0.5 px-0.5 border text-center font-mono text-slate-600 text-[8px] bg-inherit">
-                                  <span className={game.awayWin === 'NULL' ? 'text-slate-400 font-mono italic text-[7.5px]' : ''}>{game.awayWin}</span>
-                                </td>
-                                <td className="py-0.5 px-0.5 border text-center font-mono font-black text-amber-800 text-[8px] uppercase bg-inherit">
-                                  <span className={game.betTips === 'NULL' ? 'text-slate-400 font-mono italic text-[7.5px]' : ''}>{game.betTips}</span>
-                                </td>
-                                <td className="py-0.5 px-0.5 border text-center font-mono text-slate-600 text-[8px] bg-inherit">
-                                  <span className={game.status === 'NULL' ? 'text-slate-400 font-mono italic text-[7.5px]' : ''}>{game.status}</span>
-                                </td>
-                                <td className="py-0.5 px-0.5 border text-center font-mono text-slate-600 text-[8px] bg-inherit">
-                                  <span className={game.kickOff === 'NULL' ? 'text-slate-400 font-mono italic text-[7.5px]' : ''}>{game.kickOff}</span>
-                                </td>
-                                <td className="py-0.5 px-0.5 border text-center font-mono text-slate-600 text-[8px] bg-inherit">
-                                  <span className={game.weekNo === 'NULL' ? 'text-slate-400 font-mono italic text-[7.5px]' : ''}>{game.weekNo}</span>
-                                </td>
-                              </tr>
-                            ));
-                          })()}
-                        </tbody>
-                      </table>
+                                  return (
+                                    <tr 
+                                      key={game.id || idx} 
+                                      className={`leading-tight transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/80'}`}
+                                    >
+                                      {rowCells.map((cell, cIdx) => {
+                                        const matched = isMatchedCol(cell.header);
+                                        return (
+                                          <td
+                                            key={cIdx}
+                                            className={`py-0.5 px-1 border ${cell.align} ${cell.bg} ${cell.color} ${cell.truncate ? 'truncate max-w-[110px]' : ''}`}
+                                            style={matched ? { fontFamily: 'Arial, sans-serif', fontWeight: 'normal', fontSize: '8pt' } : {}}
+                                          >
+                                            <span className={cell.value === 'NULL' ? 'text-slate-400 italic text-[7.5px]' : ''}>
+                                              {cell.value ?? '-'}
+                                            </span>
+                                          </td>
+                                        );
+                                      })}
+                                    </tr>
+                                  );
+                                })
+                              )}
+                            </tbody>
+                          </table>
+                        );
+                      })()}
                     </div>
                   </div>
 

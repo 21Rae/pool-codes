@@ -873,18 +873,18 @@ export default function WeeklyPoolPicksTable({
 
       doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(15);
+      doc.setFontSize(16);
       doc.text(`FASTPOOLCODES • ${tableDisplayName.toUpperCase()}`, 14, 12);
 
-      doc.setFontSize(9.5);
+      doc.setFontSize(10.5);
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor(226, 232, 240); // slate-200 high contrast bold text
+      doc.setTextColor(255, 255, 255); // high contrast pure white bold text
       doc.text(
         `Week ${effectiveWeek} Verified Banker Draws & Bet Codes Matrix | Generated: ${new Date().toLocaleDateString(
           'en-GB'
         )} | License: @${currentUser.username || 'user'}`,
         14,
-        19
+        20
       );
 
       // Table columns & rows matching strictly the bookmaker tables
@@ -912,25 +912,54 @@ export default function WeeklyPoolPicksTable({
         body: tableData,
         startY: 32,
         theme: 'grid',
+        styles: {
+          font: 'helvetica',
+          textColor: [0, 0, 0],
+          lineWidth: 0.3,
+          lineColor: [15, 23, 42]
+        },
         headStyles: {
           fillColor: headerColor,
           textColor: [255, 255, 255],
           fontStyle: 'bold',
-          fontSize: 9.2,
+          fontSize: 9,
+          font: 'helvetica',
+          halign: 'center',
+          cellPadding: [2.2, 1.5],
+          lineWidth: 0.35,
+          lineColor: [0, 0, 0]
+        },
+        bodyStyles: {
+          fillColor: [255, 255, 255],
+          fontSize: 8,
+          fontStyle: 'normal',
+          font: 'helvetica',
+          textColor: [0, 0, 0],
           halign: 'center',
           cellPadding: [2.0, 1.5],
           lineWidth: 0.25,
           lineColor: [15, 23, 42]
         },
-        bodyStyles: {
-          fillColor: [255, 255, 255],
-          fontSize: 9.0,
-          fontStyle: 'bold',
-          textColor: [0, 0, 0],
-          halign: 'center',
-          cellPadding: [1.8, 1.5],
-          lineWidth: 0.2,
-          lineColor: [71, 85, 105]
+        didParseCell: (hookData) => {
+          const rawHead = String(
+            hookData.column.raw || 
+            (hookData.table.head && hookData.table.head[0] && (hookData.table.head[0][hookData.column.index]?.content || hookData.table.head[0][hookData.column.index])) || 
+            ''
+          ).replace(/[\n\r]+/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+
+          const targetCols = ['pool', 'bet code', 'league', 'home', 'away', '1', 'x', '2', 'bet tips', 'bet', 'status', 'kick off', 'week no'];
+          const matched = targetCols.some(t => rawHead === t || rawHead.startsWith(t) || t.startsWith(rawHead));
+
+          if (matched) {
+            hookData.cell.styles.font = 'helvetica';
+            if (hookData.section === 'head') {
+              hookData.cell.styles.fontStyle = 'bold';
+              hookData.cell.styles.fontSize = 9;
+            } else if (hookData.section === 'body') {
+              hookData.cell.styles.fontStyle = 'normal';
+              hookData.cell.styles.fontSize = 8;
+            }
+          }
         },
         alternateRowStyles: {
           fillColor: [241, 245, 249]
@@ -940,18 +969,18 @@ export default function WeeklyPoolPicksTable({
           1: { halign: 'center', fontStyle: 'bold', textColor: [4, 120, 87], cellWidth: 24 },
           2: { halign: 'left', fontStyle: 'bold', textColor: [0, 0, 0], cellWidth: 46 },
           3: { halign: 'left', fontStyle: 'bold', textColor: [0, 0, 0], cellWidth: 46 },
-          4: { halign: 'center', fontStyle: 'bold', textColor: [15, 23, 42], cellWidth: 23 },
+          4: { halign: 'center', fontStyle: 'bold', textColor: [0, 0, 0], cellWidth: 23 },
           5: { halign: 'center', fontStyle: 'bold', textColor: [4, 120, 87], cellWidth: 23 },
-          6: { halign: 'center', fontStyle: 'bold', textColor: [15, 23, 42], cellWidth: 23 },
+          6: { halign: 'center', fontStyle: 'bold', textColor: [0, 0, 0], cellWidth: 23 },
           7: { halign: 'center', fontStyle: 'bold', textColor: [180, 83, 9], cellWidth: 18 },
           8: { halign: 'center', fontStyle: 'bold', textColor: [0, 0, 0], cellWidth: 26 },
-          9: { halign: 'center', fontStyle: 'bold', textColor: [15, 23, 42], cellWidth: 26 }
+          9: { halign: 'center', fontStyle: 'bold', textColor: [0, 0, 0], cellWidth: 26 }
         },
         willDrawPage: () => {
           doc.saveGraphicsState();
           doc.setTextColor(240, 244, 248);
-          doc.setFontSize(10.5);
-          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(11);
+          doc.setFont('helvetica', 'bold');
           const watermarkText = `FASTPOOLCODES • ${primaryEmail}`;
           for (let x = -20; x < 320; x += 150) {
             for (let y = 30; y < 220; y += 70) {
@@ -962,8 +991,8 @@ export default function WeeklyPoolPicksTable({
         },
         didDrawPage: () => {
           doc.setFont('helvetica', 'bold');
-          doc.setFontSize(7.5);
-          doc.setTextColor(51, 65, 85);
+          doc.setFontSize(8.2);
+          doc.setTextColor(0, 0, 0);
           doc.text(
             `FastPoolCodes Official Classified Sheet • Week ${effectiveWeek} • Licensed to ${primaryEmail} • Single Page Verified Copy`,
             14,

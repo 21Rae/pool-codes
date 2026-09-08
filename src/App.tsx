@@ -739,29 +739,29 @@ export default function App() {
 
       // Title & Subtitle
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(16);
+      doc.setFontSize(17);
       doc.setTextColor(245, 158, 11); // Gold
       doc.text('FASTPOOL CODES - OFFICIAL VIP CODESHEET', 14, 15);
 
-      doc.setFontSize(9);
+      doc.setFontSize(10);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(255, 255, 255);
       doc.text(`PREMIUM VERIFIED SLIP & LICENSE CERTIFICATE • WEEK ${weekNum}`, 14, 23);
 
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(148, 163, 184); // slate-400
+      doc.setFontSize(8.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(203, 213, 225); // slate-300
       doc.text(`Official Delivery Syndicate • www.fastpoolcodes.com • 256-Bit SSL Decrypted`, 14, 30);
 
       // Verified Seal Badge on top right
       doc.setFillColor(16, 185, 129); // emerald-500
       doc.roundedRect(148, 10, 48, 18, 2, 2, 'F');
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(7.5);
+      doc.setFontSize(8.0);
       doc.setTextColor(255, 255, 255);
       doc.text('✓ VERIFIED VIP LICENSE', 152, 17);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(6.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.0);
       doc.text('ACTIVE & AUTHENTICATED', 152, 23);
 
       // 2. License Details Table
@@ -770,16 +770,16 @@ export default function App() {
         margin: { left: 14, right: 14 },
         theme: 'plain',
         styles: {
-          fontSize: 8.5,
-          cellPadding: 2.2,
+          fontSize: 9.0,
+          cellPadding: 2.5,
           font: 'helvetica',
           fontStyle: 'bold',
           textColor: [0, 0, 0]
         },
         columnStyles: {
-          0: { fontStyle: 'bold', textColor: [51, 65, 85], cellWidth: 38 },
+          0: { fontStyle: 'bold', textColor: [0, 0, 0], cellWidth: 38 },
           1: { fontStyle: 'bold', textColor: [0, 0, 0], cellWidth: 55 },
-          2: { fontStyle: 'bold', textColor: [51, 65, 85], cellWidth: 38 },
+          2: { fontStyle: 'bold', textColor: [0, 0, 0], cellWidth: 38 },
           3: { fontStyle: 'bold', textColor: [0, 0, 0], cellWidth: 51 }
         },
         body: [
@@ -820,23 +820,31 @@ export default function App() {
         head: [['#', 'Bookmaker Table', 'Decrypted Slip Codes & Banker Predictions', 'Access Level', 'Status']],
         body: codesTableRows,
         theme: 'grid',
+        styles: {
+          font: 'helvetica',
+          fontStyle: 'bold',
+          fontSize: 9.0,
+          textColor: [0, 0, 0],
+          lineWidth: 0.25,
+          lineColor: [15, 23, 42]
+        },
         headStyles: {
           fillColor: [15, 23, 42],
           textColor: [245, 158, 11],
-          fontSize: 9.0,
+          fontSize: 9.5,
           fontStyle: 'bold',
           halign: 'left',
-          lineWidth: 0.2,
-          lineColor: [15, 23, 42]
+          lineWidth: 0.3,
+          lineColor: [0, 0, 0]
         },
         bodyStyles: {
-          fontSize: 8.5,
+          fontSize: 9.0,
           fontStyle: 'bold',
           textColor: [0, 0, 0],
-          cellPadding: 3.5,
+          cellPadding: 3.8,
           valign: 'middle',
-          lineWidth: 0.15,
-          lineColor: [71, 85, 105]
+          lineWidth: 0.25,
+          lineColor: [15, 23, 42]
         },
         columnStyles: {
           0: { cellWidth: 10, halign: 'center', fontStyle: 'bold', textColor: [0, 0, 0] },
@@ -846,7 +854,7 @@ export default function App() {
           4: { cellWidth: 24, fontStyle: 'bold', textColor: [4, 120, 87], halign: 'center' }
         },
         alternateRowStyles: {
-          fillColor: [248, 250, 252]
+          fillColor: [241, 245, 249]
         },
         willDrawPage: () => {
           // Watermark
@@ -869,15 +877,15 @@ export default function App() {
           doc.setFillColor(241, 245, 249);
           doc.rect(14, pageHeight - 24, 182, 14, 'F');
           
-          doc.setFontSize(7.0);
+          doc.setFontSize(7.5);
           doc.setFont('helvetica', 'bold');
-          doc.setTextColor(51, 65, 85);
+          doc.setTextColor(0, 0, 0);
           doc.text(`SECURITY & ANTI-PIRACY NOTICE:`, 16, pageHeight - 19);
           doc.setFont('helvetica', 'bold');
           doc.text(`This official codesheet PDF is registered exclusively to ${nickname} (${email}). Unauthorized sharing or resale will result in immediate license revocation.`, 16, pageHeight - 14);
           
-          doc.setFontSize(7.0);
-          doc.setTextColor(71, 85, 105);
+          doc.setFontSize(7.5);
+          doc.setTextColor(0, 0, 0);
           doc.text(`FastPoolCodes Official Classified VIP Sheet • Week ${weekNum} • Licensed to ${email}`, 14, pageHeight - 5);
           doc.text(`Support: +234 8030587933, +234 9037595705`, 196, pageHeight - 5, { align: 'right' });
         }

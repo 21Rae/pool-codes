@@ -238,11 +238,11 @@ export default function OfficePoolStopHome({
     try {
       const doc = new jsPDF();
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(16);
+      doc.setFontSize(17);
       doc.setTextColor(15, 23, 42);
       doc.text(`Official Pool Results: Week ${activeResult.week_number} (${activeResult.season_year || 2026})`, 14, 18);
-      doc.setFontSize(10);
-      doc.setTextColor(5, 150, 105);
+      doc.setFontSize(11);
+      doc.setTextColor(4, 120, 87);
       doc.text(`${activeResult.title || 'Weekly Results Sheet'} | Generated from FastPool`, 14, 25);
 
       const tableData = (activeResult.results_table || [])
@@ -266,25 +266,57 @@ export default function OfficePoolStopHome({
           fillColor: [5, 150, 105],
           textColor: [255, 255, 255],
           fontStyle: 'bold',
-          fontSize: 9.5,
+          fontSize: 10.0,
           halign: 'center',
-          lineWidth: 0.2,
-          lineColor: [5, 150, 105]
+          cellPadding: 3.2,
+          lineWidth: 0.3,
+          lineColor: [0, 0, 0]
         },
         styles: {
-          fontSize: 9.0,
+          font: 'helvetica',
           fontStyle: 'bold',
+          fontSize: 9.5,
           textColor: [0, 0, 0],
-          cellPadding: 3.0,
-          lineWidth: 0.15,
-          lineColor: [71, 85, 105]
+          cellPadding: 3.2,
+          lineWidth: 0.25,
+          lineColor: [15, 23, 42]
+        },
+        bodyStyles: {
+          font: 'helvetica',
+          fontSize: 8,
+          fontStyle: 'normal',
+          textColor: [0, 0, 0],
+          cellPadding: 3.2,
+          lineWidth: 0.25,
+          lineColor: [15, 23, 42]
+        },
+        didParseCell: (hookData) => {
+          const rawHead = String(
+            hookData.column.raw || 
+            (hookData.table.head && hookData.table.head[0] && (hookData.table.head[0][hookData.column.index]?.content || hookData.table.head[0][hookData.column.index])) || 
+            ''
+          ).replace(/[\n\r]+/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+
+          const targetCols = ['pool', 'pool no', 'bet code', 'league', 'home', 'away', '1', 'x', '2', 'bet tips', 'status', 'kick off', 'kickoff', 'week no'];
+          const matched = targetCols.some(t => rawHead === t || rawHead.startsWith(t) || t.startsWith(rawHead));
+
+          if (matched) {
+            hookData.cell.styles.font = 'helvetica';
+            if (hookData.section === 'head') {
+              hookData.cell.styles.fontStyle = 'bold';
+              hookData.cell.styles.fontSize = 9;
+            } else if (hookData.section === 'body') {
+              hookData.cell.styles.fontStyle = 'normal';
+              hookData.cell.styles.fontSize = 8;
+            }
+          }
         },
         columnStyles: {
           0: { halign: 'center', fontStyle: 'bold', textColor: [0, 0, 0] },
           1: { fontStyle: 'bold', textColor: [0, 0, 0] },
           2: { halign: 'center', fontStyle: 'bold', textColor: [4, 120, 87] },
           3: { fontStyle: 'bold', textColor: [0, 0, 0] },
-          4: { halign: 'center', fontStyle: 'bold', textColor: [15, 23, 42] }
+          4: { halign: 'center', fontStyle: 'bold', textColor: [0, 0, 0] }
         }
       });
 

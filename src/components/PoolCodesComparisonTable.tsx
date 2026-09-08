@@ -456,32 +456,32 @@ export default function PoolCodesComparisonTable({
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
 
-      // Top compact header banner (Height: 8mm)
+      // Top compact header banner (Height: 8.5mm)
       doc.setFillColor(15, 23, 42); // slate-900
-      doc.rect(6, 4, pageWidth - 12, 8.5, 'F');
+      doc.rect(6, 4, pageWidth - 12, 9.0, 'F');
 
       // Golden accent line
       doc.setFillColor(245, 158, 11); // amber-500
-      doc.rect(6, 12.5, pageWidth - 12, 0.8, 'F');
+      doc.rect(6, 13.0, pageWidth - 12, 0.9, 'F');
 
       // Title & Branding inside banner
       doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9.5);
-      doc.text('FASTPOOLCODES • POOL CODES COMPARISON (DRAW ODDS MATRIX)', 9, 9.6);
+      doc.setFontSize(10.5);
+      doc.text('FASTPOOLCODES • POOL CODES COMPARISON (DRAW ODDS MATRIX)', 9, 10.0);
 
       // Free badge & date on right side of banner
       doc.setTextColor(52, 211, 153); // emerald-400
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(7.8);
+      doc.setFontSize(8.2);
       const generatedTime = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-      doc.text(`FREE ACCESS SHEET • ${generatedTime}`, pageWidth - 9, 9.6, { align: 'right' });
+      doc.text(`FREE ACCESS SHEET • ${generatedTime}`, pageWidth - 9, 10.0, { align: 'right' });
 
       // Contact & Notice subheader line (Height: 3.5mm)
       doc.setTextColor(0, 0, 0); // pitch black
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(7.2);
-      doc.text('Compiled by Fastpoolcodes.com. For Enquiries Call or WhatsApp: +234 8030587933, +234 9037595705)', 6, 16.2);
+      doc.setFontSize(7.8);
+      doc.text('Compiled by Fastpoolcodes.com. For Enquiries Call or WhatsApp: +234 8030587933, +234 9037595705)', 6, 17.0);
 
       // Table columns & data
       const tableHeaders = [
@@ -502,33 +502,41 @@ export default function PoolCodesComparisonTable({
       autoTable(doc, {
         head: tableHeaders,
         body: tableRows,
-        startY: 18.0,
-        margin: { top: 18.0, bottom: 6, left: 6, right: 6 },
+        startY: 18.8,
+        margin: { top: 18.8, bottom: 6, left: 6, right: 6 },
         theme: 'grid',
         tableWidth: 'auto',
+        styles: {
+          font: 'helvetica',
+          fontStyle: 'bold',
+          fontSize: 7.5,
+          textColor: [0, 0, 0],
+          lineWidth: 0.25,
+          lineColor: [15, 23, 42]
+        },
         headStyles: {
           fillColor: [15, 23, 42],
           textColor: [255, 255, 255],
           fontStyle: 'bold',
-          fontSize: 7.8,
+          fontSize: 8.2,
           halign: 'center',
-          cellPadding: [1.0, 1.0],
-          minCellHeight: 4.0,
-          lineWidth: 0.2,
-          lineColor: [15, 23, 42]
+          cellPadding: [1.2, 1.0],
+          minCellHeight: 4.2,
+          lineWidth: 0.3,
+          lineColor: [0, 0, 0]
         },
         bodyStyles: {
           fillColor: false,
-          fontSize: 7.0,
+          fontSize: 7.5,
           fontStyle: 'bold',
           textColor: [0, 0, 0],
-          cellPadding: [0.55, 0.8],
-          minCellHeight: 3.5,
-          lineWidth: 0.15,
-          lineColor: [71, 85, 105]
+          cellPadding: [0.65, 0.8],
+          minCellHeight: 3.8,
+          lineWidth: 0.2,
+          lineColor: [15, 23, 42]
         },
         alternateRowStyles: {
-          fillColor: [248, 250, 252]
+          fillColor: [241, 245, 249]
         },
         columnStyles: {
           0: { cellWidth: 12, halign: 'center', fontStyle: 'bold', textColor: [0, 0, 0] },
@@ -537,14 +545,33 @@ export default function PoolCodesComparisonTable({
           3: { cellWidth: 32, halign: 'center', textColor: [180, 83, 9], fontStyle: 'bold' },
           4: { cellWidth: 32, halign: 'center', textColor: [3, 105, 161], fontStyle: 'bold' },
           5: { cellWidth: 34, halign: 'center', textColor: [190, 24, 93], fontStyle: 'bold' },
-          6: { cellWidth: 35, halign: 'center', fontStyle: 'bold', textColor: [15, 23, 42] },
-          7: { cellWidth: 36, halign: 'center', fontStyle: 'bold', textColor: [15, 23, 42] }
+          6: { cellWidth: 35, halign: 'center', fontStyle: 'bold', textColor: [0, 0, 0] },
+          7: { cellWidth: 36, halign: 'center', fontStyle: 'bold', textColor: [0, 0, 0] }
         },
         didParseCell: (hookData) => {
+          const rawHead = String(
+            hookData.column.raw || 
+            (hookData.table.head && hookData.table.head[0] && (hookData.table.head[0][hookData.column.index]?.content || hookData.table.head[0][hookData.column.index])) || 
+            ''
+          ).replace(/[\n\r]+/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+
+          const targetCols = ['pool', 'bet code', 'league', 'home', 'away', '1', 'x', '2', 'bet tips', 'status', 'kick off', 'kickoff', 'week no'];
+          const matched = targetCols.some(t => rawHead === t || rawHead.startsWith(t) || t.startsWith(rawHead));
+
+          if (matched) {
+            hookData.cell.styles.font = 'helvetica';
+            if (hookData.section === 'head') {
+              hookData.cell.styles.fontStyle = 'bold';
+              hookData.cell.styles.fontSize = 9;
+            } else if (hookData.section === 'body') {
+              hookData.cell.styles.fontStyle = 'normal';
+              hookData.cell.styles.fontSize = 8;
+            }
+          }
+
           if (hookData.section === 'body') {
             if (hookData.cell.raw === 'NULL') {
               hookData.cell.styles.textColor = [100, 116, 139];
-              hookData.cell.styles.fontStyle = 'bold';
             }
           }
         },
@@ -552,7 +579,7 @@ export default function PoolCodesComparisonTable({
           // Soft security watermark placed strictly BEHIND the table cells and text
           doc.saveGraphicsState();
           doc.setTextColor(240, 244, 248); // Soft, faint watermark contrast under data
-          doc.setFontSize(10.5);
+          doc.setFontSize(11);
           doc.setFont('helvetica', 'bold');
           const watermarkText = `FASTPOOLCODES • ${currentUser?.email || 'FREE ACCESS'}`;
           for (let y = 30; y < pageHeight; y += 65) {
@@ -565,8 +592,8 @@ export default function PoolCodesComparisonTable({
         didDrawPage: () => {
           // Compact footer watermark strictly BELOW the codes on page bottom
           doc.setFont('helvetica', 'bold');
-          doc.setFontSize(6.5);
-          doc.setTextColor(51, 65, 85);
+          doc.setFontSize(7.0);
+          doc.setTextColor(0, 0, 0);
           doc.text(
             `FastPoolCodes Comparison Verified Sheet • Licensed to ${currentUser?.email || 'General Access'} • For Enquiries Call/WhatsApp: +234 8030587933, +234 9037595705`,
             6,
