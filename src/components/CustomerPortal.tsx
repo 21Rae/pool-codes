@@ -7241,16 +7241,16 @@ export default function CustomerPortal({
                             // 1. Prominent Centered Title (Exact match to official coupon header)
                             doc.setTextColor(0, 0, 0);
                             doc.setFont('helvetica', 'bold');
-                            doc.setFontSize(12.0);
+                            doc.setFontSize(12.2);
                             const formattedDate = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase().replace(/ /g, '-');
                             const couponTitle = `WEEK ${currentBookmakerWeek} ${activeBookmaker.toUpperCase()} - UK 2026/27  ${formattedDate}`;
-                            doc.text(couponTitle, pageWidth / 2, 8.0, { align: 'center' });
+                            doc.text(couponTitle, pageWidth / 2, 7.5, { align: 'center' });
 
                             // 2. Centered Enquiries Sub-header
-                            doc.setFontSize(7.0);
+                            doc.setFontSize(7.2);
                             doc.setFont('helvetica', 'bold');
                             doc.setTextColor(0, 0, 0);
-                            doc.text('(For Enquiries Visit : www.fastpoolcodes.com Call or WhatsApp: +234 8030587933, +234 9037595705)', pageWidth / 2, 11.5, { align: 'center' });
+                            doc.text('(For Enquiries Visit : www.fastpoolcodes.com Call or WhatsApp: +234 8030587933, +234 9037595705)', pageWidth / 2, 11.2, { align: 'center' });
 
                             // Table Columns Setup (Matching the official 12 columns / 10 fixtures sheet)
                             const tableHeaders: string[] = [
@@ -7307,40 +7307,47 @@ export default function CustomerPortal({
                               return targetColumnsList.some(target => norm === target || norm.startsWith(target) || target.startsWith(norm));
                             };
 
+                            const totalRowsCount = tableData.length || 1;
+                            // Dynamically scale row height so 40-50 rows fill the page evenly
+                            const targetRowHeight = totalRowsCount > 45 ? 5.15 : (totalRowsCount > 35 ? 5.8 : 6.5);
+                            const targetFontSize = totalRowsCount > 45 ? 7.8 : 8.2;
+
                             autoTable(doc, {
-                              startY: 14.0,
+                              startY: 13.5,
                               head: [tableHeaders],
                               body: tableData.length > 0 ? tableData : [['-', '-', '-', 'No classified fixtures found', ...tableHeaders.slice(4).map(() => '-')]],
                               theme: 'grid',
-                              margin: { top: 14.0, bottom: 9.0, left: 4.0, right: 4.0 },
+                              margin: { top: 13.5, bottom: 12.0, left: 3.5, right: 3.5 },
                               styles: {
                                 font: 'helvetica',
                                 fontStyle: 'bold',
                                 textColor: [0, 0, 0],
                                 lineWidth: 0.28,
                                 lineColor: [0, 0, 0],
-                                cellPadding: [0.35, 0.2]
+                                cellPadding: [0.65, 0.25],
+                                overflow: 'ellipsize'
                               },
                               headStyles: {
                                 fillColor: [255, 255, 255],
                                 textColor: [0, 0, 0],
-                                fontSize: 8.0,
+                                fontSize: 8.2,
                                 fontStyle: 'bold',
                                 font: 'helvetica',
                                 halign: 'center',
                                 valign: 'middle',
-                                cellPadding: [0.6, 0.2],
+                                cellPadding: [0.75, 0.25],
+                                minCellHeight: 4.8,
                                 lineWidth: 0.35,
                                 lineColor: [0, 0, 0]
                               },
                               bodyStyles: {
                                 fillColor: [255, 255, 255],
-                                fontSize: 7.2,
+                                fontSize: targetFontSize,
                                 fontStyle: 'bold',
                                 font: 'helvetica',
                                 textColor: [0, 0, 0],
-                                cellPadding: [0.35, 0.2],
-                                minCellHeight: 4.0,
+                                cellPadding: [0.65, 0.25],
+                                minCellHeight: targetRowHeight,
                                 lineWidth: 0.25,
                                 lineColor: [0, 0, 0]
                               },
@@ -7348,16 +7355,16 @@ export default function CustomerPortal({
                                 fillColor: [255, 255, 255],
                               },
                               columnStyles: {
-                                0: { halign: 'center', cellWidth: 9, fontStyle: 'bold' },
-                                1: { halign: 'center', cellWidth: 15, fontStyle: 'bold' },
+                                0: { halign: 'center', cellWidth: 8, fontStyle: 'bold' },
+                                1: { halign: 'center', cellWidth: 14, fontStyle: 'bold' },
                                 2: { halign: 'center', cellWidth: 16, fontStyle: 'bold' },
-                                3: { halign: 'left', cellWidth: 34, fontStyle: 'bold' },
-                                4: { halign: 'left', cellWidth: 34, fontStyle: 'bold' },
+                                3: { halign: 'left', cellWidth: 35, fontStyle: 'bold' },
+                                4: { halign: 'left', cellWidth: 35, fontStyle: 'bold' },
                                 5: { halign: 'center', cellWidth: 10, fontStyle: 'bold' },
                                 6: { halign: 'center', cellWidth: 10, fontStyle: 'bold' },
                                 7: { halign: 'center', cellWidth: 10, fontStyle: 'bold' },
                                 8: { halign: 'center', cellWidth: 17, fontStyle: 'bold' },
-                                9: { halign: 'center', cellWidth: 15, fontStyle: 'bold' },
+                                9: { halign: 'center', cellWidth: 16, fontStyle: 'bold' },
                                 10: { halign: 'center', cellWidth: 17, fontStyle: 'bold' },
                                 11: { halign: 'center', cellWidth: 15, fontStyle: 'bold' },
                               },
@@ -7369,13 +7376,13 @@ export default function CustomerPortal({
                                 );
 
                                 if (isTargetHeader(rawHead)) {
-                                  hookData.cell.styles.font = 'helvetica'; // Arial equivalent in standard PDF font
-                                  hookData.cell.styles.fontStyle = 'bold'; // Bolder typography
+                                  hookData.cell.styles.font = 'helvetica';
+                                  hookData.cell.styles.fontStyle = 'bold';
                                   hookData.cell.styles.textColor = [0, 0, 0];
                                   if (hookData.section === 'head') {
-                                    hookData.cell.styles.fontSize = 8.0;
+                                    hookData.cell.styles.fontSize = 8.2;
                                   } else if (hookData.section === 'body') {
-                                    hookData.cell.styles.fontSize = 7.2;
+                                    hookData.cell.styles.fontSize = targetFontSize;
                                   }
                                 }
 
@@ -7400,11 +7407,11 @@ export default function CustomerPortal({
                               },
                               didDrawPage: () => {
                                 // Bottom Notes & Disclaimer matching exact photo layout
-                                const currentY = (doc as any).lastAutoTable?.finalY || (pageHeight - 12);
-                                const noteY = Math.min(currentY + 4.2, pageHeight - 7.8);
+                                const currentY = (doc as any).lastAutoTable?.finalY || (pageHeight - 16);
+                                const noteY = Math.min(currentY + 3.0, pageHeight - 10.5);
                                 
                                 doc.setFont('helvetica', 'bold');
-                                doc.setFontSize(6.4);
+                                doc.setFontSize(6.8);
                                 doc.setTextColor(0, 0, 0);
                                 doc.text(
                                   `N.B: ODDS AS AT ${formattedDate} (Odds are subject to changes; EKO - Early Kick Off, LKO - Late Kick Off)`,
@@ -7413,17 +7420,17 @@ export default function CustomerPortal({
                                   { align: 'center' }
                                 );
 
-                                doc.setFontSize(5.8);
+                                doc.setFontSize(6.0);
                                 doc.text(
                                   'DISCLAIMER: You may not copy, reproduce, distribute, transmit, modify, create derivative works, or in any other',
                                   pageWidth / 2,
-                                  noteY + 3.0,
+                                  noteY + 2.8,
                                   { align: 'center' }
                                 );
                                 doc.text(
                                   'way exploit any part of copyrighted material without the prior written permission from Fastpoolcodes.com',
                                   pageWidth / 2,
-                                  noteY + 5.5,
+                                  noteY + 5.2,
                                   { align: 'center' }
                                 );
                               }
