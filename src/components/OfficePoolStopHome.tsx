@@ -49,7 +49,8 @@ import GoogleAdBanner from './GoogleAdBanner';
 import PoolCodesComparisonTable from './PoolCodesComparisonTable';
 import LiveScoresComments from './LiveScoresComments';
 import { getSupabaseClient } from '../lib/supabase';
-import { INITIAL_PLANS, isGhanaPlan, getMergedSubscriptionPlans, getSortedComparisonPlans, getBookmakersByCountry, isGhanaBookmaker, isPaymentDisabledBookmaker } from '../initialData';
+import { INITIAL_PLANS, isGhanaPlan, getMergedSubscriptionPlans, getSortedComparisonPlans, getBookmakersByCountry, isGhanaBookmaker, isPaymentDisabledBookmaker, INITIAL_UPLOADED_BOOKMAKER_PDFS, findAdminPdfForBookmaker } from '../initialData';
+import { downloadBookmakerAdminPdf, getBookmakerBrandInfo } from '../lib/adminPdfHelper';
 
 interface OfficePoolStopHomeProps {
   onSignIn: () => void;
@@ -381,6 +382,7 @@ export default function OfficePoolStopHome({
 
   // Scoreboard horizontal ticker state
   const [liveScoresData, setLiveScoresData] = useState<any[]>([]);
+  const [showAdminPdfModal, setShowAdminPdfModal] = useState(false);
 
   useEffect(() => {
     const fetchLiveScores = async () => {
@@ -842,6 +844,19 @@ export default function OfficePoolStopHome({
                 </button>
               );
             })}
+
+            {/* Quick Admin PDFs Modal Trigger */}
+            <button
+              onClick={() => setShowAdminPdfModal(true)}
+              className="px-3 py-1.5 rounded-lg text-xs font-bold tracking-wider transition whitespace-nowrap flex items-center gap-1.5 select-none cursor-pointer bg-blue-950/80 hover:bg-blue-900/90 text-blue-300 border border-blue-500/40 hover:border-blue-400 shadow-sm"
+              title="Download verified official Admin PDFs for each bookmaker"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />
+              <span>ADMIN PDFs</span>
+              <span className="text-[9px] font-black bg-blue-500/30 text-blue-200 px-1.5 py-0.2 rounded font-mono">
+                W50
+              </span>
+            </button>
           </nav>
 
           <div className="flex items-center gap-2 self-start lg:self-auto shrink-0">
@@ -2840,6 +2855,116 @@ export default function OfficePoolStopHome({
                 )}
               </div>
 
+            </motion.div>
+          </motion.div>
+        )}
+
+        {/* OFFICIAL ADMIN PDF RELEASES MODAL */}
+        {showAdminPdfModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto"
+            onClick={() => setShowAdminPdfModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-slate-900 border border-blue-500/40 rounded-2xl w-full max-w-3xl overflow-hidden shadow-2xl p-6 text-left flex flex-col gap-5 my-8"
+            >
+              <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400">
+                    <ShieldCheck className="w-6 h-6 text-blue-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-white uppercase font-mono tracking-wider flex items-center gap-2">
+                      Official Admin PDF Downloads
+                      <span className="text-[10px] bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded font-mono">
+                        Week 50 (2026)
+                      </span>
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Download verified, decrypted single-page A4 Admin PDF coupons linked directly to each bookmaker.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setShowAdminPdfModal(false)}
+                  className="p-2 rounded-xl bg-slate-800/60 hover:bg-slate-800 text-slate-400 hover:text-white transition cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Bookmakers Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 max-h-[60vh] overflow-y-auto pr-1">
+                {[
+                  { key: 'bet9ja', name: 'Bet9ja', country: 'Nigeria', flag: '🇳🇬', size: '240 KB', code: 'B9' },
+                  { key: 'betking', name: 'BetKing', country: 'Nigeria', flag: '🇳🇬', size: '280 KB', code: 'BK' },
+                  { key: 'sportybet', name: 'SportyBet', country: 'Nigeria', flag: '🇳🇬', size: '230 KB', code: 'SB' },
+                  { key: 'sportybet-ghana', name: 'SportyBet Ghana', country: 'Ghana', flag: '🇬🇭', size: '210 KB', code: 'SBGH' },
+                  { key: 'msport', name: 'MSport', country: 'Nigeria', flag: '🇳🇬', size: '220 KB', code: 'MS' },
+                  { key: 'betway', name: 'Betway Ghana', country: 'Ghana', flag: '🇬🇭', size: '245 KB', code: 'BW' },
+                  { key: 'premierbet', name: 'PremierBet Ghana', country: 'Ghana', flag: '🇬🇭', size: '255 KB', code: 'PB' },
+                  { key: 'soccabet', name: 'Soccabet Ghana', country: 'Ghana', flag: '🇬🇭', size: '235 KB', code: 'SC' },
+                  { key: 'pool_codes_comparison', name: 'Codes Comparison Matrix', country: 'International', flag: '🌐', size: '350 KB', code: 'PCC' }
+                ].map((bm) => (
+                  <div
+                    key={`modal_bm_pdf_${bm.key}`}
+                    className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 hover:border-blue-500/50 transition flex flex-col justify-between gap-3 shadow-md"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-base">{bm.flag}</span>
+                          <span className="text-xs font-black text-white font-mono">{bm.name}</span>
+                        </div>
+                        <span className="text-[9px] font-mono font-black px-1.5 py-0.5 rounded bg-slate-900 border border-slate-700 text-blue-300">
+                          {bm.code}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1.5">
+                        <span className="text-[10px] text-slate-400">{bm.country}</span>
+                        <span className="text-slate-600 text-[10px]">•</span>
+                        <span className="text-[10px] text-emerald-400 font-bold font-mono">{bm.size}</span>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={async () => {
+                        triggerToast(`Downloading verified Admin PDF for ${bm.name}...`, 'info');
+                        await downloadBookmakerAdminPdf({
+                          bookmaker: bm.name,
+                          weekNumber: 50,
+                          currentUser,
+                          db,
+                          customPdfs: db?.uploaded_bookmaker_pdfs || INITIAL_UPLOADED_BOOKMAKER_PDFS,
+                          triggerToast
+                        });
+                      }}
+                      className="w-full py-2 px-3 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-xs font-mono uppercase tracking-wider transition cursor-pointer flex items-center justify-center gap-1.5 shadow-md active:scale-95 border border-blue-400/30"
+                    >
+                      <Download className="w-3.5 h-3.5 text-blue-200" />
+                      <span>Download Admin PDF</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <div className="pt-3 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400 font-mono">
+                <span>🔐 All releases signed and verified by FastPoolCodes Admin Syndicate</span>
+                <button
+                  onClick={() => setShowAdminPdfModal(false)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg transition font-bold cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
             </motion.div>
           </motion.div>
         )}

@@ -12,10 +12,29 @@ import {
   UserDownload,
   BookmakerTableRecord,
   PoolCodesComparisonRecord,
-  LiveScoreRecord
+  LiveScoreRecord,
+  BookmakerPdfUpload
 } from './types';
 
 export const INITIAL_USERS: User[] = [
+  {
+    id: 'usr-admin-777',
+    username: 'admin',
+    email: 'admin@fastpoolcodes.com',
+    role: 'admin',
+    status: 'active',
+    created_at: '2026-01-01T00:00:00Z',
+    email_verified_at: '2026-01-01T00:00:00Z'
+  },
+  {
+    id: 'usr-admin-owner',
+    username: 'emmanuelsolomon',
+    email: 'emmanuelsolomon325@gmail.com',
+    role: 'admin',
+    status: 'active',
+    created_at: '2026-01-01T00:00:00Z',
+    email_verified_at: '2026-01-01T00:00:00Z'
+  },
   {
     id: '377b26f1-8943-49ca-b1fb-5daf1c4b7e95',
     username: 'ogboku101',
@@ -1484,3 +1503,195 @@ export const INITIAL_PREMIERBET: BookmakerTableRecord[] = createBookmakerTableRo
 export const INITIAL_BETWAY: BookmakerTableRecord[] = createBookmakerTableRows('BW', 'betking (draw)');
 export const INITIAL_SOCCABET: BookmakerTableRecord[] = createBookmakerTableRows('SC', 'sportybet (draw)');
 export const INITIAL_MSPORT: BookmakerTableRecord[] = createBookmakerTableRows('MS', 'bet9ja (draw)');
+
+export const INITIAL_UPLOADED_BOOKMAKER_PDFS: BookmakerPdfUpload[] = [
+  {
+    id: 'pdf-init-b9-w50',
+    bookmaker_key: 'bet9ja',
+    bookmaker_name: 'Bet9ja',
+    country: 'Nigeria',
+    week_number: 50,
+    season_year: 2026,
+    file_name: 'Bet9ja_Week50_Official_Pool_Coupon.pdf',
+    file_size: 245760,
+    file_size_formatted: '240 KB',
+    file_data_url: '',
+    access_level: 'premium',
+    uploaded_by: 'admin',
+    uploaded_at: '2026-06-05T09:30:00Z',
+    is_active: true,
+    notes: 'Official UK Aussie Week 50 Decrypted Coupon. High-probability draws verified.',
+    page_count: 1,
+    tags: ['Official', 'Week 50', 'Nigeria', 'Bet9ja']
+  },
+  {
+    id: 'pdf-init-bk-w50',
+    bookmaker_key: 'betking',
+    bookmaker_name: 'BetKing',
+    country: 'Nigeria',
+    week_number: 50,
+    season_year: 2026,
+    file_name: 'BetKing_Week50_Verified_Key_Codes.pdf',
+    file_size: 286720,
+    file_size_formatted: '280 KB',
+    file_data_url: '',
+    access_level: 'premium',
+    uploaded_by: 'admin',
+    uploaded_at: '2026-06-05T10:15:00Z',
+    is_active: true,
+    notes: 'Verified BetKing codesheet with single-page strict A4 formatting.',
+    page_count: 1,
+    tags: ['Official', 'BetKing', 'A4 Single Page']
+  },
+  {
+    id: 'pdf-init-sb-w50',
+    bookmaker_key: 'sportybet',
+    bookmaker_name: 'SportyBet',
+    country: 'Nigeria',
+    week_number: 50,
+    season_year: 2026,
+    file_name: 'SportyBet_Nigeria_Week50_Official_Coupon.pdf',
+    file_size: 235520,
+    file_size_formatted: '230 KB',
+    file_data_url: '',
+    access_level: 'premium',
+    uploaded_by: 'admin',
+    uploaded_at: '2026-06-05T10:45:00Z',
+    is_active: true,
+    notes: 'Official SportyBet Nigeria pool code sheet with live draw multipliers.',
+    page_count: 1,
+    tags: ['SportyBet', 'Nigeria', 'Week 50']
+  },
+  {
+    id: 'pdf-init-sbgh-w50',
+    bookmaker_key: 'sportybet-ghana',
+    bookmaker_name: 'SportyBet Ghana',
+    country: 'Ghana',
+    week_number: 50,
+    season_year: 2026,
+    file_name: 'SportyBet_Ghana_Week50_Official_Pool.pdf',
+    file_size: 215040,
+    file_size_formatted: '210 KB',
+    file_data_url: '',
+    access_level: 'premium',
+    uploaded_by: 'admin',
+    uploaded_at: '2026-06-05T11:00:00Z',
+    is_active: true,
+    notes: 'Ghana regional SportyBet sheet with Cedis market odds & draw forecasts.',
+    page_count: 1,
+    tags: ['Ghana', 'SportyBet', 'GHS Market']
+  },
+  {
+    id: 'pdf-init-ms-w50',
+    bookmaker_key: 'msport',
+    bookmaker_name: 'MSport',
+    country: 'Nigeria',
+    week_number: 50,
+    season_year: 2026,
+    file_name: 'MSport_Week50_Official_Pool_Slip.pdf',
+    file_size: 225280,
+    file_size_formatted: '220 KB',
+    file_data_url: '',
+    access_level: 'premium',
+    uploaded_by: 'admin',
+    uploaded_at: '2026-06-05T11:30:00Z',
+    is_active: true,
+    notes: 'Official MSport Nigeria pool sheet verified by admin syndicate.',
+    page_count: 1,
+    tags: ['MSport', 'Nigeria', 'Week 50']
+  },
+  {
+    id: 'pdf-init-bw-w50',
+    bookmaker_key: 'betway',
+    bookmaker_name: 'Betway Ghana',
+    country: 'Ghana',
+    week_number: 50,
+    season_year: 2026,
+    file_name: 'Betway_Ghana_Week50_Official_Coupon.pdf',
+    file_size: 250880,
+    file_size_formatted: '245 KB',
+    file_data_url: '',
+    access_level: 'premium',
+    uploaded_by: 'admin',
+    uploaded_at: '2026-06-05T12:00:00Z',
+    is_active: true,
+    notes: 'Official Betway Ghana regional fixtures coupon & keys.',
+    page_count: 1,
+    tags: ['Betway', 'Ghana', 'Week 50']
+  },
+  {
+    id: 'pdf-init-pb-w50',
+    bookmaker_key: 'premierbet',
+    bookmaker_name: 'PremierBet Ghana',
+    country: 'Ghana',
+    week_number: 50,
+    season_year: 2026,
+    file_name: 'PremierBet_Ghana_Week50_Official_Coupon.pdf',
+    file_size: 261120,
+    file_size_formatted: '255 KB',
+    file_data_url: '',
+    access_level: 'premium',
+    uploaded_by: 'admin',
+    uploaded_at: '2026-06-05T12:15:00Z',
+    is_active: true,
+    notes: 'PremierBet Ghana official pool fixtures and coupon print.',
+    page_count: 1,
+    tags: ['PremierBet', 'Ghana', 'Week 50']
+  },
+  {
+    id: 'pdf-init-sc-w50',
+    bookmaker_key: 'soccabet',
+    bookmaker_name: 'Soccabet Ghana',
+    country: 'Ghana',
+    week_number: 50,
+    season_year: 2026,
+    file_name: 'Soccabet_Ghana_Week50_Official_Slip.pdf',
+    file_size: 240640,
+    file_size_formatted: '235 KB',
+    file_data_url: '',
+    access_level: 'premium',
+    uploaded_by: 'admin',
+    uploaded_at: '2026-06-05T12:30:00Z',
+    is_active: true,
+    notes: 'Soccabet Ghana official coupon sheet and verified pool codes.',
+    page_count: 1,
+    tags: ['Soccabet', 'Ghana', 'Week 50']
+  },
+  {
+    id: 'pdf-init-comp-w50',
+    bookmaker_key: 'pool_codes_comparison',
+    bookmaker_name: 'Pool Codes Comparison (Master Sheet)',
+    country: 'International',
+    week_number: 50,
+    season_year: 2026,
+    file_name: 'FastPoolCodes_Week50_Master_Comparison_Sheet.pdf',
+    file_size: 358400,
+    file_size_formatted: '350 KB',
+    file_data_url: '',
+    access_level: 'free',
+    uploaded_by: 'admin',
+    uploaded_at: '2026-06-05T08:00:00Z',
+    is_active: true,
+    notes: 'Multi-bookmaker odds cross-reference matrix (Bet9ja, BetKing, SportyBet).',
+    page_count: 1,
+    tags: ['Master Matrix', 'Free Access', 'Multi-Bookmaker']
+  }
+];
+
+export function findAdminPdfForBookmaker(bookmakerKeyOrName: string, customList?: BookmakerPdfUpload[]): BookmakerPdfUpload | undefined {
+  const list = customList && customList.length > 0 ? customList : INITIAL_UPLOADED_BOOKMAKER_PDFS;
+  const norm = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const target = norm(bookmakerKeyOrName);
+
+  // 1. Direct key match with active status
+  let found = list.find(p => p.is_active && (norm(p.bookmaker_key) === target || norm(p.bookmaker_name) === target));
+  if (found) return found;
+
+  // 2. Partial match with active status
+  found = list.find(p => p.is_active && (target.includes(norm(p.bookmaker_key)) || norm(p.bookmaker_key).includes(target) || target.includes(norm(p.bookmaker_name)) || norm(p.bookmaker_name).includes(target)));
+  if (found) return found;
+
+  // 3. Any match regardless of active flag
+  return list.find(p => norm(p.bookmaker_key) === target || norm(p.bookmaker_name) === target || target.includes(norm(p.bookmaker_key)) || norm(p.bookmaker_key).includes(target));
+}
+

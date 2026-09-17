@@ -59,7 +59,8 @@ import {
   CheckCircle2,
   FileSpreadsheet,
   Table,
-  LayoutList
+  LayoutList,
+  ShieldCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DatabaseState, User, SubscriptionPlan, UserSubscription, PoolCode, parseComponents } from '../types';
@@ -86,9 +87,13 @@ import {
   INITIAL_BETWAY,
   INITIAL_SOCCABET,
   INITIAL_MSPORT,
-  INITIAL_POOL_CODES_COMPARISON
+  INITIAL_POOL_CODES_COMPARISON,
+  INITIAL_UPLOADED_BOOKMAKER_PDFS,
+  findAdminPdfForBookmaker
 } from '../initialData';
+import { downloadBookmakerAdminPdf, getBookmakerBrandInfo } from '../lib/adminPdfHelper';
 import PoolCodesComparisonTable from './PoolCodesComparisonTable';
+import AdminPdfUploadSection from './AdminPdfUploadSection';
 
 interface CustomerPortalProps {
   db: DatabaseState;
@@ -115,6 +120,7 @@ interface CustomerPortalProps {
   bypassPremium?: boolean;
   onToggleBypassPremium?: () => void;
   onDownloadReceipt?: (userObj: any, planId: string, paymentRef: string) => void;
+  onUpdateUploadedPdfs?: (pdfs: any[]) => void;
 }
 
 export default function CustomerPortal({
@@ -141,7 +147,8 @@ export default function CustomerPortal({
   discoveredDbTables = [],
   bypassPremium = false,
   onToggleBypassPremium,
-  onDownloadReceipt
+  onDownloadReceipt,
+  onUpdateUploadedPdfs
 }: CustomerPortalProps) {
   const [remoteLogs, setRemoteLogs] = useState<any[]>([]);
 
@@ -2244,6 +2251,29 @@ export default function CustomerPortal({
                     <span>USER PROFILE</span>
                   </button>
 
+                  {/* ADMIN PDF UPLOAD CONSOLE (ADMIN ONLY) */}
+                  {currentUser.role === 'admin' && (
+                    <button
+                      onClick={() => {
+                        setActiveSubTab('admin_pdf_upload');
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className={`flex items-center justify-between px-3.5 py-3 rounded-lg text-xs font-bold tracking-wide transition duration-150 ${
+                        activeSubTab === 'admin_pdf_upload'
+                          ? 'bg-gradient-to-r from-emerald-555/20 to-emerald-500/10 text-emerald-300 border-l-4 border-emerald-400 pl-2.5'
+                          : 'bg-emerald-950/40 text-emerald-400 hover:bg-emerald-900/50 border border-emerald-500/30'
+                      }`}
+                    >
+                      <span className="flex items-center gap-3">
+                        <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+                        <span>ADMIN PDF UPLOADER</span>
+                      </span>
+                      <span className="text-[8px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-1.5 py-0.5 rounded font-black font-mono tracking-widest uppercase">
+                        ADMIN
+                      </span>
+                    </button>
+                  )}
+
                   {/* Mobile Contact Us Shortcut Card */}
                   <div className="mt-4 p-3 bg-emerald-950/30 border border-emerald-500/20 rounded-xl flex flex-col gap-2">
                     <div className="flex items-center gap-1.5">
@@ -2460,6 +2490,26 @@ export default function CustomerPortal({
               <span>USER PROFILE</span>
             </button>
 
+            {/* ADMIN PDF UPLOADER CONSOLE (ADMIN ONLY) */}
+            {currentUser.role === 'admin' && (
+              <button
+                onClick={() => setActiveSubTab('admin_pdf_upload')}
+                className={`flex items-center justify-between px-3.5 py-3 rounded-lg text-xs font-bold tracking-wide transition duration-150 ${
+                  activeSubTab === 'admin_pdf_upload'
+                    ? 'bg-gradient-to-r from-emerald-555/20 to-emerald-500/10 text-emerald-300 border-l-4 border-emerald-400 pl-2.5'
+                    : 'bg-emerald-950/40 text-emerald-400 hover:bg-emerald-900/50 border border-emerald-500/30'
+                }`}
+              >
+                <span className="flex items-center gap-3">
+                  <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+                  <span>ADMIN PDF UPLOADER</span>
+                </span>
+                <span className="text-[8px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-1.5 py-0.5 rounded font-black font-mono tracking-widest uppercase">
+                  ADMIN
+                </span>
+              </button>
+            )}
+
 
           </nav>
 
@@ -2510,12 +2560,12 @@ export default function CustomerPortal({
         <div className="hidden md:flex items-center justify-between bg-slate-900/70 border border-slate-800/80 rounded-2xl px-5 py-3.5 backdrop-blur-md shadow-lg">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center text-emerald-400 font-bold text-xs">
-              {activeSubTab === 'dashboard' ? <Home className="w-4 h-4" /> : activeSubTab === 'picks' ? <Target className="w-4 h-4" /> : activeSubTab === 'comparison' ? <Layers className="w-4 h-4" /> : activeSubTab === 'results' ? <Trophy className="w-4 h-4" /> : activeSubTab === 'subscription' ? <CreditCard className="w-4 h-4" /> : <UserIcon className="w-4 h-4" />}
+              {activeSubTab === 'dashboard' ? <Home className="w-4 h-4" /> : activeSubTab === 'picks' || activeSubTab === 'picks_bet9ja' || activeSubTab === 'picks_betking' ? <Target className="w-4 h-4" /> : activeSubTab === 'comparison' ? <Layers className="w-4 h-4" /> : activeSubTab === 'results' ? <Trophy className="w-4 h-4" /> : activeSubTab === 'subscription' ? <CreditCard className="w-4 h-4" /> : activeSubTab === 'admin_pdf_upload' ? <FileSpreadsheet className="w-4 h-4" /> : <UserIcon className="w-4 h-4" />}
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-black text-white uppercase tracking-wider">
-                  {activeSubTab === 'dashboard' ? 'Codes Arena Dashboard' : activeSubTab === 'picks' ? 'Weekly Pool Picks' : activeSubTab === 'comparison' ? 'Codes Comparison Matrix' : activeSubTab === 'streaming' ? 'Live Scores Arena' : activeSubTab === 'results' ? 'Pool Results Archive' : activeSubTab === 'subscription' ? 'VIP Membership & Billing' : 'Account Profile'}
+                  {activeSubTab === 'dashboard' ? 'Codes Arena Dashboard' : activeSubTab === 'picks' || activeSubTab === 'picks_bet9ja' || activeSubTab === 'picks_betking' ? 'Weekly Pool Picks' : activeSubTab === 'comparison' ? 'Codes Comparison Matrix' : activeSubTab === 'streaming' ? 'Live Scores Arena' : activeSubTab === 'results' ? 'Pool Results Archive' : activeSubTab === 'subscription' ? 'VIP Membership & Billing' : activeSubTab === 'admin_pdf_upload' ? 'Admin Bookmaker PDF Upload Console' : 'Account Profile'}
                 </span>
                 <span className="text-[10px] bg-slate-800 text-slate-400 font-mono px-2 py-0.5 rounded font-bold border border-slate-700/50">
                   {activeWeekNumber === 'NULL' ? 'WEEK NULL' : `WEEK ${activeWeekNumber}`}
@@ -2978,6 +3028,140 @@ export default function CustomerPortal({
                     </div>
                   </div>
 
+                  {/* OFFICIAL ADMIN PDF RELEASES SECTION (DOWNLOAD ADMIN PDF LINKED TO SELECTED BOOKMAKER) */}
+                  <div className="bg-gradient-to-br from-slate-900 via-[#0B1120] to-slate-950 rounded-2xl border border-blue-500/30 p-5 shadow-2xl flex flex-col gap-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0">
+                          <ShieldCheck className="w-5 h-5 text-blue-400" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h2 className="text-sm font-black text-white uppercase tracking-wider font-mono">
+                              Official Admin PDF Releases (Week {activeWeekNumber || 50})
+                            </h2>
+                            <span className="bg-blue-500/20 text-blue-300 border border-blue-500/30 text-[9px] font-black px-2 py-0.5 rounded font-mono uppercase">
+                              Verified Releases
+                            </span>
+                          </div>
+                          <p className="text-[11.5px] text-slate-400 mt-0.5">
+                            Download the authenticated Admin PDF coupons linked directly to each bookmaker. Fully decrypted and verified for printing and offline analysis.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Quick Download Active Bookmaker Button */}
+                      <button
+                        onClick={async () => {
+                          const brand = getBookmakerBrandInfo(dashboardBookmakerFilter);
+                          const isTableAllowed = isBookieAllowed(dashboardBookmakerFilter);
+                          if (!isTableAllowed) {
+                            triggerToast(`Subscribe to ${brand.name} to download its official Admin PDF.`, 'error');
+                            setActiveSubTab('subscription');
+                            return;
+                          }
+                          triggerToast(`Downloading verified Admin PDF for ${brand.name}...`, 'info');
+                          await downloadBookmakerAdminPdf({
+                            bookmaker: dashboardBookmakerFilter,
+                            weekNumber: activeWeekNumber,
+                            currentUser,
+                            db,
+                            customPdfs: db.uploaded_bookmaker_pdfs,
+                            triggerToast
+                          });
+                        }}
+                        className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-95 text-white font-black text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-blue-900/30 shrink-0 font-mono border border-blue-400/30 self-start sm:self-auto"
+                      >
+                        <Download className="w-4 h-4 text-blue-200" />
+                        <span>Download Active ({dashboardBookmakerFilter}) PDF</span>
+                      </button>
+                    </div>
+
+                    {/* Bookmaker Admin PDF Cards Grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                      {[
+                        { key: 'bet9ja', name: 'Bet9ja', country: 'Nigeria', flag: '🇳🇬', size: '240 KB', code: 'B9' },
+                        { key: 'betking', name: 'BetKing', country: 'Nigeria', flag: '🇳🇬', size: '280 KB', code: 'BK' },
+                        { key: 'sportybet', name: 'SportyBet', country: 'Nigeria', flag: '🇳🇬', size: '230 KB', code: 'SB' },
+                        { key: 'sportybet-ghana', name: 'SportyBet Ghana', country: 'Ghana', flag: '🇬🇭', size: '210 KB', code: 'SBGH' },
+                        { key: 'msport', name: 'MSport', country: 'Nigeria', flag: '🇳🇬', size: '220 KB', code: 'MS' },
+                        { key: 'betway', name: 'Betway Ghana', country: 'Ghana', flag: '🇬🇭', size: '245 KB', code: 'BW' },
+                        { key: 'premierbet', name: 'PremierBet Ghana', country: 'Ghana', flag: '🇬🇭', size: '255 KB', code: 'PB' },
+                        { key: 'soccabet', name: 'Soccabet Ghana', country: 'Ghana', flag: '🇬🇭', size: '235 KB', code: 'SC' },
+                        { key: 'pool_codes_comparison', name: 'Codes Comparison Matrix', country: 'International', flag: '🌐', size: '350 KB', code: 'PCC' }
+                      ].map(bm => {
+                        const isAllowed = isBookieAllowed(bm.name);
+                        const isSelected = dashboardBookmakerFilter.toLowerCase().includes(bm.key.toLowerCase()) || bm.key.toLowerCase().includes(dashboardBookmakerFilter.toLowerCase());
+
+                        return (
+                          <div
+                            key={`admin_pdf_card_${bm.key}`}
+                            className={`p-3.5 rounded-xl border transition flex flex-col justify-between gap-3 ${
+                              isSelected
+                                ? 'bg-blue-950/40 border-blue-500/60 shadow-lg shadow-blue-950/50 ring-1 ring-blue-400/30'
+                                : 'bg-slate-950/70 border-slate-800 hover:border-slate-700'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-base">{bm.flag}</span>
+                                  <span className="text-xs font-black text-white font-mono">{bm.name}</span>
+                                </div>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <span className="text-[9px] font-mono text-slate-400">{bm.country}</span>
+                                  <span className="text-slate-600 text-[10px]">•</span>
+                                  <span className="text-[9px] font-mono text-emerald-400 font-bold">{bm.size}</span>
+                                </div>
+                              </div>
+                              <span className="text-[9px] font-mono font-black px-1.5 py-0.5 rounded bg-slate-900 border border-slate-700 text-blue-300">
+                                {bm.code}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-2 pt-2 border-t border-slate-800/80">
+                              <button
+                                onClick={async () => {
+                                  if (!isAllowed) {
+                                    triggerToast(`Subscribe to ${bm.name} to download its official Admin PDF.`, 'error');
+                                    setActiveSubTab('subscription');
+                                    return;
+                                  }
+                                  triggerToast(`Downloading verified Admin PDF for ${bm.name}...`, 'info');
+                                  await downloadBookmakerAdminPdf({
+                                    bookmaker: bm.name,
+                                    weekNumber: activeWeekNumber,
+                                    currentUser,
+                                    db,
+                                    customPdfs: db.uploaded_bookmaker_pdfs,
+                                    triggerToast
+                                  });
+                                }}
+                                className={`w-full py-2 px-3 rounded-lg font-bold text-[11px] font-mono uppercase tracking-wider transition cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 ${
+                                  isAllowed
+                                    ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-950/40'
+                                    : 'bg-slate-900 hover:bg-slate-850 text-slate-400 border border-slate-800'
+                                }`}
+                              >
+                                {isAllowed ? (
+                                  <>
+                                    <Download className="w-3.5 h-3.5 text-blue-200" />
+                                    <span>Download Admin PDF</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Lock className="w-3.5 h-3.5 text-amber-400" />
+                                    <span>Admin PDF (Locked)</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
                   {/* WEEKLY POSTED COUPONS SECTION (SCREENSHOT ALIGNED LAYOUT) */}
                   <div className="bg-[#111827] rounded-2xl border border-slate-800 p-6 shadow-xl flex flex-col gap-6" id="posted-games-bulletin">
 
@@ -3061,7 +3245,53 @@ export default function CustomerPortal({
                       </div>
 
                       {/* Right-aligned Actions */}
-                      <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 w-full xl:w-auto shrink-0 justify-start xl:justify-end">
+                      <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 w-full xl:w-auto shrink-0 justify-start xl:justify-end">
+                        {/* Download Official Admin PDF Button Linked to Correct Bookmaker */}
+                        {(() => {
+                          const isTableAllowed = isBookieAllowed(dashboardBookmakerFilter);
+                          const brand = getBookmakerBrandInfo(dashboardBookmakerFilter);
+                          const activeAdminPdf = findAdminPdfForBookmaker(dashboardBookmakerFilter, db.uploaded_bookmaker_pdfs);
+
+                          if (isTableAllowed) {
+                            return (
+                              <button
+                                onClick={async () => {
+                                  triggerToast(`Preparing official Admin PDF for ${brand.name}...`, 'info');
+                                  await downloadBookmakerAdminPdf({
+                                    bookmaker: dashboardBookmakerFilter,
+                                    weekNumber: activeWeekNumber,
+                                    currentUser,
+                                    db,
+                                    customPdfs: db.uploaded_bookmaker_pdfs,
+                                    triggerToast
+                                  });
+                                }}
+                                className="px-3.5 py-2.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-500 hover:to-indigo-500 active:scale-95 text-white font-black text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shadow-blue-900/30 shrink-0 font-mono border border-blue-400/40"
+                                title={`Download verified Admin PDF for ${brand.name} (Week ${activeAdminPdf?.week_number || activeWeekNumber || 50})`}
+                              >
+                                <ShieldCheck className="w-4 h-4 text-blue-200" />
+                                <span>Download Admin PDF</span>
+                                <span className="bg-blue-950/70 border border-blue-400/40 text-[9px] px-1.5 py-0.5 rounded text-blue-200">
+                                  {brand.prefix}
+                                </span>
+                              </button>
+                            );
+                          }
+                          return (
+                            <button
+                              onClick={() => {
+                                triggerToast(`Access Restricted: Subscribe to the ${dashboardBookmakerFilter} table to download the official Admin PDF.`, 'error');
+                                setActiveSubTab('subscription');
+                              }}
+                              className="px-3.5 py-2.5 bg-slate-900 hover:bg-slate-850 active:scale-95 text-blue-400 border border-blue-500/30 font-bold text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shrink-0 font-mono opacity-85"
+                              title={`Subscription required to download Admin PDF for ${brand.name}`}
+                            >
+                              <Lock className="w-3.5 h-3.5 text-blue-400" />
+                              <span>Admin PDF (Locked)</span>
+                            </button>
+                          );
+                        })()}
+
                         {/* Download PDF Customizer Button with Strict Table Access Check */}
                         {(() => {
                           const isTableAllowed = isBookieAllowed(dashboardBookmakerFilter);
@@ -3075,8 +3305,8 @@ export default function CustomerPortal({
                                   }));
                                   setShowPdfPrintModal(true);
                                 }}
-                                className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 shrink-0 font-mono"
-                                title={`Download official ${dashboardBookmakerFilter} PDF`}
+                                className="px-3.5 py-2.5 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/20 shrink-0 font-mono"
+                                title={`Customize & download ${dashboardBookmakerFilter} coupon sheet`}
                               >
                                 <Download className="w-4 h-4" />
                                 <span>Download PDF</span>
@@ -3089,7 +3319,7 @@ export default function CustomerPortal({
                                 triggerToast(`Access Restricted: @${currentUser.username} (ID: ${currentUser.id}) has not purchased access to the ${dashboardBookmakerFilter} Table in plan_purchased.`, 'error');
                                 setActiveSubTab('subscription');
                               }}
-                              className="px-4 py-2.5 bg-slate-900 hover:bg-slate-850 active:scale-95 text-amber-400 border border-amber-500/30 hover:border-amber-500/60 font-bold text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-2 shadow-lg shrink-0 font-mono"
+                              className="px-3.5 py-2.5 bg-slate-900 hover:bg-slate-850 active:scale-95 text-amber-400 border border-amber-500/30 hover:border-amber-500/60 font-bold text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shrink-0 font-mono"
                               title={`Subscription required to download ${dashboardBookmakerFilter} PDF`}
                             >
                               <Lock className="w-3.5 h-3.5 text-amber-400" />
@@ -3108,11 +3338,11 @@ export default function CustomerPortal({
                             }
                           }}
                           disabled={isSyncingSupabase}
-                          className="px-4 py-2.5 bg-emerald-950/80 hover:bg-emerald-900 active:scale-95 text-emerald-300 border border-emerald-500/50 hover:border-emerald-400 font-bold text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-2 shadow-lg shrink-0 font-mono"
+                          className="px-3.5 py-2.5 bg-emerald-950/80 hover:bg-emerald-900 active:scale-95 text-emerald-300 border border-emerald-500/50 hover:border-emerald-400 font-bold text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shrink-0 font-mono"
                           title={`Fetch latest ${dashboardBookmakerFilter} records from database`}
                         >
                           <RefreshCw className={`w-3.5 h-3.5 text-emerald-400 ${isSyncingSupabase ? 'animate-spin' : ''}`} />
-                          <span>{isSyncingSupabase ? 'Fetching...' : 'Fetch Latest Records'}</span>
+                          <span>{isSyncingSupabase ? 'Fetching...' : 'Fetch Latest'}</span>
                         </button>
                       </div>
                     </div>
@@ -6736,6 +6966,16 @@ export default function CustomerPortal({
                 </div>
               )}
 
+              {/* ADMIN PDF UPLOAD CONSOLE (ADMIN ONLY) */}
+              {activeSubTab === 'admin_pdf_upload' && (
+                <AdminPdfUploadSection
+                  currentUser={currentUser}
+                  db={db}
+                  onUpdateUploadedPdfs={onUpdateUploadedPdfs}
+                  triggerToast={triggerToast}
+                />
+              )}
+
             </motion.div>
           </AnimatePresence>
         </div>
@@ -7131,8 +7371,9 @@ export default function CustomerPortal({
                   <div className="p-5 border-t border-slate-800/85 bg-slate-950 flex flex-col gap-2.5 shrink-0">
                     {/* Primary PDF Download Button */}
                     {isTableAllowed ? (
-                      <button
-                        onClick={async () => {
+                      <>
+                        <button
+                          onClick={async () => {
                           if (!isBookieAllowed(activeBookmaker)) {
                             triggerToast(`Access Denied: @${currentUser?.username || 'user'} (ID: ${currentUser?.id}) has zero access records for ${activeBookmaker} in purchases_access_log.`, 'error');
                             return;
@@ -7165,11 +7406,36 @@ export default function CustomerPortal({
                             }
                           }
 
-                          triggerToast('Generating official PDF document...', 'info');
-
                           try {
                             const normStr = (s: string) => (s || '').replace(/\s+/g, '').toLowerCase();
                             const targetNorm = normStr(activeBookmaker);
+
+                            // Check if an admin uploaded a custom PDF for this bookmaker
+                            let adminUploadedList: any[] = [];
+                            try {
+                              const cached = localStorage.getItem('fastpool_uploaded_bookmaker_pdfs');
+                              if (cached) adminUploadedList = JSON.parse(cached);
+                            } catch (_) {}
+                            if (!adminUploadedList || adminUploadedList.length === 0) {
+                              adminUploadedList = (db as any).uploaded_bookmaker_pdfs || [];
+                            }
+
+                            const customPdf = adminUploadedList.find(
+                              (p: any) => p.is_active && normStr(p.bookmaker_key || p.bookmaker_name).includes(targetNorm.replace(/[^a-z0-9]/g, '')) && p.file_data_url
+                            );
+
+                            if (customPdf && customPdf.file_data_url) {
+                              const a = document.createElement('a');
+                              a.href = customPdf.file_data_url;
+                              a.download = customPdf.file_name || `${activeBookmaker}_Official_Coupon.pdf`;
+                              document.body.appendChild(a);
+                              a.click();
+                              document.body.removeChild(a);
+                              triggerToast(`Downloading official verified PDF: ${customPdf.file_name}`, 'success');
+                              return;
+                            }
+
+                            triggerToast('Generating official PDF document...', 'info');
 
                             const rawList = postedGames.filter(game => {
                               if (activeBookmaker === 'all') return true;
@@ -7449,16 +7715,37 @@ export default function CustomerPortal({
                             triggerToast('Failed to generate PDF document.', 'error');
                           }
                         }}
-                        className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 font-mono"
+                        className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 font-mono"
                       >
                         <Download className="w-4 h-4" />
-                        <span>Download PDF File (.pdf)</span>
+                        <span>Download Custom PDF (.pdf)</span>
                       </button>
-                    ) : (
+
+                      {/* Download Official Admin PDF Release Button */}
                       <button
-                        disabled
-                        className="w-full py-3.5 bg-slate-900 text-amber-400 border border-amber-500/30 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg opacity-80 cursor-not-allowed font-mono"
+                        onClick={async () => {
+                          const modalWeek = pdfConfig.weekNumber || activeWeekNumber || 50;
+                          triggerToast(`Downloading official Admin PDF for ${activeBookmaker}...`, 'info');
+                          await downloadBookmakerAdminPdf({
+                            bookmaker: activeBookmaker,
+                            weekNumber: modalWeek,
+                            currentUser,
+                            db,
+                            customPdfs: db.uploaded_bookmaker_pdfs,
+                            triggerToast
+                          });
+                        }}
+                        className="w-full py-3 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-500 hover:to-indigo-500 active:scale-95 text-white font-black text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-blue-900/30 font-mono border border-blue-400/40"
                       >
+                        <ShieldCheck className="w-4 h-4 text-blue-200" />
+                        <span>Download Official Admin PDF (Week {pdfConfig.weekNumber || activeWeekNumber || 50})</span>
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      disabled
+                      className="w-full py-3.5 bg-slate-900 text-amber-400 border border-amber-500/30 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg opacity-80 cursor-not-allowed font-mono"
+                    >
                         <Lock className="w-4 h-4 text-amber-400" />
                         <span>Subscription Required to Download ({activeBookmaker})</span>
                       </button>

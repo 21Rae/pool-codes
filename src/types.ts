@@ -41,6 +41,7 @@ export interface SubscriptionPlan {
   has_results: boolean;
   has_notifications: boolean;
   max_bookmakers: number;
+  features?: string[];
   created_at: string;
 }
 
@@ -301,6 +302,27 @@ export interface DatabaseState {
   pool_codes_comparison?: PoolCodesComparisonRecord[];
   weekly_picks?: WeeklyPoolPick[];
   livescores?: LiveScoreRecord[];
+  uploaded_bookmaker_pdfs?: BookmakerPdfUpload[];
+}
+
+export interface BookmakerPdfUpload {
+  id: string;
+  bookmaker_key: string;
+  bookmaker_name: string;
+  country: 'Nigeria' | 'Ghana' | 'International';
+  week_number: number;
+  season_year: number;
+  file_name: string;
+  file_size: number;
+  file_size_formatted: string;
+  file_data_url: string;
+  access_level: 'premium' | 'free';
+  uploaded_by: string;
+  uploaded_at: string;
+  is_active: boolean;
+  notes?: string;
+  page_count?: number;
+  tags?: string[];
 }
 
 export interface LiveScoreRecord {

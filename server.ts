@@ -101,6 +101,22 @@ function invalidateCache(prefix: string): void {
 // Server-side in-memory user registry for instant database access and fallback
 let serverMemoryUsers: any[] = [
   {
+    id: "usr-admin-777",
+    username: "admin",
+    email: "admin@fastpoolcodes.com",
+    role: "admin",
+    status: "active",
+    created_at: "2026-01-01T00:00:00Z"
+  },
+  {
+    id: "usr-admin-owner",
+    username: "emmanuelsolomon",
+    email: "emmanuelsolomon325@gmail.com",
+    role: "admin",
+    status: "active",
+    created_at: "2026-01-01T00:00:00Z"
+  },
+  {
     id: "377b26f1-8943-49ca-b1fb-5daf1c4b7e95",
     username: "ogboku101",
     email: "oriyomimusari@yahoo.com",
@@ -142,6 +158,90 @@ let serverMemoryPurchases: any[] = [
     expiry_date: "2026-11-29T23:59:59+01:00",
     access_status: "active",
     created_at: "2026-09-05T14:05:20+01:00"
+  }
+];
+
+// Dedicated storage for admin-uploaded PDFs (isolated from Supabase core fixture tables)
+let serverMemoryUploadedPdfs: any[] = [
+  {
+    id: "pdf-init-bet9ja-w50",
+    bookmaker_key: "bet9ja",
+    bookmaker_name: "Bet9ja",
+    country: "Nigeria",
+    week_number: 50,
+    season_year: 2026,
+    file_name: "Bet9ja_Week50_Official_Coupon_Sheet.pdf",
+    file_size: 485376,
+    file_size_formatted: "474 KB",
+    file_data_url: "",
+    access_level: "premium",
+    uploaded_by: "admin",
+    uploaded_at: "2026-06-05T10:30:00Z",
+    is_active: true,
+    is_custom_upload: false,
+    notes: "Official Bet9ja Week 50 Aussie matches with verified odds and pool sequence.",
+    page_count: 1,
+    tags: ["Bet9ja", "Nigeria", "Week 50", "Official"]
+  },
+  {
+    id: "pdf-init-betking-w50",
+    bookmaker_key: "betking",
+    bookmaker_name: "BetKing",
+    country: "Nigeria",
+    week_number: 50,
+    season_year: 2026,
+    file_name: "BetKing_Week50_PoolCodes_Master.pdf",
+    file_size: 512000,
+    file_size_formatted: "500 KB",
+    file_data_url: "",
+    access_level: "premium",
+    uploaded_by: "admin",
+    uploaded_at: "2026-06-05T11:00:00Z",
+    is_active: true,
+    is_custom_upload: false,
+    notes: "BetKing verified Aussie coupon sheet with 1X2 market combinations.",
+    page_count: 1,
+    tags: ["BetKing", "Nigeria", "Week 50"]
+  },
+  {
+    id: "pdf-init-sporty-gh-w50",
+    bookmaker_key: "sportybet_ghana",
+    bookmaker_name: "SportyBet (Ghana)",
+    country: "Ghana",
+    week_number: 50,
+    season_year: 2026,
+    file_name: "SportyBet_Ghana_Week50_PoolSlip.pdf",
+    file_size: 421888,
+    file_size_formatted: "412 KB",
+    file_data_url: "",
+    access_level: "premium",
+    uploaded_by: "admin",
+    uploaded_at: "2026-06-05T09:15:00Z",
+    is_active: true,
+    is_custom_upload: false,
+    notes: "Ghana regional SportyBet sheet with Cedis market odds & draw forecasts.",
+    page_count: 1,
+    tags: ["Ghana", "SportyBet", "GHS Market"]
+  },
+  {
+    id: "pdf-init-comp-w50",
+    bookmaker_key: "pool_codes_comparison",
+    bookmaker_name: "Pool Codes Comparison (Master Sheet)",
+    country: "International",
+    week_number: 50,
+    season_year: 2026,
+    file_name: "FastPoolCodes_Week50_Master_Comparison_Sheet.pdf",
+    file_size: 358400,
+    file_size_formatted: "350 KB",
+    file_data_url: "",
+    access_level: "free",
+    uploaded_by: "admin",
+    uploaded_at: "2026-06-05T08:00:00Z",
+    is_active: true,
+    is_custom_upload: false,
+    notes: "Multi-bookmaker odds cross-reference matrix (Bet9ja, BetKing, SportyBet).",
+    page_count: 1,
+    tags: ["Master Matrix", "Free Access", "Multi-Bookmaker"]
   }
 ];
 
@@ -924,6 +1024,248 @@ app.delete("/api/tables/:tableName/:id", async (req, res) => {
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err?.message || String(err) });
   }
+});
+
+// API Route - Update Row in ANY table in Supabase by ID
+app.put("/api/tables/:tableName/:id", async (req, res) => {
+  const { tableName, id } = req.params;
+  const updatePayload = req.body;
+
+  if (!tableName || !/^[a-zA-Z0-9_]+$/.test(tableName)) {
+    return res.status(400).json({ success: false, error: `Invalid table name format '${tableName}'.` });
+  }
+
+  if (!updatePayload || typeof updatePayload !== "object" || Object.keys(updatePayload).length === 0) {
+    return res.status(400).json({ success: false, error: "Update payload must be a non-empty JSON object." });
+  }
+
+  invalidateCache(`table:${tableName}`);
+  invalidateCache("access:");
+
+  // In-memory users update if needed
+  if (tableName === "users") {
+    const memIdx = serverMemoryUsers.findIndex(u => String(u.id) === String(id));
+    if (memIdx !== -1) {
+      serverMemoryUsers[memIdx] = { ...serverMemoryUsers[memIdx], ...updatePayload };
+    }
+  }
+
+  const supabase = getSupabaseClient(true) || getSupabaseClient(false);
+  if (!supabase) {
+    return res.json({ success: true, table: tableName, data: [updatePayload], note: "Updated in memory" });
+  }
+
+  try {
+    const numId = Number(id);
+    let query = supabase.from(tableName).update(updatePayload);
+    const { data, error } = await (isNaN(numId) ? query.eq("id", id) : query.eq("id", numId)).select();
+    if (error) {
+      return res.status(400).json({ success: false, error: error.message });
+    }
+    return res.json({ success: true, table: tableName, data });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err?.message || String(err) });
+  }
+});
+
+// API Routes - Admin Uploaded PDFs Management (Isolated from Supabase Base Tables)
+app.get("/api/admin-pdfs", (req, res) => {
+  return res.json({
+    success: true,
+    count: serverMemoryUploadedPdfs.length,
+    data: serverMemoryUploadedPdfs
+  });
+});
+
+app.post("/api/admin-pdfs/upload", async (req, res) => {
+  const pdfRecord = req.body;
+  if (!pdfRecord || !pdfRecord.bookmaker_key) {
+    return res.status(400).json({ success: false, error: "Bookmaker key and valid PDF metadata are required." });
+  }
+
+  const newRecord = {
+    id: pdfRecord.id || `pdf-${pdfRecord.bookmaker_key}-${Date.now()}`,
+    bookmaker_key: pdfRecord.bookmaker_key,
+    bookmaker_name: pdfRecord.bookmaker_name || pdfRecord.bookmaker_key,
+    country: pdfRecord.country || "Nigeria",
+    week_number: Number(pdfRecord.week_number) || 50,
+    season_year: Number(pdfRecord.season_year) || 2026,
+    file_name: pdfRecord.file_name || `${pdfRecord.bookmaker_name || 'Bookmaker'}_Coupon.pdf`,
+    file_size: Number(pdfRecord.file_size) || 256000,
+    file_size_formatted: pdfRecord.file_size_formatted || "250 KB",
+    file_data_url: pdfRecord.file_data_url || "",
+    access_level: pdfRecord.access_level || "premium",
+    uploaded_by: pdfRecord.uploaded_by || "admin",
+    uploaded_at: pdfRecord.uploaded_at || new Date().toISOString(),
+    is_active: pdfRecord.is_active !== undefined ? pdfRecord.is_active : true,
+    is_custom_upload: true,
+    notes: pdfRecord.notes || "Admin uploaded official coupon document.",
+    page_count: Number(pdfRecord.page_count) || 1,
+    tags: Array.isArray(pdfRecord.tags) ? pdfRecord.tags : [pdfRecord.bookmaker_name || "Bookmaker", "Custom Upload"]
+  };
+
+  // If set to active, deactivate previous entries for same bookmaker & week
+  if (newRecord.is_active) {
+    serverMemoryUploadedPdfs.forEach(p => {
+      if (p.bookmaker_key === newRecord.bookmaker_key && p.week_number === newRecord.week_number) {
+        p.is_active = false;
+      }
+    });
+  }
+
+  serverMemoryUploadedPdfs.unshift(newRecord);
+
+  // Optional: write to dedicated uploaded_bookmaker_pdfs table in Supabase without touching fixture tables
+  const supabase = getSupabaseClient(true) || getSupabaseClient(false);
+  if (supabase) {
+    try {
+      await supabase.from("uploaded_bookmaker_pdfs").insert([newRecord]);
+    } catch (_) {}
+  }
+
+  return res.json({
+    success: true,
+    message: `PDF for ${newRecord.bookmaker_name} (Week ${newRecord.week_number}) uploaded and published successfully.`,
+    data: newRecord
+  });
+});
+
+app.delete("/api/admin-pdfs/:id", async (req, res) => {
+  const { id } = req.params;
+  const target = serverMemoryUploadedPdfs.find(p => p.id === id);
+
+  // Filter out of in-memory store
+  serverMemoryUploadedPdfs = serverMemoryUploadedPdfs.filter(p => p.id !== id);
+
+  // Delete from uploaded_bookmaker_pdfs table in Supabase if exists, keeping base tables intact
+  const supabase = getSupabaseClient(true) || getSupabaseClient(false);
+  if (supabase) {
+    try {
+      await supabase.from("uploaded_bookmaker_pdfs").delete().eq("id", id);
+    } catch (_) {}
+  }
+
+  return res.json({
+    success: true,
+    deletedId: id,
+    message: target 
+      ? `Uploaded PDF '${target.file_name}' deleted successfully (base tables untouched).` 
+      : `PDF record removed.`
+  });
+});
+
+// API Route - PDF Access Authorization Verification
+app.post("/api/pdf/verify-access", async (req, res) => {
+  const { user_id, username, bookmaker } = req.body || {};
+  const targetBookmaker = String(bookmaker || '').toLowerCase().trim();
+
+  // 1. Free access table: "Pool Codes Comparison"
+  if (
+    targetBookmaker.includes('comparison') ||
+    targetBookmaker.includes('pool_codes_comparison') ||
+    targetBookmaker.includes('poolcodescomparison')
+  ) {
+    return res.json({ allowed: true, bookmaker: targetBookmaker, reason: "Public free access table." });
+  }
+
+  // 2. Admin authorization (Universal access)
+  const memoryUser = serverMemoryUsers.find(u =>
+    (user_id && u.id === user_id) ||
+    (username && u.username && u.username.toLowerCase() === String(username).toLowerCase())
+  );
+  if (memoryUser && memoryUser.role === 'admin') {
+    return res.json({ allowed: true, bookmaker: targetBookmaker, reason: "Administrator privileges." });
+  }
+
+  // 3. User subscription verification in memory and database
+  const normBm = targetBookmaker.replace(/[^a-z0-9]/g, '');
+
+  const userPurchases = serverMemoryPurchases.filter(p => {
+    const matchesUser =
+      (user_id && String(p.user_id).toLowerCase() === String(user_id).toLowerCase()) ||
+      (username && p.username && p.username.toLowerCase() === String(username).toLowerCase());
+    const notExpired = !p.expiry_date || new Date(p.expiry_date) > new Date();
+    return matchesUser && notExpired && (p.access_status === 'active' || p.status === 'active');
+  });
+
+  for (const p of userPurchases) {
+    const comps = Array.isArray(p.components) ? p.components.map((c: string) => String(c).toLowerCase()) : [];
+    const planText = String(p.plan_purchased || p.plan_id || '').toLowerCase();
+    
+    if (comps.includes('all') || comps.includes('vip-unlimited') || planText.includes('all') || planText.includes('yearly') || planText.includes('unlimited')) {
+      return res.json({ allowed: true, bookmaker: targetBookmaker, plan: p.plan_purchased });
+    }
+
+    if (comps.some((c: string) => {
+      const normC = c.replace(/[^a-z0-9]/g, '');
+      return normBm.includes(normC) || normC.includes(normBm);
+    })) {
+      return res.json({ allowed: true, bookmaker: targetBookmaker, plan: p.plan_purchased });
+    }
+
+    if (normBm.includes('sporty') && normBm.includes('ghana') && (planText.includes('ghana') || planText.includes('gh'))) {
+      return res.json({ allowed: true, bookmaker: targetBookmaker, plan: p.plan_purchased });
+    } else if (normBm.includes('sporty') && !normBm.includes('ghana') && planText.includes('sporty') && !planText.includes('ghana')) {
+      return res.json({ allowed: true, bookmaker: targetBookmaker, plan: p.plan_purchased });
+    } else if (normBm.includes('bet9ja') && planText.includes('bet9ja')) {
+      return res.json({ allowed: true, bookmaker: targetBookmaker, plan: p.plan_purchased });
+    } else if (normBm.includes('betking') && planText.includes('betking')) {
+      return res.json({ allowed: true, bookmaker: targetBookmaker, plan: p.plan_purchased });
+    } else if (normBm.includes('msport') && planText.includes('msport')) {
+      return res.json({ allowed: true, bookmaker: targetBookmaker, plan: p.plan_purchased });
+    } else if (normBm.includes('betway') && planText.includes('betway')) {
+      return res.json({ allowed: true, bookmaker: targetBookmaker, plan: p.plan_purchased });
+    }
+  }
+
+  // Also query Supabase directly for live purchases_access_log
+  const supabase = getSupabaseClient();
+  if (supabase && (user_id || username)) {
+    try {
+      let query = supabase.from("purchases_access_log").select("*");
+      if (user_id) query = query.eq("user_id", user_id);
+      else if (username) query = query.eq("username", username);
+      const { data: dbLogs } = await query;
+      if (dbLogs && dbLogs.length > 0) {
+        for (const item of dbLogs) {
+          const expDate = item.expiry_date || item.expires_at;
+          const notExp = !expDate || new Date(expDate) > new Date();
+          const isAct = String(item.access_status || item.status || 'active').toLowerCase() === 'active';
+          if (notExp && isAct) {
+            const ptitle = String(item.plan_purchased || item.item_name || item.plan_id || '').toLowerCase();
+            const rawComps = item.components || item.granted_tables;
+            let compsList: string[] = [];
+            if (Array.isArray(rawComps)) compsList = rawComps.map((c: any) => String(c).toLowerCase());
+            else if (typeof rawComps === 'string') compsList = [rawComps.toLowerCase()];
+
+            if (compsList.includes('all') || ptitle.includes('all') || ptitle.includes('unlimited') || ptitle.includes('yearly')) {
+              return res.json({ allowed: true, bookmaker: targetBookmaker, plan: ptitle });
+            }
+
+            if (compsList.some((c: string) => normBm.includes(c.replace(/[^a-z0-9]/g, '')) || c.replace(/[^a-z0-9]/g, '').includes(normBm))) {
+              return res.json({ allowed: true, bookmaker: targetBookmaker, plan: ptitle });
+            }
+
+            if (normBm.includes('sporty') && normBm.includes('ghana') && (ptitle.includes('ghana') || ptitle.includes('gh'))) {
+              return res.json({ allowed: true, bookmaker: targetBookmaker, plan: ptitle });
+            } else if (normBm.includes('sporty') && !normBm.includes('ghana') && ptitle.includes('sporty') && !ptitle.includes('ghana')) {
+              return res.json({ allowed: true, bookmaker: targetBookmaker, plan: ptitle });
+            } else if (normBm.includes('bet9ja') && ptitle.includes('bet9ja')) {
+              return res.json({ allowed: true, bookmaker: targetBookmaker, plan: ptitle });
+            } else if (normBm.includes('betking') && ptitle.includes('betking')) {
+              return res.json({ allowed: true, bookmaker: targetBookmaker, plan: ptitle });
+            }
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  return res.status(403).json({
+    allowed: false,
+    error: `Subscription Required: An active VIP subscription covering ${bookmaker} is required to access or download this official Admin PDF.`,
+    bookmaker: targetBookmaker
+  });
 });
 
 // API Route - Table Prober Proxy

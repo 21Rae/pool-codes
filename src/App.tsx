@@ -49,6 +49,7 @@ import {
   INITIAL_MSPORT,
   INITIAL_POOL_CODES_COMPARISON,
   INITIAL_LIVESCORES,
+  INITIAL_UPLOADED_BOOKMAKER_PDFS,
   isPaymentDisabledBookmaker,
   normalizeBookmakerKey,
   matchBookmakerComponent
@@ -68,6 +69,8 @@ import {
 
 // Modular imports
 import CustomerPortal from './components/CustomerPortal';
+import AdminManagementPortal from './components/AdminManagementPortal';
+import AdminLoginPage from './components/AdminLoginPage';
 import OfficePoolStopHome from './components/OfficePoolStopHome';
 import ChatbotSection from './components/ChatbotSection';
 import Footer from './components/Footer';
@@ -98,7 +101,8 @@ export default function App() {
     soccabet: [],
     msport: [],
     pool_codes_comparison: INITIAL_POOL_CODES_COMPARISON,
-    livescores: INITIAL_LIVESCORES
+    livescores: INITIAL_LIVESCORES,
+    uploaded_bookmaker_pdfs: INITIAL_UPLOADED_BOOKMAKER_PDFS
   });
 
   // Simulator Domain Router: toggles independent application instances
@@ -106,11 +110,21 @@ export default function App() {
   // 'admin' -> admin.poolcodes.com
   const [currentAppSelector, setCurrentAppSelector] = useState<'customer' | 'admin'>('customer');
   const [initialHomeView, setInitialHomeView] = useState<'blog' | 'comparison' | 'livescores' | 'results' | 'about' | 'contact'>('blog');
-  const [viewMode, setViewMode] = useState<'homepage' | 'portal' | 'livescores' | 'terms' | 'help'>(() => {
+  const [viewMode, setViewMode] = useState<'homepage' | 'portal' | 'livescores' | 'terms' | 'help' | 'admin_login'>(() => {
     try {
+      const pathname = window.location.pathname.toLowerCase();
       const hash = window.location.hash.toLowerCase();
       const cachedStr = localStorage.getItem('fastpool_cached_user');
+      const cachedUser = cachedStr ? JSON.parse(cachedStr) : null;
       const cachedView = localStorage.getItem('fastpool_view_mode');
+
+      const isAdminRoute = pathname === '/admin' || pathname.startsWith('/admin/') || pathname === '/admin-login' || pathname.startsWith('/admin-login/') ||
+                          hash === '#admin' || hash.startsWith('#/admin') || hash === '#admin-login' || hash.startsWith('#/admin-login') || hash === '#master-admin';
+
+      if (isAdminRoute) {
+        if (cachedUser && cachedUser.role === 'admin') return 'portal';
+        return 'admin_login';
+      }
 
       if (hash === '#livescores') return 'livescores';
       if (hash === '#terms') return 'terms';
@@ -306,21 +320,42 @@ export default function App() {
   useEffect(() => {
     try {
       localStorage.setItem('fastpool_view_mode', viewMode);
-      const targetHash = viewMode === 'portal' ? '#dashboard' : viewMode === 'homepage' ? '#home' : `#${viewMode}`;
+      let targetHash = '#home';
+      if (viewMode === 'admin_login') {
+        targetHash = '#admin';
+      } else if (viewMode === 'portal') {
+        targetHash = currentUser.role === 'admin' ? '#admin' : '#dashboard';
+      } else if (viewMode === 'homepage') {
+        targetHash = '#home';
+      } else {
+        targetHash = `#${viewMode}`;
+      }
+
       if (window.location.hash !== targetHash) {
         window.history.replaceState({ view: viewMode }, '', targetHash);
       }
     } catch (_) {}
-  }, [viewMode]);
+  }, [viewMode, currentUser.role]);
 
-  // Handle browser Back / Forward buttons seamlessly
+  // Handle browser Back / Forward buttons and URL Hash changes seamlessly
   useEffect(() => {
-    const handlePopState = () => {
+    const handleRouteChange = () => {
       try {
+        const pathname = window.location.pathname.toLowerCase();
         const hash = window.location.hash.toLowerCase();
-        const cachedUser = localStorage.getItem('fastpool_cached_user');
+        const cachedStr = localStorage.getItem('fastpool_cached_user');
+        const cachedUser = cachedStr ? JSON.parse(cachedStr) : null;
 
-        if (hash === '#dashboard' || hash === '#portal') {
+        const isAdmin = pathname === '/admin' || pathname.startsWith('/admin/') || pathname === '/admin-login' || pathname.startsWith('/admin-login/') ||
+                        hash === '#admin' || hash.startsWith('#/admin') || hash === '#admin-login' || hash.startsWith('#/admin-login') || hash === '#master-admin';
+
+        if (isAdmin) {
+          if (cachedUser && cachedUser.role === 'admin') {
+            setViewMode('portal');
+          } else {
+            setViewMode('admin_login');
+          }
+        } else if (hash === '#dashboard' || hash === '#portal') {
           if (cachedUser) {
             setViewMode('portal');
           } else {
@@ -332,14 +367,18 @@ export default function App() {
           setViewMode('terms');
         } else if (hash === '#help') {
           setViewMode('help');
-        } else {
+        } else if (hash === '#home' || hash === '' || hash === '#/') {
           setViewMode('homepage');
         }
       } catch (_) {}
     };
 
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
+    window.addEventListener('popstate', handleRouteChange);
+    window.addEventListener('hashchange', handleRouteChange);
+    return () => {
+      window.removeEventListener('popstate', handleRouteChange);
+      window.removeEventListener('hashchange', handleRouteChange);
+    };
   }, []);
 
   // Strict Dashboard Guard: Users cannot access portal dashboard without signing up / logging in
@@ -1991,23 +2030,41 @@ export default function App() {
     const cleanUName = emailOrUsername.toLowerCase().trim();
 
     try {
-      const response = await fetch("/api/auth/signin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ emailOrUsername: cleanUName, password })
-      });
+      let resData: any = null;
+      try {
+        const response = await fetch("/api/auth/signin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ emailOrUsername: cleanUName, password })
+        });
+        resData = await response.json();
+      } catch (networkErr) {
+        console.warn("[Auth API fallback]:", networkErr);
+      }
 
-      const resData = await response.json();
+      // Check if remote authentication succeeded or fall back to client state users (e.g. admin accounts)
+      let resolvedUser = resData?.user;
+      if (!resolvedUser) {
+        const localMatched = db.users.find(
+          u => u.email.toLowerCase() === cleanUName || u.username.toLowerCase() === cleanUName
+        );
+        if (localMatched) {
+          if (localMatched.password && localMatched.password !== password) {
+            return { success: false, error: "Invalid password. Please check your credentials." };
+          }
+          resolvedUser = localMatched;
+        }
+      }
 
-      if (!response.ok || resData.error) {
+      if (!resolvedUser) {
         return {
           success: false,
-          error: resData.error || "Authentication failed. Please check your credentials."
+          error: resData?.error || `Account not found for '${emailOrUsername}'. Please check your credentials or click 'Sign Up'.`
         };
       }
 
-      if (resData.user) {
-        const su = resData.user;
+      if (resolvedUser) {
+        const su = resolvedUser;
         const email = su.email || cleanUName;
         const username = su.username || cleanUName.split('@')[0];
 
@@ -2331,6 +2388,26 @@ export default function App() {
             renderFooter={renderFooter}
           />
         </div>
+      ) : viewMode === 'admin_login' ? (
+        <AdminLoginPage
+          db={db}
+          onAdminLoginSuccess={(adminUser) => {
+            setDb(prev => ({
+              ...prev,
+              users: prev.users.some(u => u.id === adminUser.id) ? prev.users : [...prev.users, adminUser]
+            }));
+            setSelectedPersonaId(adminUser.id);
+            localStorage.setItem('fastpool_cached_user', JSON.stringify(adminUser));
+            localStorage.setItem('fastpool_selected_persona', adminUser.id);
+            setViewMode('portal');
+            triggerToast(`Admin access granted. Welcome, @${adminUser.username}!`, 'success');
+          }}
+          onBackToHomepage={() => {
+            setViewMode('homepage');
+          }}
+          triggerToast={triggerToast}
+          logSQL={logSQL}
+        />
       ) : (
         <div className="h-screen bg-[#090D1A] flex flex-col overflow-hidden text-slate-100">
           {/* Main Application Navigation Header (Styled naturally as key workspace views) */}
@@ -2405,92 +2482,133 @@ export default function App() {
           {/* Main Workspace Frame container */}
           <main className="flex-1 w-full p-0 sm:p-4 md:p-6 flex flex-col gap-4 sm:gap-6 min-h-0 overflow-hidden">
             <div className="flex-1 bg-[#0A0F1D]/50 sm:border border-emerald-950 sm:rounded-xl overflow-hidden shadow-2xl relative flex flex-col min-h-0">
-              <CustomerPortal
-                db={db}
-                currentUser={currentUser}
-                activePlan={activePlan}
-                activeSubscription={activeSubscription}
-                buySubscription={buySubscription}
-                handleDownloadCode={handleDownloadCode}
-                triggerToast={triggerToast}
-                markAllNotificationsRead={markAllNotificationsRead}
-                confirmedPaymentMail={confirmedPaymentMail}
-                setConfirmedPaymentMail={setConfirmedPaymentMail}
-                showSimulatedEmailModal={showSimulatedEmailModal}
-                setShowSimulatedEmailModal={setShowSimulatedEmailModal}
-                isSyncingSupabase={isSyncingSupabase}
-                fetchRealSupabaseData={fetchRealSupabaseData}
-                discoveredDbTables={discoveredDbTables}
-                bypassPremium={bypassPremium}
-                onDownloadReceipt={downloadCodesFileAuto}
-                onToggleBypassPremium={() => {
-                  const newVal = !bypassPremium;
-                  setBypassPremium(newVal);
-                  localStorage.setItem('fastpool_bypass_premium', String(newVal));
-                  triggerToast(newVal ? '🔧 Test Mode Enabled: All premium locks bypassed.' : '🟢 Live Mode Active: Premium authorization and locks strictly enforced.', 'info');
-                }}
-                onNavigateToLiveScores={() => {
-                  setLivescoresOrigin('portal');
-                  setViewMode('livescores');
-                  triggerToast('Navigating to Live Scores Arena...', 'info');
-                }}
-                onNavigateToContact={() => {
-                  setInitialHomeView('contact');
-                  setViewMode('homepage');
-                  triggerToast('Navigating to Contact Us & Helpdesk...', 'info');
-                }}
-                onNavigateToAbout={() => {
-                  setInitialHomeView('about');
-                  setViewMode('homepage');
-                  triggerToast('Navigating to About Us & FastPool Story...', 'info');
-                }}
-                onSignOut={() => {
-                  localStorage.removeItem('fastpool_cached_user');
-                  localStorage.removeItem('fastpool_view_mode');
-                  setSelectedPersonaId('');
-                  setViewMode('homepage');
-                  try {
-                    window.history.replaceState({ view: 'homepage' }, '', '#home');
-                  } catch (_) {}
-                  triggerToast('Logged out of workspace session successfully.', 'success');
-                }}
-                onUpdateProfile={(updated) => {
-                  setDb(prev => ({
-                    ...prev,
-                    users: prev.users.map(u => u.id === currentUser.id ? { 
-                      ...u, 
-                      username: updated.username,
-                      email: updated.email,
-                      phone: updated.phone
-                    } : u)
-                  }));
-
-                  try {
-                    const cachedStr = localStorage.getItem('fastpool_cached_user');
-                    if (cachedStr) {
-                      const cached = JSON.parse(cachedStr);
-                      localStorage.setItem('fastpool_cached_user', JSON.stringify({
-                        ...cached,
+              {currentUser.role === 'admin' ? (
+                <AdminManagementPortal
+                  db={db}
+                  currentUser={currentUser}
+                  triggerToast={triggerToast}
+                  logSQL={logSQL}
+                  setDb={setDb}
+                  fetchRealSupabaseData={fetchRealSupabaseData}
+                  isSyncingSupabase={isSyncingSupabase}
+                  discoveredDbTables={discoveredDbTables}
+                  onSignOut={() => {
+                    localStorage.removeItem('fastpool_cached_user');
+                    localStorage.removeItem('fastpool_view_mode');
+                    setSelectedPersonaId('');
+                    setViewMode('homepage');
+                    try {
+                      window.history.replaceState({ view: 'homepage' }, '', '#home');
+                    } catch (_) {}
+                    triggerToast('Logged out of admin workspace successfully.', 'success');
+                  }}
+                  onNavigateToHomepage={() => {
+                    setViewMode('homepage');
+                    triggerToast('Navigating to Public Homepage...', 'info');
+                  }}
+                  onNavigateToLiveScores={() => {
+                    setLivescoresOrigin('portal');
+                    setViewMode('livescores');
+                    triggerToast('Navigating to Live Scores Arena...', 'info');
+                  }}
+                  onUpdateUploadedPdfs={(pdfs) => {
+                    setDb(prev => ({ ...prev, uploaded_bookmaker_pdfs: pdfs }));
+                    logSQL(`-- Admin synced uploaded bookmaker PDFs (${pdfs.length} files in catalog)`, 'Admin PDF upload update');
+                  }}
+                  renderFooter={renderFooter}
+                />
+              ) : (
+                <CustomerPortal
+                  db={db}
+                  currentUser={currentUser}
+                  activePlan={activePlan}
+                  activeSubscription={activeSubscription}
+                  buySubscription={buySubscription}
+                  handleDownloadCode={handleDownloadCode}
+                  triggerToast={triggerToast}
+                  markAllNotificationsRead={markAllNotificationsRead}
+                  confirmedPaymentMail={confirmedPaymentMail}
+                  setConfirmedPaymentMail={setConfirmedPaymentMail}
+                  showSimulatedEmailModal={showSimulatedEmailModal}
+                  setShowSimulatedEmailModal={setShowSimulatedEmailModal}
+                  isSyncingSupabase={isSyncingSupabase}
+                  fetchRealSupabaseData={fetchRealSupabaseData}
+                  discoveredDbTables={discoveredDbTables}
+                  bypassPremium={bypassPremium}
+                  onDownloadReceipt={downloadCodesFileAuto}
+                  onToggleBypassPremium={() => {
+                    const newVal = !bypassPremium;
+                    setBypassPremium(newVal);
+                    localStorage.setItem('fastpool_bypass_premium', String(newVal));
+                    triggerToast(newVal ? '🔧 Test Mode Enabled: All premium locks bypassed.' : '🟢 Live Mode Active: Premium authorization and locks strictly enforced.', 'info');
+                  }}
+                  onNavigateToLiveScores={() => {
+                    setLivescoresOrigin('portal');
+                    setViewMode('livescores');
+                    triggerToast('Navigating to Live Scores Arena...', 'info');
+                  }}
+                  onNavigateToContact={() => {
+                    setInitialHomeView('contact');
+                    setViewMode('homepage');
+                    triggerToast('Navigating to Contact Us & Helpdesk...', 'info');
+                  }}
+                  onNavigateToAbout={() => {
+                    setInitialHomeView('about');
+                    setViewMode('homepage');
+                    triggerToast('Navigating to About Us & FastPool Story...', 'info');
+                  }}
+                  onSignOut={() => {
+                    localStorage.removeItem('fastpool_cached_user');
+                    localStorage.removeItem('fastpool_view_mode');
+                    setSelectedPersonaId('');
+                    setViewMode('homepage');
+                    try {
+                      window.history.replaceState({ view: 'homepage' }, '', '#home');
+                    } catch (_) {}
+                    triggerToast('Logged out of workspace session successfully.', 'success');
+                  }}
+                  onUpdateProfile={(updated) => {
+                    setDb(prev => ({
+                      ...prev,
+                      users: prev.users.map(u => u.id === currentUser.id ? { 
+                        ...u, 
                         username: updated.username,
                         email: updated.email,
-                        role: currentUser.role,
-                        id: currentUser.id
-                      }));
+                        phone: updated.phone
+                      } : u)
+                    }));
+
+                    try {
+                      const cachedStr = localStorage.getItem('fastpool_cached_user');
+                      if (cachedStr) {
+                        const cached = JSON.parse(cachedStr);
+                        localStorage.setItem('fastpool_cached_user', JSON.stringify({
+                          ...cached,
+                          username: updated.username,
+                          email: updated.email,
+                          role: currentUser.role,
+                          id: currentUser.id
+                        }));
+                      }
+                    } catch (e) {}
+
+                    let logMsg = `-- Update user details\nUPDATE users SET username = '${updated.username}', email = '${updated.email}', phone = '${updated.phone || ''}' WHERE id = '${currentUser.id}';`;
+                    if (updated.password) {
+                      logMsg += `\n-- Hash and store security password\nUPDATE users SET password_hash = 'sha256:pbkdf2:${updated.password.slice(0, 3)}...' WHERE id = '${currentUser.id}';`;
+                      triggerToast('Personal profile and secure password synchronized successfully!', 'success');
+                    } else {
+                      triggerToast('Personal details updated successfully!', 'success');
                     }
-                  } catch (e) {}
 
-                  let logMsg = `-- Update user details\nUPDATE users SET username = '${updated.username}', email = '${updated.email}', phone = '${updated.phone || ''}' WHERE id = '${currentUser.id}';`;
-                  if (updated.password) {
-                    logMsg += `\n-- Hash and store security password\nUPDATE users SET password_hash = 'sha256:pbkdf2:${updated.password.slice(0, 3)}...' WHERE id = '${currentUser.id}';`;
-                    triggerToast('Personal profile and secure password synchronized successfully!', 'success');
-                  } else {
-                    triggerToast('Personal details updated successfully!', 'success');
-                  }
-
-                  logSQL(logMsg, `Customer @${updated.username} synchronized profile details`);
-                }}
-                renderFooter={renderFooter}
-              />
+                    logSQL(logMsg, `Customer @${updated.username} synchronized profile details`);
+                  }}
+                  onUpdateUploadedPdfs={(pdfs) => {
+                    setDb(prev => ({ ...prev, uploaded_bookmaker_pdfs: pdfs }));
+                    logSQL(`-- Admin synced uploaded bookmaker PDFs (${pdfs.length} files in catalog)`, 'Admin PDF upload update');
+                  }}
+                  renderFooter={renderFooter}
+                />
+              )}
             </div>
           </main>
         </div>
