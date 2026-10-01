@@ -3263,7 +3263,7 @@ export default function CustomerPortal({
                                 title={`Customize & download ${dashboardBookmakerFilter} PDF sheet`}
                               >
                                 <Download className="w-4 h-4" />
-                                <span>DOWNLOAD</span>
+                                <span>DOWNLOAD PDF</span>
                               </button>
                             );
                           }
@@ -3277,7 +3277,7 @@ export default function CustomerPortal({
                               title={`Subscription required to download ${dashboardBookmakerFilter} PDF`}
                             >
                               <Lock className="w-3.5 h-3.5 text-amber-400" />
-                              <span>DOWNLOAD (Locked)</span>
+                              <span>DOWNLOAD PDF (Locked)</span>
                             </button>
                           );
                         })()}
@@ -7692,7 +7692,7 @@ export default function CustomerPortal({
                         className="w-full py-3 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-500 hover:to-indigo-500 active:scale-95 text-white font-black text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-blue-900/30 font-mono border border-blue-400/40"
                       >
                         <ShieldCheck className="w-4 h-4 text-blue-200" />
-                        <span>DOWNLOAD</span>
+                        <span>DOWNLOAD PDF</span>
                       </button>
                     </>
                   ) : (
