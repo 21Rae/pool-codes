@@ -7672,7 +7672,7 @@ export default function CustomerPortal({
                         className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 font-mono"
                       >
                         <Download className="w-4 h-4" />
-                        <span>DOWNLD WHATSAP V. (PDF)</span>
+                        <span>DOWNLOAD WHATSAPP V (PDF)</span>
                       </button>
 
                       {/* Download Official Admin PDF Release Button */}
@@ -7692,7 +7692,7 @@ export default function CustomerPortal({
                         className="w-full py-3 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-500 hover:to-indigo-500 active:scale-95 text-white font-black text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-blue-900/30 font-mono border border-blue-400/40"
                       >
                         <ShieldCheck className="w-4 h-4 text-blue-200" />
-                        <span>DOWNLOAD PDF</span>
+                        <span>DOWNLOAD NEW VERSION PDF</span>
                       </button>
                     </>
                   ) : (
@@ -7707,7 +7707,7 @@ export default function CustomerPortal({
 
                     <p className="text-[10px] text-slate-500 font-mono leading-relaxed text-center mt-1">
                       {isTableAllowed ? (
-                        <>💡 <span className="text-emerald-400 font-extrabold">Pro Tip:</span> Click <span className="text-white font-extrabold">"DOWNLD WHATSAP V. (PDF)"</span> to save your 1-page coupon sheet.</>
+                        <>💡 <span className="text-emerald-400 font-extrabold">Pro Tip:</span> Click <span className="text-white font-extrabold">"DOWNLOAD WHATSAPP V (PDF)"</span> to save your 1-page coupon sheet.</>
                       ) : (
                         <span className="text-amber-400/90 font-semibold">🔒 Table access is restricted. Please purchase a plan for this bookmaker table to unlock PDF downloads.</span>
                       )}
