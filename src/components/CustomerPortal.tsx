@@ -3246,52 +3246,6 @@ export default function CustomerPortal({
 
                       {/* Right-aligned Actions */}
                       <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 w-full xl:w-auto shrink-0 justify-start xl:justify-end">
-                        {/* Download Official Admin PDF Button Linked to Correct Bookmaker */}
-                        {(() => {
-                          const isTableAllowed = isBookieAllowed(dashboardBookmakerFilter);
-                          const brand = getBookmakerBrandInfo(dashboardBookmakerFilter);
-                          const activeAdminPdf = findAdminPdfForBookmaker(dashboardBookmakerFilter, db.uploaded_bookmaker_pdfs);
-
-                          if (isTableAllowed) {
-                            return (
-                              <button
-                                onClick={async () => {
-                                  triggerToast(`Preparing official Admin PDF for ${brand.name}...`, 'info');
-                                  await downloadBookmakerAdminPdf({
-                                    bookmaker: dashboardBookmakerFilter,
-                                    weekNumber: activeWeekNumber,
-                                    currentUser,
-                                    db,
-                                    customPdfs: db.uploaded_bookmaker_pdfs,
-                                    triggerToast
-                                  });
-                                }}
-                                className="px-3.5 py-2.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-500 hover:to-indigo-500 active:scale-95 text-white font-black text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shadow-blue-900/30 shrink-0 font-mono border border-blue-400/40"
-                                title={`Download verified Admin PDF for ${brand.name} (Week ${activeAdminPdf?.week_number || activeWeekNumber || 50})`}
-                              >
-                                <ShieldCheck className="w-4 h-4 text-blue-200" />
-                                <span>Download Admin PDF</span>
-                                <span className="bg-blue-950/70 border border-blue-400/40 text-[9px] px-1.5 py-0.5 rounded text-blue-200">
-                                  {brand.prefix}
-                                </span>
-                              </button>
-                            );
-                          }
-                          return (
-                            <button
-                              onClick={() => {
-                                triggerToast(`Access Restricted: Subscribe to the ${dashboardBookmakerFilter} table to download the official Admin PDF.`, 'error');
-                                setActiveSubTab('subscription');
-                              }}
-                              className="px-3.5 py-2.5 bg-slate-900 hover:bg-slate-850 active:scale-95 text-blue-400 border border-blue-500/30 font-bold text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shrink-0 font-mono opacity-85"
-                              title={`Subscription required to download Admin PDF for ${brand.name}`}
-                            >
-                              <Lock className="w-3.5 h-3.5 text-blue-400" />
-                              <span>Admin PDF (Locked)</span>
-                            </button>
-                          );
-                        })()}
-
                         {/* Download PDF Customizer Button with Strict Table Access Check */}
                         {(() => {
                           const isTableAllowed = isBookieAllowed(dashboardBookmakerFilter);
@@ -3306,10 +3260,10 @@ export default function CustomerPortal({
                                   setShowPdfPrintModal(true);
                                 }}
                                 className="px-3.5 py-2.5 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/20 shrink-0 font-mono"
-                                title={`Customize & download ${dashboardBookmakerFilter} coupon sheet`}
+                                title={`Customize & download ${dashboardBookmakerFilter} PDF sheet`}
                               >
                                 <Download className="w-4 h-4" />
-                                <span>Download PDF</span>
+                                <span>DOWNLOAD</span>
                               </button>
                             );
                           }
@@ -3323,7 +3277,7 @@ export default function CustomerPortal({
                               title={`Subscription required to download ${dashboardBookmakerFilter} PDF`}
                             >
                               <Lock className="w-3.5 h-3.5 text-amber-400" />
-                              <span>Download PDF (Locked)</span>
+                              <span>DOWNLOAD (Locked)</span>
                             </button>
                           );
                         })()}
@@ -7718,7 +7672,7 @@ export default function CustomerPortal({
                         className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 font-mono"
                       >
                         <Download className="w-4 h-4" />
-                        <span>Download Custom PDF (.pdf)</span>
+                        <span>DOWNLD WHATSAP V. (PDF)</span>
                       </button>
 
                       {/* Download Official Admin PDF Release Button */}
@@ -7738,7 +7692,7 @@ export default function CustomerPortal({
                         className="w-full py-3 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-500 hover:to-indigo-500 active:scale-95 text-white font-black text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-blue-900/30 font-mono border border-blue-400/40"
                       >
                         <ShieldCheck className="w-4 h-4 text-blue-200" />
-                        <span>Download Official Admin PDF (Week {pdfConfig.weekNumber || activeWeekNumber || 50})</span>
+                        <span>DOWNLOAD</span>
                       </button>
                     </>
                   ) : (
@@ -7753,7 +7707,7 @@ export default function CustomerPortal({
 
                     <p className="text-[10px] text-slate-500 font-mono leading-relaxed text-center mt-1">
                       {isTableAllowed ? (
-                        <>💡 <span className="text-emerald-400 font-extrabold">Pro Tip:</span> Click <span className="text-white font-extrabold">"Download PDF File (.pdf)"</span> to save your 1-page coupon sheet.</>
+                        <>💡 <span className="text-emerald-400 font-extrabold">Pro Tip:</span> Click <span className="text-white font-extrabold">"DOWNLD WHATSAP V. (PDF)"</span> to save your 1-page coupon sheet.</>
                       ) : (
                         <span className="text-amber-400/90 font-semibold">🔒 Table access is restricted. Please purchase a plan for this bookmaker table to unlock PDF downloads.</span>
                       )}
