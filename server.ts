@@ -725,8 +725,18 @@ app.post("/api/pdf/verify-access", async (req, res) => {
   const targetTable = bookmaker || table || "bet9ja";
 
   const cleanTbl = String(targetTable || "").toLowerCase().trim().replace(/[\s_\-]+/g, "_");
-  if (cleanTbl.includes("pool_codes_comparison") || cleanTbl.includes("pool_comparison")) {
+  if (cleanTbl.includes("pool_codes_comparison") || cleanTbl.includes("pool_comparison") || cleanTbl.includes("comparison")) {
     return res.json({ success: true, allowed: true, message: "PDF download authorized for Pool Codes Comparison." });
+  }
+
+  // Admin bypass check in memory
+  const memUser = serverMemoryUsers.find(
+    (u) =>
+      (targetUid && String(u.id).toLowerCase() === String(targetUid).toLowerCase()) ||
+      (targetUname && String(u.username).toLowerCase() === String(targetUname).toLowerCase())
+  );
+  if (memUser && memUser.role === "admin") {
+    return res.json({ success: true, allowed: true, message: "Administrator authorized." });
   }
 
   const result = await checkUserTableAccess(targetUid, targetUname, targetTable);
@@ -1262,119 +1272,6 @@ app.delete("/api/admin-pdfs/:id", async (req, res) => {
 });
 
 
-// API Route - PDF Access Authorization Verification
-app.post("/api/pdf/verify-access", async (req, res) => {
-  const { user_id, username, bookmaker } = req.body || {};
-  const targetBookmaker = String(bookmaker || '').toLowerCase().trim();
-
-  // 1. Free access table: "Pool Codes Comparison"
-  if (
-    targetBookmaker.includes('comparison') ||
-    targetBookmaker.includes('pool_codes_comparison') ||
-    targetBookmaker.includes('poolcodescomparison')
-  ) {
-    return res.json({ allowed: true, bookmaker: targetBookmaker, reason: "Public free access table." });
-  }
-
-  // 2. Admin authorization (Universal access)
-  const memoryUser = serverMemoryUsers.find(u =>
-    (user_id && u.id === user_id) ||
-    (username && u.username && u.username.toLowerCase() === String(username).toLowerCase())
-  );
-  if (memoryUser && memoryUser.role === 'admin') {
-    return res.json({ allowed: true, bookmaker: targetBookmaker, reason: "Administrator privileges." });
-  }
-
-  // 3. User subscription verification in memory and database
-  const normBm = targetBookmaker.replace(/[^a-z0-9]/g, '');
-
-  const userPurchases = serverMemoryPurchases.filter(p => {
-    const matchesUser =
-      (user_id && String(p.user_id).toLowerCase() === String(user_id).toLowerCase()) ||
-      (username && p.username && p.username.toLowerCase() === String(username).toLowerCase());
-    const notExpired = !p.expiry_date || new Date(p.expiry_date) > new Date();
-    return matchesUser && notExpired && (p.access_status === 'active' || p.status === 'active');
-  });
-
-  for (const p of userPurchases) {
-    const comps = Array.isArray(p.components) ? p.components.map((c: string) => String(c).toLowerCase()) : [];
-    const planText = String(p.plan_purchased || p.plan_id || '').toLowerCase();
-    
-    if (comps.includes('all') || comps.includes('vip-unlimited') || planText.includes('all') || planText.includes('yearly') || planText.includes('unlimited')) {
-      return res.json({ allowed: true, bookmaker: targetBookmaker, plan: p.plan_purchased });
-    }
-
-    if (comps.some((c: string) => {
-      const normC = c.replace(/[^a-z0-9]/g, '');
-      return normBm.includes(normC) || normC.includes(normBm);
-    })) {
-      return res.json({ allowed: true, bookmaker: targetBookmaker, plan: p.plan_purchased });
-    }
-
-    if (normBm.includes('sporty') && normBm.includes('ghana') && (planText.includes('ghana') || planText.includes('gh'))) {
-      return res.json({ allowed: true, bookmaker: targetBookmaker, plan: p.plan_purchased });
-    } else if (normBm.includes('sporty') && !normBm.includes('ghana') && planText.includes('sporty') && !planText.includes('ghana')) {
-      return res.json({ allowed: true, bookmaker: targetBookmaker, plan: p.plan_purchased });
-    } else if (normBm.includes('bet9ja') && planText.includes('bet9ja')) {
-      return res.json({ allowed: true, bookmaker: targetBookmaker, plan: p.plan_purchased });
-    } else if (normBm.includes('betking') && planText.includes('betking')) {
-      return res.json({ allowed: true, bookmaker: targetBookmaker, plan: p.plan_purchased });
-    } else if (normBm.includes('msport') && planText.includes('msport')) {
-      return res.json({ allowed: true, bookmaker: targetBookmaker, plan: p.plan_purchased });
-    } else if (normBm.includes('betway') && planText.includes('betway')) {
-      return res.json({ allowed: true, bookmaker: targetBookmaker, plan: p.plan_purchased });
-    }
-  }
-
-  // Also query Supabase directly for live purchases_access_log
-  const supabase = getSupabaseClient();
-  if (supabase && (user_id || username)) {
-    try {
-      let query = supabase.from("purchases_access_log").select("*");
-      if (user_id) query = query.eq("user_id", user_id);
-      else if (username) query = query.eq("username", username);
-      const { data: dbLogs } = await query;
-      if (dbLogs && dbLogs.length > 0) {
-        for (const item of dbLogs) {
-          const expDate = item.expiry_date || item.expires_at;
-          const notExp = !expDate || new Date(expDate) > new Date();
-          const isAct = String(item.access_status || item.status || 'active').toLowerCase() === 'active';
-          if (notExp && isAct) {
-            const ptitle = String(item.plan_purchased || item.item_name || item.plan_id || '').toLowerCase();
-            const rawComps = item.components || item.granted_tables;
-            let compsList: string[] = [];
-            if (Array.isArray(rawComps)) compsList = rawComps.map((c: any) => String(c).toLowerCase());
-            else if (typeof rawComps === 'string') compsList = [rawComps.toLowerCase()];
-
-            if (compsList.includes('all') || ptitle.includes('all') || ptitle.includes('unlimited') || ptitle.includes('yearly')) {
-              return res.json({ allowed: true, bookmaker: targetBookmaker, plan: ptitle });
-            }
-
-            if (compsList.some((c: string) => normBm.includes(c.replace(/[^a-z0-9]/g, '')) || c.replace(/[^a-z0-9]/g, '').includes(normBm))) {
-              return res.json({ allowed: true, bookmaker: targetBookmaker, plan: ptitle });
-            }
-
-            if (normBm.includes('sporty') && normBm.includes('ghana') && (ptitle.includes('ghana') || ptitle.includes('gh'))) {
-              return res.json({ allowed: true, bookmaker: targetBookmaker, plan: ptitle });
-            } else if (normBm.includes('sporty') && !normBm.includes('ghana') && ptitle.includes('sporty') && !ptitle.includes('ghana')) {
-              return res.json({ allowed: true, bookmaker: targetBookmaker, plan: ptitle });
-            } else if (normBm.includes('bet9ja') && ptitle.includes('bet9ja')) {
-              return res.json({ allowed: true, bookmaker: targetBookmaker, plan: ptitle });
-            } else if (normBm.includes('betking') && ptitle.includes('betking')) {
-              return res.json({ allowed: true, bookmaker: targetBookmaker, plan: ptitle });
-            }
-          }
-        }
-      }
-    } catch (_) {}
-  }
-
-  return res.status(403).json({
-    allowed: false,
-    error: `Subscription Required: An active VIP subscription covering ${bookmaker} is required to access or download this official Admin PDF.`,
-    bookmaker: targetBookmaker
-  });
-});
 
 // API Route - Table Prober Proxy
 app.post("/api/probe", async (req, res) => {

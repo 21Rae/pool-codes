@@ -3000,7 +3000,7 @@ export default function CustomerPortal({
                           let typeStr = '';
                           let typeColor = 'text-slate-500';
                           if (isLiveStatus) {
-                            typeStr = match.minute ? `${match.minute}' LIVE` : 'LIVE';
+                            typeStr = match.minute ? (match.minute.includes("'") ? match.minute : `${match.minute}'`) : '';
                             typeColor = 'text-[#FA3E65]';
                           } else if (isFinished) {
                             typeStr = 'FT';
@@ -3033,11 +3033,6 @@ export default function CustomerPortal({
                                   <span className="text-amber-400 font-black text-xs">{score2}</span>
                                 </div>
                               </div>
-                              {isLiveStatus && (
-                                <span className="bg-[#FA3E65]/15 border border-[#FA3E65]/20 text-[#FA3E65] text-[8.5px] font-black px-1.5 py-0.5 rounded shadow animate-pulse uppercase tracking-wider font-mono">
-                                  LIVE
-                                </span>
-                              )}
                             </div>
                           );
                         })
@@ -7206,11 +7201,16 @@ export default function CustomerPortal({
 
                   {/* Print & PDF Export Action Controls */}
                   <div className="p-5 border-t border-slate-800/85 bg-slate-950 flex flex-col gap-2.5 shrink-0">
-                    {/* Primary PDF Download Button */}
+                    {/* Primary PDF Download Button (Client-Generated Dynamic Template) */}
                     {isTableAllowed ? (
                       <>
-                        <button
-                          onClick={async () => {
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-[10px] font-mono text-emerald-400 font-bold uppercase tracking-wider">
+                            <span>Source 1: Dynamic Client Template</span>
+                            <span className="px-1.5 py-0.5 bg-emerald-500/20 text-emerald-300 rounded text-[8.5px] font-black">WhatsApp Edition</span>
+                          </div>
+                          <button
+                            onClick={async () => {
                           if (!isBookieAllowed(activeBookmaker)) {
                             triggerToast(`Access Denied: @${currentUser?.username || 'user'} (ID: ${currentUser?.id}) has zero access records for ${activeBookmaker} in purchases_access_log.`, 'error');
                             return;
@@ -7247,52 +7247,7 @@ export default function CustomerPortal({
                             const normStr = (s: string) => (s || '').replace(/\s+/g, '').toLowerCase();
                             const targetNorm = normStr(activeBookmaker);
 
-                            // Check if an admin uploaded a custom PDF for this bookmaker
-                            let adminUploadedList: any[] = [];
-                            try {
-                              const cached = localStorage.getItem('fastpool_uploaded_bookmaker_pdfs');
-                              if (cached) adminUploadedList = JSON.parse(cached);
-                            } catch (_) {}
-                            if (!adminUploadedList || adminUploadedList.length === 0) {
-                              adminUploadedList = (db as any).uploaded_bookmaker_pdfs || [];
-                            }
-
-                            const customPdf = adminUploadedList.find(
-                              (p: any) => p.is_active && normStr(p.bookmaker_key || p.bookmaker_name).includes(targetNorm.replace(/[^a-z0-9]/g, '')) && (p.storage_url || p.file_data_url)
-                            );
-
-                            if (customPdf && customPdf.storage_url) {
-                              try {
-                                triggerToast(`Downloading verified ${activeBookmaker} coupon from Supabase Storage...`, 'info');
-                                const response = await fetch(customPdf.storage_url);
-                                if (response.ok) {
-                                  const blob = await response.blob();
-                                  const objUrl = URL.createObjectURL(blob);
-                                  const a = document.createElement('a');
-                                  a.href = objUrl;
-                                  a.download = customPdf.file_name || `${activeBookmaker}_Official_Coupon.pdf`;
-                                  document.body.appendChild(a);
-                                  a.click();
-                                  document.body.removeChild(a);
-                                  setTimeout(() => URL.revokeObjectURL(objUrl), 3000);
-                                  triggerToast(`Downloaded verified admin release: ${customPdf.file_name}`, 'success');
-                                  return;
-                                }
-                              } catch (_) {}
-                            }
-
-                            if (customPdf && customPdf.file_data_url) {
-                              const a = document.createElement('a');
-                              a.href = customPdf.file_data_url;
-                              a.download = customPdf.file_name || `${activeBookmaker}_Official_Coupon.pdf`;
-                              document.body.appendChild(a);
-                              a.click();
-                              document.body.removeChild(a);
-                              triggerToast(`Downloading official verified PDF: ${customPdf.file_name}`, 'success');
-                              return;
-                            }
-
-                            triggerToast('Generating official PDF document...', 'info');
+                            triggerToast(`Generating dynamic ${activeBookmaker} WhatsApp V PDF template...`, 'info');
 
                             const rawList = postedGames.filter(game => {
                               if (activeBookmaker === 'all') return true;
@@ -7361,21 +7316,60 @@ export default function CustomerPortal({
                             const pageWidth = 210;
                             const pageHeight = 297;
 
-                            // 1. Prominent Centered Title (Exact match to official coupon header)
-                            doc.setTextColor(0, 0, 0);
-                            doc.setFont('helvetica', 'bold');
-                            doc.setFontSize(12.2);
                             const formattedDate = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase().replace(/ /g, '-');
-                            const couponTitle = `WEEK ${currentBookmakerWeek} ${activeBookmaker.toUpperCase()} - UK 2026/27  ${formattedDate}`;
-                            doc.text(couponTitle, pageWidth / 2, 7.5, { align: 'center' });
+                            const brand = getBookmakerBrandInfo(activeBookmaker);
+                            const brandRgb = brand.primaryColor || [5, 150, 105];
 
-                            // 2. Centered Enquiries Sub-header
-                            doc.setFontSize(7.2);
+                            // 1. Dark Top Header Bar (Matching WhatsApp V Dynamic Template Theme)
+                            doc.setFillColor(15, 23, 42); // slate-900
+                            doc.rect(3.5, 3.5, pageWidth - 7, 10.8, 'F');
+
+                            // 2. WhatsApp Vibrant Emerald Accent Stripe
+                            doc.setFillColor(37, 211, 102); // #25D366 signature WhatsApp green
+                            doc.rect(3.5, 14.3, pageWidth - 7, 0.9, 'F');
+
+                            // 3. Header Title & Branding
+                            doc.setTextColor(255, 255, 255);
                             doc.setFont('helvetica', 'bold');
-                            doc.setTextColor(0, 0, 0);
-                            doc.text('(For Enquiries Visit : www.fastpoolcodes.com Call or WhatsApp: +234 8030587933, +234 9037595705)', pageWidth / 2, 11.2, { align: 'center' });
+                            doc.setFontSize(10.2);
+                            doc.text(`⚽ FASTPOOLCODES • ${activeBookmaker.toUpperCase()} WEEK ${currentBookmakerWeek} COUPON`, 6.5, 8.2);
 
-                            // Table Columns Setup (Matching the official 12 columns / 10 fixtures sheet)
+                            doc.setFontSize(6.6);
+                            doc.setTextColor(203, 213, 225); // slate-300
+                            doc.text(`UK 2026/27 • WHATSAPP V DYNAMIC EDITION • ODDS AS AT ${formattedDate}`, 6.5, 12.2);
+
+                            // 4. Badges: "WHATSAPP V TEMPLATE" (Green) & "DYNAMIC CODES" (Brand Color)
+                            doc.setFillColor(37, 211, 102); // Emerald pill
+                            doc.roundedRect(pageWidth - 70, 4.8, 38, 4.8, 1, 1, 'F');
+                            doc.setTextColor(15, 23, 42); // Dark text
+                            doc.setFontSize(6.4);
+                            doc.setFont('helvetica', 'bold');
+                            doc.text('WHATSAPP V TEMPLATE', pageWidth - 51, 8.1, { align: 'center' });
+
+                            doc.setFillColor(brandRgb[0], brandRgb[1], brandRgb[2]);
+                            doc.roundedRect(pageWidth - 30.5, 4.8, 27, 4.8, 1, 1, 'F');
+                            doc.setTextColor(255, 255, 255);
+                            doc.setFontSize(6.2);
+                            doc.setFont('helvetica', 'bold');
+                            doc.text('DYNAMIC CODES', pageWidth - 17, 8.1, { align: 'center' });
+
+                            doc.setTextColor(148, 163, 184); // slate-400
+                            doc.setFontSize(5.8);
+                            doc.text('WhatsApp: +234 8030587933, +234 9037595705', pageWidth - 6.5, 12.2, { align: 'right' });
+
+                            // 5. Sub-header Metadata Bar (Licensee & Verification Info)
+                            doc.setFillColor(241, 245, 249); // slate-100
+                            doc.rect(3.5, 15.6, pageWidth - 7, 4.4, 'F');
+                            doc.setDrawColor(203, 213, 225); // slate-300
+                            doc.setLineWidth(0.2);
+                            doc.rect(3.5, 15.6, pageWidth - 7, 4.4, 'S');
+
+                            doc.setTextColor(51, 65, 85);
+                            doc.setFontSize(6.0);
+                            doc.setFont('helvetica', 'bold');
+                            doc.text(`LICENSEE: @${currentUser?.username || 'user'}   |   BOOKMAKER: ${activeBookmaker.toUpperCase()}   |   WEEK: ${currentBookmakerWeek} (2026/27)   |   SOURCE: CLIENT-GENERATED DYNAMIC TEMPLATE`, 5.5, 18.6);
+
+                            // Table Columns Setup (12 columns)
                             const tableHeaders: string[] = [
                               'Pool',
                               'Bet Code',
@@ -7406,76 +7400,52 @@ export default function CustomerPortal({
                               String((game.weekNo && game.weekNo !== 'NULL') ? game.weekNo : currentBookmakerWeek)
                             ]);
 
-                            const targetColumnsList = [
-                              'pool',
-                              'bet code',
-                              'league',
-                              'home',
-                              'away',
-                              '1',
-                              'x',
-                              '2',
-                              'bet tips',
-                              'status',
-                              'kick off',
-                              'week no'
-                            ];
-
-                            const isTargetHeader = (headerText: string): boolean => {
-                              const norm = String(headerText || '')
-                                .replace(/[\n\r]+/g, ' ')
-                                .replace(/\s+/g, ' ')
-                                .trim()
-                                .toLowerCase();
-                              return targetColumnsList.some(target => norm === target || norm.startsWith(target) || target.startsWith(norm));
-                            };
-
                             const totalRowsCount = tableData.length || 1;
                             // Dynamically scale row height so 40-50 rows fill the page evenly
-                            const targetRowHeight = totalRowsCount > 45 ? 5.15 : (totalRowsCount > 35 ? 5.8 : 6.5);
-                            const targetFontSize = totalRowsCount > 45 ? 7.8 : 8.2;
+                            const targetRowHeight = totalRowsCount > 45 ? 4.95 : (totalRowsCount > 35 ? 5.5 : 6.2);
+                            const targetFontSize = totalRowsCount > 45 ? 7.6 : 8.0;
 
                             autoTable(doc, {
-                              startY: 13.5,
+                              startY: 20.4,
                               head: [tableHeaders],
                               body: tableData.length > 0 ? tableData : [['-', '-', '-', 'No classified fixtures found', ...tableHeaders.slice(4).map(() => '-')]],
                               theme: 'grid',
-                              margin: { top: 13.5, bottom: 12.0, left: 3.5, right: 3.5 },
+                              margin: { top: 20.4, bottom: 11.5, left: 3.5, right: 3.5 },
                               styles: {
                                 font: 'helvetica',
                                 fontStyle: 'bold',
-                                textColor: [0, 0, 0],
-                                lineWidth: 0.28,
-                                lineColor: [0, 0, 0],
+                                textColor: [15, 23, 42],
+                                lineWidth: 0.20,
+                                lineColor: [203, 213, 225], // Slate-300 clean crisp borders
                                 cellPadding: [0.65, 0.25],
                                 overflow: 'ellipsize'
                               },
                               headStyles: {
-                                fillColor: [255, 255, 255],
-                                textColor: [0, 0, 0],
-                                fontSize: 8.2,
+                                fillColor: [15, 23, 42], // Slate-900 dark header
+                                textColor: [255, 255, 255],
+                                fontSize: 7.8,
                                 fontStyle: 'bold',
                                 font: 'helvetica',
                                 halign: 'center',
                                 valign: 'middle',
                                 cellPadding: [0.75, 0.25],
-                                minCellHeight: 4.8,
-                                lineWidth: 0.35,
-                                lineColor: [0, 0, 0]
+                                minCellHeight: 4.6,
+                                lineWidth: 0.25,
+                                lineColor: [30, 41, 59]
                               },
                               bodyStyles: {
                                 fillColor: [255, 255, 255],
                                 fontSize: targetFontSize,
                                 fontStyle: 'bold',
                                 font: 'helvetica',
-                                textColor: [0, 0, 0],
+                                textColor: [15, 23, 42],
                                 cellPadding: [0.65, 0.25],
                                 minCellHeight: targetRowHeight,
-                                lineWidth: 0.25,
-                                lineColor: [0, 0, 0]
+                                lineWidth: 0.20,
+                                lineColor: [226, 232, 240]
                               },
                               alternateRowStyles: {
-                                fillColor: [255, 255, 255],
+                                fillColor: [248, 250, 252], // Slate-50 alternating row shading
                               },
                               columnStyles: {
                                 0: { halign: 'center', cellWidth: 8, fontStyle: 'bold' },
@@ -7492,36 +7462,72 @@ export default function CustomerPortal({
                                 11: { halign: 'center', cellWidth: 15, fontStyle: 'bold' },
                               },
                               didParseCell: (hookData) => {
-                                const rawHead = String(
-                                  hookData.column.raw || 
-                                  (hookData.table.head && hookData.table.head[0] && (hookData.table.head[0][hookData.column.index]?.content || hookData.table.head[0][hookData.column.index])) || 
-                                  ''
-                                );
-
-                                if (isTargetHeader(rawHead)) {
+                                const colIdx = hookData.column.index;
+                                if (hookData.section === 'head') {
+                                  hookData.cell.styles.fillColor = [15, 23, 42];
+                                  hookData.cell.styles.textColor = [255, 255, 255];
                                   hookData.cell.styles.font = 'helvetica';
                                   hookData.cell.styles.fontStyle = 'bold';
-                                  hookData.cell.styles.textColor = [0, 0, 0];
-                                  if (hookData.section === 'head') {
-                                    hookData.cell.styles.fontSize = 8.2;
-                                  } else if (hookData.section === 'body') {
-                                    hookData.cell.styles.fontSize = targetFontSize;
-                                  }
-                                }
-
-                                if (hookData.section === 'body') {
-                                  hookData.cell.styles.textColor = [0, 0, 0];
+                                  hookData.cell.styles.fontSize = 7.8;
+                                  hookData.cell.styles.halign = (colIdx === 3 || colIdx === 4) ? 'left' : 'center';
+                                } else if (hookData.section === 'body') {
+                                  hookData.cell.styles.font = 'helvetica';
                                   hookData.cell.styles.fontStyle = 'bold';
+                                  hookData.cell.styles.fontSize = targetFontSize;
+
+                                  const isEven = hookData.row.index % 2 === 0;
+                                  const baseRowBg: [number, number, number] = isEven ? [255, 255, 255] : [248, 250, 252];
+
+                                  if (colIdx === 0) { // Pool No
+                                    hookData.cell.styles.fillColor = [241, 245, 249];
+                                    hookData.cell.styles.textColor = [15, 23, 42];
+                                    hookData.cell.styles.halign = 'center';
+                                  } else if (colIdx === 1) { // Bet Code
+                                    hookData.cell.styles.fillColor = [241, 245, 249];
+                                    hookData.cell.styles.textColor = [15, 23, 42];
+                                    hookData.cell.styles.halign = 'center';
+                                  } else if (colIdx === 2) { // League
+                                    hookData.cell.styles.fillColor = baseRowBg;
+                                    hookData.cell.styles.textColor = [51, 65, 85];
+                                    hookData.cell.styles.halign = 'center';
+                                  } else if (colIdx === 3 || colIdx === 4) { // Home & Away
+                                    hookData.cell.styles.fillColor = baseRowBg;
+                                    hookData.cell.styles.textColor = [0, 0, 0];
+                                    hookData.cell.styles.halign = 'left';
+                                  } else if (colIdx === 5 || colIdx === 7) { // 1 & 2
+                                    hookData.cell.styles.fillColor = baseRowBg;
+                                    hookData.cell.styles.textColor = [15, 23, 42];
+                                    hookData.cell.styles.halign = 'center';
+                                  } else if (colIdx === 6) { // X (Draw column - color coded emerald highlight)
+                                    hookData.cell.styles.fillColor = [236, 253, 245]; // soft emerald tint
+                                    hookData.cell.styles.textColor = [4, 120, 87]; // emerald-700
+                                    hookData.cell.styles.halign = 'center';
+                                  } else if (colIdx === 8) { // Bet Tips (color coded amber highlight)
+                                    hookData.cell.styles.fillColor = [254, 243, 199]; // soft amber tint
+                                    hookData.cell.styles.textColor = [146, 64, 14]; // amber-800
+                                    hookData.cell.styles.halign = 'center';
+                                  } else if (colIdx === 9 || colIdx === 10) { // Status & Kick Off
+                                    hookData.cell.styles.fillColor = baseRowBg;
+                                    hookData.cell.styles.textColor = [51, 65, 85];
+                                    hookData.cell.styles.halign = 'center';
+                                  } else if (colIdx === 11) { // Week No
+                                    hookData.cell.styles.fillColor = [241, 245, 249];
+                                    hookData.cell.styles.textColor = [51, 65, 85];
+                                    hookData.cell.styles.halign = 'center';
+                                  } else {
+                                    hookData.cell.styles.fillColor = baseRowBg;
+                                    hookData.cell.styles.textColor = [15, 23, 42];
+                                  }
                                 }
                               },
                               willDrawPage: () => {
                                 // Soft security watermark placed strictly BEHIND the table cells and text
                                 doc.saveGraphicsState();
-                                doc.setTextColor(245, 245, 245);
-                                doc.setFontSize(11);
+                                doc.setTextColor(240, 245, 242);
+                                doc.setFontSize(10.5);
                                 doc.setFont('helvetica', 'bold');
-                                const watermarkText = `FASTPOOLCODES • ${currentUser?.email || 'user@fastpoolcodes.com'}`;
-                                for (let y = 30; y < pageHeight; y += 65) {
+                                const watermarkText = `FASTPOOLCODES • WHATSAPP V • ${currentUser?.email || 'user@fastpoolcodes.com'}`;
+                                for (let y = 35; y < pageHeight; y += 65) {
                                   for (let x = -15; x < pageWidth + 30; x += 140) {
                                     doc.text(watermarkText, x, y, { angle: -25 });
                                   }
@@ -7534,24 +7540,28 @@ export default function CustomerPortal({
                                 const noteY = Math.min(currentY + 3.0, pageHeight - 10.5);
                                 
                                 doc.setFont('helvetica', 'bold');
-                                doc.setFontSize(6.8);
-                                doc.setTextColor(0, 0, 0);
+                                doc.setFontSize(6.6);
+                                doc.setTextColor(15, 23, 42);
                                 doc.text(
-                                  `N.B: ODDS AS AT ${formattedDate} (Odds are subject to changes; EKO - Early Kick Off, LKO - Late Kick Off)`,
+                                  `N.B: ODDS AS AT ${formattedDate} (Odds are subject to changes; EKO - Early Kick Off, LKO - Late Kick Off) • WHATSAPP V SINGLE PAGE`,
                                   pageWidth / 2,
                                   noteY,
                                   { align: 'center' }
                                 );
 
-                                doc.setFontSize(6.0);
+                                doc.setFontSize(5.8);
+                                doc.setTextColor(5, 150, 105);
                                 doc.text(
-                                  'DISCLAIMER: You may not copy, reproduce, distribute, transmit, modify, create derivative works, or in any other',
+                                  'FASTPOOLCODES WHATSAPP V DYNAMIC TEMPLATE • FOR ENQUIRIES VISIT WWW.FASTPOOLCODES.COM OR WHATSAPP: +234 8030587933, +234 9037595705',
                                   pageWidth / 2,
                                   noteY + 2.8,
                                   { align: 'center' }
                                 );
+
+                                doc.setFontSize(5.2);
+                                doc.setTextColor(100, 116, 139);
                                 doc.text(
-                                  'way exploit any part of copyrighted material without the prior written permission from Fastpoolcodes.com',
+                                  'DISCLAIMER: Dynamic client-generated template rendered live from database. Distinct from official administrator release PDFs.',
                                   pageWidth / 2,
                                   noteY + 5.2,
                                   { align: 'center' }
@@ -7564,9 +7574,9 @@ export default function CustomerPortal({
                               doc.deletePage(doc.getNumberOfPages());
                             }
 
-                            const filename = `FastPoolCodes_${activeBookmaker}_Week_${currentBookmakerWeek}.pdf`;
+                            const filename = `FastPoolCodes_${activeBookmaker}_Week_${currentBookmakerWeek}_WhatsApp_V_Dynamic.pdf`;
                             doc.save(filename);
-                            triggerToast(`Week ${currentBookmakerWeek} ${activeBookmaker} PDF document downloaded successfully!`, 'success');
+                            triggerToast(`Week ${currentBookmakerWeek} ${activeBookmaker} WhatsApp V Dynamic PDF downloaded successfully!`, 'success');
                           } catch (err) {
                             console.error('PDF generation error:', err);
                             triggerToast('Failed to generate PDF document.', 'error');
@@ -7577,32 +7587,45 @@ export default function CustomerPortal({
                         <Download className="w-4 h-4" />
                         <span>DOWNLOAD WHATSAPP V (PDF)</span>
                       </button>
+                      <span className="block text-[9.5px] text-emerald-400/80 font-mono text-center">
+                        ⚡ Single-page color-coded coupon template rendered live with banker & draw highlights
+                      </span>
+                    </div>
 
-                      {/* Download Official Admin PDF Release Button */}
+                    {/* Download Official Admin PDF Release Button */}
+                    <div className="space-y-1 pt-1.5 border-t border-slate-800/80">
+                          <div className="flex items-center justify-between text-[10px] font-mono text-blue-400 font-bold uppercase tracking-wider">
+                            <span>Source 2: Official Uploaded Release</span>
+                            <span className="px-1.5 py-0.5 bg-blue-500/20 text-blue-300 rounded text-[8.5px] font-black">Admin Verified</span>
+                          </div>
+                          <button
+                            onClick={async () => {
+                              const modalWeek = pdfConfig.weekNumber || activeWeekNumber || 50;
+                              triggerToast(`Downloading official Admin PDF for ${activeBookmaker}...`, 'info');
+                              await downloadBookmakerAdminPdf({
+                                bookmaker: activeBookmaker,
+                                weekNumber: modalWeek,
+                                currentUser,
+                                db,
+                                customPdfs: db.uploaded_bookmaker_pdfs,
+                                triggerToast
+                              });
+                            }}
+                            className="w-full py-3 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-500 hover:to-indigo-500 active:scale-95 text-white font-black text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-blue-900/30 font-mono border border-blue-400/40"
+                          >
+                            <ShieldCheck className="w-4 h-4 text-blue-200" />
+                            <span>DOWNLOAD NEW VERSION PDF</span>
+                          </button>
+                          <span className="block text-[9.5px] text-blue-300/80 font-mono text-center">
+                            📁 Authentic original bookmaker PDF document uploaded by administrator to Supabase
+                          </span>
+                        </div>
+                      </>
+                    ) : (
                       <button
-                        onClick={async () => {
-                          const modalWeek = pdfConfig.weekNumber || activeWeekNumber || 50;
-                          triggerToast(`Downloading official Admin PDF for ${activeBookmaker}...`, 'info');
-                          await downloadBookmakerAdminPdf({
-                            bookmaker: activeBookmaker,
-                            weekNumber: modalWeek,
-                            currentUser,
-                            db,
-                            customPdfs: db.uploaded_bookmaker_pdfs,
-                            triggerToast
-                          });
-                        }}
-                        className="w-full py-3 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-500 hover:to-indigo-500 active:scale-95 text-white font-black text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-blue-900/30 font-mono border border-blue-400/40"
+                        disabled
+                        className="w-full py-3.5 bg-slate-900 text-amber-400 border border-amber-500/30 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg opacity-80 cursor-not-allowed font-mono"
                       >
-                        <ShieldCheck className="w-4 h-4 text-blue-200" />
-                        <span>DOWNLOAD NEW VERSION PDF</span>
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      disabled
-                      className="w-full py-3.5 bg-slate-900 text-amber-400 border border-amber-500/30 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg opacity-80 cursor-not-allowed font-mono"
-                    >
                         <Lock className="w-4 h-4 text-amber-400" />
                         <span>Subscription Required to Download ({activeBookmaker})</span>
                       </button>
@@ -7610,7 +7633,7 @@ export default function CustomerPortal({
 
                     <p className="text-[10px] text-slate-500 font-mono leading-relaxed text-center mt-1">
                       {isTableAllowed ? (
-                        <>💡 <span className="text-emerald-400 font-extrabold">Pro Tip:</span> Click <span className="text-white font-extrabold">"DOWNLOAD WHATSAPP V (PDF)"</span> to save your 1-page coupon sheet.</>
+                        <>💡 <span className="text-emerald-400 font-extrabold">Notice:</span> <strong>WhatsApp V</strong> is your live client-generated dynamic coupon, while <strong>New Version PDF</strong> is the official administrator release.</>
                       ) : (
                         <span className="text-amber-400/90 font-semibold">🔒 Table access is restricted. Please purchase a plan for this bookmaker table to unlock PDF downloads.</span>
                       )}
@@ -7720,8 +7743,11 @@ export default function CustomerPortal({
                                 <span className="text-base font-black tracking-tighter uppercase font-sans">
                                   ⚽ FAST<span className="text-emerald-700">POOL</span>CODES
                                 </span>
+                                <span className="text-[7.5px] font-mono uppercase bg-emerald-600 text-white px-2 py-0.5 rounded font-black select-none tracking-wide">
+                                  WHATSAPP V TEMPLATE
+                                </span>
                                 <span className="text-[7.5px] font-mono uppercase bg-slate-950 text-white px-1.5 py-0.5 rounded font-black select-none">
-                                  VIP CERTIFIED
+                                  DYNAMIC CLIENT
                                 </span>
                               </div>
 
@@ -7860,12 +7886,12 @@ export default function CustomerPortal({
                                     { header: 'Home', value: game.home, align: 'text-left', bg: 'bg-inherit', color: 'text-black font-extrabold', truncate: true },
                                     { header: 'Away', value: game.away, align: 'text-left', bg: 'bg-inherit', color: 'text-black font-extrabold', truncate: true },
                                     { header: '1', value: game.homeWin, align: 'text-center', bg: 'bg-inherit', color: 'text-black font-bold' },
-                                    { header: 'X', value: game.draw, align: 'text-center', bg: 'bg-inherit', color: 'text-emerald-900 font-black' },
+                                    { header: 'X', value: game.draw, align: 'text-center', bg: 'bg-emerald-50/90', color: 'text-emerald-800 font-black' },
                                     { header: '2', value: game.awayWin, align: 'text-center', bg: 'bg-inherit', color: 'text-black font-bold' },
-                                    { header: 'Bet Tips', value: game.betTips, align: 'text-center', bg: 'bg-inherit', color: 'text-amber-950 font-black uppercase' },
+                                    { header: 'Bet Tips', value: game.betTips, align: 'text-center', bg: 'bg-amber-50/90', color: 'text-amber-800 font-black uppercase' },
                                     { header: 'Status', value: game.status, align: 'text-center', bg: 'bg-inherit', color: 'text-slate-900 font-bold' },
                                     { header: 'Kick Off', value: game.kickOff, align: 'text-center', bg: 'bg-inherit', color: 'text-slate-900 font-bold' },
-                                    { header: 'Week No', value: game.weekNo, align: 'text-center', bg: 'bg-inherit', color: 'text-slate-900 font-bold' },
+                                    { header: 'Week No', value: game.weekNo, align: 'text-center', bg: 'bg-slate-100/70', color: 'text-slate-800 font-bold' },
                                   ];
 
                                   return (
