@@ -323,6 +323,8 @@ export interface BookmakerPdfUpload {
   notes?: string;
   page_count?: number;
   tags?: string[];
+  storage_url?: string;
+  bucket_name?: string;
 }
 
 export interface LiveScoreRecord {

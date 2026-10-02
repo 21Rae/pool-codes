@@ -1068,8 +1068,68 @@ app.put("/api/tables/:tableName/:id", async (req, res) => {
   }
 });
 
+// API Route - Retrieve Supabase Storage Buckets
+app.get("/api/storage/buckets", async (req, res) => {
+  const supabase = getSupabaseClient(true) || getSupabaseClient(false);
+  if (!supabase) {
+    return res.status(503).json({ success: false, error: "Supabase client not configured", buckets: [] });
+  }
+  try {
+    const { data, error } = await supabase.storage.listBuckets();
+    if (error) {
+      return res.status(400).json({ success: false, error: error.message, buckets: [] });
+    }
+    return res.json({
+      success: true,
+      count: data ? data.length : 0,
+      buckets: data || []
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err?.message || String(err), buckets: [] });
+  }
+});
+
+// Catalog sync helpers for Supabase Storage 'pdf' bucket
+async function syncCatalogFromStorage(): Promise<void> {
+  const supabase = getSupabaseClient(true) || getSupabaseClient(false);
+  if (!supabase) return;
+  try {
+    const { data, error } = await supabase.storage.from("pdf").download("_metadata/catalog.json");
+    if (!error && data) {
+      const text = await data.text();
+      const parsed = JSON.parse(text);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const map = new Map<string, any>();
+        parsed.forEach((p: any) => map.set(p.id, p));
+        serverMemoryUploadedPdfs.forEach(p => {
+          if (!map.has(p.id)) map.set(p.id, p);
+        });
+        serverMemoryUploadedPdfs = Array.from(map.values());
+      }
+    }
+  } catch (_) {}
+}
+
+async function persistCatalogToStorage(): Promise<void> {
+  const supabase = getSupabaseClient(true) || getSupabaseClient(false);
+  if (!supabase) return;
+  try {
+    const content = Buffer.from(JSON.stringify(serverMemoryUploadedPdfs), "utf-8");
+    await supabase.storage.from("pdf").upload("_metadata/catalog.json", content, {
+      contentType: "application/json",
+      upsert: true
+    });
+  } catch (err) {
+    console.error("Failed to persist catalog to Supabase storage:", err);
+  }
+}
+
+// Initial catalog sync on boot
+syncCatalogFromStorage().catch(() => {});
+
 // API Routes - Admin Uploaded PDFs Management (Isolated from Supabase Base Tables)
-app.get("/api/admin-pdfs", (req, res) => {
+app.get("/api/admin-pdfs", async (req, res) => {
+  await syncCatalogFromStorage();
   return res.json({
     success: true,
     count: serverMemoryUploadedPdfs.length,
@@ -1083,7 +1143,7 @@ app.post("/api/admin-pdfs/upload", async (req, res) => {
     return res.status(400).json({ success: false, error: "Bookmaker key and valid PDF metadata are required." });
   }
 
-  const newRecord = {
+  const newRecord: any = {
     id: pdfRecord.id || `pdf-${pdfRecord.bookmaker_key}-${Date.now()}`,
     bookmaker_key: pdfRecord.bookmaker_key,
     bookmaker_name: pdfRecord.bookmaker_name || pdfRecord.bookmaker_key,
@@ -1104,6 +1164,41 @@ app.post("/api/admin-pdfs/upload", async (req, res) => {
     tags: Array.isArray(pdfRecord.tags) ? pdfRecord.tags : [pdfRecord.bookmaker_name || "Bookmaker", "Custom Upload"]
   };
 
+  // Upload file to Supabase Storage 'pdf' bucket if base64 file data URL is provided
+  const supabase = getSupabaseClient(true) || getSupabaseClient(false);
+  if (supabase && newRecord.file_data_url && typeof newRecord.file_data_url === "string" && newRecord.file_data_url.startsWith("data:")) {
+    try {
+      const parts = newRecord.file_data_url.split(",");
+      if (parts.length === 2) {
+        const mimeMatch = parts[0].match(/:(.*?);/);
+        const mimeType = mimeMatch ? mimeMatch[1] : "application/pdf";
+        const fileBuffer = Buffer.from(parts[1], "base64");
+        const cleanFileName = newRecord.file_name.replace(/[^a-zA-Z0-9._-]/g, "_");
+        const storagePath = `${newRecord.bookmaker_key}/week-${newRecord.week_number}/${Date.now()}_${cleanFileName}`;
+        
+        const { data: uploadData, error: uploadErr } = await supabase.storage
+          .from("pdf")
+          .upload(storagePath, fileBuffer, {
+            contentType: mimeType,
+            upsert: true
+          });
+
+        if (!uploadErr && uploadData) {
+          const { data: publicUrlData } = supabase.storage
+            .from("pdf")
+            .getPublicUrl(storagePath);
+          if (publicUrlData && publicUrlData.publicUrl) {
+            newRecord.storage_url = publicUrlData.publicUrl;
+            newRecord.storage_path = storagePath;
+            newRecord.bucket_name = "pdf";
+          }
+        }
+      }
+    } catch (storageErr) {
+      console.error("Supabase storage upload error:", storageErr);
+    }
+  }
+
   // If set to active, deactivate previous entries for same bookmaker & week
   if (newRecord.is_active) {
     serverMemoryUploadedPdfs.forEach(p => {
@@ -1115,8 +1210,10 @@ app.post("/api/admin-pdfs/upload", async (req, res) => {
 
   serverMemoryUploadedPdfs.unshift(newRecord);
 
+  // Sync updated catalog to Supabase Storage
+  await persistCatalogToStorage();
+
   // Optional: write to dedicated uploaded_bookmaker_pdfs table in Supabase without touching fixture tables
-  const supabase = getSupabaseClient(true) || getSupabaseClient(false);
   if (supabase) {
     try {
       await supabase.from("uploaded_bookmaker_pdfs").insert([newRecord]);
@@ -1125,7 +1222,7 @@ app.post("/api/admin-pdfs/upload", async (req, res) => {
 
   return res.json({
     success: true,
-    message: `PDF for ${newRecord.bookmaker_name} (Week ${newRecord.week_number}) uploaded and published successfully.`,
+    message: `PDF for ${newRecord.bookmaker_name} (Week ${newRecord.week_number}) uploaded and published successfully to Supabase Storage.`,
     data: newRecord
   });
 });
@@ -1137,8 +1234,18 @@ app.delete("/api/admin-pdfs/:id", async (req, res) => {
   // Filter out of in-memory store
   serverMemoryUploadedPdfs = serverMemoryUploadedPdfs.filter(p => p.id !== id);
 
-  // Delete from uploaded_bookmaker_pdfs table in Supabase if exists, keeping base tables intact
+  // Remove file from Supabase storage if storage_path is recorded
   const supabase = getSupabaseClient(true) || getSupabaseClient(false);
+  if (supabase && target && target.storage_path) {
+    try {
+      await supabase.storage.from("pdf").remove([target.storage_path]);
+    } catch (_) {}
+  }
+
+  // Persist updated catalog to Supabase storage
+  await persistCatalogToStorage();
+
+  // Delete from uploaded_bookmaker_pdfs table in Supabase if exists, keeping base tables intact
   if (supabase) {
     try {
       await supabase.from("uploaded_bookmaker_pdfs").delete().eq("id", id);
@@ -1149,10 +1256,11 @@ app.delete("/api/admin-pdfs/:id", async (req, res) => {
     success: true,
     deletedId: id,
     message: target 
-      ? `Uploaded PDF '${target.file_name}' deleted successfully (base tables untouched).` 
+      ? `Uploaded PDF '${target.file_name}' deleted successfully from Supabase.` 
       : `PDF record removed.`
   });
 });
+
 
 // API Route - PDF Access Authorization Verification
 app.post("/api/pdf/verify-access", async (req, res) => {

@@ -186,6 +186,23 @@ export default function CustomerPortal({
       const combined = results.flat().filter(Boolean);
       setRemoteLogs(combined);
     }).catch(err => console.warn('Purchases table fetch error:', err));
+
+    // Fetch latest admin uploaded PDFs from Supabase Storage and sync to state
+    fetch('/api/admin-pdfs')
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.success && Array.isArray(data.data) && data.data.length > 0) {
+          try {
+            localStorage.setItem('fastpool_uploaded_bookmaker_pdfs', JSON.stringify(data.data));
+          } catch (_) {}
+          if (onUpdateUploadedPdfs) {
+            setTimeout(() => {
+              onUpdateUploadedPdfs(data.data);
+            }, 0);
+          }
+        }
+      })
+      .catch(() => {});
   }, [currentUser?.id, currentUser?.username, currentUser?.email]);
 
   const getItemGrantedTables = (item: any): string[] => {
@@ -7241,8 +7258,28 @@ export default function CustomerPortal({
                             }
 
                             const customPdf = adminUploadedList.find(
-                              (p: any) => p.is_active && normStr(p.bookmaker_key || p.bookmaker_name).includes(targetNorm.replace(/[^a-z0-9]/g, '')) && p.file_data_url
+                              (p: any) => p.is_active && normStr(p.bookmaker_key || p.bookmaker_name).includes(targetNorm.replace(/[^a-z0-9]/g, '')) && (p.storage_url || p.file_data_url)
                             );
+
+                            if (customPdf && customPdf.storage_url) {
+                              try {
+                                triggerToast(`Downloading verified ${activeBookmaker} coupon from Supabase Storage...`, 'info');
+                                const response = await fetch(customPdf.storage_url);
+                                if (response.ok) {
+                                  const blob = await response.blob();
+                                  const objUrl = URL.createObjectURL(blob);
+                                  const a = document.createElement('a');
+                                  a.href = objUrl;
+                                  a.download = customPdf.file_name || `${activeBookmaker}_Official_Coupon.pdf`;
+                                  document.body.appendChild(a);
+                                  a.click();
+                                  document.body.removeChild(a);
+                                  setTimeout(() => URL.revokeObjectURL(objUrl), 3000);
+                                  triggerToast(`Downloaded verified admin release: ${customPdf.file_name}`, 'success');
+                                  return;
+                                }
+                              } catch (_) {}
+                            }
 
                             if (customPdf && customPdf.file_data_url) {
                               const a = document.createElement('a');

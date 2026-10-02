@@ -20,7 +20,9 @@ import {
   X,
   ExternalLink,
   FileCheck,
-  FileSpreadsheet
+  FileSpreadsheet,
+  HardDrive,
+  FolderTree
 } from 'lucide-react';
 import { BookmakerPdfUpload, User, DatabaseState } from '../types';
 
@@ -165,14 +167,37 @@ export default function AdminPdfUploadSection({
   // Preview Modal state
   const [previewPdf, setPreviewPdf] = useState<BookmakerPdfUpload | null>(null);
 
-  // Sync state changes to storage & parent
-  const persistPdfs = (updated: BookmakerPdfUpload[]) => {
+  // Supabase Storage Buckets state
+  const [availableBuckets, setAvailableBuckets] = useState<any[]>([]);
+  const [loadingBuckets, setLoadingBuckets] = useState<boolean>(true);
+
+  const fetchBuckets = () => {
+    setLoadingBuckets(true);
+    fetch('/api/storage/buckets')
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.success && Array.isArray(data.buckets)) {
+          setAvailableBuckets(data.buckets);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoadingBuckets(false));
+  };
+
+  useEffect(() => {
+    fetchBuckets();
+  }, []);
+
+  // Sync state changes to storage & parent safely without interrupting render
+  const persistPdfs = (updated: BookmakerPdfUpload[], notifyParent: boolean = true) => {
     setUploadedPdfs(updated);
     try {
       localStorage.setItem('fastpool_uploaded_bookmaker_pdfs', JSON.stringify(updated));
     } catch (_) {}
-    if (onUpdateUploadedPdfs) {
-      onUpdateUploadedPdfs(updated);
+    if (notifyParent && onUpdateUploadedPdfs) {
+      setTimeout(() => {
+        onUpdateUploadedPdfs(updated);
+      }, 0);
     }
   };
 
@@ -182,16 +207,20 @@ export default function AdminPdfUploadSection({
       .then(res => res.json())
       .then(data => {
         if (data && data.success && Array.isArray(data.data) && data.data.length > 0) {
-          // Merge server uploaded PDFs with local storage
           const map = new Map<string, BookmakerPdfUpload>();
           data.data.forEach((p: BookmakerPdfUpload) => map.set(p.id, p));
-          uploadedPdfs.forEach(p => {
-            if (p.is_custom_upload && !map.has(p.id)) {
-              map.set(p.id, p);
-            }
+          setUploadedPdfs(prev => {
+            prev.forEach(p => {
+              if (p.is_custom_upload && !map.has(p.id)) {
+                map.set(p.id, p);
+              }
+            });
+            const merged = Array.from(map.values());
+            try {
+              localStorage.setItem('fastpool_uploaded_bookmaker_pdfs', JSON.stringify(merged));
+            } catch (_) {}
+            return merged;
           });
-          const merged = Array.from(map.values());
-          persistPdfs(merged);
         }
       })
       .catch(() => {});
@@ -274,12 +303,32 @@ export default function AdminPdfUploadSection({
       const finalList = [newPdf, ...updatedList];
       persistPdfs(finalList);
 
-      // Async backend sync without blocking UI
+      // Async backend sync to upload into Supabase 'pdf' bucket
       fetch('/api/admin-pdfs/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newPdf)
-      }).catch(() => {});
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.success && data.data) {
+            const serverUpdated = data.data;
+            setUploadedPdfs(prev => {
+              const updated = prev.map(p => p.id === newPdf.id ? { ...p, ...serverUpdated } : p);
+              try {
+                localStorage.setItem('fastpool_uploaded_bookmaker_pdfs', JSON.stringify(updated));
+              } catch (_) {}
+              return updated;
+            });
+            if (onUpdateUploadedPdfs) {
+              const parentList = finalList.map(p => p.id === newPdf.id ? { ...p, ...serverUpdated } : p);
+              setTimeout(() => {
+                onUpdateUploadedPdfs(parentList);
+              }, 0);
+            }
+          }
+        })
+        .catch(() => {});
 
       setIsUploading(false);
       setSelectedFile(null);
@@ -332,7 +381,26 @@ export default function AdminPdfUploadSection({
     triggerToast(`Deleted custom PDF '${target.file_name}'. Base Supabase fixture tables remain untouched.`, 'info');
   };
 
-  const handleDownload = (pdf: BookmakerPdfUpload) => {
+  const handleDownload = async (pdf: BookmakerPdfUpload) => {
+    if (pdf.storage_url) {
+      try {
+        triggerToast(`Fetching ${pdf.file_name} from Supabase Storage...`, 'info');
+        const res = await fetch(pdf.storage_url);
+        if (res.ok) {
+          const blob = await res.blob();
+          const objUrl = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = objUrl;
+          a.download = pdf.file_name;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(objUrl), 3000);
+          triggerToast(`Downloaded ${pdf.file_name} from Supabase Storage`, 'success');
+          return;
+        }
+      } catch (_) {}
+    }
     if (pdf.file_data_url) {
       const a = document.createElement('a');
       a.href = pdf.file_data_url;
@@ -424,6 +492,64 @@ export default function AdminPdfUploadSection({
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
               <span>LOGGED AS ADMIN: <strong className="text-emerald-400">@{currentUser.username}</strong></span>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Supabase Storage Bucket Architecture & Status Card */}
+      <div className="bg-slate-950/80 border border-slate-800 rounded-3xl p-5 shadow-xl">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-start sm:items-center gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400 shrink-0 mt-0.5 sm:mt-0">
+              <HardDrive className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[11px] font-mono font-bold text-slate-300 uppercase tracking-wider">
+                  Supabase Storage Database
+                </span>
+                {loadingBuckets ? (
+                  <span className="px-2 py-0.5 bg-slate-800 text-slate-400 text-[10px] font-mono rounded animate-pulse">
+                    Checking buckets...
+                  </span>
+                ) : availableBuckets.length > 0 ? (
+                  availableBuckets.map(b => (
+                    <span
+                      key={b.id || b.name}
+                      className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-mono text-[11px] font-bold rounded-lg shadow-sm"
+                    >
+                      <CheckCircle2 className="w-3 h-3" />
+                      bucket: <strong>{b.name}</strong>
+                      {b.public && <span className="text-[9px] uppercase px-1 bg-emerald-500/20 text-emerald-300 rounded font-black">Public</span>}
+                    </span>
+                  ))
+                ) : (
+                  <span className="px-2.5 py-0.5 bg-amber-500/10 border border-amber-500/30 text-amber-400 font-mono text-[10px] rounded">
+                    No buckets found or connection check pending
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-400 mt-1 flex flex-wrap items-center gap-1.5">
+                <span className="font-semibold text-slate-200">1 Bucket Architecture:</span>
+                <span>You do <strong>not</strong> need a bucket per bookmaker. A single bucket (<code className="text-purple-300 font-mono bg-purple-950/40 px-1 py-0.5 rounded border border-purple-800/40">pdf</code>) handles all bookmakers via folder subpaths:</span>
+                <code className="text-[11px] font-mono text-emerald-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
+                  /pdf/[bookmaker]/week-[num]/[file].pdf
+                </code>
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+            <button
+              type="button"
+              onClick={fetchBuckets}
+              disabled={loadingBuckets}
+              className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 rounded-xl text-xs font-mono flex items-center gap-1.5 transition cursor-pointer"
+              title="Refresh Supabase Storage Buckets list"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loadingBuckets ? 'animate-spin text-emerald-400' : ''}`} />
+              <span>Refresh Buckets</span>
+            </button>
           </div>
         </div>
       </div>
@@ -851,7 +977,14 @@ export default function AdminPdfUploadSection({
                             <span className="font-bold text-white block truncate max-w-[200px]" title={pdf.file_name}>
                               {pdf.file_name}
                             </span>
-                            <span className="text-[10px] font-mono text-slate-400 block">{pdf.file_size_formatted}</span>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className="text-[10px] font-mono text-slate-400">{pdf.file_size_formatted}</span>
+                              {pdf.storage_url && (
+                                <span className="px-1.5 py-0.2 bg-purple-500/10 border border-purple-500/30 text-purple-300 text-[8.5px] font-mono rounded font-bold" title={pdf.storage_url}>
+                                  Supabase: {pdf.bucket_name || 'pdf'}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </td>

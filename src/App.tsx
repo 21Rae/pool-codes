@@ -1,4 +1,4 @@
-import React, { useState, useEffect, FormEvent } from 'react';
+import React, { useState, useEffect, useCallback, FormEvent } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import {
@@ -64,7 +64,8 @@ import {
   PoolWeek,
   Notification,
   DatabaseState,
-  parseComponents
+  parseComponents,
+  BookmakerPdfUpload
 } from './types';
 
 // Modular imports
@@ -262,11 +263,13 @@ export default function App() {
   }
   const activePlan = rawActivePlan;
 
-  // Display Toast Alert Banner
-  const triggerToast = (message: string, type: 'success' | 'info' | 'error' = 'success') => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3500);
-  };
+  // Display Toast Alert Banner safely deferred
+  const triggerToast = useCallback((message: string, type: 'success' | 'info' | 'error' = 'success') => {
+    setTimeout(() => {
+      setToast({ message, type });
+      setTimeout(() => setToast(null), 3500);
+    }, 0);
+  }, []);
 
   // Log SQL helper
   const logSQL = (query: string, purpose: string) => {
@@ -278,6 +281,13 @@ export default function App() {
     };
     setSqlLogs(prev => [newLog, ...prev].slice(0, 45));
   };
+
+  // Memoized PDF catalog update handler safely deferred to prevent render cycle conflicts
+  const handleUpdateUploadedPdfs = useCallback((pdfs: BookmakerPdfUpload[]) => {
+    setTimeout(() => {
+      setDb(prev => ({ ...prev, uploaded_bookmaker_pdfs: pdfs }));
+    }, 0);
+  }, []);
 
   // Auto-load active user session from localStorage if logged in
   useEffect(() => {
@@ -619,6 +629,17 @@ export default function App() {
     // 1. Initial sync on app load
     const timer = setTimeout(() => {
       fetchRealSupabaseData(true);
+      fetch('/api/admin-pdfs')
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.success && Array.isArray(data.data) && data.data.length > 0) {
+            setDb(prev => ({ ...prev, uploaded_bookmaker_pdfs: data.data }));
+            try {
+              localStorage.setItem('fastpool_uploaded_bookmaker_pdfs', JSON.stringify(data.data));
+            } catch (_) {}
+          }
+        })
+        .catch(() => {});
     }, 500);
 
     // 2. Active background sync interval so database edits reflect in real-time
@@ -2511,10 +2532,7 @@ export default function App() {
                     setViewMode('livescores');
                     triggerToast('Navigating to Live Scores Arena...', 'info');
                   }}
-                  onUpdateUploadedPdfs={(pdfs) => {
-                    setDb(prev => ({ ...prev, uploaded_bookmaker_pdfs: pdfs }));
-                    logSQL(`-- Admin synced uploaded bookmaker PDFs (${pdfs.length} files in catalog)`, 'Admin PDF upload update');
-                  }}
+                  onUpdateUploadedPdfs={handleUpdateUploadedPdfs}
                   renderFooter={renderFooter}
                 />
               ) : (
@@ -2602,10 +2620,7 @@ export default function App() {
 
                     logSQL(logMsg, `Customer @${updated.username} synchronized profile details`);
                   }}
-                  onUpdateUploadedPdfs={(pdfs) => {
-                    setDb(prev => ({ ...prev, uploaded_bookmaker_pdfs: pdfs }));
-                    logSQL(`-- Admin synced uploaded bookmaker PDFs (${pdfs.length} files in catalog)`, 'Admin PDF upload update');
-                  }}
+                  onUpdateUploadedPdfs={handleUpdateUploadedPdfs}
                   renderFooter={renderFooter}
                 />
               )}

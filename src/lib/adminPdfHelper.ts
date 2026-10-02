@@ -159,13 +159,140 @@ export async function downloadBookmakerAdminPdf({
   triggerToast = () => {}
 }: DownloadAdminPdfOptions): Promise<boolean> {
   const brand = getBookmakerBrandInfo(bookmaker);
-  const user = currentUser || { username: 'user', email: 'user@fastpoolcodes.com', id: 'usr-vip-001' };
+  const user: User = currentUser || {
+    id: 'usr-vip-001',
+    username: 'user',
+    email: 'user@fastpoolcodes.com',
+    role: 'user',
+    status: 'active',
+    email_verified_at: null,
+    created_at: new Date().toISOString()
+  };
   const currentWeek = Number(weekNumber) || 50;
 
-  // 1. Check if an existing uploaded PDF record exists with a real data URL
-  const pdfList = customPdfs || db?.uploaded_bookmaker_pdfs || INITIAL_UPLOADED_BOOKMAKER_PDFS;
-  const existingPdf = findAdminPdfForBookmaker(brand.key, pdfList);
+  // 1. Subscription & Role Access Enforcement
+  const isAdmin = user.role === 'admin';
+  const isFreeCoupon = brand.key === 'pool_codes_comparison';
 
+  if (!isAdmin && !isFreeCoupon) {
+    let hasAccess = false;
+
+    // Check database user subscriptions
+    if (db && Array.isArray(db.user_subscriptions)) {
+      const activeSubs = db.user_subscriptions.filter(
+        (s: any) => (s.user_id === user.id || s.email === user.email) && s.status === 'active'
+      );
+      for (const sub of activeSubs) {
+        const plan = db.subscription_plans?.find((p: any) => p.id === sub.plan_id);
+        if (plan && plan.id === 'plan-free') continue;
+        const rawComps = (sub as any).accessible_tables || sub.granted_tables || sub.components || [];
+        const comps: string[] = Array.isArray(rawComps) ? rawComps : [String(rawComps)];
+        if (comps.includes('all') || comps.some((c: string) => c.toLowerCase().includes(brand.key) || brand.key.includes(c.toLowerCase())) || (plan && (plan.id.includes('yearly') || plan.id.includes('unlimited') || plan.id.includes('all')))) {
+          hasAccess = true;
+          break;
+        }
+      }
+    }
+
+    // Check cached active subscriptions in localStorage
+    if (!hasAccess) {
+      try {
+        const rawCached = localStorage.getItem('fastpool_user_subscriptions');
+        if (rawCached) {
+          const parsed = JSON.parse(rawCached);
+          if (Array.isArray(parsed)) {
+            const active = parsed.filter((s: any) => (s.user_id === user.id || s.email === user.email) && s.status === 'active');
+            for (const sub of active) {
+              const rawComps = (sub as any).accessible_tables || sub.granted_tables || sub.components || [];
+              const comps: string[] = Array.isArray(rawComps) ? rawComps : [String(rawComps)];
+              if (comps.includes('all') || comps.some((c: string) => c.toLowerCase().includes(brand.key) || brand.key.includes(c.toLowerCase()))) {
+                hasAccess = true;
+                break;
+              }
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    // Check active paid flag or tier
+    if (!hasAccess && ((user as any).is_paid || (user as any).plan_tier === 'vip' || (user as any).has_active_subscription)) {
+      hasAccess = true;
+    }
+
+    if (!hasAccess) {
+      triggerToast(
+        `Subscription Required: You need an active subscription for the ${brand.name} table to download official PDF coupons. Please visit the Plans & VIP page to subscribe.`,
+        'error'
+      );
+      return false;
+    }
+  }
+
+  // 2. Locate uploaded PDF record from Supabase Storage or Custom Catalog
+  let pdfList = customPdfs || db?.uploaded_bookmaker_pdfs || INITIAL_UPLOADED_BOOKMAKER_PDFS;
+  try {
+    const cached = localStorage.getItem('fastpool_uploaded_bookmaker_pdfs');
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        pdfList = [...parsed, ...pdfList];
+      }
+    }
+  } catch (_) {}
+
+  let existingPdf = findAdminPdfForBookmaker(brand.key, pdfList);
+
+  // If not found locally, attempt a quick fetch from Supabase admin-pdfs endpoint
+  if (!existingPdf || (!existingPdf.storage_url && !existingPdf.file_data_url)) {
+    try {
+      const res = await fetch('/api/admin-pdfs');
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.success && Array.isArray(data.data)) {
+          const remoteFound = findAdminPdfForBookmaker(brand.key, data.data);
+          if (remoteFound) {
+            existingPdf = remoteFound;
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  // 3. Download from Supabase Storage Bucket ('pdf') if public storage URL exists
+  if (existingPdf && existingPdf.storage_url) {
+    try {
+      triggerToast(`Retrieving verified ${brand.name} coupon from Supabase Storage...`, 'info');
+      const response = await fetch(existingPdf.storage_url);
+      if (response.ok) {
+        const blob = await response.blob();
+        const objUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = objUrl;
+        a.download = existingPdf.file_name || brand.defaultFilename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(objUrl), 3000);
+        triggerToast(`Downloaded official verified ${brand.name} PDF: ${existingPdf.file_name}`, 'success');
+        return true;
+      }
+    } catch (e) {
+      console.warn('Direct blob fetch from Supabase failed, falling back to direct link:', e);
+      const a = document.createElement('a');
+      a.href = existingPdf.storage_url;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.download = existingPdf.file_name || brand.defaultFilename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      triggerToast(`Opened verified ${brand.name} PDF from Supabase Storage`, 'success');
+      return true;
+    }
+  }
+
+  // 4. Download from base64 data URL if available
   if (existingPdf && existingPdf.file_data_url && existingPdf.file_data_url.startsWith('data:application/pdf')) {
     try {
       const a = document.createElement('a');
