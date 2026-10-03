@@ -123,10 +123,34 @@ let serverMemoryUsers: any[] = [
     role: "user",
     status: "active",
     created_at: "2026-09-05T00:00:00Z"
+  },
+  {
+    id: "58044cc9-7d5c-4a04-88ee-78907932a81c",
+    username: "chamzybillionz",
+    email: "chamzybillionz@gmail.com",
+    role: "user",
+    status: "active",
+    created_at: "2026-10-02T19:09:50.948+00:00"
   }
 ];
 
 let serverMemoryPurchases: any[] = [
+  {
+    id: "sub-paystack-58044",
+    user_id: "58044cc9-7d5c-4a04-88ee-78907932a81c",
+    username: "chamzybillionz",
+    plan_id: "plan-weekly",
+    plan_purchased: "Weekly VIP (BETKING)",
+    payment_ref: "PAY-1790970000000-58044",
+    payment_provider: "Paystack API Gateway",
+    amount: 300.00,
+    currency: "NGN",
+    components: ["betking"],
+    paid_date: "2026-10-02T19:09:50.948+00:00",
+    expiry_date: "2026-10-11T22:59:59.999+00:00",
+    access_status: "active",
+    created_at: "2026-10-02T19:09:50.948+00:00"
+  },
   {
     id: "sub-paystack-80882",
     user_id: "377b26f1-8943-49ca-b1fb-5daf1c4b7e95",
