@@ -800,10 +800,10 @@ export default function OfficePoolStopHome({
       {/* 1. BRAND HEADER & EMBEDDED REAL-TIME SCORESSTICKER */}
       <header className="bg-gradient-to-b from-[#071310] to-[#030907] text-white border-b border-emerald-950/80 sticky top-0 z-40 shadow-xl flex flex-col">
         {/* Main Logo and Links Line */}
-        <div className="w-full px-6 py-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="flex items-center justify-between lg:justify-start gap-8">
+        <div className="w-full px-4 md:px-6 py-3.5 flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+          <div className="order-1 flex items-center justify-start shrink-0">
             {/* Logo */}
-            <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => { setCurrentView('blog'); triggerToast('Welcome to FastPoolCodes!', 'info'); }}>
+            <div className="flex items-center gap-2.5 cursor-pointer shrink-0" onClick={() => { setCurrentView('blog'); triggerToast('Welcome to FastPoolCodes!', 'info'); }}>
               <div className="relative flex items-center gap-2.5 font-black bg-slate-950 px-3.5 py-2 rounded-lg shadow-md shadow-emerald-950/80 border border-emerald-500/40 select-none">
                 <Zap className="w-5 h-5 text-amber-400 fill-current animate-pulse shrink-0" /> 
                 <div className="flex flex-col text-left">
@@ -815,7 +815,7 @@ export default function OfficePoolStopHome({
           </div>
 
           {/* Navigation links - highly styled and responsive */}
-          <nav className="flex items-center gap-1 overflow-x-auto scrollbar-none py-1 border-y lg:border-none border-emerald-950/50">
+          <nav className="order-3 2xl:order-2 w-full 2xl:w-auto flex flex-wrap items-center justify-start 2xl:justify-center gap-2 py-1.5 2xl:py-1 border-t 2xl:border-none border-emerald-950/50 min-w-0">
             {[
               { id: 'blog', label: 'HOME', icon: Home },
               { id: 'comparison', label: 'CODES COMPARISON', icon: Layers },
@@ -833,13 +833,13 @@ export default function OfficePoolStopHome({
                     setCurrentView(tab.id as any);
                     setSelectedResultId(null);
                   }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold tracking-wider transition whitespace-nowrap flex items-center gap-1.5 select-none cursor-pointer ${
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold tracking-wider transition whitespace-nowrap flex items-center gap-1.5 select-none cursor-pointer shrink-0 ${
                     active 
-                      ? 'bg-emerald-500 text-slate-950 font-black shadow-lg shadow-emerald-500/25 scale-[1.03]' 
+                      ? 'bg-emerald-500 text-slate-950 font-black shadow-lg shadow-emerald-500/25' 
                       : 'text-slate-300 hover:text-white hover:bg-emerald-950/40'
                   }`}
                 >
-                  <Icon className={`w-3.5 h-3.5 ${active ? 'text-slate-950' : 'text-emerald-400/80'}`} />
+                  <Icon className={`w-3.5 h-3.5 shrink-0 ${active ? 'text-slate-950' : 'text-emerald-400/80'}`} />
                   <span>{tab.label}</span>
                 </button>
               );
@@ -848,10 +848,10 @@ export default function OfficePoolStopHome({
             {/* Quick Admin PDFs Modal Trigger */}
             <button
               onClick={() => setShowAdminPdfModal(true)}
-              className="px-3 py-1.5 rounded-lg text-xs font-bold tracking-wider transition whitespace-nowrap flex items-center gap-1.5 select-none cursor-pointer bg-blue-950/80 hover:bg-blue-900/90 text-blue-300 border border-blue-500/40 hover:border-blue-400 shadow-sm"
+              className="px-2.5 py-1.5 rounded-lg text-xs font-bold tracking-wider transition whitespace-nowrap flex items-center gap-1.5 select-none cursor-pointer bg-blue-950/80 hover:bg-blue-900/90 text-blue-300 border border-blue-500/40 hover:border-blue-400 shadow-sm shrink-0"
               title="Download verified official Admin PDFs for each bookmaker"
             >
-              <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />
+              <ShieldCheck className="w-3.5 h-3.5 text-blue-400 shrink-0" />
               <span>ADMIN PDFs</span>
               <span className="text-[9px] font-black bg-blue-500/30 text-blue-200 px-1.5 py-0.2 rounded font-mono">
                 W50
@@ -859,19 +859,19 @@ export default function OfficePoolStopHome({
             </button>
           </nav>
 
-          <div className="flex items-center gap-2 self-start lg:self-auto shrink-0">
+          <div className="order-2 2xl:order-3 flex flex-wrap items-center gap-2 shrink-0">
             {currentUser && currentUser.id && currentUser.id !== 'guest' ? (
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   onClick={onSignIn}
-                  className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-950 bg-gradient-to-r from-emerald-400 to-teal-300 hover:from-emerald-300 hover:to-teal-200 px-4 py-2 rounded-xl transition duration-150 cursor-pointer active:scale-95 shadow-md shadow-emerald-500/20 border border-emerald-300/40"
+                  className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-950 bg-gradient-to-r from-emerald-400 to-teal-300 hover:from-emerald-300 hover:to-teal-200 px-3.5 py-2 rounded-xl transition duration-150 cursor-pointer active:scale-95 shadow-md shadow-emerald-500/20 border border-emerald-300/40 whitespace-nowrap shrink-0"
                   title="Return to your Pool Codes Dashboard"
                 >
-                  <LayoutDashboard className="w-3.5 h-3.5" />
+                  <LayoutDashboard className="w-3.5 h-3.5 shrink-0" />
                   <span>MY DASHBOARD</span>
                 </button>
-                <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-950/70 border border-emerald-500/30 text-emerald-300 text-xs font-mono font-bold">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-950/70 border border-emerald-500/30 text-emerald-300 text-xs font-mono font-bold shrink-0">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
                   <span className="truncate max-w-[110px]">@{currentUser.username}</span>
                 </div>
               </div>
@@ -881,10 +881,10 @@ export default function OfficePoolStopHome({
                   setShowSystemAuth(true);
                   setAuthMode('login');
                 }}
-                className="flex items-center gap-1.5 text-xs font-bold font-mono uppercase tracking-wider text-emerald-400 hover:text-white bg-emerald-950/60 hover:bg-emerald-900 border border-emerald-500/40 hover:border-emerald-400 px-3.5 py-2 rounded-xl transition duration-150 cursor-pointer active:scale-95 shadow-sm"
+                className="flex items-center gap-1.5 text-xs font-bold font-mono uppercase tracking-wider text-emerald-400 hover:text-white bg-emerald-950/60 hover:bg-emerald-900 border border-emerald-500/40 hover:border-emerald-400 px-3.5 py-2 rounded-xl transition duration-150 cursor-pointer active:scale-95 shadow-sm whitespace-nowrap shrink-0"
                 title="Sign in to your account"
               >
-                <LogIn className="w-3.5 h-3.5" />
+                <LogIn className="w-3.5 h-3.5 shrink-0" />
                 <span>SIGN IN</span>
               </button>
             )}
@@ -896,10 +896,10 @@ export default function OfficePoolStopHome({
                 triggerToast('Homepage feeds & records successfully updated!', 'success');
               }}
               disabled={isBlogsLoading}
-              className="flex items-center gap-2 text-xs font-bold font-mono uppercase tracking-wider text-emerald-300 hover:text-white bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/50 hover:border-emerald-400 px-3.5 py-2 rounded-xl transition duration-150 cursor-pointer active:scale-95 shadow-md"
+              className="flex items-center gap-2 text-xs font-bold font-mono uppercase tracking-wider text-emerald-300 hover:text-white bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/50 hover:border-emerald-400 px-3.5 py-2 rounded-xl transition duration-150 cursor-pointer active:scale-95 shadow-md whitespace-nowrap shrink-0"
               title="Fetch latest verified records from database"
             >
-              <RefreshCw className={`w-3.5 h-3.5 text-emerald-400 ${isBlogsLoading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 text-emerald-400 shrink-0 ${isBlogsLoading ? 'animate-spin' : ''}`} />
               <span className="hidden sm:inline">{isBlogsLoading ? 'Fetching...' : 'Fetch Latest Records'}</span>
             </button>
           </div>
