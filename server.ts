@@ -815,6 +815,14 @@ app.get("/api/tables/:tableName", async (req, res) => {
   ]);
   const isBookmakerTable = KNOWN_BOOKIES.has(normalizedKey);
 
+  const isPoolResultOrLiveScore =
+    actualTableName === "pool_result" ||
+    actualTableName === "pool_results" ||
+    actualTableName === "results" ||
+    actualTableName === "championship_results" ||
+    actualTableName === "livescores" ||
+    actualTableName === "live_scores";
+
   if (isBookmakerTable) {
     const access = await checkUserTableAccess(userId, username, actualTableName);
     if (!access.allowed) {
@@ -825,6 +833,8 @@ app.get("/api/tables/:tableName", async (req, res) => {
         data: []
       });
     }
+  } else if (isPoolResultOrLiveScore) {
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   } else {
     // Set lightweight cache header on non-bookmaker public reads
     setCacheHeaders(res, 10, 30, 120);
@@ -832,7 +842,7 @@ app.get("/api/tables/:tableName", async (req, res) => {
 
   // SWR In-Memory cache for public table data
   const tableCacheKey = `table:${actualTableName}`;
-  if (!isBookmakerTable && actualTableName !== "users") {
+  if (!isBookmakerTable && actualTableName !== "users" && !isPoolResultOrLiveScore) {
     const cachedData = getFromCache<any>(tableCacheKey);
     if (cachedData) {
       return res.json(cachedData);
@@ -1658,6 +1668,74 @@ async function ensureLiveScoresLoaded() {
 
         if (dbMatches.length > 0) {
           liveScores = dbMatches;
+          return;
+        }
+      }
+
+      // 3. Fallback to pool_result table so Latest pool scores / Live Scores reflect the active pool_result records
+      const poolRes = await supabase.from("pool_result").select("*").order("id", { ascending: true }).limit(60);
+      if (!poolRes.error && poolRes.data && Array.isArray(poolRes.data) && poolRes.data.length > 0) {
+        const mappedFromPool = poolRes.data
+          .map((r: any, idx: number) => {
+            const hTeam = String(r.home_team || r.Home_Team || r.home || "").trim();
+            const aTeam = String(r.away_team || r.Away_Team || r.away || "").trim();
+            const rawPoolResult = String(r.pool_result || "").trim();
+            const rawStatus = String(r.status || "").trim();
+            const poolNum = Number(r.id ?? r.matchNo ?? (idx + 1)) || (idx + 1);
+
+            const isPostponed =
+              rawPoolResult.toUpperCase() === "P-P" ||
+              rawStatus.toLowerCase().includes("postp") ||
+              rawStatus.toUpperCase() === "PPD";
+
+            let matchStatus: "not_started" | "live" | "finished" | "postponed" = "not_started";
+            let hScore = 0;
+            let aScore = 0;
+            let scoreStr = "- - -";
+            let minuteLabel = rawStatus || "";
+
+            if (isPostponed) {
+              matchStatus = "postponed";
+              scoreStr = "P - P";
+              minuteLabel = "PPD";
+            } else if (/^\d+\s*-:-\s*\d+$/.test(rawPoolResult)) {
+              const parts = rawPoolResult.split("-:-");
+              hScore = Number(parts[0]?.trim()) || 0;
+              aScore = Number(parts[1]?.trim()) || 0;
+              scoreStr = `${hScore} - ${aScore}`;
+              matchStatus = "finished";
+              minuteLabel = "FT";
+            } else if (/^\d+\s*-\s*\d+$/.test(rawPoolResult)) {
+              const parts = rawPoolResult.split("-");
+              hScore = Number(parts[0]?.trim()) || 0;
+              aScore = Number(parts[1]?.trim()) || 0;
+              scoreStr = `${hScore} - ${aScore}`;
+              matchStatus = "finished";
+              minuteLabel = "FT";
+            }
+
+            return {
+              id: `ls-${poolNum}`,
+              pool_number: poolNum,
+              fixture: `${hTeam} vs ${aTeam}`,
+              home_team: hTeam,
+              away_team: aTeam,
+              home_score: hScore,
+              away_score: aScore,
+              score: scoreStr,
+              status: matchStatus,
+              minute: minuteLabel,
+              pool_status: rawStatus || (isPostponed ? "P-P" : ""),
+              pool_result: rawPoolResult || (isPostponed ? "P-P" : "-:-"),
+              league: "",
+              time: "",
+              lastChecked: new Date().toISOString()
+            };
+          })
+          .filter((m: any) => m.home_team && m.away_team);
+
+        if (mappedFromPool.length > 0) {
+          liveScores = mappedFromPool;
         }
       }
     } catch (_) {}
