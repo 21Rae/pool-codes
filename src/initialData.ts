@@ -1714,16 +1714,30 @@ export function findAdminPdfForBookmaker(bookmakerKeyOrName: string, customList?
   const list = customList && customList.length > 0 ? customList : INITIAL_UPLOADED_BOOKMAKER_PDFS;
   const norm = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
   const target = norm(bookmakerKeyOrName);
+  const hasRealFile = (p: BookmakerPdfUpload) => Boolean((p.storage_url && p.storage_url.trim()) || (p.file_data_url && p.file_data_url.trim()));
 
-  // 1. Direct key match with active status
-  let found = list.find(p => p.is_active && (norm(p.bookmaker_key) === target || norm(p.bookmaker_name) === target));
+  // 1. Direct key match with active status AND real uploaded file
+  let found = list.find(p => p.is_active && hasRealFile(p) && (norm(p.bookmaker_key) === target || norm(p.bookmaker_name) === target));
   if (found) return found;
 
-  // 2. Partial match with active status
+  // 2. Partial match with active status AND real uploaded file
+  found = list.find(p => p.is_active && hasRealFile(p) && (target.includes(norm(p.bookmaker_key)) || norm(p.bookmaker_key).includes(target) || target.includes(norm(p.bookmaker_name)) || norm(p.bookmaker_name).includes(target)));
+  if (found) return found;
+
+  // 3. Any match with real uploaded file
+  found = list.find(p => hasRealFile(p) && (norm(p.bookmaker_key) === target || norm(p.bookmaker_name) === target || target.includes(norm(p.bookmaker_key)) || norm(p.bookmaker_key).includes(target)));
+  if (found) return found;
+
+  // 4. Direct key match with active status
+  found = list.find(p => p.is_active && (norm(p.bookmaker_key) === target || norm(p.bookmaker_name) === target));
+  if (found) return found;
+
+  // 5. Partial match with active status
   found = list.find(p => p.is_active && (target.includes(norm(p.bookmaker_key)) || norm(p.bookmaker_key).includes(target) || target.includes(norm(p.bookmaker_name)) || norm(p.bookmaker_name).includes(target)));
   if (found) return found;
 
-  // 3. Any match regardless of active flag
+  // 6. Any match regardless of active flag
   return list.find(p => norm(p.bookmaker_key) === target || norm(p.bookmaker_name) === target || target.includes(norm(p.bookmaker_key)) || norm(p.bookmaker_key).includes(target));
 }
+
 

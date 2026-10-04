@@ -949,24 +949,17 @@ export default function OfficePoolStopHome({
                   const score1 = scoreParts[0]?.trim() || "0";
                   const score2 = scoreParts[1]?.trim() || "0";
 
-                  const isLiveStatus = match.status === 'live';
                   const isFinished = match.status === 'finished';
                   const isPostponed = match.status === 'postponed';
 
                   let typeStr = '';
                   let typeColor = 'text-slate-400';
-                  if (isLiveStatus) {
-                    typeStr = match.minute ? `${match.minute}' LIVE` : 'LIVE';
-                    typeColor = 'text-[#FA3E65]';
-                  } else if (isFinished) {
+                  if (isFinished) {
                     typeStr = 'FT';
                     typeColor = 'text-emerald-400';
                   } else if (isPostponed) {
                     typeStr = 'PPD';
                     typeColor = 'text-amber-500';
-                  } else if (match.time || match.kickoff) {
-                    typeStr = match.time || match.kickoff;
-                    typeColor = 'text-slate-400';
                   }
 
                   return (
@@ -992,11 +985,6 @@ export default function OfficePoolStopHome({
                           <span className="text-amber-300 font-black text-[11px]">{score2}</span>
                         </div>
                       </div>
-                      {isLiveStatus && (
-                        <span className="bg-[#FA3E65]/15 border border-[#FA3E65]/20 text-[#FA3E65] text-[8px] font-black px-1.5 py-0.5 rounded shadow animate-pulse font-mono">
-                          LIVE
-                        </span>
-                      )}
                     </div>
                   );
                 })}
@@ -1074,7 +1062,6 @@ export default function OfficePoolStopHome({
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-4">
                     {activeMatches.map((match, idx) => {
-                      const isLive = match.status === 'live';
                       const isFinished = match.status === 'finished';
                       return (
                         <div key={idx} className="bg-gradient-to-b from-[#071310] to-[#020705] border border-emerald-950 p-5 rounded-2xl space-y-4 hover:border-emerald-800 transition">
@@ -1083,16 +1070,9 @@ export default function OfficePoolStopHome({
                               Pool Match #{match.pool_number || idx + 1}
                             </span>
                             <span className="flex items-center gap-1">
-                              {isLive && (
-                                <>
-                                  <span className="w-2 h-2 rounded-full bg-[#FA3E65] animate-ping"></span>
-                                  <span className="text-[10px] font-mono font-black text-[#FA3E65] uppercase">Live</span>
-                                </>
-                              )}
-                              {isFinished && (
+                              {isFinished ? (
                                 <span className="text-[10px] font-mono font-black text-emerald-400 uppercase">Full Time</span>
-                              )}
-                              {!isLive && !isFinished && (
+                              ) : (
                                 <span id={`match-status-score-${idx}`} className="text-[10px] font-mono font-black text-emerald-400 uppercase bg-emerald-950/50 border border-emerald-900/40 px-2 py-0.5 rounded">SCORE</span>
                               )}
                             </span>

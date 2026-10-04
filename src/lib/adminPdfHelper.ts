@@ -176,18 +176,55 @@ export async function downloadBookmakerAdminPdf({
 
   if (!isAdmin && !isFreeCoupon) {
     let hasAccess = false;
+    const uname = (user.username || '').toLowerCase().trim();
+
+    const matchesUserRecord = (s: any) => {
+      if (!s) return false;
+      const sUid = String(s.user_id || '').trim();
+      const sUname = String(s.username || '').toLowerCase().trim();
+      const sEmail = String(s.email || '').toLowerCase().trim();
+      const uEmail = String(user.email || '').toLowerCase().trim();
+      return (user.id && sUid === user.id) || (uname && sUname === uname) || (uEmail && sEmail === uEmail);
+    };
+
+    const matchesBookmakerRecord = (s: any) => {
+      const rawComps = (s as any).accessible_tables || s.granted_tables || s.components || [];
+      const comps: string[] = Array.isArray(rawComps)
+        ? rawComps.map(String)
+        : typeof rawComps === 'string'
+        ? (() => { try { const p = JSON.parse(rawComps); return Array.isArray(p) ? p.map(String) : [rawComps]; } catch (_) { return rawComps.split(','); } })()
+        : [];
+      const planStr = String(s.plan_purchased || s.plan_name || s.item_name || s.plan_id || '').toLowerCase();
+      return (
+        comps.some((c: string) => {
+          const cl = c.trim().toLowerCase();
+          return cl === 'all' || cl.includes(brand.key) || brand.key.includes(cl);
+        }) ||
+        planStr.includes(brand.key) ||
+        planStr.includes('unlimited') ||
+        planStr.includes('yearly')
+      );
+    };
+
+    // Check database purchases_access_log
+    if (db && Array.isArray(db.purchases_access_log)) {
+      const activeLogs = db.purchases_access_log.filter(
+        (s: any) => matchesUserRecord(s) && (s.access_status === 'active' || s.status === 'active') && (!s.expiry_date || new Date(s.expiry_date) > new Date())
+      );
+      if (activeLogs.some(matchesBookmakerRecord)) {
+        hasAccess = true;
+      }
+    }
 
     // Check database user subscriptions
-    if (db && Array.isArray(db.user_subscriptions)) {
+    if (!hasAccess && db && Array.isArray(db.user_subscriptions)) {
       const activeSubs = db.user_subscriptions.filter(
-        (s: any) => (s.user_id === user.id || s.email === user.email) && s.status === 'active'
+        (s: any) => matchesUserRecord(s) && s.status === 'active' && (!s.expires_at || new Date(s.expires_at) > new Date())
       );
       for (const sub of activeSubs) {
         const plan = db.subscription_plans?.find((p: any) => p.id === sub.plan_id);
         if (plan && plan.id === 'plan-free') continue;
-        const rawComps = (sub as any).accessible_tables || sub.granted_tables || sub.components || [];
-        const comps: string[] = Array.isArray(rawComps) ? rawComps : [String(rawComps)];
-        if (comps.includes('all') || comps.some((c: string) => c.toLowerCase().includes(brand.key) || brand.key.includes(c.toLowerCase())) || (plan && (plan.id.includes('yearly') || plan.id.includes('unlimited') || plan.id.includes('all')))) {
+        if (matchesBookmakerRecord(sub) || (plan && (plan.id.includes('yearly') || plan.id.includes('unlimited') || plan.id.includes('all')))) {
           hasAccess = true;
           break;
         }
@@ -201,14 +238,9 @@ export async function downloadBookmakerAdminPdf({
         if (rawCached) {
           const parsed = JSON.parse(rawCached);
           if (Array.isArray(parsed)) {
-            const active = parsed.filter((s: any) => (s.user_id === user.id || s.email === user.email) && s.status === 'active');
-            for (const sub of active) {
-              const rawComps = (sub as any).accessible_tables || sub.granted_tables || sub.components || [];
-              const comps: string[] = Array.isArray(rawComps) ? rawComps : [String(rawComps)];
-              if (comps.includes('all') || comps.some((c: string) => c.toLowerCase().includes(brand.key) || brand.key.includes(c.toLowerCase()))) {
-                hasAccess = true;
-                break;
-              }
+            const active = parsed.filter((s: any) => matchesUserRecord(s) && s.status === 'active');
+            if (active.some(matchesBookmakerRecord)) {
+              hasAccess = true;
             }
           }
         }
@@ -218,6 +250,31 @@ export async function downloadBookmakerAdminPdf({
     // Check active paid flag or tier
     if (!hasAccess && ((user as any).is_paid || (user as any).plan_tier === 'vip' || (user as any).has_active_subscription)) {
       hasAccess = true;
+    }
+
+    // Server-side verification fallback against live purchases_access_log
+    if (!hasAccess) {
+      try {
+        const verifyRes = await fetch('/api/pdf/verify-access', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-user-id': user.id || '',
+            'x-username': user.username || ''
+          },
+          body: JSON.stringify({
+            user_id: user.id,
+            username: user.username,
+            bookmaker: brand.key
+          })
+        });
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json();
+          if (verifyData && verifyData.allowed) {
+            hasAccess = true;
+          }
+        }
+      } catch (_) {}
     }
 
     if (!hasAccess) {
@@ -230,34 +287,36 @@ export async function downloadBookmakerAdminPdf({
   }
 
   // 2. Locate uploaded PDF record from Supabase Storage or Custom Catalog
-  let pdfList = customPdfs || db?.uploaded_bookmaker_pdfs || INITIAL_UPLOADED_BOOKMAKER_PDFS;
+  let pdfList: BookmakerPdfUpload[] = [];
+  try {
+    const res = await fetch('/api/admin-pdfs');
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.success && Array.isArray(data.data)) {
+        pdfList = [...data.data];
+      }
+    }
+  } catch (_) {}
+
+  if (customPdfs && customPdfs.length > 0) {
+    pdfList = [...pdfList, ...customPdfs];
+  }
+  if (db?.uploaded_bookmaker_pdfs && db.uploaded_bookmaker_pdfs.length > 0) {
+    pdfList = [...pdfList, ...db.uploaded_bookmaker_pdfs];
+  }
   try {
     const cached = localStorage.getItem('fastpool_uploaded_bookmaker_pdfs');
     if (cached) {
       const parsed = JSON.parse(cached);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        pdfList = [...parsed, ...pdfList];
+        pdfList = [...pdfList, ...parsed];
       }
     }
   } catch (_) {}
+  pdfList = [...pdfList, ...INITIAL_UPLOADED_BOOKMAKER_PDFS];
 
-  let existingPdf = findAdminPdfForBookmaker(brand.key, pdfList);
+  const existingPdf = findAdminPdfForBookmaker(brand.key, pdfList);
 
-  // If not found locally, attempt a quick fetch from Supabase admin-pdfs endpoint
-  if (!existingPdf || (!existingPdf.storage_url && !existingPdf.file_data_url)) {
-    try {
-      const res = await fetch('/api/admin-pdfs');
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.success && Array.isArray(data.data)) {
-          const remoteFound = findAdminPdfForBookmaker(brand.key, data.data);
-          if (remoteFound) {
-            existingPdf = remoteFound;
-          }
-        }
-      }
-    } catch (_) {}
-  }
 
   // 3. Download from Supabase Storage Bucket ('pdf') if public storage URL exists
   if (existingPdf && existingPdf.storage_url) {

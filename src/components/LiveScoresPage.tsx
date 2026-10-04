@@ -408,17 +408,6 @@ export default function LiveScoresPage({
                 ALL FIXTURES
               </button>
               <button
-                onClick={() => setActiveTab('live')}
-                className={`px-4 py-2 rounded-lg text-xs font-bold tracking-wider transition flex items-center gap-1.5 ${
-                  activeTab === 'live' 
-                    ? 'bg-[#FA3E65] text-white font-black shadow' 
-                    : 'text-slate-400 hover:text-[#FA3E65]'
-                }`}
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse"></span>
-                LIVE
-              </button>
-              <button
                 onClick={() => setActiveTab('finished')}
                 className={`px-4 py-2 rounded-lg text-xs font-bold tracking-wider transition ${
                   activeTab === 'finished' 
@@ -449,11 +438,9 @@ export default function LiveScoresPage({
               <Tv className="w-12 h-12 text-emerald-900/60 mx-auto mb-3" />
               <h4 className="text-base font-bold text-slate-300">No matches found</h4>
               <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1 leading-relaxed">
-                {activeTab === 'live' 
-                  ? 'There are currently no matches playing live. Keep checking back during weekends!' 
-                  : activeTab === 'finished' 
-                    ? 'No tracked matches have finished yet.'
-                    : 'No matches are currently loaded in the database.'}
+                {activeTab === 'finished' 
+                  ? 'No tracked matches have finished yet.'
+                  : 'No matches are currently loaded in the database.'}
               </p>
             </div>
           ) : (
@@ -475,26 +462,18 @@ export default function LiveScoresPage({
                   <div
                     key={`live_match_${idx}_${match.id || ''}`}
                     className={`relative overflow-hidden rounded-2xl border p-4 transition duration-200 flex flex-col justify-between min-h-[140px] ${
-                      isLiveStatus
-                        ? 'bg-gradient-to-br from-[#FA3E65]/10 via-slate-950 to-slate-950 border-[#FA3E65]/35 shadow-lg shadow-red-950/20'
-                        : isFinished
-                          ? 'bg-slate-950/40 border-emerald-950/50 hover:border-emerald-900/30'
-                          : 'bg-slate-950/25 border-emerald-950/20 hover:border-emerald-900/20'
+                      isFinished
+                        ? 'bg-slate-950/40 border-emerald-950/50 hover:border-emerald-900/30'
+                        : 'bg-slate-950/25 border-emerald-950/20 hover:border-emerald-900/20'
                     }`}
                   >
                       {/* Top ribbon: Status Indicator */}
                       <div className="flex items-center justify-between mb-3">
                         <span className="text-[10px] font-mono text-slate-500 font-bold uppercase tracking-wider inline-flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {isLiveStatus ? 'Live Stream Active' : isFinished ? 'Full Time' : isPostponed ? 'Postponed' : 'SCORE'}
+                          {isFinished ? 'Full Time' : isPostponed ? 'Postponed' : 'SCORE'}
                         </span>
 
-                        {isLiveStatus ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-mono font-black uppercase tracking-widest bg-emerald-950/70 text-emerald-400 border border-emerald-900/40 shadow-sm">
-                            <span className="w-1 h-1 rounded-full bg-emerald-400 animate-ping"></span>
-                            <span>LIVE NOW</span>
-                          </span>
-                        ) : isFinished ? (
+                        {isFinished ? (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-mono font-black uppercase tracking-widest bg-emerald-900/20 text-emerald-400 border border-emerald-900/30">
                             <Check className="w-2.5 h-2.5 text-emerald-400" />
                             <span>FINISHED</span>
