@@ -286,68 +286,106 @@ export async function downloadBookmakerAdminPdf({
     }
   }
 
-  // 2. Locate uploaded PDF record from Supabase Storage or Custom Catalog
-  let pdfList: BookmakerPdfUpload[] = [];
+  // 2. Locate current uploaded PDF record from Supabase Storage ('pdf' bucket)
+  let serverPdfs: BookmakerPdfUpload[] = [];
   try {
-    const res = await fetch('/api/admin-pdfs');
+    const res = await fetch(`/api/admin-pdfs?t=${Date.now()}`, { cache: 'no-store' });
     if (res.ok) {
       const data = await res.json();
       if (data && data.success && Array.isArray(data.data)) {
-        pdfList = [...data.data];
+        serverPdfs = data.data;
+        try {
+          localStorage.setItem('fastpool_uploaded_bookmaker_pdfs', JSON.stringify(serverPdfs));
+        } catch (_) {}
       }
     }
   } catch (_) {}
 
-  if (customPdfs && customPdfs.length > 0) {
-    pdfList = [...pdfList, ...customPdfs];
-  }
-  if (db?.uploaded_bookmaker_pdfs && db.uploaded_bookmaker_pdfs.length > 0) {
-    pdfList = [...pdfList, ...db.uploaded_bookmaker_pdfs];
-  }
+  // Prioritize live server bucket records first; only append local items that have a base64 file_data_url
+  let pdfList: BookmakerPdfUpload[] = [...serverPdfs];
+  const seenIds = new Set(serverPdfs.map(p => p.id));
+
+  const appendIfNew = (items?: BookmakerPdfUpload[]) => {
+    if (!Array.isArray(items)) return;
+    items.forEach(item => {
+      if (item && !seenIds.has(item.id)) {
+        // Only include non-server items if server didn't respond or item has local base64 data
+        if (serverPdfs.length === 0 || (item.file_data_url && item.file_data_url.startsWith('data:'))) {
+          seenIds.add(item.id);
+          pdfList.push(item);
+        }
+      }
+    });
+  };
+
+  appendIfNew(customPdfs);
+  appendIfNew(db?.uploaded_bookmaker_pdfs);
   try {
     const cached = localStorage.getItem('fastpool_uploaded_bookmaker_pdfs');
     if (cached) {
-      const parsed = JSON.parse(cached);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        pdfList = [...pdfList, ...parsed];
-      }
+      appendIfNew(JSON.parse(cached));
     }
   } catch (_) {}
-  pdfList = [...pdfList, ...INITIAL_UPLOADED_BOOKMAKER_PDFS];
+  appendIfNew(INITIAL_UPLOADED_BOOKMAKER_PDFS);
 
   const existingPdf = findAdminPdfForBookmaker(brand.key, pdfList);
 
+  // 3. Download directly from Supabase Storage Bucket ('pdf') via server endpoint or public storage URL
+  if (existingPdf && (existingPdf.storage_path || existingPdf.storage_url)) {
+    const downloadFileName = existingPdf.file_name || brand.defaultFilename;
+    triggerToast(`Retrieving current ${brand.name} PDF (${downloadFileName}) from Supabase bucket...`, 'info');
 
-  // 3. Download from Supabase Storage Bucket ('pdf') if public storage URL exists
-  if (existingPdf && existingPdf.storage_url) {
+    // First try server proxy endpoint which streams directly from supabase.storage.from('pdf')
     try {
-      triggerToast(`Retrieving verified ${brand.name} coupon from Supabase Storage...`, 'info');
-      const response = await fetch(existingPdf.storage_url);
-      if (response.ok) {
-        const blob = await response.blob();
-        const objUrl = URL.createObjectURL(blob);
+      const proxyUrl = `/api/admin-pdfs/download/${encodeURIComponent(brand.key)}?path=${encodeURIComponent(existingPdf.storage_path || '')}&t=${Date.now()}`;
+      const proxyRes = await fetch(proxyUrl, { cache: 'no-store' });
+      if (proxyRes.ok) {
+        const blob = await proxyRes.blob();
+        if (blob.size > 0) {
+          const objUrl = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = objUrl;
+          a.download = downloadFileName;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(objUrl), 5000);
+          triggerToast(`Downloaded current ${brand.name} PDF from Supabase: ${downloadFileName}`, 'success');
+          return true;
+        }
+      }
+    } catch (_) {}
+
+    // Fallback to direct public storage_url fetch
+    if (existingPdf.storage_url) {
+      try {
+        const response = await fetch(`${existingPdf.storage_url}${existingPdf.storage_url.includes('?') ? '&' : '?'}t=${Date.now()}`, { cache: 'no-store' });
+        if (response.ok) {
+          const blob = await response.blob();
+          const objUrl = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = objUrl;
+          a.download = downloadFileName;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(objUrl), 5000);
+          triggerToast(`Downloaded current ${brand.name} PDF from Supabase: ${downloadFileName}`, 'success');
+          return true;
+        }
+      } catch (e) {
+        console.warn('Direct blob fetch from Supabase failed, falling back to direct link:', e);
         const a = document.createElement('a');
-        a.href = objUrl;
-        a.download = existingPdf.file_name || brand.defaultFilename;
+        a.href = existingPdf.storage_url;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.download = downloadFileName;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(objUrl), 3000);
-        triggerToast(`Downloaded official verified ${brand.name} PDF: ${existingPdf.file_name}`, 'success');
+        triggerToast(`Opened current ${brand.name} PDF from Supabase Storage`, 'success');
         return true;
       }
-    } catch (e) {
-      console.warn('Direct blob fetch from Supabase failed, falling back to direct link:', e);
-      const a = document.createElement('a');
-      a.href = existingPdf.storage_url;
-      a.target = '_blank';
-      a.rel = 'noopener noreferrer';
-      a.download = existingPdf.file_name || brand.defaultFilename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      triggerToast(`Opened verified ${brand.name} PDF from Supabase Storage`, 'success');
-      return true;
     }
   }
 

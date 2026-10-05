@@ -37,6 +37,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { User, SubscriptionPlan } from '../types';
 import { getSupabaseClient, initSupabaseConfig } from '../lib/supabase';
+import { downloadBookmakerAdminPdf } from '../lib/adminPdfHelper';
 
 export interface WeeklyPoolPick {
   id: string | number;
@@ -1240,6 +1241,22 @@ export default function WeeklyPoolPicksTable({
 
             {hasAccess ? (
               <>
+                <button
+                  onClick={() => {
+                    downloadBookmakerAdminPdf({
+                      bookmaker: bookmakerBrand,
+                      weekNumber: activeWeekNumber,
+                      currentUser,
+                      triggerToast
+                    });
+                  }}
+                  className="px-3.5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-95 text-white rounded-xl text-xs font-black uppercase tracking-wider transition cursor-pointer flex items-center gap-1.5 shadow-lg shadow-blue-950/40 border border-blue-400/30"
+                  title="Download official Admin PDF from Supabase bucket"
+                >
+                  <Download className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <span>Admin PDF</span>
+                </button>
+
                 <button
                   onClick={handleExportPDF}
                   className="px-3.5 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 active:scale-95 text-slate-950 rounded-xl text-xs font-black uppercase tracking-wider transition cursor-pointer flex items-center gap-1.5 shadow-lg shadow-emerald-950/40"

@@ -381,7 +381,20 @@ export default function OfficePoolStopHome({
   const [hasAutoOpenedSharedBlog, setHasAutoOpenedSharedBlog] = useState(false);
 
   // Scoreboard horizontal ticker state
-  const [liveScoresData, setLiveScoresData] = useState<any[]>([]);
+  const [liveScoresData, setLiveScoresData] = useState<any[]>(() => {
+    const firstPool = db?.pool_results?.[0];
+    const rows = firstPool?.results_table || firstPool?.matches || [];
+    if (Array.isArray(rows) && rows.length > 0) {
+      return rows.map((r: any, idx: number) => ({
+        id: String(r.id ?? r.matchNo ?? idx + 1),
+        pool_no: Number(r.id ?? r.matchNo ?? idx + 1),
+        fixture: `${r.home_team || r.Home_Team || r.homeTeam || 'Home'} vs ${r.away_team || r.Away_Team || r.awayTeam || 'Away'}`,
+        score: (r.pool_result || r.fullTimeScore || '0 - 0').replace('-:-', ' - '),
+        status: r.status || (r.outcome === 'DRAW' ? 'ScoreDraw' : r.outcome === 'HOME WIN' ? 'Home' : 'Away')
+      }));
+    }
+    return [];
+  });
   const [showAdminPdfModal, setShowAdminPdfModal] = useState(false);
 
   useEffect(() => {
@@ -392,8 +405,8 @@ export default function OfficePoolStopHome({
           throw new Error(`Response status: ${response.status}`);
         }
         const json = await response.json();
-        if (json.success) {
-          const rawMatches = json.matches || [];
+        if (json.success && Array.isArray(json.matches) && json.matches.length > 0) {
+          const rawMatches = json.matches;
           const seen = new Set();
           const uniqueMatches = rawMatches.filter((m: any) => {
             const key = m.id || m.fixture;
@@ -942,45 +955,57 @@ export default function OfficePoolStopHome({
                   .flatMap(() => liveScoresData)
                   .map((match: any, idx: number) => {
                   const parts = (match.fixture || "").split(" vs ");
-                  const team1 = parts[0]?.trim() || "Home";
-                  const team2 = parts[1]?.trim() || "Away";
+                  const team1 = parts[0]?.trim() || match.home_team || "Home";
+                  const team2 = parts[1]?.trim() || match.away_team || "Away";
 
-                  const scoreParts = (match.score || "0 - 0").split(" - ");
+                  const rawScore = (match.score || match.pool_result || "0 - 0").replace("-:-", " - ");
+                  const scoreParts = rawScore.split(" - ");
                   const score1 = scoreParts[0]?.trim() || "0";
                   const score2 = scoreParts[1]?.trim() || "0";
 
-                  const isFinished = match.status === 'finished';
-                  const isPostponed = match.status === 'postponed';
+                  const poolNo = match.pool_no || match.id || ((idx % Math.max(1, liveScoresData.length)) + 1);
+                  const rawStatus = String(match.status || "").trim();
+                  const isDrawScore = score1 === score2;
 
-                  let typeStr = '';
-                  let typeColor = 'text-slate-400';
-                  if (isFinished) {
-                    typeStr = 'FT';
+                  let typeStr = 'FT';
+                  let typeColor = isDrawScore ? 'text-emerald-400' : 'text-slate-400';
+                  if (rawStatus === 'ScoreDraw' || rawStatus === 'noScoreDraw') {
+                    typeStr = rawStatus;
                     typeColor = 'text-emerald-400';
-                  } else if (isPostponed) {
+                  } else if (rawStatus === 'Home') {
+                    typeStr = 'Home';
+                    typeColor = 'text-blue-400';
+                  } else if (rawStatus === 'Away') {
+                    typeStr = 'Away';
+                    typeColor = 'text-purple-400';
+                  } else if (rawStatus.toLowerCase() === 'postponed') {
                     typeStr = 'PPD';
                     typeColor = 'text-amber-500';
+                  } else if (isDrawScore) {
+                    typeStr = score1 === '0' ? 'noScoreDraw' : 'ScoreDraw';
+                    typeColor = 'text-emerald-400';
                   }
 
                   return (
                     <div 
                       key={idx}
                       onClick={() => {
-                        setCurrentView('livescores');
-                        triggerToast(`Loading matchcast: ${team1} vs ${team2}`, 'info');
+                        setCurrentView('results');
+                        triggerToast(`Viewing Pool #${poolNo}: ${team1} ${score1} - ${score2} ${team2}`, 'info');
                       }}
                       className="flex items-center border-r border-emerald-950/60 pr-5 pl-2 hover:bg-emerald-950/40 transition cursor-pointer h-full gap-3 text-left shrink-0"
                     >
                       <div className="flex flex-col justify-center">
-                        {typeStr ? (
-                          <span className={`text-[8.5px] font-black tracking-widest font-mono ${typeColor}`}>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[8.5px] font-black font-mono text-amber-400">#{poolNo}</span>
+                          <span className={`text-[8.5px] font-black tracking-wider font-mono ${typeColor}`}>
                             {typeStr}
                           </span>
-                        ) : null}
+                        </div>
                         <div className="flex items-center gap-1 mt-0.5 font-bold text-slate-100">
                           <span className="text-[11.5px] tracking-wide">{team1}</span> 
                           <span className="text-amber-300 font-black text-[11px]">{score1}</span>
-                          <span className="text-slate-650 text-[10px]">-</span>
+                          <span className="text-slate-500 text-[10px]">-</span>
                           <span className="text-[11.5px] tracking-wide">{team2}</span> 
                           <span className="text-amber-300 font-black text-[11px]">{score2}</span>
                         </div>
@@ -1498,11 +1523,33 @@ export default function OfficePoolStopHome({
                             </button>
                           </div>
 
-                          {/* Export to PDF Action */}
+                          {/* View Mode & Export Actions */}
                           <div className="flex items-center gap-2 ml-auto">
+                            <div className="inline-flex rounded-lg bg-[#040f0c] p-0.5 border border-emerald-900/60">
+                              <button
+                                onClick={() => setResultsViewMode('table')}
+                                className={`px-2.5 py-1 rounded-md text-[10px] font-mono font-bold transition cursor-pointer ${
+                                  resultsViewMode === 'table'
+                                    ? 'bg-emerald-500 text-slate-950 shadow'
+                                    : 'text-slate-400 hover:text-white'
+                                }`}
+                              >
+                                Table View
+                              </button>
+                              <button
+                                onClick={() => setResultsViewMode('cards')}
+                                className={`px-2.5 py-1 rounded-md text-[10px] font-mono font-bold transition cursor-pointer ${
+                                  resultsViewMode === 'cards'
+                                    ? 'bg-emerald-500 text-slate-950 shadow'
+                                    : 'text-slate-400 hover:text-white'
+                                }`}
+                              >
+                                Cards View
+                              </button>
+                            </div>
                             <button
                               onClick={() => handleExportResultsToPdf(activeResult)}
-                              className="px-2.5 sm:px-3 py-1.5 bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-800/60 rounded-lg text-[10px] sm:text-xs font-mono font-bold flex items-center gap-1.5 transition shadow-sm"
+                              className="px-2.5 sm:px-3 py-1.5 bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-800/60 rounded-lg text-[10px] sm:text-xs font-mono font-bold flex items-center gap-1.5 transition shadow-sm cursor-pointer"
                               title="Export Results Sheet PDF"
                             >
                               <Printer className="w-3.5 h-3.5" />
@@ -1511,7 +1558,7 @@ export default function OfficePoolStopHome({
                           </div>
                         </div>
 
-                        {/* Active Result Card Container */}
+                        {/* Active Result Container */}
                         <div className="bg-[#071310]/80 border border-emerald-950/80 rounded-2xl overflow-hidden shadow-2xl flex flex-col">
                           {/* Active Header with Badges */}
                           <div className="p-3.5 sm:p-5 border-b border-emerald-950/80 bg-gradient-to-r from-[#071310] via-[#04120e] to-[#020b08] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -1544,78 +1591,155 @@ export default function OfficePoolStopHome({
                             </div>
                           </div>
 
-                          {/* Card Display Only */}
-                          <div className="p-3 sm:p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3 bg-[#030c09]">
-                            {activeResultRows.length === 0 ? (
-                              <div className="col-span-full py-12 text-center text-slate-500 font-mono text-xs">
-                                No matches found matching the current filters.
-                              </div>
-                            ) : (
-                              activeResultRows.map((row: any, rIdx: number) => {
-                                const rowId = row.id ?? row.matchNo ?? (rIdx + 1);
-                                const homeTeam = row.home_team || row.Home_Team || row.homeTeam || '';
-                                const awayTeam = row.away_team || row.Away_Team || row.awayTeam || '';
-                                const poolResult = row.pool_result || (row.Home_Team_Score !== undefined ? `${row.Home_Team_Score}-:-${row.Away_Team_Score}` : row.fullTimeScore?.replace(' - ', '-:-')) || '0-:-0';
-                                const status = row.status || (row.outcome === 'DRAW' ? 'ScoreDraw' : (row.outcome === 'HOME WIN' ? 'Home' : 'Away'));
-                                const isDraw = status === 'ScoreDraw' || status === 'noScoreDraw' || row.outcome === 'DRAW';
+                          {resultsViewMode === 'table' ? (
+                            <div className="overflow-x-auto bg-[#030c09]">
+                              <table className="w-full text-left border-collapse font-mono text-xs">
+                                <thead>
+                                  <tr className="bg-[#061812] text-emerald-300 border-b border-emerald-900/60 uppercase text-[10px] sm:text-xs font-black tracking-wider">
+                                    <th className="py-3 px-2.5 sm:px-4 text-center w-12 border-r border-emerald-950/60">#</th>
+                                    <th className="py-3 px-3 sm:px-4 text-right">Home Team</th>
+                                    <th className="py-3 px-2.5 sm:px-4 text-center w-28 sm:w-36">Pool Result</th>
+                                    <th className="py-3 px-3 sm:px-4 text-left">Away Team</th>
+                                    <th className="py-3 px-2.5 sm:px-4 text-center w-28 sm:w-36">Status</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-emerald-950/50">
+                                  {activeResultRows.length === 0 ? (
+                                    <tr>
+                                      <td colSpan={5} className="py-12 text-center text-slate-500 font-mono text-xs">
+                                        No matches found matching the current filters.
+                                      </td>
+                                    </tr>
+                                  ) : (
+                                    activeResultRows.map((row: any, rIdx: number) => {
+                                      const rowId = row.id ?? row.matchNo ?? (rIdx + 1);
+                                      const homeTeam = row.home_team || row.Home_Team || row.homeTeam || '';
+                                      const awayTeam = row.away_team || row.Away_Team || row.awayTeam || '';
+                                      const poolResult = row.pool_result || (row.Home_Team_Score !== undefined ? `${row.Home_Team_Score}-:-${row.Away_Team_Score}` : row.fullTimeScore?.replace(' - ', '-:-')) || '0-:-0';
+                                      const status = row.status || (row.outcome === 'DRAW' ? 'ScoreDraw' : (row.outcome === 'HOME WIN' ? 'Home' : 'Away'));
+                                      const isDraw = status === 'ScoreDraw' || status === 'noScoreDraw' || row.outcome === 'DRAW';
 
-                                return (
-                                  <div
-                                    key={rIdx}
-                                    className={`p-3 rounded-xl border transition-all ${
-                                      isDraw
-                                        ? 'bg-[#051812] border-emerald-700/80 shadow-md ring-1 ring-emerald-500/20'
-                                        : 'bg-[#040f0c] border-emerald-950/80 hover:border-emerald-900'
-                                    }`}
-                                  >
-                                    {/* Top Row: ID & Status */}
-                                    <div className="flex items-center justify-between gap-2 mb-2 pb-1.5 border-b border-emerald-950/60">
-                                      <span className="font-mono text-xs font-black text-amber-400 bg-black/50 px-2 py-0.5 rounded border border-emerald-900/40">
-                                        #{rowId}
-                                      </span>
-                                      <span
-                                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider ${
-                                          status === 'ScoreDraw'
-                                            ? 'bg-emerald-950 text-emerald-300 border border-emerald-700'
-                                            : status === 'noScoreDraw'
-                                            ? 'bg-teal-950 text-teal-300 border border-teal-700'
-                                            : status === 'Home'
-                                            ? 'bg-blue-950 text-blue-300 border border-blue-700'
-                                            : 'bg-purple-950 text-purple-300 border border-purple-700'
-                                        }`}
-                                      >
-                                        {isDraw && (
-                                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                                        )}
-                                        {status}
-                                      </span>
-                                    </div>
+                                      return (
+                                        <tr
+                                          key={rIdx}
+                                          className={`transition-colors ${
+                                            isDraw
+                                              ? 'bg-emerald-950/35 hover:bg-emerald-950/55'
+                                              : 'hover:bg-emerald-950/20'
+                                          }`}
+                                        >
+                                          <td className="py-2.5 px-2.5 sm:px-4 text-center font-black text-amber-400 border-r border-emerald-950/60">
+                                            {rowId}
+                                          </td>
+                                          <td className="py-2.5 px-3 sm:px-4 text-right font-extrabold text-white text-xs sm:text-sm">
+                                            {homeTeam}
+                                          </td>
+                                          <td className="py-2.5 px-2.5 sm:px-4 text-center">
+                                            <span className="inline-block px-2.5 py-1 rounded-lg bg-[#071a14] border border-emerald-800/80 text-amber-300 font-mono font-black text-xs sm:text-sm min-w-[58px] shadow-sm">
+                                              {poolResult}
+                                            </span>
+                                          </td>
+                                          <td className="py-2.5 px-3 sm:px-4 text-left font-extrabold text-white text-xs sm:text-sm">
+                                            {awayTeam}
+                                          </td>
+                                          <td className="py-2.5 px-2.5 sm:px-4 text-center">
+                                            <span
+                                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider ${
+                                                status === 'ScoreDraw'
+                                                  ? 'bg-emerald-950 text-emerald-300 border border-emerald-700'
+                                                  : status === 'noScoreDraw'
+                                                  ? 'bg-teal-950 text-teal-300 border border-teal-700'
+                                                  : status === 'Home'
+                                                  ? 'bg-blue-950 text-blue-300 border border-blue-700'
+                                                  : 'bg-purple-950 text-purple-300 border border-purple-700'
+                                              }`}
+                                            >
+                                              {isDraw && (
+                                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                                              )}
+                                              {status}
+                                            </span>
+                                          </td>
+                                        </tr>
+                                      );
+                                    })
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
+                          ) : (
+                            <div className="p-3 sm:p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3 bg-[#030c09]">
+                              {activeResultRows.length === 0 ? (
+                                <div className="col-span-full py-12 text-center text-slate-500 font-mono text-xs">
+                                  No matches found matching the current filters.
+                                </div>
+                              ) : (
+                                activeResultRows.map((row: any, rIdx: number) => {
+                                  const rowId = row.id ?? row.matchNo ?? (rIdx + 1);
+                                  const homeTeam = row.home_team || row.Home_Team || row.homeTeam || '';
+                                  const awayTeam = row.away_team || row.Away_Team || row.awayTeam || '';
+                                  const poolResult = row.pool_result || (row.Home_Team_Score !== undefined ? `${row.Home_Team_Score}-:-${row.Away_Team_Score}` : row.fullTimeScore?.replace(' - ', '-:-')) || '0-:-0';
+                                  const status = row.status || (row.outcome === 'DRAW' ? 'ScoreDraw' : (row.outcome === 'HOME WIN' ? 'Home' : 'Away'));
+                                  const isDraw = status === 'ScoreDraw' || status === 'noScoreDraw' || row.outcome === 'DRAW';
 
-                                    {/* Match Teams & Centered Score */}
-                                    <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 py-1">
-                                      <div className="text-right">
-                                        <div className="font-extrabold text-white text-xs sm:text-sm leading-snug break-words">
-                                          {homeTeam}
+                                  return (
+                                    <div
+                                      key={rIdx}
+                                      className={`p-3 rounded-xl border transition-all ${
+                                        isDraw
+                                          ? 'bg-[#051812] border-emerald-700/80 shadow-md ring-1 ring-emerald-500/20'
+                                          : 'bg-[#040f0c] border-emerald-950/80 hover:border-emerald-900'
+                                      }`}
+                                    >
+                                      {/* Top Row: ID & Status */}
+                                      <div className="flex items-center justify-between gap-2 mb-2 pb-1.5 border-b border-emerald-950/60">
+                                        <span className="font-mono text-xs font-black text-amber-400 bg-black/50 px-2 py-0.5 rounded border border-emerald-900/40">
+                                          #{rowId}
+                                        </span>
+                                        <span
+                                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider ${
+                                            status === 'ScoreDraw'
+                                              ? 'bg-emerald-950 text-emerald-300 border border-emerald-700'
+                                              : status === 'noScoreDraw'
+                                              ? 'bg-teal-950 text-teal-300 border border-teal-700'
+                                              : status === 'Home'
+                                              ? 'bg-blue-950 text-blue-300 border border-blue-700'
+                                              : 'bg-purple-950 text-purple-300 border border-purple-700'
+                                          }`}
+                                        >
+                                          {isDraw && (
+                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                                          )}
+                                          {status}
+                                        </span>
+                                      </div>
+
+                                      {/* Match Teams & Centered Score */}
+                                      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 py-1">
+                                        <div className="text-right">
+                                          <div className="font-extrabold text-white text-xs sm:text-sm leading-snug break-words">
+                                            {homeTeam}
+                                          </div>
+                                          <span className="text-[9px] font-mono text-slate-500 uppercase">Home</span>
                                         </div>
-                                        <span className="text-[9px] font-mono text-slate-500 uppercase">Home</span>
-                                      </div>
 
-                                      <div className="px-2.5 py-1 rounded-lg bg-[#071a14] border border-emerald-800/80 text-amber-300 font-mono font-black text-xs sm:text-sm text-center min-w-[58px] shadow-sm">
-                                        {poolResult}
-                                      </div>
-
-                                      <div className="text-left">
-                                        <div className="font-extrabold text-white text-xs sm:text-sm leading-snug break-words">
-                                          {awayTeam}
+                                        <div className="px-2.5 py-1 rounded-lg bg-[#071a14] border border-emerald-800/80 text-amber-300 font-mono font-black text-xs sm:text-sm text-center min-w-[58px] shadow-sm">
+                                          {poolResult}
                                         </div>
-                                        <span className="text-[9px] font-mono text-slate-500 uppercase">Away</span>
+
+                                        <div className="text-left">
+                                          <div className="font-extrabold text-white text-xs sm:text-sm leading-snug break-words">
+                                            {awayTeam}
+                                          </div>
+                                          <span className="text-[9px] font-mono text-slate-500 uppercase">Away</span>
+                                        </div>
                                       </div>
                                     </div>
-                                  </div>
-                                );
-                              })
-                            )}
-                          </div>
+                                  );
+                                })
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     );

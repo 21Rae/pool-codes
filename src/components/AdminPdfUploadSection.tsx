@@ -146,7 +146,10 @@ export default function AdminPdfUploadSection({
 
   // Selected upload configuration state
   const [selectedBookmakerKey, setSelectedBookmakerKey] = useState<string>('bet9ja');
-  const [weekNumber, setWeekNumber] = useState<number>(50);
+  const [weekNumber, setWeekNumber] = useState<number>(() => {
+    const wk = db?.pool_results?.[0]?.week_number || (db?.bet9ja?.[0] as any)?.week_no || (db?.bet9ja?.[0] as any)?.week_number;
+    return Number(wk) || 15;
+  });
   const [seasonYear, setSeasonYear] = useState<number>(2026);
   const [accessLevel, setAccessLevel] = useState<'premium' | 'free'>('premium');
   const [notes, setNotes] = useState<string>('');
@@ -201,26 +204,19 @@ export default function AdminPdfUploadSection({
     }
   };
 
-  // Sync with server endpoint on mount
+  // Sync with server endpoint on mount (authoritative Supabase 'pdf' bucket list)
   useEffect(() => {
-    fetch('/api/admin-pdfs')
+    fetch(`/api/admin-pdfs?t=${Date.now()}`, { cache: 'no-store' })
       .then(res => res.json())
       .then(data => {
         if (data && data.success && Array.isArray(data.data) && data.data.length > 0) {
-          const map = new Map<string, BookmakerPdfUpload>();
-          data.data.forEach((p: BookmakerPdfUpload) => map.set(p.id, p));
-          setUploadedPdfs(prev => {
-            prev.forEach(p => {
-              if (p.is_custom_upload && !map.has(p.id)) {
-                map.set(p.id, p);
-              }
-            });
-            const merged = Array.from(map.values());
-            try {
-              localStorage.setItem('fastpool_uploaded_bookmaker_pdfs', JSON.stringify(merged));
-            } catch (_) {}
-            return merged;
-          });
+          setUploadedPdfs(data.data);
+          try {
+            localStorage.setItem('fastpool_uploaded_bookmaker_pdfs', JSON.stringify(data.data));
+          } catch (_) {}
+          if (onUpdateUploadedPdfs) {
+            setTimeout(() => onUpdateUploadedPdfs(data.data), 0);
+          }
         }
       })
       .catch(() => {});
@@ -382,10 +378,29 @@ export default function AdminPdfUploadSection({
   };
 
   const handleDownload = async (pdf: BookmakerPdfUpload) => {
-    if (pdf.storage_url) {
+    if (pdf.storage_path || pdf.storage_url) {
       try {
         triggerToast(`Fetching ${pdf.file_name} from Supabase Storage...`, 'info');
-        const res = await fetch(pdf.storage_url);
+        const proxyUrl = `/api/admin-pdfs/download/${encodeURIComponent(pdf.bookmaker_key)}?path=${encodeURIComponent(pdf.storage_path || '')}&t=${Date.now()}`;
+        const proxyRes = await fetch(proxyUrl, { cache: 'no-store' });
+        if (proxyRes.ok) {
+          const blob = await proxyRes.blob();
+          const objUrl = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = objUrl;
+          a.download = pdf.file_name;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(objUrl), 5000);
+          triggerToast(`Downloaded ${pdf.file_name} from Supabase Storage`, 'success');
+          return;
+        }
+      } catch (_) {}
+    }
+    if (pdf.storage_url) {
+      try {
+        const res = await fetch(`${pdf.storage_url}${pdf.storage_url.includes('?') ? '&' : '?'}t=${Date.now()}`, { cache: 'no-store' });
         if (res.ok) {
           const blob = await res.blob();
           const objUrl = URL.createObjectURL(blob);
@@ -395,7 +410,7 @@ export default function AdminPdfUploadSection({
           document.body.appendChild(a);
           a.click();
           document.body.removeChild(a);
-          setTimeout(() => URL.revokeObjectURL(objUrl), 3000);
+          setTimeout(() => URL.revokeObjectURL(objUrl), 5000);
           triggerToast(`Downloaded ${pdf.file_name} from Supabase Storage`, 'success');
           return;
         }

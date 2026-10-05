@@ -1133,32 +1133,202 @@ app.get("/api/storage/buckets", async (req, res) => {
   }
 });
 
+// Helper to normalize bookmaker keys from folder or file names in Supabase Storage 'pdf' bucket
+function normalizeStorageBookmakerKey(raw: string): { key: string; name: string; country: string } {
+  const norm = (raw || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (norm.includes("bet9ja") || norm === "b9") return { key: "bet9ja", name: "Bet9ja", country: "Nigeria" };
+  if (norm.includes("betking") || norm === "bk") return { key: "betking", name: "BetKing", country: "Nigeria" };
+  if (norm.includes("sportybetghana") || norm.includes("sportygh") || norm === "sbgh") return { key: "sportybet-ghana", name: "SportyBet Ghana", country: "Ghana" };
+  if (norm.includes("sporty")) return { key: "sportybet", name: "SportyBet", country: "Nigeria" };
+  if (norm.includes("premier")) return { key: "premierbet", name: "PremierBet Ghana", country: "Ghana" };
+  if (norm.includes("betway")) return { key: "betway", name: "Betway Ghana", country: "Ghana" };
+  if (norm.includes("socca")) return { key: "soccabet", name: "Soccabet Ghana", country: "Ghana" };
+  if (norm.includes("msport")) return { key: "msport", name: "MSport", country: "Nigeria" };
+  if (norm.includes("comparison") || norm.includes("master")) return { key: "pool_codes_comparison", name: "Pool Codes Comparison (Master Sheet)", country: "International" };
+  return { key: raw.toLowerCase().trim() || "bet9ja", name: raw || "Bet9ja", country: "Nigeria" };
+}
+
 // Catalog sync helpers for Supabase Storage 'pdf' bucket
 async function syncCatalogFromStorage(): Promise<void> {
   const supabase = getSupabaseClient(true) || getSupabaseClient(false);
   if (!supabase) return;
   try {
-    const { data, error } = await supabase.storage.from("pdf").download("_metadata/catalog.json");
-    if (!error && data) {
-      const text = await data.text();
-      const parsed = JSON.parse(text);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        const map = new Map<string, any>();
-        parsed.forEach((p: any) => map.set(p.id, p));
-        serverMemoryUploadedPdfs.forEach(p => {
-          if (!map.has(p.id)) map.set(p.id, p);
+    // 1. Read optional catalog metadata if available
+    const catalogByPath = new Map<string, any>();
+    try {
+      const { data: catData, error: catErr } = await supabase.storage.from("pdf").download("_metadata/catalog.json");
+      if (!catErr && catData) {
+        const text = await catData.text();
+        const parsed = JSON.parse(text);
+        if (Array.isArray(parsed)) {
+          parsed.forEach((item: any) => {
+            if (item && item.storage_path) {
+              catalogByPath.set(item.storage_path, item);
+            }
+          });
+        }
+      }
+    } catch (_) {}
+
+    // 2. Scan actual files inside the Supabase Storage 'pdf' bucket
+    const discoveredFiles: Array<{
+      storage_path: string;
+      raw_name: string;
+      folder_bookmaker: string;
+      folder_week: string;
+      created_at: string;
+      file_size: number;
+    }> = [];
+
+    const { data: rootItems } = await supabase.storage.from("pdf").list("", { limit: 100 });
+    for (const rootItem of rootItems || []) {
+      if (!rootItem || rootItem.name === "_metadata" || rootItem.name.startsWith(".")) continue;
+
+      if (!rootItem.id) {
+        // Folder (e.g., 'bet9ja', 'betking', 'sportybet')
+        const { data: subItems } = await supabase.storage.from("pdf").list(rootItem.name, { limit: 100 });
+        for (const subItem of subItems || []) {
+          if (!subItem || subItem.name.startsWith(".")) continue;
+          if (!subItem.id) {
+            // Subfolder (e.g., 'week-15', 'week-50')
+            const subPath = `${rootItem.name}/${subItem.name}`;
+            const { data: leafFiles } = await supabase.storage.from("pdf").list(subPath, { limit: 100 });
+            for (const leaf of leafFiles || []) {
+              if (!leaf || !leaf.name || !leaf.name.toLowerCase().endsWith(".pdf")) continue;
+              discoveredFiles.push({
+                storage_path: `${subPath}/${leaf.name}`,
+                raw_name: leaf.name,
+                folder_bookmaker: rootItem.name,
+                folder_week: subItem.name,
+                created_at: leaf.created_at || leaf.updated_at || new Date().toISOString(),
+                file_size: Number((leaf as any).metadata?.size) || 245760
+              });
+            }
+          } else if (subItem.name.toLowerCase().endsWith(".pdf")) {
+            discoveredFiles.push({
+              storage_path: `${rootItem.name}/${subItem.name}`,
+              raw_name: subItem.name,
+              folder_bookmaker: rootItem.name,
+              folder_week: "",
+              created_at: subItem.created_at || subItem.updated_at || new Date().toISOString(),
+              file_size: Number((subItem as any).metadata?.size) || 245760
+            });
+          }
+        }
+      } else if (rootItem.name.toLowerCase().endsWith(".pdf")) {
+        discoveredFiles.push({
+          storage_path: rootItem.name,
+          raw_name: rootItem.name,
+          folder_bookmaker: rootItem.name,
+          folder_week: "",
+          created_at: rootItem.created_at || rootItem.updated_at || new Date().toISOString(),
+          file_size: Number((rootItem as any).metadata?.size) || 245760
         });
-        serverMemoryUploadedPdfs = Array.from(map.values());
       }
     }
-  } catch (_) {}
+
+    // 3. Build rich PDF records from discovered bucket files
+    const bucketRecords: any[] = discoveredFiles.map((f) => {
+      const existingMeta = catalogByPath.get(f.storage_path) || {};
+      const bmInfo = normalizeStorageBookmakerKey(f.folder_bookmaker || existingMeta.bookmaker_key || f.raw_name);
+
+      // Extract timestamp prefix if present (e.g. 1791185735579_WEEK_15_...)
+      const tsMatch = f.raw_name.match(/^(\d{10,15})_(.+)$/);
+      const prefixTsMs = tsMatch ? Number(tsMatch[1]) : 0;
+      const cleanFileName = tsMatch ? tsMatch[2] : f.raw_name;
+
+      // Determine week number: prefer explicit WEEK_XX in filename, then folder week-XX, then metadata
+      const fileWeekMatch = cleanFileName.match(/week[_\-\s]*(\d+)/i);
+      const folderWeekMatch = f.folder_week.match(/week[_\-\s]*(\d+)/i);
+      const weekNum = fileWeekMatch
+        ? Number(fileWeekMatch[1])
+        : folderWeekMatch
+        ? Number(folderWeekMatch[1])
+        : Number(existingMeta.week_number) || 15;
+
+      const uploadedIso = f.created_at
+        ? new Date(f.created_at).toISOString()
+        : prefixTsMs > 1000000000000
+        ? new Date(prefixTsMs).toISOString()
+        : existingMeta.uploaded_at || new Date().toISOString();
+
+      const sortTs = Math.max(
+        new Date(uploadedIso).getTime() || 0,
+        prefixTsMs > 1000000000000 ? prefixTsMs : 0
+      );
+
+      const { data: publicUrlData } = supabase.storage.from("pdf").getPublicUrl(f.storage_path);
+      const publicUrl = publicUrlData?.publicUrl || existingMeta.storage_url || "";
+
+      const sizeBytes = f.file_size || Number(existingMeta.file_size) || 245760;
+      const sizeFormatted = sizeBytes > 1024 * 1024
+        ? `${(sizeBytes / (1024 * 1024)).toFixed(2)} MB`
+        : `${Math.max(1, Math.round(sizeBytes / 1024))} KB`;
+
+      return {
+        id: existingMeta.id || `pdf-${bmInfo.key}-w${weekNum}-${prefixTsMs || sortTs}`,
+        bookmaker_key: bmInfo.key,
+        bookmaker_name: existingMeta.bookmaker_name || bmInfo.name,
+        country: existingMeta.country || bmInfo.country,
+        week_number: weekNum,
+        season_year: Number(existingMeta.season_year) || 2026,
+        file_name: existingMeta.file_name || cleanFileName,
+        file_size: sizeBytes,
+        file_size_formatted: existingMeta.file_size_formatted || sizeFormatted,
+        file_data_url: "",
+        storage_url: publicUrl,
+        storage_path: f.storage_path,
+        bucket_name: "pdf",
+        access_level: existingMeta.access_level || (bmInfo.key === "pool_codes_comparison" ? "free" : "premium"),
+        uploaded_by: existingMeta.uploaded_by || "admin",
+        uploaded_at: uploadedIso,
+        _sortTs: sortTs,
+        is_active: false, // Computed below so newest per bookmaker is strictly active
+        is_custom_upload: true,
+        notes: existingMeta.notes || `Official Week ${weekNum} ${bmInfo.name} coupon uploaded to Supabase Storage.`,
+        page_count: Number(existingMeta.page_count) || 1,
+        tags: Array.isArray(existingMeta.tags) ? existingMeta.tags : [bmInfo.name, `Week ${weekNum}`, bmInfo.country]
+      };
+    });
+
+    // Sort newest first across all bucket files
+    bucketRecords.sort((a, b) => (b._sortTs || 0) - (a._sortTs || 0));
+
+    // Mark the newest bucket file for each bookmaker_key as is_active = true
+    const activeBookmakerSeen = new Set<string>();
+    bucketRecords.forEach((rec) => {
+      if (!activeBookmakerSeen.has(rec.bookmaker_key)) {
+        rec.is_active = true;
+        activeBookmakerSeen.add(rec.bookmaker_key);
+      } else {
+        rec.is_active = false;
+      }
+      delete rec._sortTs;
+    });
+
+    // Include fallback initial placeholders only for bookmakers that do NOT have a file in the bucket
+    const fallbackPlaceholders = serverMemoryUploadedPdfs.filter(
+      (p) => !p.storage_path && !p.is_custom_upload && !activeBookmakerSeen.has(normalizeStorageBookmakerKey(p.bookmaker_key || p.bookmaker_name).key)
+    );
+
+    serverMemoryUploadedPdfs = [...bucketRecords, ...fallbackPlaceholders];
+  } catch (err) {
+    console.warn("syncCatalogFromStorage warning:", err);
+  }
 }
 
 async function persistCatalogToStorage(): Promise<void> {
   const supabase = getSupabaseClient(true) || getSupabaseClient(false);
   if (!supabase) return;
   try {
-    const content = Buffer.from(JSON.stringify(serverMemoryUploadedPdfs), "utf-8");
+    // Strip heavy base64 file_data_url when persisting catalog metadata to Supabase Storage
+    const lightweightCatalog = serverMemoryUploadedPdfs
+      .filter((p) => p.storage_path || p.is_custom_upload)
+      .map(({ file_data_url, ...rest }) => ({
+        ...rest,
+        file_data_url: rest.storage_url ? "" : (file_data_url || "")
+      }));
+    const content = Buffer.from(JSON.stringify(lightweightCatalog, null, 2), "utf-8");
     await supabase.storage.from("pdf").upload("_metadata/catalog.json", content, {
       contentType: "application/json",
       upsert: true
@@ -1171,14 +1341,73 @@ async function persistCatalogToStorage(): Promise<void> {
 // Initial catalog sync on boot
 syncCatalogFromStorage().catch(() => {});
 
-// API Routes - Admin Uploaded PDFs Management (Isolated from Supabase Base Tables)
+// API Routes - Admin Uploaded PDFs Management (Synced with Supabase 'pdf' Bucket)
 app.get("/api/admin-pdfs", async (req, res) => {
   await syncCatalogFromStorage();
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   return res.json({
     success: true,
     count: serverMemoryUploadedPdfs.length,
     data: serverMemoryUploadedPdfs
   });
+});
+
+// Direct binary download of the current PDF in the Supabase 'pdf' bucket for a bookmaker
+app.get("/api/admin-pdfs/download/:bookmaker", async (req, res) => {
+  await syncCatalogFromStorage();
+  const rawBookmaker = req.params.bookmaker || "";
+  const requestedPath = typeof req.query.path === "string" ? req.query.path.trim() : "";
+  const bmInfo = normalizeStorageBookmakerKey(rawBookmaker);
+
+  // Locate exact path if provided, otherwise pick the newest active bucket PDF for this bookmaker
+  let targetRecord = requestedPath
+    ? serverMemoryUploadedPdfs.find((p) => p.storage_path === requestedPath)
+    : undefined;
+
+  if (!targetRecord) {
+    const candidates = serverMemoryUploadedPdfs.filter(
+      (p) => p.storage_path && normalizeStorageBookmakerKey(p.bookmaker_key || p.bookmaker_name).key === bmInfo.key
+    );
+    candidates.sort((a, b) => new Date(b.uploaded_at || 0).getTime() - new Date(a.uploaded_at || 0).getTime());
+    targetRecord = candidates.find((p) => p.is_active) || candidates[0];
+  }
+
+  if (!targetRecord || !targetRecord.storage_path) {
+    return res.status(404).json({
+      success: false,
+      error: `No uploaded PDF found in Supabase 'pdf' bucket for ${bmInfo.name}.`
+    });
+  }
+
+  const supabase = getSupabaseClient(true) || getSupabaseClient(false);
+  if (!supabase) {
+    return res.status(503).json({ success: false, error: "Supabase storage not configured." });
+  }
+
+  try {
+    const { data, error } = await supabase.storage.from("pdf").download(targetRecord.storage_path);
+    if (error || !data) {
+      return res.status(404).json({
+        success: false,
+        error: error?.message || "Failed to download PDF from Supabase bucket."
+      });
+    }
+
+    const arrayBuffer = await data.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const cleanDownloadName = (targetRecord.file_name || `${bmInfo.name}_Week${targetRecord.week_number}_Official_Coupon.pdf`).replace(/[^a-zA-Z0-9._\- ()]/g, "_");
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Length", String(buffer.length));
+    res.setHeader("Content-Disposition", `attachment; filename="${cleanDownloadName}"`);
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    return res.send(buffer);
+  } catch (err: any) {
+    return res.status(500).json({
+      success: false,
+      error: err?.message || "Unexpected error downloading PDF from Supabase bucket."
+    });
+  }
 });
 
 app.post("/api/admin-pdfs/upload", async (req, res) => {
@@ -1187,14 +1416,21 @@ app.post("/api/admin-pdfs/upload", async (req, res) => {
     return res.status(400).json({ success: false, error: "Bookmaker key and valid PDF metadata are required." });
   }
 
+  await syncCatalogFromStorage();
+
+  const bmInfo = normalizeStorageBookmakerKey(pdfRecord.bookmaker_key || pdfRecord.bookmaker_name);
+  const rawFileName = pdfRecord.file_name || `${bmInfo.name}_Coupon.pdf`;
+  const fileWeekMatch = rawFileName.match(/week[_\-\s]*(\d+)/i);
+  const resolvedWeek = Number(pdfRecord.week_number) || (fileWeekMatch ? Number(fileWeekMatch[1]) : 15);
+
   const newRecord: any = {
-    id: pdfRecord.id || `pdf-${pdfRecord.bookmaker_key}-${Date.now()}`,
-    bookmaker_key: pdfRecord.bookmaker_key,
-    bookmaker_name: pdfRecord.bookmaker_name || pdfRecord.bookmaker_key,
-    country: pdfRecord.country || "Nigeria",
-    week_number: Number(pdfRecord.week_number) || 50,
+    id: pdfRecord.id || `pdf-${bmInfo.key}-w${resolvedWeek}-${Date.now()}`,
+    bookmaker_key: bmInfo.key,
+    bookmaker_name: pdfRecord.bookmaker_name || bmInfo.name,
+    country: pdfRecord.country || bmInfo.country,
+    week_number: resolvedWeek,
     season_year: Number(pdfRecord.season_year) || 2026,
-    file_name: pdfRecord.file_name || `${pdfRecord.bookmaker_name || 'Bookmaker'}_Coupon.pdf`,
+    file_name: rawFileName,
     file_size: Number(pdfRecord.file_size) || 256000,
     file_size_formatted: pdfRecord.file_size_formatted || "250 KB",
     file_data_url: pdfRecord.file_data_url || "",
@@ -1205,7 +1441,7 @@ app.post("/api/admin-pdfs/upload", async (req, res) => {
     is_custom_upload: true,
     notes: pdfRecord.notes || "Admin uploaded official coupon document.",
     page_count: Number(pdfRecord.page_count) || 1,
-    tags: Array.isArray(pdfRecord.tags) ? pdfRecord.tags : [pdfRecord.bookmaker_name || "Bookmaker", "Custom Upload"]
+    tags: Array.isArray(pdfRecord.tags) ? pdfRecord.tags : [bmInfo.name, `Week ${resolvedWeek}`, bmInfo.country]
   };
 
   // Upload file to Supabase Storage 'pdf' bucket if base64 file data URL is provided
@@ -1243,10 +1479,10 @@ app.post("/api/admin-pdfs/upload", async (req, res) => {
     }
   }
 
-  // If set to active, deactivate previous entries for same bookmaker & week
+  // If set to active, deactivate ALL previous entries for the same bookmaker across all weeks
   if (newRecord.is_active) {
     serverMemoryUploadedPdfs.forEach(p => {
-      if (p.bookmaker_key === newRecord.bookmaker_key && p.week_number === newRecord.week_number) {
+      if (normalizeStorageBookmakerKey(p.bookmaker_key || p.bookmaker_name).key === newRecord.bookmaker_key) {
         p.is_active = false;
       }
     });
@@ -1260,7 +1496,8 @@ app.post("/api/admin-pdfs/upload", async (req, res) => {
   // Optional: write to dedicated uploaded_bookmaker_pdfs table in Supabase without touching fixture tables
   if (supabase) {
     try {
-      await supabase.from("uploaded_bookmaker_pdfs").insert([newRecord]);
+      const { file_data_url, ...dbRecord } = newRecord;
+      await supabase.from("uploaded_bookmaker_pdfs").insert([dbRecord]);
     } catch (_) {}
   }
 
@@ -1272,6 +1509,7 @@ app.post("/api/admin-pdfs/upload", async (req, res) => {
 });
 
 app.delete("/api/admin-pdfs/:id", async (req, res) => {
+  await syncCatalogFromStorage();
   const { id } = req.params;
   const target = serverMemoryUploadedPdfs.find(p => p.id === id);
 
@@ -1286,7 +1524,8 @@ app.delete("/api/admin-pdfs/:id", async (req, res) => {
     } catch (_) {}
   }
 
-  // Persist updated catalog to Supabase storage
+  // Re-sync and persist updated catalog to Supabase storage
+  await syncCatalogFromStorage();
   await persistCatalogToStorage();
 
   // Delete from uploaded_bookmaker_pdfs table in Supabase if exists, keeping base tables intact

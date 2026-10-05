@@ -1717,33 +1717,63 @@ export const INITIAL_UPLOADED_BOOKMAKER_PDFS: BookmakerPdfUpload[] = [
 ];
 
 export function findAdminPdfForBookmaker(bookmakerKeyOrName: string, customList?: BookmakerPdfUpload[]): BookmakerPdfUpload | undefined {
-  const list = customList && customList.length > 0 ? customList : INITIAL_UPLOADED_BOOKMAKER_PDFS;
+  const rawList = customList && customList.length > 0 ? customList : INITIAL_UPLOADED_BOOKMAKER_PDFS;
   const norm = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-  const target = norm(bookmakerKeyOrName);
-  const hasRealFile = (p: BookmakerPdfUpload) => Boolean((p.storage_url && p.storage_url.trim()) || (p.file_data_url && p.file_data_url.trim()));
+  const canonicalKey = (s: string) => {
+    const n = norm(s);
+    if (n.includes('bet9ja') || n === 'b9') return 'bet9ja';
+    if (n.includes('betking') || n === 'bk') return 'betking';
+    if (n.includes('sportybetghana') || n.includes('sportygh') || n === 'sbgh') return 'sportybetghana';
+    if (n.includes('sporty')) return 'sportybet';
+    if (n.includes('premier')) return 'premierbet';
+    if (n.includes('betway')) return 'betway';
+    if (n.includes('socca')) return 'soccabet';
+    if (n.includes('msport')) return 'msport';
+    if (n.includes('comparison') || n.includes('master')) return 'poolcodescomparison';
+    return n;
+  };
 
-  // 1. Direct key match with active status AND real uploaded file
-  let found = list.find(p => p.is_active && hasRealFile(p) && (norm(p.bookmaker_key) === target || norm(p.bookmaker_name) === target));
+  const targetKey = canonicalKey(bookmakerKeyOrName);
+  const matchesTarget = (p: BookmakerPdfUpload) => {
+    const pk = canonicalKey(p.bookmaker_key || '');
+    const pn = canonicalKey(p.bookmaker_name || '');
+    return pk === targetKey || pn === targetKey;
+  };
+
+  const hasStorageFile = (p: BookmakerPdfUpload) =>
+    Boolean((p.storage_path && p.storage_path.trim()) || (p.storage_url && p.storage_url.trim()));
+  const hasRealFile = (p: BookmakerPdfUpload) =>
+    hasStorageFile(p) || Boolean(p.file_data_url && p.file_data_url.trim());
+
+  // Sort candidates so Supabase bucket files and newest uploaded_at come first
+  const sorted = [...rawList].sort((a, b) => {
+    const aStorage = hasStorageFile(a) ? 1 : 0;
+    const bStorage = hasStorageFile(b) ? 1 : 0;
+    if (bStorage !== aStorage) return bStorage - aStorage;
+    const aTime = new Date(a.uploaded_at || 0).getTime() || 0;
+    const bTime = new Date(b.uploaded_at || 0).getTime() || 0;
+    return bTime - aTime;
+  });
+
+  // 1. Active record in Supabase Storage bucket matching bookmaker
+  let found = sorted.find(p => p.is_active && hasStorageFile(p) && matchesTarget(p));
   if (found) return found;
 
-  // 2. Partial match with active status AND real uploaded file
-  found = list.find(p => p.is_active && hasRealFile(p) && (target.includes(norm(p.bookmaker_key)) || norm(p.bookmaker_key).includes(target) || target.includes(norm(p.bookmaker_name)) || norm(p.bookmaker_name).includes(target)));
+  // 2. Newest record in Supabase Storage bucket matching bookmaker
+  found = sorted.find(p => hasStorageFile(p) && matchesTarget(p));
   if (found) return found;
 
-  // 3. Any match with real uploaded file
-  found = list.find(p => hasRealFile(p) && (norm(p.bookmaker_key) === target || norm(p.bookmaker_name) === target || target.includes(norm(p.bookmaker_key)) || norm(p.bookmaker_key).includes(target)));
+  // 3. Active record with any real file (e.g. data URL) matching bookmaker
+  found = sorted.find(p => p.is_active && hasRealFile(p) && matchesTarget(p));
   if (found) return found;
 
-  // 4. Direct key match with active status
-  found = list.find(p => p.is_active && (norm(p.bookmaker_key) === target || norm(p.bookmaker_name) === target));
+  // 4. Any record with real file matching bookmaker
+  found = sorted.find(p => hasRealFile(p) && matchesTarget(p));
   if (found) return found;
 
-  // 5. Partial match with active status
-  found = list.find(p => p.is_active && (target.includes(norm(p.bookmaker_key)) || norm(p.bookmaker_key).includes(target) || target.includes(norm(p.bookmaker_name)) || norm(p.bookmaker_name).includes(target)));
-  if (found) return found;
-
-  // 6. Any match regardless of active flag
-  return list.find(p => norm(p.bookmaker_key) === target || norm(p.bookmaker_name) === target || target.includes(norm(p.bookmaker_key)) || norm(p.bookmaker_key).includes(target));
+  // 5. Fallback to active placeholder or any matching record
+  return sorted.find(p => p.is_active && matchesTarget(p)) || sorted.find(matchesTarget);
 }
+
 
 

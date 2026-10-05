@@ -5986,74 +5986,158 @@ export default function CustomerPortal({
                               <div className="w-8 sm:w-12 shrink-0 bg-[#0F172A] border-r border-slate-800 flex items-center justify-center font-mono text-[9px] sm:text-xs text-slate-500 select-none">
                                 #
                               </div>
-                              <div className="flex-grow bg-[#004D40] text-slate-100 flex flex-col items-start md:items-center justify-center py-2.5 sm:py-4 px-2.5 sm:px-6 text-left md:text-center relative">
-                                <div className="absolute inset-0 bg-[#10B981]/15 mix-blend-overlay"></div>
-                                <h1 className="font-black text-xs sm:text-base md:text-xl tracking-tight sm:tracking-widest text-[#FFF] uppercase leading-tight drop-shadow-md">
+                              <div className="flex-grow bg-[#004D40] text-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between py-2.5 sm:py-3.5 px-2.5 sm:px-6 gap-2 relative">
+                                <div className="absolute inset-0 bg-[#10B981]/15 mix-blend-overlay pointer-events-none"></div>
+                                <h1 className="font-black text-xs sm:text-base md:text-xl tracking-tight sm:tracking-widest text-[#FFF] uppercase leading-tight drop-shadow-md relative z-10">
                                   WEEKLY POOL RESULTS
                                 </h1>
+                                <div className="inline-flex rounded-lg bg-slate-950/80 p-0.5 border border-emerald-700/60 relative z-10">
+                                  <button
+                                    onClick={() => setResultsViewMode('table')}
+                                    className={`px-2.5 py-1 rounded-md text-[10px] font-mono font-bold transition cursor-pointer ${
+                                      resultsViewMode === 'table'
+                                        ? 'bg-emerald-500 text-slate-950 shadow'
+                                        : 'text-slate-300 hover:text-white'
+                                    }`}
+                                  >
+                                    Table View
+                                  </button>
+                                  <button
+                                    onClick={() => setResultsViewMode('cards')}
+                                    className={`px-2.5 py-1 rounded-md text-[10px] font-mono font-bold transition cursor-pointer ${
+                                      resultsViewMode === 'cards'
+                                        ? 'bg-emerald-500 text-slate-950 shadow'
+                                        : 'text-slate-300 hover:text-white'
+                                    }`}
+                                  >
+                                    Cards View
+                                  </button>
+                                </div>
                               </div>
                             </div>
 
-                            {/* Cards Display Only */}
-                            <div className="p-2.5 sm:p-3.5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 bg-[#070b13]">
-                              {filtered.length === 0 ? (
-                                <div className="col-span-full py-12 text-center text-slate-500 italic text-xs font-mono">
-                                  {baseRows.length === 0 ? 'No match records in pool_result table yet.' : 'No matches found matching your filter criteria.'}
-                                </div>
-                              ) : (
-                                filtered.map((row: any, idx: number) => {
-                                  const rowId = row.id ?? row.matchNo ?? (idx + 1);
-                                  const homeTeam = row.home_team || row.Home_Team || row.homeTeam || '';
-                                  const awayTeam = row.away_team || row.Away_Team || row.awayTeam || '';
-                                  const status = row.status || (row.outcome === 'DRAW' ? 'ScoreDraw' : (row.outcome === 'HOME WIN' ? 'Home' : 'Away'));
-                                  const poolResult = row.pool_result || (row.Home_Team_Score !== undefined ? `${row.Home_Team_Score}-:-${row.Away_Team_Score}` : row.fullTimeScore?.replace(' - ', '-:-')) || '0-:-0';
-                                  const isDraw = status === 'ScoreDraw' || status === 'noScoreDraw' || row.outcome === 'DRAW';
+                            {resultsViewMode === 'table' ? (
+                              <div className="overflow-x-auto bg-[#070b13]">
+                                <table className="w-full text-left border-collapse font-mono text-xs">
+                                  <thead>
+                                    <tr className="bg-[#0F172A] text-slate-300 border-b border-slate-800 uppercase text-[10px] sm:text-xs font-black tracking-wider">
+                                      <th className="py-3 px-2 sm:px-3 text-center w-8 sm:w-12 border-r border-slate-800">#</th>
+                                      <th className="py-3 px-3 sm:px-4 text-right">Home Team</th>
+                                      <th className="py-3 px-2.5 sm:px-4 text-center w-28 sm:w-36">Pool Result</th>
+                                      <th className="py-3 px-3 sm:px-4 text-left">Away Team</th>
+                                      <th className="py-3 px-2.5 sm:px-4 text-center w-28 sm:w-36">Status</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-800/70">
+                                    {filtered.length === 0 ? (
+                                      <tr>
+                                        <td colSpan={5} className="py-12 text-center text-slate-500 italic text-xs font-mono">
+                                          {baseRows.length === 0 ? 'No match records in pool_result table yet.' : 'No matches found matching your filter criteria.'}
+                                        </td>
+                                      </tr>
+                                    ) : (
+                                      filtered.map((row: any, idx: number) => {
+                                        const rowId = row.id ?? row.matchNo ?? (idx + 1);
+                                        const homeTeam = row.home_team || row.Home_Team || row.homeTeam || '';
+                                        const awayTeam = row.away_team || row.Away_Team || row.awayTeam || '';
+                                        const status = row.status || (row.outcome === 'DRAW' ? 'ScoreDraw' : (row.outcome === 'HOME WIN' ? 'Home' : 'Away'));
+                                        const poolResult = row.pool_result || (row.Home_Team_Score !== undefined ? `${row.Home_Team_Score}-:-${row.Away_Team_Score}` : row.fullTimeScore?.replace(' - ', '-:-')) || '0-:-0';
+                                        const isDraw = status === 'ScoreDraw' || status === 'noScoreDraw' || row.outcome === 'DRAW';
 
-                                  return (
-                                    <div
-                                      key={idx}
-                                      className={`p-3 rounded-xl border transition-all flex flex-col justify-between ${
-                                        isDraw
-                                          ? 'bg-[#051812] border-emerald-600/90 shadow-md ring-1 ring-emerald-500/20'
-                                          : 'bg-[#0B0F19] border-slate-800 hover:border-slate-700'
-                                      }`}
-                                    >
-                                      {/* Header: #ID and Status Badge */}
-                                      <div className="flex items-center justify-between gap-2 mb-2 pb-1.5 border-b border-slate-800/80">
-                                        <div className="flex items-center gap-1.5">
-                                          <span className="font-mono text-xs font-black text-amber-400 bg-black/60 px-2 py-0.5 rounded border border-slate-800">
-                                            #{rowId}
-                                          </span>
-                                          <span className="text-[9px] font-mono text-slate-500 uppercase font-bold">Match</span>
-                                        </div>
-                                        {getStatusBadge(status)}
-                                      </div>
+                                        return (
+                                          <tr
+                                            key={idx}
+                                            className={`transition-colors ${
+                                              isDraw
+                                                ? 'bg-emerald-950/30 hover:bg-emerald-950/50'
+                                                : 'hover:bg-slate-900/50'
+                                            }`}
+                                          >
+                                            <td className="py-2.5 px-2 sm:px-3 text-center font-black text-amber-400 border-r border-slate-800">
+                                              {rowId}
+                                            </td>
+                                            <td className="py-2.5 px-3 sm:px-4 text-right font-extrabold text-white text-xs sm:text-sm">
+                                              {homeTeam}
+                                            </td>
+                                            <td className="py-2.5 px-2.5 sm:px-4 text-center">
+                                              <span className="inline-block px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-700 text-amber-300 font-mono font-black text-xs sm:text-sm min-w-[54px] shadow-inner tracking-wider">
+                                                {poolResult}
+                                              </span>
+                                            </td>
+                                            <td className="py-2.5 px-3 sm:px-4 text-left font-extrabold text-white text-xs sm:text-sm">
+                                              {awayTeam}
+                                            </td>
+                                            <td className="py-2.5 px-2.5 sm:px-4 text-center">
+                                              {getStatusBadge(status)}
+                                            </td>
+                                          </tr>
+                                        );
+                                      })
+                                    )}
+                                  </tbody>
+                                </table>
+                              </div>
+                            ) : (
+                              <div className="p-2.5 sm:p-3.5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 bg-[#070b13]">
+                                {filtered.length === 0 ? (
+                                  <div className="col-span-full py-12 text-center text-slate-500 italic text-xs font-mono">
+                                    {baseRows.length === 0 ? 'No match records in pool_result table yet.' : 'No matches found matching your filter criteria.'}
+                                  </div>
+                                ) : (
+                                  filtered.map((row: any, idx: number) => {
+                                    const rowId = row.id ?? row.matchNo ?? (idx + 1);
+                                    const homeTeam = row.home_team || row.Home_Team || row.homeTeam || '';
+                                    const awayTeam = row.away_team || row.Away_Team || row.awayTeam || '';
+                                    const status = row.status || (row.outcome === 'DRAW' ? 'ScoreDraw' : (row.outcome === 'HOME WIN' ? 'Home' : 'Away'));
+                                    const poolResult = row.pool_result || (row.Home_Team_Score !== undefined ? `${row.Home_Team_Score}-:-${row.Away_Team_Score}` : row.fullTimeScore?.replace(' - ', '-:-')) || '0-:-0';
+                                    const isDraw = status === 'ScoreDraw' || status === 'noScoreDraw' || row.outcome === 'DRAW';
 
-                                      {/* Matchup: Home Team - Score - Away Team */}
-                                      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 py-1.5">
-                                        <div className="text-right flex flex-col items-end justify-center">
-                                          <div className="font-extrabold text-white text-xs sm:text-sm leading-snug break-words">
-                                            {homeTeam}
+                                    return (
+                                      <div
+                                        key={idx}
+                                        className={`p-3 rounded-xl border transition-all flex flex-col justify-between ${
+                                          isDraw
+                                            ? 'bg-[#051812] border-emerald-600/90 shadow-md ring-1 ring-emerald-500/20'
+                                            : 'bg-[#0B0F19] border-slate-800 hover:border-slate-700'
+                                        }`}
+                                      >
+                                        {/* Header: #ID and Status Badge */}
+                                        <div className="flex items-center justify-between gap-2 mb-2 pb-1.5 border-b border-slate-800/80">
+                                          <div className="flex items-center gap-1.5">
+                                            <span className="font-mono text-xs font-black text-amber-400 bg-black/60 px-2 py-0.5 rounded border border-slate-800">
+                                              #{rowId}
+                                            </span>
+                                            <span className="text-[9px] font-mono text-slate-500 uppercase font-bold">Match</span>
                                           </div>
-                                          <span className="text-[8px] sm:text-[9px] font-mono text-emerald-400/70 uppercase font-semibold">Home</span>
+                                          {getStatusBadge(status)}
                                         </div>
 
-                                        <div className="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-700 text-amber-300 font-mono font-black text-xs sm:text-sm text-center min-w-[54px] shadow-inner tracking-wider">
-                                          {poolResult}
-                                        </div>
-
-                                        <div className="text-left flex flex-col items-start justify-center">
-                                          <div className="font-extrabold text-white text-xs sm:text-sm leading-snug break-words">
-                                            {awayTeam}
+                                        {/* Matchup: Home Team - Score - Away Team */}
+                                        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 py-1.5">
+                                          <div className="text-right flex flex-col items-end justify-center">
+                                            <div className="font-extrabold text-white text-xs sm:text-sm leading-snug break-words">
+                                              {homeTeam}
+                                            </div>
+                                            <span className="text-[8px] sm:text-[9px] font-mono text-emerald-400/70 uppercase font-semibold">Home</span>
                                           </div>
-                                          <span className="text-[8px] sm:text-[9px] font-mono text-blue-400/70 uppercase font-semibold">Away</span>
+
+                                          <div className="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-700 text-amber-300 font-mono font-black text-xs sm:text-sm text-center min-w-[54px] shadow-inner tracking-wider">
+                                            {poolResult}
+                                          </div>
+
+                                          <div className="text-left flex flex-col items-start justify-center">
+                                            <div className="font-extrabold text-white text-xs sm:text-sm leading-snug break-words">
+                                              {awayTeam}
+                                            </div>
+                                            <span className="text-[8px] sm:text-[9px] font-mono text-blue-400/70 uppercase font-semibold">Away</span>
+                                          </div>
                                         </div>
                                       </div>
-                                    </div>
-                                  );
-                                })
-                              )}
-                            </div>
+                                    );
+                                  })
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                       );
