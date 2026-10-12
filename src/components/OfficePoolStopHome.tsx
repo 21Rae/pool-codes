@@ -857,19 +857,6 @@ export default function OfficePoolStopHome({
                 </button>
               );
             })}
-
-            {/* Quick Admin PDFs Modal Trigger */}
-            <button
-              onClick={() => setShowAdminPdfModal(true)}
-              className="px-2.5 py-1.5 rounded-lg text-xs font-bold tracking-wider transition whitespace-nowrap flex items-center gap-1.5 select-none cursor-pointer bg-blue-950/80 hover:bg-blue-900/90 text-blue-300 border border-blue-500/40 hover:border-blue-400 shadow-sm shrink-0"
-              title="Download verified official Admin PDFs for each bookmaker"
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-              <span>ADMIN PDFs</span>
-              <span className="text-[9px] font-black bg-blue-500/30 text-blue-200 px-1.5 py-0.2 rounded font-mono">
-                W50
-              </span>
-            </button>
           </nav>
 
           <div className="order-2 2xl:order-3 flex flex-wrap items-center gap-2 shrink-0">

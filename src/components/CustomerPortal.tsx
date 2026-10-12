@@ -151,6 +151,7 @@ export default function CustomerPortal({
   onUpdateUploadedPdfs
 }: CustomerPortalProps) {
   const [remoteLogs, setRemoteLogs] = useState<any[]>([]);
+  const [resultsViewMode, setResultsViewMode] = useState<'table' | 'cards'>('table');
 
   useEffect(() => {
     // Fetch purchase and subscription records across access logs (purchases_access_log, subscriptions_access_log, plan_purchased, user_subscriptions)

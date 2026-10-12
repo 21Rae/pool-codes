@@ -324,6 +324,7 @@ export interface BookmakerPdfUpload {
   page_count?: number;
   tags?: string[];
   storage_url?: string;
+  storage_path?: string;
   bucket_name?: string;
 }
 
