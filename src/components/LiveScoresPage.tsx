@@ -15,12 +15,14 @@ import {
   ShieldAlert,
   Terminal,
   Clock,
-  Calendar
+  Calendar,
+  Upload
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { getSupabaseClient } from '../lib/supabase';
 import GoogleAdBanner from './GoogleAdBanner';
 import LiveScoresComments from './LiveScoresComments';
+import LiveScoresCsvModal from './LiveScoresCsvModal';
 
 interface LiveScoresPageProps {
   currentUser: any;
@@ -37,7 +39,16 @@ export default function LiveScoresPage({
   isInsidePortal = false,
   onNavigateToContact
 }: LiveScoresPageProps) {
-  const [liveScoresData, setLiveScoresData] = useState<any[]>([]);
+  const [liveScoresData, setLiveScoresData] = useState<any[]>(() => {
+    try {
+      const saved = localStorage.getItem('fastpool_live_scores_data');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (_) {}
+    return [];
+  });
   const [liveLogData, setLiveLogData] = useState<string[]>([]);
   const [isCheckingLive, setIsCheckingLive] = useState(false);
   const [isAgentActive, setIsAgentActive] = useState(false);
@@ -50,22 +61,37 @@ export default function LiveScoresPage({
   const [isRefreshingLiveScores, setIsRefreshingLiveScores] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'live' | 'finished'>('all');
+  const [showCsvModal, setShowCsvModal] = useState(false);
 
   const isAdmin = currentUser?.role === 'admin';
+
+  useEffect(() => {
+    const handleSync = (e: any) => {
+      if (e.detail && Array.isArray(e.detail) && e.detail.length > 0) {
+        setLiveScoresData(e.detail);
+      }
+    };
+    window.addEventListener('fastpool_livescores_updated', handleSync);
+    return () => window.removeEventListener('fastpool_livescores_updated', handleSync);
+  }, []);
 
   const fetchLiveScores = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch("/api/livescores");
+      const response = await fetch(`/api/livescores?t=${Date.now()}`, { cache: "no-store" });
       if (!response.ok) {
         throw new Error(`Response status: ${response.status}`);
       }
       const json = await response.json();
       if (json.success) {
-        setLiveScoresData(json.matches || []);
+        const matches = json.matches || [];
+        setLiveScoresData(matches);
         setLiveLogData(json.logs || []);
         setIsCheckingLive(json.isChecking || false);
         setIsAgentActive(json.agentActive || false);
+        try {
+          localStorage.setItem('fastpool_live_scores_data', JSON.stringify(matches));
+        } catch (_) {}
       }
     } catch (err) {
       console.warn("Graceful notice: Live scores not yet loaded in stand-alone page (standard behavior).");
@@ -268,6 +294,17 @@ export default function LiveScoresPage({
           </div>
 
           <div className="flex flex-wrap items-center gap-3 self-start md:self-auto">
+            {isAdmin && (
+              <button
+                onClick={() => setShowCsvModal(true)}
+                className="flex items-center gap-2 text-xs font-black font-mono uppercase tracking-wider text-slate-950 bg-gradient-to-r from-emerald-400 to-teal-300 hover:from-emerald-300 hover:to-teal-200 px-4 py-3 rounded-xl transition duration-150 cursor-pointer active:scale-95 shadow-lg shadow-emerald-500/20"
+                title="Upload CSV of fixtures and scores directly to livescores table"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                <span>Upload CSV</span>
+              </button>
+            )}
+
             <button
               onClick={() => {
                 fetchLiveScores();
@@ -600,6 +637,15 @@ export default function LiveScoresPage({
             </p>
           </div>
         </div>
+        {/* LiveScores CSV Modal */}
+        <LiveScoresCsvModal
+          isOpen={showCsvModal}
+          onClose={() => setShowCsvModal(false)}
+          onUploadSuccess={(matches) => {
+            setLiveScoresData(matches);
+          }}
+          triggerToast={triggerToast}
+        />
       </div>
     </div>
   );

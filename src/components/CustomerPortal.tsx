@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import {
@@ -60,7 +60,8 @@ import {
   FileSpreadsheet,
   Table,
   LayoutList,
-  ShieldCheck
+  ShieldCheck,
+  Upload
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DatabaseState, User, SubscriptionPlan, UserSubscription, PoolCode, parseComponents } from '../types';
@@ -68,6 +69,7 @@ import WeeklyPoolPicksTable from './WeeklyPoolPicksTable';
 import { getSupabaseClient } from '../lib/supabase';
 import GoogleAdBanner from './GoogleAdBanner';
 import LiveScoresComments from './LiveScoresComments';
+import LiveScoresCsvModal from './LiveScoresCsvModal';
 import {
   INITIAL_PLANS,
   isGhanaPlan,
@@ -1508,7 +1510,16 @@ export default function CustomerPortal({
   const [selectedIntlId, setSelectedIntlId] = useState<string>('intl-w29');
 
   // --- LIVESCORES DASHBOARD ENGINE STATES & ACTIONS ---
-  const [liveScoresData, setLiveScoresData] = useState<any[]>([]);
+  const [liveScoresData, setLiveScoresData] = useState<any[]>(() => {
+    try {
+      const saved = localStorage.getItem('fastpool_live_scores_data');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (_) {}
+    return [];
+  });
   const [liveLogData, setLiveLogData] = useState<string[]>([]);
   const [isCheckingLive, setIsCheckingLive] = useState(false);
   const [homeTeam, setHomeTeam] = useState("");
@@ -1518,37 +1529,54 @@ export default function CustomerPortal({
   const [newMatchStatus, setNewMatchStatus] = useState("not_started");
   const [isSubmittingMatch, setIsSubmittingMatch] = useState(false);
   const [isRefreshingLiveScores, setIsRefreshingLiveScores] = useState(false);
+  const [showLiveScoresCsvModal, setShowLiveScoresCsvModal] = useState(false);
 
+  // Sync livescores immediately when CSV uploaded or event fired across windows/components
   useEffect(() => {
-    if (activeSubTab !== 'streaming' && activeSubTab !== 'dashboard') return;
-
-    const fetchLiveScores = async () => {
-      try {
-        const response = await fetch("/api/livescores");
-        if (!response.ok) {
-          throw new Error(`Response status: ${response.status}`);
-        }
-        const json = await response.json();
-        if (json.success) {
-          const rawMatches = json.matches || [];
-          const seen = new Set();
-          const uniqueMatches = rawMatches.filter((m: any) => {
-            const key = m.id || m.fixture;
-            if (seen.has(key)) return false;
-            seen.add(key);
-            return true;
-          });
-          setLiveScoresData(uniqueMatches);
-          setLiveLogData(json.logs || []);
-          setIsCheckingLive(json.isChecking || false);
-        }
-      } catch (err) {
-        console.warn("Graceful notice: Live scores loading bypassed (polling behavior).");
+    const handleSync = (e: any) => {
+      if (e.detail && Array.isArray(e.detail) && e.detail.length > 0) {
+        setLiveScoresData(e.detail);
       }
     };
+    window.addEventListener('fastpool_livescores_updated', handleSync);
+    return () => window.removeEventListener('fastpool_livescores_updated', handleSync);
+  }, []);
 
+  const fetchLiveScores = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/livescores?t=${Date.now()}`, { cache: "no-store" });
+      if (!response.ok) {
+        throw new Error(`Response status: ${response.status}`);
+      }
+      const json = await response.json();
+      if (json.success) {
+        const rawMatches = json.matches || [];
+        const seen = new Set();
+        const uniqueMatches = rawMatches.filter((m: any) => {
+          const key = m.id || m.fixture;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+        setLiveScoresData(uniqueMatches);
+        setLiveLogData(json.logs || []);
+        setIsCheckingLive(json.isChecking || false);
+        try {
+          localStorage.setItem('fastpool_live_scores_data', JSON.stringify(uniqueMatches));
+        } catch (_) {}
+      }
+    } catch (err) {
+      console.warn("Graceful notice: Live scores loading bypassed (polling behavior).");
+    }
+  }, []);
+
+  useEffect(() => {
     fetchLiveScores();
-  }, [activeSubTab]);
+    if (activeSubTab === 'streaming' || activeSubTab === 'dashboard') {
+      const pollInterval = setInterval(fetchLiveScores, 12000);
+      return () => clearInterval(pollInterval);
+    }
+  }, [activeSubTab, fetchLiveScores]);
 
   const handleAddMatch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -2269,29 +2297,6 @@ export default function CustomerPortal({
                     <span>USER PROFILE</span>
                   </button>
 
-                  {/* ADMIN PDF UPLOAD CONSOLE (ADMIN ONLY) */}
-                  {currentUser.role === 'admin' && (
-                    <button
-                      onClick={() => {
-                        setActiveSubTab('admin_pdf_upload');
-                        setIsMobileMenuOpen(false);
-                      }}
-                      className={`flex items-center justify-between px-3.5 py-3 rounded-lg text-xs font-bold tracking-wide transition duration-150 ${
-                        activeSubTab === 'admin_pdf_upload'
-                          ? 'bg-gradient-to-r from-emerald-555/20 to-emerald-500/10 text-emerald-300 border-l-4 border-emerald-400 pl-2.5'
-                          : 'bg-emerald-950/40 text-emerald-400 hover:bg-emerald-900/50 border border-emerald-500/30'
-                      }`}
-                    >
-                      <span className="flex items-center gap-3">
-                        <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
-                        <span>ADMIN PDF UPLOADER</span>
-                      </span>
-                      <span className="text-[8px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-1.5 py-0.5 rounded font-black font-mono tracking-widest uppercase">
-                        ADMIN
-                      </span>
-                    </button>
-                  )}
-
                   {/* Mobile Contact Us Shortcut Card */}
                   <div className="mt-4 p-3 bg-emerald-950/30 border border-emerald-500/20 rounded-xl flex flex-col gap-2">
                     <div className="flex items-center gap-1.5">
@@ -2507,26 +2512,6 @@ export default function CustomerPortal({
               <UserIcon className="w-4 h-4" />
               <span>USER PROFILE</span>
             </button>
-
-            {/* ADMIN PDF UPLOADER CONSOLE (ADMIN ONLY) */}
-            {currentUser.role === 'admin' && (
-              <button
-                onClick={() => setActiveSubTab('admin_pdf_upload')}
-                className={`flex items-center justify-between px-3.5 py-3 rounded-lg text-xs font-bold tracking-wide transition duration-150 ${
-                  activeSubTab === 'admin_pdf_upload'
-                    ? 'bg-gradient-to-r from-emerald-555/20 to-emerald-500/10 text-emerald-300 border-l-4 border-emerald-400 pl-2.5'
-                    : 'bg-emerald-950/40 text-emerald-400 hover:bg-emerald-900/50 border border-emerald-500/30'
-                }`}
-              >
-                <span className="flex items-center gap-3">
-                  <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
-                  <span>ADMIN PDF UPLOADER</span>
-                </span>
-                <span className="text-[8px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-1.5 py-0.5 rounded font-black font-mono tracking-widest uppercase">
-                  ADMIN
-                </span>
-              </button>
-            )}
 
 
           </nav>
@@ -5165,7 +5150,7 @@ export default function CustomerPortal({
                     activeWeekNumber={activeWeekNumber}
                     triggerToast={triggerToast}
                     onUpgradeClick={() => setActiveSubTab('subscription')}
-                    tableName="weekly pool picks(Bet9ja)"
+                    tableName="weekly pool picks (Bet9ja)"
                     tableDisplayName="Weekly Pool Picks (Bet9ja)"
                     bookmakerBrand="bet9ja"
                   />
@@ -5248,16 +5233,27 @@ export default function CustomerPortal({
                   {/* ADMIN CONTROL TOWER PANEL */}
                   {currentUser.role === 'admin' && (
                     <div className="w-full bg-[#0F172A] border border-slate-800 rounded-xl p-5 shadow-xl flex flex-col gap-4">
-                      <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                      <div className="flex items-center justify-between border-b border-slate-800 pb-3 flex-wrap gap-2">
                         <div className="flex items-center gap-2">
                           <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
                           <h3 className="text-xs font-mono font-black uppercase text-emerald-400 tracking-widest">
                             ADMIN LIVE TRACKER CONTROL TOWER
                           </h3>
                         </div>
-                        <span className="text-[10px] bg-slate-800 text-slate-350 px-2.5 py-0.5 rounded font-mono font-bold">
-                          Total: {liveScoresData.length} games tracked
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] bg-slate-800 text-slate-350 px-2.5 py-1 rounded font-mono font-bold">
+                            Total: {liveScoresData.length} games tracked
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setShowLiveScoresCsvModal(true)}
+                            className="flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-mono font-black text-xs rounded-lg transition cursor-pointer shadow-md active:scale-95"
+                            title="Upload CSV of fixtures and scores directly to livescores database table"
+                          >
+                            <Upload className="w-3.5 h-3.5" />
+                            <span>Upload CSV</span>
+                          </button>
+                        </div>
                       </div>
 
                       {/* Add Match Form */}
@@ -5403,42 +5399,65 @@ export default function CustomerPortal({
                             </button>
                           )}
                         </div>
-                        <button
-                          onClick={() => {
-                            const filtered = liveScoresData.filter((match: any) => {
-                              if (!trackedMatchesSearch) return true;
-                              const s = trackedMatchesSearch.toLowerCase();
-                              return (
-                                match.fixture?.toLowerCase().includes(s) ||
-                                match.status?.toLowerCase().includes(s) ||
-                                match.score?.toLowerCase().includes(s)
-                              );
-                            });
+                        <div className="flex items-center gap-2 shrink-0">
+                          {currentUser.role === 'admin' && (
+                            <button
+                              type="button"
+                              onClick={() => setShowLiveScoresCsvModal(true)}
+                              className="bg-slate-800 hover:bg-slate-700 text-emerald-300 font-bold text-xs uppercase tracking-wider px-3.5 py-2 rounded-xl cursor-pointer transition font-mono shrink-0 flex items-center justify-center gap-1.5 border border-emerald-500/30"
+                              title="Upload CSV to livescore table"
+                            >
+                              <Upload className="w-3.5 h-3.5 text-emerald-400" />
+                              <span>Upload CSV</span>
+                            </button>
+                          )}
+                          <button
+                            onClick={() => {
+                              const filtered = liveScoresData.filter((match: any) => {
+                                if (!trackedMatchesSearch) return true;
+                                const s = trackedMatchesSearch.toLowerCase();
+                                return (
+                                  match.fixture?.toLowerCase().includes(s) ||
+                                  match.status?.toLowerCase().includes(s) ||
+                                  match.score?.toLowerCase().includes(s)
+                                );
+                              });
 
-                            const headers = ['Fixture / Game', 'Score', 'Status'];
-                            const rows = filtered.map((match: any) => [
-                              match.fixture,
-                              match.score,
-                              match.status
-                            ]);
-                            printTable('Tracked Matches Scoreboard', headers, rows);
-                          }}
-                          className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs uppercase tracking-wider px-4 py-2 rounded-xl cursor-pointer transition font-mono shrink-0 flex items-center justify-center gap-1.5 shadow shadow-emerald-500/10"
-                        >
-                          <span>📄 Download PDF</span>
-                        </button>
+                              const headers = ['Fixture / Game', 'Score', 'Status'];
+                              const rows = filtered.map((match: any) => [
+                                match.fixture,
+                                match.score,
+                                match.status
+                              ]);
+                              printTable('Tracked Matches Scoreboard', headers, rows);
+                            }}
+                            className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs uppercase tracking-wider px-4 py-2 rounded-xl cursor-pointer transition font-mono shrink-0 flex items-center justify-center gap-1.5 shadow shadow-emerald-500/10"
+                          >
+                            <span>📄 Download PDF</span>
+                          </button>
+                        </div>
                       </div>
                     )}
 
                     {liveScoresData.length === 0 ? (
-                      <div className="py-12 text-center rounded-lg border border-dashed border-slate-800 bg-slate-900/10">
+                      <div className="py-12 text-center rounded-lg border border-dashed border-slate-800 bg-slate-900/10 flex flex-col items-center">
                         <Tv className="w-10 h-10 text-slate-600 mx-auto mb-3 opacity-60" />
                         <h4 className="text-sm font-bold text-slate-350">No games currently tracked</h4>
                         <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1 leading-snug">
                           {currentUser.role === 'admin' 
-                            ? 'Use the Control Tower above to enter names of matches you want to live-track.' 
+                            ? 'Upload a CSV of pool match fixtures or use the Control Tower above to add matches.' 
                             : 'An admin has not initiated any live trackers yet. Check back during fixture weekends!'}
                         </p>
+                        {currentUser.role === 'admin' && (
+                          <button
+                            type="button"
+                            onClick={() => setShowLiveScoresCsvModal(true)}
+                            className="mt-4 px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs rounded-xl font-mono uppercase tracking-wider transition cursor-pointer flex items-center gap-2 shadow-lg shadow-emerald-500/20"
+                          >
+                            <Upload className="w-4 h-4" />
+                            <span>Upload CSV to Live Scores Table</span>
+                          </button>
+                        )}
                       </div>
                     ) : (
                       <div className="overflow-x-auto min-w-full">
@@ -5473,7 +5492,7 @@ export default function CustomerPortal({
                                   <td className="py-3.5 px-4 font-semibold font-sans text-slate-100">
                                     <div className="flex items-center gap-2">
                                       <span className="text-slate-400">🥅</span>
-                                      <span>{match.fixture}</span>
+                                      <span>{match.fixture || (match.home_team && match.away_team ? `${match.home_team} vs ${match.away_team}` : 'Match')}</span>
                                     </div>
                                   </td>
                                   <td className="py-3.5 px-4 text-center font-mono font-bold">
@@ -5484,7 +5503,7 @@ export default function CustomerPortal({
                                           ? 'bg-slate-850 text-slate-400 border border-slate-800' 
                                           : 'bg-slate-950 text-slate-500 border border-slate-900'
                                     }`}>
-                                      {match.score}
+                                      {match.score || `${match.home_score ?? 0} - ${match.away_score ?? 0}`}
                                     </span>
                                   </td>
                                   <td className="py-3.5 px-4 text-center">
@@ -8437,6 +8456,16 @@ export default function CustomerPortal({
           </div>
         )}
       </AnimatePresence>
+
+      {/* CSV UPLOAD MODAL FOR LIVESCORES TABLE */}
+      <LiveScoresCsvModal
+        isOpen={showLiveScoresCsvModal}
+        onClose={() => setShowLiveScoresCsvModal(false)}
+        onUploadSuccess={(matches) => {
+          setLiveScoresData(matches);
+        }}
+        triggerToast={triggerToast}
+      />
     </div>
   );
 

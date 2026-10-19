@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import {
@@ -41,13 +41,16 @@ import {
   LayoutList,
   Printer,
   Download,
-  Filter
+  Upload,
+  Target
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import ExpertBlogView from './ExpertBlogView';
 import GoogleAdBanner from './GoogleAdBanner';
 import PoolCodesComparisonTable from './PoolCodesComparisonTable';
+import WeeklyPoolPicksTable from './WeeklyPoolPicksTable';
 import LiveScoresComments from './LiveScoresComments';
+import LiveScoresCsvModal from './LiveScoresCsvModal';
 import { getSupabaseClient } from '../lib/supabase';
 import { INITIAL_PLANS, isGhanaPlan, getMergedSubscriptionPlans, getSortedComparisonPlans, getBookmakersByCountry, isGhanaBookmaker, isPaymentDisabledBookmaker, INITIAL_UPLOADED_BOOKMAKER_PDFS, findAdminPdfForBookmaker } from '../initialData';
 import { downloadBookmakerAdminPdf, getBookmakerBrandInfo } from '../lib/adminPdfHelper';
@@ -382,6 +385,13 @@ export default function OfficePoolStopHome({
 
   // Scoreboard horizontal ticker state
   const [liveScoresData, setLiveScoresData] = useState<any[]>(() => {
+    try {
+      const saved = localStorage.getItem('fastpool_live_scores_data');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (_) {}
     const firstPool = db?.pool_results?.[0];
     const rows = firstPool?.results_table || firstPool?.matches || [];
     if (Array.isArray(rows) && rows.length > 0) {
@@ -396,32 +406,52 @@ export default function OfficePoolStopHome({
     return [];
   });
   const [showAdminPdfModal, setShowAdminPdfModal] = useState(false);
+  const [showLiveScoresCsvModal, setShowLiveScoresCsvModal] = useState(false);
 
+  // Sync livescores immediately when CSV uploaded or custom event fired
   useEffect(() => {
-    const fetchLiveScores = async () => {
-      try {
-        const response = await fetch("/api/livescores");
-        if (!response.ok) {
-          throw new Error(`Response status: ${response.status}`);
-        }
-        const json = await response.json();
-        if (json.success && Array.isArray(json.matches) && json.matches.length > 0) {
-          const rawMatches = json.matches;
-          const seen = new Set();
-          const uniqueMatches = rawMatches.filter((m: any) => {
-            const key = m.id || m.fixture;
-            if (seen.has(key)) return false;
-            seen.add(key);
-            return true;
-          });
-          setLiveScoresData(uniqueMatches);
-        }
-      } catch (err) {
-        console.warn("Graceful notice: Live scores not yet loaded from backend (standard polling behavior).");
+    const handleLivescoresSync = (e: any) => {
+      if (e.detail && Array.isArray(e.detail) && e.detail.length > 0) {
+        setLiveScoresData(e.detail);
       }
     };
-    fetchLiveScores();
+    window.addEventListener('fastpool_livescores_updated', handleLivescoresSync);
+    return () => window.removeEventListener('fastpool_livescores_updated', handleLivescoresSync);
   }, []);
+
+  const fetchLiveScores = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/livescores?t=${Date.now()}`, { cache: "no-store" });
+      if (!response.ok) {
+        throw new Error(`Response status: ${response.status}`);
+      }
+      const json = await response.json();
+      if (json.success && Array.isArray(json.matches)) {
+        const rawMatches = json.matches;
+        const seen = new Set();
+        const uniqueMatches = rawMatches.filter((m: any) => {
+          const key = m.id || m.fixture;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+        setLiveScoresData(uniqueMatches);
+        try {
+          localStorage.setItem('fastpool_live_scores_data', JSON.stringify(uniqueMatches));
+        } catch (_) {}
+      }
+    } catch (err) {
+      console.warn("Graceful notice: Live scores not yet loaded from backend.");
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchLiveScores();
+    if (currentView === 'livescores') {
+      const pollTimer = setInterval(fetchLiveScores, 12000);
+      return () => clearInterval(pollTimer);
+    }
+  }, [currentView, fetchLiveScores]);
 
   const scoreboardRef = useRef<HTMLDivElement>(null);
   const [isScoreboardHovered, setIsScoreboardHovered] = useState(false);
@@ -832,6 +862,7 @@ export default function OfficePoolStopHome({
             {[
               { id: 'blog', label: 'HOME', icon: Home },
               { id: 'comparison', label: 'CODES COMPARISON', icon: Layers },
+              { id: 'picks', label: 'POOL PICKS', icon: Target },
               { id: 'livescores', label: 'LIVE SCORES', icon: Activity },
               { id: 'results', label: 'POOL RESULTS', icon: Trophy },
               { id: 'about', label: 'ABOUT US', icon: Info },
@@ -1055,21 +1086,66 @@ export default function OfficePoolStopHome({
                 </div>
               );
 
+            case 'picks':
+              return (
+                <div className="max-w-[1360px] mx-auto px-4 py-8 text-left">
+                  <WeeklyPoolPicksTable
+                    currentUser={currentUser}
+                    isPaidUser={currentUser?.role === 'admin' || Boolean(currentUser?.id)}
+                    bypassPremium={true}
+                    activeWeekNumber={db?.pool_weeks?.[0]?.week_number || 7}
+                    triggerToast={triggerToast}
+                    onUpgradeClick={() => setShowPaywall(true)}
+                    tableName="weekly pool picks"
+                    tableDisplayName="Weekly Pool Picks"
+                    bookmakerBrand="general"
+                  />
+                </div>
+              );
+
             case 'livescores': {
               const activeMatches = liveScoresData;
 
               return (
                 <div className="max-w-7xl mx-auto px-6 py-12 space-y-8 text-left">
-                  <div className="space-y-2">
-                    <span className="text-xs font-mono font-black text-emerald-400 tracking-widest bg-emerald-950/40 border border-emerald-900/40 px-3 py-1 rounded-full inline-block">
-                      ⚽️Real-time livescores
-                    </span>
-                    <h2 className="text-3xl font-black text-white tracking-tight">
-                      Pool matches livescore
-                    </h2>
-                    <p className="text-slate-400 text-xs md:text-sm max-w-2xl leading-relaxed font-semibold">
-                      Follow pool matches live. Matches are tracked in real-time, displaying official draw statuses to keep your perms synchronized instantly.
-                    </p>
+                  <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-2 border-b border-emerald-950/60">
+                    <div className="space-y-2">
+                      <span className="text-xs font-mono font-black text-emerald-400 tracking-widest bg-emerald-950/40 border border-emerald-900/40 px-3 py-1 rounded-full inline-block">
+                        ⚽️Real-time livescores
+                      </span>
+                      <h2 className="text-3xl font-black text-white tracking-tight">
+                        Pool matches livescore
+                      </h2>
+                      <p className="text-slate-400 text-xs md:text-sm max-w-2xl leading-relaxed font-semibold">
+                        Follow pool matches live. Matches are tracked in real-time, displaying official draw statuses to keep your perms synchronized instantly.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2.5 flex-wrap shrink-0">
+                      <span className="text-xs font-mono text-emerald-400 font-bold bg-emerald-950/60 px-3 py-1.5 rounded-xl border border-emerald-900/50">
+                        {activeMatches.length} Matches
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          fetchLiveScores();
+                          triggerToast('Refreshing live scores from database...', 'info');
+                        }}
+                        className="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:border-slate-700 transition cursor-pointer"
+                        title="Force refresh scores from database"
+                      >
+                        <RefreshCw className="w-4 h-4 text-emerald-400" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowLiveScoresCsvModal(true)}
+                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-mono font-black text-xs uppercase tracking-wider rounded-xl transition shadow-lg shadow-emerald-500/20 cursor-pointer active:scale-95"
+                        title="Upload CSV to update the livescore table"
+                      >
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>Upload CSV</span>
+                      </button>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-4">
@@ -1091,14 +1167,27 @@ export default function OfficePoolStopHome({
                           </div>
 
                           <div className="py-2 space-y-3">
-                            <div className="flex items-center justify-between">
-                              <span className="font-extrabold text-white text-sm tracking-wide">{match.fixture.split(' vs ')[0]}</span>
-                              <span className="font-black text-xl text-amber-400 font-mono">{match.score.split(' - ')[0] || '0'}</span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <span className="font-extrabold text-white text-sm tracking-wide">{match.fixture.split(' vs ')[1]}</span>
-                              <span className="font-black text-xl text-amber-400 font-mono">{match.score.split(' - ')[1] || '0'}</span>
-                            </div>
+                            {(() => {
+                              const hTeam = match.home_team || match.fixture?.split(/\s+vs\.?\s+|\s+v\s+|\s+-\s+/i)[0] || 'Home';
+                              const aTeam = match.away_team || match.fixture?.split(/\s+vs\.?\s+|\s+v\s+|\s+-\s+/i)[1] || 'Away';
+                              const cleanScore = (match.score || `${match.home_score ?? 0} - ${match.away_score ?? 0}`).replace('-:-', ' - ').replace(':', ' - ');
+                              const scoreArr = cleanScore.includes(' - ') ? cleanScore.split(' - ') : cleanScore.split('-');
+                              const hScore = scoreArr[0]?.trim() || String(match.home_score ?? 0);
+                              const aScore = scoreArr[1]?.trim() || String(match.away_score ?? 0);
+
+                              return (
+                                <>
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-extrabold text-white text-sm tracking-wide">{hTeam}</span>
+                                    <span className="font-black text-xl text-amber-400 font-mono">{hScore}</span>
+                                  </div>
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-extrabold text-white text-sm tracking-wide">{aTeam}</span>
+                                    <span className="font-black text-xl text-amber-400 font-mono">{aScore}</span>
+                                  </div>
+                                </>
+                              );
+                            })()}
                           </div>
 
                           {/* Quick Simulated Goal Adjusters */}
@@ -3060,6 +3149,16 @@ export default function OfficePoolStopHome({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* CSV UPLOAD MODAL FOR LIVESCORES TABLE */}
+      <LiveScoresCsvModal
+        isOpen={showLiveScoresCsvModal}
+        onClose={() => setShowLiveScoresCsvModal(false)}
+        onUploadSuccess={(matches) => {
+          setLiveScoresData(matches);
+        }}
+        triggerToast={triggerToast}
+      />
 
     </div>
   );

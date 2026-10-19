@@ -362,7 +362,25 @@ export interface WeeklyPoolPick {
   bet: string;
   status: string;
   kick_off: string;
-  week?: number;
+  week?: number | string;
   notes?: string;
   is_banker?: boolean;
 }
+
+export interface PoolPicksHistoryEdition {
+  id: string;
+  week_number: number | string;
+  edition_title: string;
+  date: string;
+  bookmaker: 'general' | 'bet9ja' | 'betking';
+  total_picks: number;
+  bankers_count: number;
+  success_rate: string;
+  draws_hit: string;
+  summary: string;
+  picks: WeeklyPoolPick[];
+  is_current?: boolean;
+  published_by?: string;
+  season?: string;
+}
+

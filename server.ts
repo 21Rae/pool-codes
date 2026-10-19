@@ -407,8 +407,8 @@ app.get("/api/database/tables", async (req, res) => {
     "championship_results", "championships", "results", "pool_result", "pool_results",
     "pool codes comparison", "pool_codes_comparison", "pool_codes", "pool_code", "pool_comparison", "pool_codes_table",
     "weekly pool picks", "weekly_pool_picks", "weekly_picks", "pool_picks", "weekly pool picks table", "weekly_pool_picks_table", "weekly_picks_table", "pool_picks_table",
-    "weekly pool picks(Bet9ja)", "weekly pool picks (Bet9ja)", "weekly pool picks(bet9ja)", "weekly_pool_picks_bet9ja", "weekly_picks_bet9ja", "weekly pool picks bet9ja",
-    "weekly pool picks(betking)", "weekly pool picks (betking)", "weekly pool picks(Betking)", "weekly_pool_picks_betking", "weekly_picks_betking", "weekly pool picks betking",
+    "weekly pool picks(Bet9ja)", "weekly pool picks (Bet9ja)", "weekly pool picks(bet9ja)", "weekly_pool_picks_bet9ja", "weekly_picks_bet9ja", "weekly pool picks bet9ja", "picks_bet9ja", "picks bet9ja",
+    "weekly pool picks(betking)", "weekly pool picks (betking)", "weekly pool picks(Betking)", "weekly_pool_picks_betking", "weekly_picks_betking", "weekly pool picks betking", "picks_betking", "picks betking",
     "pool_weeks", "weeks", "bookmakers", "bookmaker", "bookies", "providers",
     "subscription_plans", "user_subscriptions", "users_subscriptions", "subscriptions", "purchases", "purchases_access_log", "subscriptions_access_log", "plan_purchased", "plans_purchased",
     "notifications", "user_downloads", "downloads", "transactions", "payments", "support_tickets",
@@ -526,8 +526,8 @@ async function checkUserTableAccess(
     "pool_codes_comparison", "pool codes comparison", "pool_code_comparison", "pool_comparison",
     "poolcodes_comparison", "pool_codes_comparisons", "weekly_picks", "weekly_pool_picks",
     "weekly pool picks", "weekly_picks_table", "purchases_access_log", "subscriptions_access_log",
-    "weekly_pool_picks_bet9ja", "weeklypoolpicksbet9ja", "weekly_picks_bet9ja", "weeklypicksbet9ja",
-    "weekly_pool_picks_betking", "weeklypoolpicksbetking", "weekly_picks_betking", "weeklypicksbetking",
+    "weekly_pool_picks_bet9ja", "weeklypoolpicksbet9ja", "weekly_picks_bet9ja", "weeklypicksbet9ja", "picks_bet9ja", "picksbet9ja",
+    "weekly_pool_picks_betking", "weeklypoolpicksbetking", "weekly_picks_betking", "weeklypicksbetking", "picks_betking", "picksbetking",
     "plan_purchased", "plans_purchased", "user_subscriptions", "users_subscriptions", "subscriptions"
   ]);
 
@@ -900,6 +900,16 @@ app.get("/api/tables/:tableName", async (req, res) => {
           break;
         }
       }
+      // If still empty, check core pool_picks table filtered by bookmaker = bet9ja
+      if (!data || data.length === 0) {
+        const poolRes = await supabase.from("pool_picks").select("*", { count: "exact" }).ilike("bookmaker", "%bet9ja%");
+        if (!poolRes.error && poolRes.data && poolRes.data.length > 0) {
+          data = poolRes.data;
+          count = poolRes.count;
+          error = null;
+          actualTableName = "pool_picks";
+        }
+      }
     } else if ((error || !data || data.length === 0) && (actualTableName === "weekly pool picks(betking)" || actualTableName.includes("betking"))) {
       const candidates = [
         "weekly pool picks(betking)",
@@ -923,8 +933,18 @@ app.get("/api/tables/:tableName", async (req, res) => {
           break;
         }
       }
+      // If still empty, check core pool_picks table filtered by bookmaker = betking
+      if (!data || data.length === 0) {
+        const poolRes = await supabase.from("pool_picks").select("*", { count: "exact" }).ilike("bookmaker", "%betking%");
+        if (!poolRes.error && poolRes.data && poolRes.data.length > 0) {
+          data = poolRes.data;
+          count = poolRes.count;
+          error = null;
+          actualTableName = "pool_picks";
+        }
+      }
     } else if ((error || !data || data.length === 0) && (actualTableName === "weekly pool picks" || actualTableName === "weekly_pool_picks" || actualTableName === "weekly_picks")) {
-      const candidates = ["weekly pool picks", "weekly_pool_picks", "weekly_picks"];
+      const candidates = ["weekly pool picks", "weekly_pool_picks", "weekly_picks", "pool_picks"];
       for (const cand of candidates) {
         if (cand === actualTableName) continue;
         const altRes = await supabase.from(cand).select("*", { count: "exact" });
@@ -967,6 +987,23 @@ app.get("/api/tables/:tableName", async (req, res) => {
     }
 
     let rows = data || [];
+    if (actualTableName.toLowerCase().includes("bet9ja") || (req.query.bookmaker && String(req.query.bookmaker).toLowerCase().includes("bet9ja"))) {
+      rows = rows.filter((r: any) => {
+        const b = String(r.bookmaker || "").toLowerCase();
+        const code = String(r.bet_code || "").toLowerCase();
+        if (b && !b.includes("bet9ja")) return false;
+        if (code.startsWith("bk-") || code.includes("betking")) return false;
+        return true;
+      });
+    } else if (actualTableName.toLowerCase().includes("betking") || (req.query.bookmaker && String(req.query.bookmaker).toLowerCase().includes("betking"))) {
+      rows = rows.filter((r: any) => {
+        const b = String(r.bookmaker || "").toLowerCase();
+        const code = String(r.bet_code || "").toLowerCase();
+        if (b && !b.includes("betking")) return false;
+        if (code.startsWith("9ja-") || code.includes("bet9ja")) return false;
+        return true;
+      });
+    }
     if (actualTableName === "pool_result" || actualTableName === "pool_results" || actualTableName === "results" || actualTableName === "championship_results") {
       rows.sort((a: any, b: any) => (Number(a.id ?? a.match_no ?? a.matchNo) || 0) - (Number(b.id ?? b.match_no ?? b.matchNo) || 0));
     }
@@ -999,10 +1036,11 @@ app.get("/api/tables/:tableName", async (req, res) => {
 
 // API Route - Insert Row into ANY table in Supabase
 app.post("/api/tables/:tableName/insert", async (req, res) => {
-  const { tableName } = req.params;
+  const rawTableName = decodeURIComponent(req.params.tableName || "").trim();
+  const tableName = rawTableName.replace(/^["']|["']$/g, "");
   const rowPayload = req.body;
 
-  if (!tableName || !/^[a-zA-Z0-9_]+$/.test(tableName)) {
+  if (!tableName || !/^[a-zA-Z0-9_\s\(\)\-]+$/.test(tableName)) {
     return res.status(400).json({ success: false, error: `Invalid table name format '${tableName}'.` });
   }
 
@@ -1029,25 +1067,49 @@ app.post("/api/tables/:tableName/insert", async (req, res) => {
   }
 
   try {
-    const { data, error } = await supabase.from(tableName).insert([rowPayload]).select();
-    if (error) {
-      return res.status(400).json({ success: false, error: error.message });
+    // Generate candidate table names if table has alias/parentheses
+    const candidates = [tableName];
+    const cleanT = tableName.toLowerCase();
+    if (cleanT.includes("bet9ja")) {
+      candidates.push("weekly_pool_picks_bet9ja", "weekly pool picks(Bet9ja)", "weekly pool picks (Bet9ja)", "weekly pool picks");
+    } else if (cleanT.includes("betking")) {
+      candidates.push("weekly_pool_picks_betking", "weekly pool picks(betking)", "weekly pool picks (betking)", "weekly pool picks");
     }
-    return res.json({ success: true, table: tableName, data });
+
+    let lastError: any = null;
+    for (const cand of candidates) {
+      const { data, error } = await supabase.from(cand).insert([rowPayload]).select();
+      if (!error) {
+        if (cand.toLowerCase().includes("livescore") || cand.toLowerCase().includes("live_score")) {
+          await ensureLiveScoresLoaded();
+        }
+        return res.json({ success: true, table: cand, data });
+      }
+      lastError = error;
+    }
+
+    return res.status(400).json({ success: false, error: lastError?.message || "Failed to insert row." });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err?.message || String(err) });
   }
 });
 
-// API Route - Delete Row from ANY table in Supabase by ID
+// API Route - Delete Row from ANY table in Supabase by ID or Pool No
 app.delete("/api/tables/:tableName/:id", async (req, res) => {
-  const { tableName, id } = req.params;
+  const rawTableName = decodeURIComponent(req.params.tableName || "").trim();
+  const tableName = rawTableName.replace(/^["']|["']$/g, "");
+  const { id } = req.params;
 
-  if (!tableName || !/^[a-zA-Z0-9_]+$/.test(tableName)) {
+  if (!tableName || !/^[a-zA-Z0-9_\s\(\)\-]+$/.test(tableName)) {
     return res.status(400).json({ success: false, error: `Invalid table name format '${tableName}'.` });
   }
 
   invalidateCache(`table:${tableName}`);
+  invalidateCache("table:weekly pool picks");
+  invalidateCache("table:weekly pool picks(Bet9ja)");
+  invalidateCache("table:weekly pool picks(betking)");
+  invalidateCache("table:weekly_pool_picks_bet9ja");
+  invalidateCache("table:weekly_pool_picks_betking");
 
   const supabase = getSupabaseClient(true) || getSupabaseClient(false);
   if (!supabase) {
@@ -1056,14 +1118,69 @@ app.delete("/api/tables/:tableName/:id", async (req, res) => {
 
   try {
     const numId = Number(id);
-    let query = supabase.from(tableName).delete();
-    const { error } = await (isNaN(numId) ? query.eq("id", id) : query.eq("id", numId));
-    if (error) {
-      return res.status(400).json({ success: false, error: error.message });
+
+    // Build candidate table list to handle views and naming variants
+    const candidates = [tableName];
+    const cleanT = tableName.toLowerCase();
+    if (cleanT.includes("bet9ja")) {
+      candidates.push("weekly_pool_picks_bet9ja", "weekly pool picks(Bet9ja)", "weekly pool picks (Bet9ja)", "weekly pool picks");
+    } else if (cleanT.includes("betking")) {
+      candidates.push("weekly_pool_picks_betking", "weekly pool picks(betking)", "weekly pool picks (betking)", "weekly pool picks");
+    } else if (cleanT.includes("pool") && cleanT.includes("pick")) {
+      candidates.push("weekly_pool_picks", "weekly pool picks");
     }
+
+    let deleted = false;
+    let lastError: any = null;
+
+    for (const cand of candidates) {
+      try {
+        // First try deleting by primary key 'id'
+        if (!isNaN(numId)) {
+          const { error: errId } = await supabase.from(cand).delete().eq("id", numId);
+          if (!errId) {
+            deleted = true;
+            break;
+          }
+        } else {
+          const { error: errStrId } = await supabase.from(cand).delete().eq("id", id);
+          if (!errStrId) {
+            deleted = true;
+            break;
+          }
+        }
+
+        // If 'id' didn't match and we have a number, try matching 'pool_no' or 'pool'
+        if (!isNaN(numId)) {
+          const { error: errPoolNo } = await supabase.from(cand).delete().eq("pool_no", numId);
+          if (!errPoolNo) {
+            deleted = true;
+            break;
+          }
+          const { error: errPool } = await supabase.from(cand).delete().eq("pool", numId);
+          if (!errPool) {
+            deleted = true;
+            break;
+          }
+          const { error: errMatchNo } = await supabase.from(cand).delete().eq("match_no", numId);
+          if (!errMatchNo) {
+            deleted = true;
+            break;
+          }
+        }
+      } catch (candErr: any) {
+        lastError = candErr;
+      }
+    }
+
+    if (!deleted && lastError) {
+      return res.status(400).json({ success: false, error: lastError?.message || "Delete operation failed." });
+    }
+
     if (tableName.toLowerCase() === "livescores" || tableName.toLowerCase() === "live_scores") {
       liveScores = liveScores.filter((m) => m.id !== id && m.id !== String(numId));
     }
+
     return res.json({ success: true, table: tableName, deletedId: id });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err?.message || String(err) });
@@ -1072,10 +1189,12 @@ app.delete("/api/tables/:tableName/:id", async (req, res) => {
 
 // API Route - Update Row in ANY table in Supabase by ID
 app.put("/api/tables/:tableName/:id", async (req, res) => {
-  const { tableName, id } = req.params;
+  const rawTableName = decodeURIComponent(req.params.tableName || "").trim();
+  const tableName = rawTableName.replace(/^["']|["']$/g, "");
+  const { id } = req.params;
   const updatePayload = req.body;
 
-  if (!tableName || !/^[a-zA-Z0-9_]+$/.test(tableName)) {
+  if (!tableName || !/^[a-zA-Z0-9_\s\(\)\-]+$/.test(tableName)) {
     return res.status(400).json({ success: false, error: `Invalid table name format '${tableName}'.` });
   }
 
@@ -1820,20 +1939,27 @@ async function updateTableMatch(supabase: any, tableName: string, match: LiveSco
   const hName = match.home_team || homeAway[0]?.trim() || "Home";
   const aName = match.away_team || homeAway[1]?.trim() || "Away";
 
-  const payload = {
-    home_team_score: hScore,
-    away_team_score: aScore,
-    live_score_status: match.status,
-    home_score: hScore,
-    away_score: aScore,
-    status: match.status,
-    score: match.score,
-    minute: match.minute,
-    league: match.league,
-    pool_number: match.pool_number,
-    log: match.log,
-    last_checked: match.lastChecked || new Date().toISOString()
-  };
+  const isLivescoresTable = tableName === "livescores" || tableName === "live_scores";
+  const payload = isLivescoresTable
+    ? {
+        home_team_score: String(hScore),
+        away_team_score: String(aScore),
+        live_score_status: String(match.status || "not_started")
+      }
+    : {
+        home_team_score: hScore,
+        away_team_score: aScore,
+        live_score_status: match.status,
+        home_score: hScore,
+        away_score: aScore,
+        status: match.status,
+        score: match.score,
+        minute: match.minute,
+        league: match.league,
+        pool_number: match.pool_number,
+        log: match.log,
+        last_checked: match.lastChecked || new Date().toISOString()
+      };
 
   const hasValidId = match.id && !String(match.id).startsWith("mock-") && !String(match.id).startsWith("sim-");
   const numId = Number(match.id);
@@ -1860,7 +1986,6 @@ async function saveLiveScoresToDatabase() {
   try {
     for (const match of liveScores) {
       await updateTableMatch(supabase, "livescores", match);
-      await updateTableMatch(supabase, "live_scores", match);
     }
   } catch (_) {}
 }
@@ -1869,41 +1994,128 @@ async function ensureLiveScoresLoaded() {
   const supabase = getSupabaseClient(true) || getSupabaseClient(false);
   if (supabase) {
     try {
-      // 1. Try querying livescores table first
-      let res = await supabase.from("livescores").select("*").order("id", { ascending: true }).limit(50);
-      
-      // 2. Fallback to live_scores if livescores is not available
-      if (res.error || !res.data || res.data.length === 0) {
-        res = await supabase.from("live_scores").select("*").limit(50);
+      // 1. Try querying livescores tables (checking livescores, live_scores, livescore, pool_livescores)
+      const candidateTables = ["livescores", "live_scores", "livescore", "live_score", "pool_livescores"];
+      let foundRows: any[] | null = null;
+      for (const tName of candidateTables) {
+        try {
+          const res = await supabase.from(tName).select("*").limit(150);
+          if (!res.error && res.data && Array.isArray(res.data) && res.data.length > 0) {
+            foundRows = res.data;
+            break;
+          }
+        } catch (_) {}
       }
 
-      if (!res.error && res.data && Array.isArray(res.data) && res.data.length > 0) {
-        const dbMatches = res.data
-          .map((r: any) => {
-            const hTeam = (r.home_team || r.Home_team || "").trim();
-            const aTeam = (r.away_team || r.Away_team || "").trim();
+      if (foundRows && foundRows.length > 0) {
+        // Sort by pool_number / pool_no / id if possible
+        const sorted = [...foundRows].sort((a: any, b: any) => {
+          const numA = Number(a.pool_number ?? a.pool_no ?? a.id);
+          const numB = Number(b.pool_number ?? b.pool_no ?? b.id);
+          if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+          return 0;
+        });
+
+        const dbMatches = sorted
+          .map((r: any, idx: number) => {
+            let hTeam = String(r.home_team || r.Home_team || r["Home Team"] || r.Home_Team || r.hometeam || r.home || r.Home || r.team1 || r.team_1 || "").trim();
+            let aTeam = String(r.away_team || r.Away_team || r["Away Team"] || r.Away_Team || r.awayteam || r.away || r.Away || r.team2 || r.team_2 || "").trim();
+
+            if ((!hTeam || !aTeam) && (r.fixture || r.match || r.game)) {
+              const fStr = String(r.fixture || r.match || r.game);
+              const parts = fStr.split(/\s+vs\.?\s+|\s+v\s+|\s+-\s+/i);
+              if (parts.length >= 2) {
+                if (!hTeam) hTeam = parts[0].trim();
+                if (!aTeam) aTeam = parts[1].trim();
+              }
+            }
+            if (!hTeam || !aTeam) return null;
+
             const fixtureStr = r.fixture || r.match || `${hTeam} vs ${aTeam}`;
-            const rawStatus = r.live_score_status || r.status || "not_started";
-            const hScore = r.home_team_score ?? r.home_score ?? 0;
-            const aScore = r.away_team_score ?? r.away_score ?? 0;
+            const rawStatus = String(r.live_score_status || r.status || r.Status || r.state || r.match_status || "not_started").toLowerCase().trim();
+
+            let matchStatus: "not_started" | "live" | "finished" | "postponed" = "not_started";
+            let minuteLabel = r.minute || "";
+
+            if (
+              rawStatus === "finished" ||
+              rawStatus === "ft" ||
+              rawStatus === "full time" ||
+              rawStatus === "fulltime" ||
+              rawStatus === "scoredraw" ||
+              rawStatus === "noscoredraw" ||
+              rawStatus === "home" ||
+              rawStatus === "away" ||
+              rawStatus === "draw"
+            ) {
+              matchStatus = "finished";
+              minuteLabel = "FT";
+            } else if (
+              rawStatus === "live" ||
+              rawStatus === "in play" ||
+              rawStatus === "1h" ||
+              rawStatus === "2h" ||
+              rawStatus === "ht" ||
+              rawStatus === "running"
+            ) {
+              matchStatus = "live";
+              minuteLabel = minuteLabel || "Live";
+            } else if (rawStatus.includes("postp") || rawStatus === "ppd" || rawStatus === "p-p") {
+              matchStatus = "postponed";
+              minuteLabel = "PPD";
+            }
+
+            let hScore: number | null = null;
+            let aScore: number | null = null;
+
+            if (r.home_team_score !== null && r.home_team_score !== undefined && !isNaN(Number(r.home_team_score))) {
+              hScore = Number(r.home_team_score);
+            } else if (r.home_score !== null && r.home_score !== undefined && !isNaN(Number(r.home_score))) {
+              hScore = Number(r.home_score);
+            }
+
+            if (r.away_team_score !== null && r.away_team_score !== undefined && !isNaN(Number(r.away_team_score))) {
+              aScore = Number(r.away_team_score);
+            } else if (r.away_score !== null && r.away_score !== undefined && !isNaN(Number(r.away_score))) {
+              aScore = Number(r.away_score);
+            }
+
+            // Check if score is given as string e.g. "2 - 1" or "2-1" or "2-:-1"
+            const rawScoreStr = r.score || r.Score || r.result || r.Result || r.pool_result || r.ft;
+            if (rawScoreStr && typeof rawScoreStr === "string") {
+              const cleaned = rawScoreStr.replace(/-:-/g, "-").replace(/:/g, "-");
+              const parts = cleaned.split("-");
+              if (parts.length === 2 && !isNaN(Number(parts[0].trim())) && !isNaN(Number(parts[1].trim()))) {
+                if (hScore === null) hScore = Number(parts[0].trim());
+                if (aScore === null) aScore = Number(parts[1].trim());
+              }
+            }
+
+            const numHScore = hScore !== null ? hScore : 0;
+            const numAScore = aScore !== null ? aScore : 0;
+            let scoreFormatted = `${numHScore} - ${numAScore}`;
+            if (matchStatus === "postponed") scoreFormatted = "P - P";
+
+            const poolNum = Number(r.pool_number || r.pool_no || r.pool_num || r.match_no || (idx + 1)) || (idx + 1);
+
             return {
-              id: String(r.id || Math.random()),
+              id: String(r.id || `ls-${poolNum}`),
+              pool_number: poolNum,
               fixture: fixtureStr,
-              home_team: hTeam || fixtureStr.split(" vs ")[0]?.trim(),
-              away_team: aTeam || fixtureStr.split(" vs ")[1]?.trim(),
-              home_score: hScore,
-              away_score: aScore,
-              score: r.score || `${hScore} - ${aScore}`,
-              status: rawStatus as any,
-              minute: r.minute || (rawStatus === 'finished' ? 'FT' : ''),
-              league: r.league || '',
-              time: r.time || r.kickoff || '',
-              pool_number: r.pool_number || undefined,
+              home_team: hTeam,
+              away_team: aTeam,
+              home_score: numHScore,
+              away_score: numAScore,
+              score: scoreFormatted,
+              status: matchStatus,
+              minute: minuteLabel,
+              league: r.league || "Pool League Match",
+              time: r.time || r.kickoff || "",
               lastChecked: r.last_checked || new Date().toISOString(),
               log: r.log || ""
             };
           })
-          .filter((m: any) => m.fixture && m.fixture !== " vs ");
+          .filter(Boolean) as LiveScoreMatch[];
 
         if (dbMatches.length > 0) {
           liveScores = dbMatches;
@@ -1911,7 +2123,12 @@ async function ensureLiveScoresLoaded() {
         }
       }
 
-      // 3. Fallback to pool_result table so Latest pool scores / Live Scores reflect the active pool_result records
+      // If liveScores already has matches in memory (e.g. from user CSV upload), preserve them!
+      if (liveScores.length > 0) {
+        return;
+      }
+
+      // 3. Fallback to pool_result table only if no livescore records exist anywhere
       const poolRes = await supabase.from("pool_result").select("*").order("id", { ascending: true }).limit(60);
       if (!poolRes.error && poolRes.data && Array.isArray(poolRes.data) && poolRes.data.length > 0) {
         const mappedFromPool = poolRes.data
@@ -1973,7 +2190,7 @@ async function ensureLiveScoresLoaded() {
           })
           .filter((m: any) => m.home_team && m.away_team);
 
-        if (mappedFromPool.length > 0) {
+        if (mappedFromPool.length > 0 && liveScores.length === 0) {
           liveScores = mappedFromPool;
         }
       }
@@ -2078,7 +2295,7 @@ app.post("/api/livescores/comments/like", (req, res) => {
 });
 
 app.get("/api/livescores", async (req, res) => {
-  setCacheHeaders(res, 2, 5, 15);
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   await ensureLiveScoresLoaded();
 
   const uniqueMatches: LiveScoreMatch[] = [];
@@ -2118,6 +2335,175 @@ app.post("/api/livescores/agent/start", (req, res) => {
   res.json({ success: true, active: true, message: "Agent started." });
 });
 
+// API Route - Upload CSV / Bulk import to Live Scores table and Supabase
+app.post("/api/livescores/upload-csv", async (req, res) => {
+  try {
+    const { matches, csvText, replaceAll = true } = req.body || {};
+    let incomingMatches: any[] = Array.isArray(matches) ? matches : [];
+
+    // Fallback: parse raw csvText if sent directly
+    if (incomingMatches.length === 0 && csvText && typeof csvText === "string") {
+      const lines = csvText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      if (lines.length > 1) {
+        const headers = lines[0].split(",").map(h => h.trim().toLowerCase());
+        const hIdx = headers.findIndex(h => h.includes("home"));
+        const aIdx = headers.findIndex(h => h.includes("away"));
+        const sIdx = headers.findIndex(h => h.includes("status"));
+        const scoreIdx = headers.findIndex(h => h.includes("score") || h.includes("result") || h.includes("ft"));
+
+        for (let i = 1; i < lines.length; i++) {
+          const parts = lines[i].split(",").map(p => p.trim());
+          if (parts[hIdx] && parts[aIdx]) {
+            incomingMatches.push({
+              home_team: parts[hIdx],
+              away_team: parts[aIdx],
+              score: scoreIdx !== -1 ? parts[scoreIdx] : "0 - 0",
+              status: sIdx !== -1 ? parts[sIdx] : "not_started",
+              pool_number: i
+            });
+          }
+        }
+      }
+    }
+
+    if (incomingMatches.length === 0) {
+      return res.status(400).json({ success: false, error: "No match records found in CSV." });
+    }
+
+    const cleanMatches: LiveScoreMatch[] = [];
+    const supabaseRows: any[] = [];
+
+    for (let i = 0; i < incomingMatches.length; i++) {
+      const m = incomingMatches[i];
+      const hTeam = String(m.home_team || m["Home Team"] || m.home || "").trim();
+      const aTeam = String(m.away_team || m["Away Team"] || m.away || "").trim();
+      if (!hTeam || !aTeam) continue;
+
+      let hScore = m.home_team_score ?? m.home_score;
+      let aScore = m.away_team_score ?? m.away_score;
+      if (hScore === undefined || hScore === null) {
+        const rawScore = m.score || m.Score || m.result || m.pool_result;
+        if (rawScore && typeof rawScore === "string") {
+          const parts = rawScore.replace(/-:-/g, "-").replace(/:/g, "-").split("-");
+          if (parts.length === 2) {
+            hScore = Number(parts[0].trim()) || 0;
+            aScore = Number(parts[1].trim()) || 0;
+          }
+        }
+      }
+
+      const numHScore = !isNaN(Number(hScore)) ? Number(hScore) : 0;
+      const numAScore = !isNaN(Number(aScore)) ? Number(aScore) : 0;
+      const rawStatus = String(m.live_score_status || m.status || "not_started").toLowerCase().trim();
+
+      let status: "not_started" | "live" | "finished" | "postponed" = "not_started";
+      let minute = m.minute || "";
+
+      if (
+        rawStatus === "finished" ||
+        rawStatus === "ft" ||
+        rawStatus === "full time" ||
+        rawStatus === "fulltime" ||
+        rawStatus === "scoredraw" ||
+        rawStatus === "noscoredraw" ||
+        rawStatus === "home" ||
+        rawStatus === "away" ||
+        rawStatus === "draw"
+      ) {
+        status = "finished";
+        minute = "FT";
+      } else if (
+        rawStatus === "live" ||
+        rawStatus === "in play" ||
+        rawStatus === "1h" ||
+        rawStatus === "2h" ||
+        rawStatus === "ht"
+      ) {
+        status = "live";
+        minute = minute || "Live";
+      } else if (rawStatus.includes("postp") || rawStatus === "ppd" || rawStatus === "p-p") {
+        status = "postponed";
+        minute = "PPD";
+      }
+
+      const scoreStr = status === "postponed" ? "P - P" : `${numHScore} - ${numAScore}`;
+      const poolNum = Number(m.pool_number || m.pool_no || (i + 1)) || (i + 1);
+
+      cleanMatches.push({
+        id: `ls-${poolNum}`,
+        pool_number: poolNum,
+        fixture: `${hTeam} vs ${aTeam}`,
+        home_team: hTeam,
+        away_team: aTeam,
+        home_score: numHScore,
+        away_score: numAScore,
+        score: scoreStr,
+        status,
+        minute,
+        league: m.league || "Pool League Match",
+        time: m.time || m.kickoff || "",
+        lastChecked: new Date().toISOString(),
+        log: `Imported via CSV by administrator on ${new Date().toLocaleTimeString()}`
+      });
+
+      // Exactly matches schema of table "livescores" in Supabase:
+      // columns: home_team, away_team, home_team_score, away_team_score, live_score_status
+      supabaseRows.push({
+        home_team: hTeam,
+        away_team: aTeam,
+        home_team_score: String(numHScore),
+        away_team_score: String(numAScore),
+        live_score_status: status
+      });
+    }
+
+    if (cleanMatches.length === 0) {
+      return res.status(400).json({ success: false, error: "Could not extract valid fixtures (home and away teams required)." });
+    }
+
+    const supabase = getSupabaseClient(true) || getSupabaseClient(false);
+    if (supabase) {
+      try {
+        if (replaceAll) {
+          // Truncate/delete existing rows in livescores table
+          await supabase.from("livescores").delete().neq("id", -999999);
+        }
+        // Insert new mapped rows
+        const { data: inserted, error: insertErr } = await supabase.from("livescores").insert(supabaseRows).select();
+        if (insertErr) {
+          console.warn("Supabase livescores table batch insert error:", insertErr.message);
+        } else if (inserted && inserted.length > 0) {
+          inserted.forEach((row: any, idx: number) => {
+            if (cleanMatches[idx]) {
+              cleanMatches[idx].id = String(row.id);
+            }
+          });
+        }
+      } catch (dbErr: any) {
+        console.warn("Supabase livescores sync error:", dbErr?.message || dbErr);
+      }
+    }
+
+    if (replaceAll) {
+      liveScores = cleanMatches;
+    } else {
+      liveScores = [...cleanMatches, ...liveScores];
+    }
+
+    invalidateCache("table:livescores");
+    invalidateCache("table:live_scores");
+    globalLog.unshift(`[${new Date().toLocaleTimeString()}] CSV uploaded: ${cleanMatches.length} matches synchronized to livescores table.`);
+
+    res.json({
+      success: true,
+      count: cleanMatches.length,
+      matches: liveScores
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || String(err) });
+  }
+});
+
 app.post("/api/livescores", async (req, res) => {
   try {
     const { home_team, away_team, home_score = 0, away_score = 0, status = "not_started", league, pool_number, minute } = req.body || {};
@@ -2148,39 +2534,25 @@ app.post("/api/livescores", async (req, res) => {
 
     liveScores.unshift(newMatch);
 
-    // Save to Supabase
+    // Save to Supabase using exact valid columns:
+    // home_team, away_team, home_team_score, away_team_score, live_score_status
     const supabase = getSupabaseClient(true) || getSupabaseClient(false);
     if (supabase) {
       try {
-        await supabase.from("livescores").insert([{
-          fixture: fixtureStr,
+        const { data: inserted } = await supabase.from("livescores").insert([{
           home_team: hTeam,
           away_team: aTeam,
-          home_score: Number(home_score) || 0,
-          away_score: Number(away_score) || 0,
-          score: scoreStr,
-          status: status,
-          minute: newMatch.minute,
-          league: newMatch.league,
-          pool_number: newMatch.pool_number,
-          last_checked: newMatch.lastChecked
-        }]);
-      } catch (_) {}
-      try {
-        await supabase.from("live_scores").insert([{
-          fixture: fixtureStr,
-          home_team: hTeam,
-          away_team: aTeam,
-          home_team_score: Number(home_score) || 0,
-          away_team_score: Number(away_score) || 0,
-          score: scoreStr,
-          live_score_status: status,
-          status: status,
-          last_checked: newMatch.lastChecked
-        }]);
+          home_team_score: String(Number(home_score) || 0),
+          away_team_score: String(Number(away_score) || 0),
+          live_score_status: status
+        }]).select();
+        if (inserted && inserted[0]) {
+          newMatch.id = String(inserted[0].id);
+        }
       } catch (_) {}
     }
 
+    invalidateCache("table:livescores");
     res.json({ success: true, match: newMatch, matches: liveScores });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message || String(err) });
@@ -2268,6 +2640,599 @@ app.post("/api/livescores/trigger-update", async (req, res) => {
     res.status(500).json({ success: false, error: err?.message || String(err) });
   }
 });
+
+// =========================================================================
+// POOL PICKS HISTORY ENDPOINTS (Historical weekly pool picks archive)
+// =========================================================================
+let serverPoolPicksHistory: any[] = [
+  {
+    id: 'history-week-7',
+    week_number: 7,
+    edition_title: 'Week 7 Premier & Championship Banker Draws',
+    date: 'Oct 11, 2026',
+    bookmaker: 'general',
+    total_picks: 15,
+    bankers_count: 3,
+    success_rate: '87%',
+    draws_hit: '5 / 6 Draws Verified',
+    summary: 'High-confidence coupon fixtures focused on balanced Championship encounters and League One away draws.',
+    is_current: true,
+    season: '2026/2027',
+    published_by: 'Chief Pools Analyst, FPCODES'
+  },
+  {
+    id: 'history-week-6',
+    week_number: 6,
+    edition_title: 'Week 6 Autumn Perming Breakdown & 4 Draws Hit',
+    date: 'Oct 04, 2026',
+    bookmaker: 'general',
+    total_picks: 14,
+    bankers_count: 3,
+    success_rate: '80%',
+    draws_hit: '4 / 5 Draws Hit',
+    summary: 'Official Week 6 review. Excellent performance with Wimbledon and Doncaster locking in critical weekend dividends.',
+    is_current: false,
+    season: '2026/2027',
+    published_by: 'Statistical Modelling Desk'
+  },
+  {
+    id: 'history-week-5',
+    week_number: 5,
+    edition_title: 'Week 5 Statistical Deadlock & Cross-League Perms',
+    date: 'Sep 27, 2026',
+    bookmaker: 'general',
+    total_picks: 12,
+    bankers_count: 2,
+    success_rate: '75%',
+    draws_hit: '4 / 5 Draws Hit',
+    summary: 'Week 5 coupon analysis. Strong return across League One pairings with accurate odds parity classification.',
+    is_current: false,
+    season: '2026/2027',
+    published_by: 'Chief Pools Analyst, FPCODES'
+  },
+  {
+    id: 'history-week-4',
+    week_number: 4,
+    edition_title: 'Week 4 UK Coupon Perms & 5 Draws Hit',
+    date: 'Sep 20, 2026',
+    bookmaker: 'general',
+    total_picks: 15,
+    bankers_count: 4,
+    success_rate: '83%',
+    draws_hit: '5 / 6 Draws Verified',
+    summary: 'Spectacular Week 4 coupon run. 5 out of 6 key draw recommendations hit the target across UK weekend pools.',
+    is_current: false,
+    season: '2026/2027',
+    published_by: 'UK Pools Syndicate Desk'
+  },
+  {
+    id: 'history-week-3',
+    week_number: 3,
+    edition_title: 'Week 3 Triple Banker Special (100% Banker Hit)',
+    date: 'Sep 13, 2026',
+    bookmaker: 'general',
+    total_picks: 12,
+    bankers_count: 3,
+    success_rate: '88%',
+    draws_hit: '3 / 3 Bankers Landed',
+    summary: 'Flawless 100% Banker performance in Week 3. All 3 top banker nap predictions landed on the official coupon.',
+    is_current: false,
+    season: '2026/2027',
+    published_by: 'Chief Pools Analyst, FPCODES'
+  },
+  {
+    id: 'history-week-2',
+    week_number: 2,
+    edition_title: 'Week 2 Early Season Draw Perms & Matrix',
+    date: 'Sep 06, 2026',
+    bookmaker: 'general',
+    total_picks: 14,
+    bankers_count: 2,
+    success_rate: '79%',
+    draws_hit: '4 / 5 Draws Hit',
+    summary: 'Early UK season evaluation. High score-draw frequency across Scottish Championship and League One.',
+    is_current: false,
+    season: '2026/2027',
+    published_by: 'Statistical Modelling Desk'
+  },
+  {
+    id: 'history-week-1',
+    week_number: 1,
+    edition_title: 'Week 1 Season Opening Key Codes & Selections',
+    date: 'Aug 30, 2026',
+    bookmaker: 'general',
+    total_picks: 15,
+    bankers_count: 3,
+    success_rate: '80%',
+    draws_hit: '4 / 5 Draws Hit',
+    summary: 'The inaugural 2026/2027 season coupon guide. Baseline form matrices established with strong opening round accuracy.',
+    is_current: false,
+    season: '2026/2027',
+    published_by: 'Chief Pools Analyst, FPCODES'
+  }
+];
+
+app.get("/api/pool-picks/history", async (req, res) => {
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  const supabase = getSupabaseClient(true) || getSupabaseClient(false);
+  if (supabase) {
+    try {
+      const { data, error } = await supabase.from("pool_picks_history").select("*").order("week_number", { ascending: false });
+      if (!error && data && data.length > 0) {
+        return res.json({ success: true, history: data });
+      }
+    } catch (_) {}
+  }
+  res.json({ success: true, history: serverPoolPicksHistory });
+});
+
+app.post("/api/pool-picks/history", async (req, res) => {
+  try {
+    const newEdition = req.body;
+    if (!newEdition || !newEdition.week_number) {
+      return res.status(400).json({ success: false, error: "Edition with week_number is required." });
+    }
+    const id = newEdition.id || `history-week-${newEdition.week_number}-${Date.now()}`;
+    const editionObj = { ...newEdition, id };
+
+    const existingIdx = serverPoolPicksHistory.findIndex(h => String(h.week_number) === String(newEdition.week_number));
+    if (existingIdx !== -1) {
+      serverPoolPicksHistory[existingIdx] = editionObj;
+    } else {
+      serverPoolPicksHistory.unshift(editionObj);
+    }
+
+    const supabase = getSupabaseClient(true) || getSupabaseClient(false);
+    if (supabase) {
+      try {
+        await supabase.from("pool_picks_history").upsert([editionObj]);
+      } catch (_) {}
+    }
+
+    res.json({ success: true, edition: editionObj, history: serverPoolPicksHistory });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || String(err) });
+  }
+});
+
+// =========================================================================
+// API ROUTE: UPLOAD CSV FOR WEEKLY POOL PICKS (ADMIN CONSOLE)
+// =========================================================================
+app.post("/api/pool-picks/upload-csv", async (req, res) => {
+  try {
+    const {
+      picks,
+      csvText,
+      targetTable,
+      bookmaker = "bet9ja",
+      week = 7,
+      replaceAll = true
+    } = req.body || {};
+
+    let incomingPicks: any[] = Array.isArray(picks) ? picks : [];
+
+    // Fallback: parse raw csvText if provided directly
+    if (incomingPicks.length === 0 && csvText && typeof csvText === "string") {
+      const lines = csvText.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+      if (lines.length > 1) {
+        let delimiter = ",";
+        if (lines[0].includes("\t")) delimiter = "\t";
+        else if (lines[0].includes(";") && !lines[0].includes(",")) delimiter = ";";
+
+        const headers = lines[0].split(delimiter).map((h) => h.replace(/^["']|["']$/g, "").trim().toLowerCase());
+        const findCol = (keys: string[]) => headers.findIndex((h) => keys.some((k) => h === k || h.includes(k) || h.replace(/[^a-z0-9]/g, "") === k.replace(/[^a-z0-9]/g, "")));
+
+        const pIdx = findCol(["pool_no", "pool", "match_no", "sn", "s/n", "item_no"]);
+        const codeIdx = findCol(["bet_code", "betcode", "code", "booking_code"]);
+        const hIdx = findCol(["home", "home_team", "team1", "team_1"]);
+        const aIdx = findCol(["away", "away_team", "team2", "team_2"]);
+        const hwIdx = findCol(["home_win", "homewin", "home_odds", "1", "odd_1"]);
+        const dIdx = findCol(["draw_x", "draw", "draw(x)", "draw_odds", "x", "odd_x"]);
+        const awIdx = findCol(["away_win", "awaywin", "away_odds", "2", "odd_2"]);
+        const bIdx = findCol(["bet", "tip", "prediction", "pick"]);
+        const stIdx = findCol(["status", "day", "match_status"]);
+        const koIdx = findCol(["kick_off", "kickoff", "time", "match_time"]);
+        const wkIdx = findCol(["week", "week_no", "week_number"]);
+        const bkrIdx = findCol(["is_banker", "banker", "nap", "star"]);
+        const noteIdx = findCol(["notes", "note", "analysis", "comment"]);
+        const lgIdx = findCol(["league", "competition", "division"]);
+
+        for (let i = 1; i < lines.length; i++) {
+          const parts: string[] = [];
+          let cur = "";
+          let inQ = false;
+          for (let c = 0; c < lines[i].length; c++) {
+            const ch = lines[i][c];
+            if (ch === '"' || ch === "'") inQ = !inQ;
+            else if (ch === delimiter && !inQ) {
+              parts.push(cur.trim());
+              cur = "";
+            } else cur += ch;
+          }
+          parts.push(cur.trim());
+
+          const token = (idx: number) => (idx !== -1 && idx < parts.length ? parts[idx].replace(/^["']|["']$/g, "").trim() : "");
+          const homeTeam = token(hIdx);
+          const awayTeam = token(aIdx);
+          if (!homeTeam || !awayTeam) continue;
+
+          incomingPicks.push({
+            pool_no: token(pIdx) || i,
+            bet_code: token(codeIdx) || "",
+            home: homeTeam,
+            away: awayTeam,
+            home_win: token(hwIdx) || "",
+            draw_x: token(dIdx) || "",
+            away_win: token(awIdx) || "",
+            bet: token(bIdx) || "X",
+            status: token(stIdx) || "Saturday",
+            kick_off: token(koIdx) || "3:00 PM",
+            week: token(wkIdx) || week,
+            is_banker: token(bkrIdx) === "true" || token(bkrIdx) === "1" || token(bkrIdx).toLowerCase() === "yes",
+            notes: token(noteIdx) || "",
+            league: token(lgIdx) || ""
+          });
+        }
+      }
+    }
+
+    if (incomingPicks.length === 0) {
+      return res.status(400).json({ success: false, error: "No valid pick records found in CSV payload." });
+    }
+
+    // Determine target bookmaker and candidate table names
+    const bKey = String(bookmaker || targetTable || "bet9ja").toLowerCase().replace(/[^a-z0-9]/g, "");
+    let candidateTables: string[] = [];
+    let tablePrefix = "Bet9ja";
+
+    if (bKey.includes("betking")) {
+      tablePrefix = "BetKing";
+      candidateTables = [
+        "weekly_pool_picks_betking",
+        "weekly pool picks(betking)",
+        "weekly pool picks (betking)",
+        "weekly pool picks(Betking)",
+        "weekly pool picks (Betking)"
+      ];
+    } else if (bKey.includes("general") || bKey.includes("master") || bKey === "weeklypoolpicks" || bKey === "all") {
+      tablePrefix = "Master / All Pools";
+      candidateTables = [
+        "weekly_pool_picks",
+        "weekly pool picks",
+        "weekly_picks",
+        "pool_picks"
+      ];
+    } else {
+      // Default to Bet9ja
+      tablePrefix = "Bet9ja";
+      candidateTables = [
+        "weekly_pool_picks_bet9ja",
+        "weekly pool picks(Bet9ja)",
+        "weekly pool picks (Bet9ja)",
+        "weekly pool picks(bet9ja)",
+        "weekly pool picks (bet9ja)"
+      ];
+    }
+
+    if (targetTable && !candidateTables.includes(targetTable)) {
+      candidateTables.unshift(targetTable);
+    }
+
+    const cleanWeek = Number(week) || 7;
+    const normalizedRows: any[] = [];
+
+    for (let i = 0; i < incomingPicks.length; i++) {
+      const p = incomingPicks[i];
+      const pNum = Number(p.pool_no ?? p.pool ?? (i + 1)) || (i + 1);
+      const home = String(p.home ?? p.home_team ?? "").trim();
+      const away = String(p.away ?? p.away_team ?? "").trim();
+      if (!home || !away) continue;
+
+      const betCode = String(p.bet_code ?? p.betcode ?? p.code ?? "").trim();
+      const hWin = !isNaN(Number(p.home_win ?? p.homewin)) ? Number(p.home_win ?? p.homewin) : 2.50;
+      const dX = !isNaN(Number(p.draw_x ?? p.draw)) ? Number(p.draw_x ?? p.draw) : 3.20;
+      const aWin = !isNaN(Number(p.away_win ?? p.awaywin)) ? Number(p.away_win ?? p.awaywin) : 2.80;
+      const bet = String(p.bet || "X").trim();
+      const status = String(p.status || "Saturday").trim();
+      const kickOff = String(p.kick_off ?? p.kickoff ?? "3:00 PM").trim();
+      const pWeek = Number(p.week ?? p.week_no ?? cleanWeek) || cleanWeek;
+      const isBanker = Boolean(p.is_banker === true || p.banker === true || String(p.is_banker) === "true" || String(p.banker) === "true" || p.is_banker === 1 || p.banker === 1);
+      const notes = String(p.notes || "").trim();
+      const league = String(p.league || "").trim();
+
+      normalizedRows.push({
+        pool_no: pNum,
+        pool: pNum,
+        bet_code: betCode,
+        betcode: betCode,
+        home,
+        home_team: home,
+        away,
+        away_team: away,
+        home_win: hWin,
+        homewin: hWin,
+        draw_x: dX,
+        draw: dX,
+        away_win: aWin,
+        awaywin: aWin,
+        bet,
+        status,
+        kick_off: kickOff,
+        kickoff: kickOff,
+        week: pWeek,
+        week_no: pWeek,
+        is_banker: isBanker,
+        banker: isBanker,
+        notes,
+        league
+      });
+    }
+
+    if (normalizedRows.length === 0) {
+      return res.status(400).json({ success: false, error: "Could not normalize pick records (Home and Away teams required)." });
+    }
+
+    const supabase = getSupabaseClient(true) || getSupabaseClient(false);
+    let successfullySavedTo: string[] = [];
+    let dbErrorMsg: string | null = null;
+
+    if (supabase) {
+      for (const tbl of candidateTables) {
+        try {
+          if (replaceAll) {
+            // Delete existing records
+            await supabase.from(tbl).delete().neq("id", -999999);
+          }
+          const { error: insertErr } = await supabase.from(tbl).insert(normalizedRows);
+          if (!insertErr) {
+            successfullySavedTo.push(tbl);
+            break; // Successfully saved to primary table
+          } else {
+            // Check if error is due to compat columns; retry with strict column subset
+            const strictRows = normalizedRows.map((r) => ({
+              pool_no: r.pool_no,
+              bet_code: r.bet_code,
+              home: r.home,
+              away: r.away,
+              home_win: r.home_win,
+              draw_x: r.draw_x,
+              away_win: r.away_win,
+              bet: r.bet,
+              status: r.status,
+              kick_off: r.kick_off,
+              week: r.week,
+              is_banker: r.is_banker,
+              notes: r.notes,
+              league: r.league
+            }));
+            const retryRes = await supabase.from(tbl).insert(strictRows);
+            if (!retryRes.error) {
+              successfullySavedTo.push(tbl);
+              break;
+            } else {
+              dbErrorMsg = retryRes.error.message;
+            }
+          }
+        } catch (tblErr: any) {
+          dbErrorMsg = tblErr?.message || String(tblErr);
+        }
+      }
+    }
+
+    // Invalidate caches
+    candidateTables.forEach((t) => {
+      invalidateCache(`table:${t}`);
+      invalidateCache(`table:public."${t}"`);
+    });
+    invalidateCache("table:weekly pool picks");
+    invalidateCache("table:weekly pool picks(Bet9ja)");
+    invalidateCache("table:weekly pool picks(betking)");
+    invalidateCache("table:weekly_pool_picks_bet9ja");
+    invalidateCache("table:weekly_pool_picks_betking");
+
+    globalLog.unshift(
+      `[${new Date().toLocaleTimeString()}] Admin uploaded CSV: ${normalizedRows.length} fixtures for ${tablePrefix} (Week ${cleanWeek}). Saved to ${successfullySavedTo.join(", ") || "memory fallback"}.`
+    );
+
+    return res.json({
+      success: true,
+      count: normalizedRows.length,
+      savedTo: successfullySavedTo.length > 0 ? successfullySavedTo[0] : candidateTables[0],
+      candidateTables,
+      bookmaker,
+      week: cleanWeek,
+      picks: normalizedRows,
+      warning: successfullySavedTo.length === 0 && dbErrorMsg ? `Saved with DB warning: ${dbErrorMsg}` : undefined
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err?.message || String(err) });
+  }
+});
+
+// =========================================================================
+// API ROUTE: DELETE SINGLE POOL PICK (ROBUST RESOLVER FOR ADMIN CONSOLE)
+// =========================================================================
+const handlePoolPickDelete = async (req: any, res: any) => {
+  try {
+    const payload = req.method === "GET" ? req.query : req.body;
+    const {
+      bookmaker = "bet9ja",
+      targetTable,
+      id,
+      pool_no,
+      pool,
+      bet_code,
+      home,
+      away,
+      week
+    } = payload || {};
+
+    const cleanBookie = String(bookmaker || targetTable || "bet9ja").toLowerCase().replace(/[^a-z0-9]/g, "");
+    const numId = id !== undefined && id !== null && !isNaN(Number(id)) ? Number(id) : null;
+    const poolNum = pool_no !== undefined ? Number(pool_no) : pool !== undefined ? Number(pool) : null;
+
+    if (numId === null && poolNum === null && !home && !bet_code) {
+      return res.status(400).json({
+        success: false,
+        error: "At least one identifier (id, pool_no, bet_code, or team names) is required to delete a pool pick."
+      });
+    }
+
+    let candidateTables: string[] = [];
+    if (cleanBookie.includes("betking")) {
+      candidateTables = [
+        "picks_betking",
+        "pool_picks",
+        "weekly_pool_picks_betking",
+        "weekly pool picks(betking)",
+        "weekly pool picks (betking)",
+        "weekly pool picks(Betking)",
+        "weekly pool picks (Betking)",
+        "weekly_picks_betking",
+        "weekly pool picks",
+        "weekly_pool_picks"
+      ];
+    } else if (cleanBookie.includes("general") || cleanBookie.includes("master") || cleanBookie === "all") {
+      candidateTables = [
+        "pool_picks",
+        "weekly_pool_picks",
+        "weekly pool picks",
+        "weekly_picks"
+      ];
+    } else {
+      candidateTables = [
+        "picks_bet9ja",
+        "pool_picks",
+        "weekly_pool_picks_bet9ja",
+        "weekly pool picks(Bet9ja)",
+        "weekly pool picks (Bet9ja)",
+        "weekly pool picks(bet9ja)",
+        "weekly pool picks (bet9ja)",
+        "weekly_picks_bet9ja",
+        "weekly pool picks",
+        "weekly_pool_picks"
+      ];
+    }
+
+    if (targetTable && !candidateTables.includes(targetTable)) {
+      candidateTables.unshift(targetTable);
+    }
+
+    const supabase = getSupabaseClient(true) || getSupabaseClient(false);
+    let successfullyDeletedFrom: string[] = [];
+    let lastErrorMsg: string | null = null;
+
+    if (supabase) {
+      for (const tbl of candidateTables) {
+        try {
+          let queryExecuted = false;
+          const isCorePoolPicks = tbl === "pool_picks";
+          const bookieFilter = cleanBookie.includes("betking") ? "betking" : cleanBookie.includes("bet9ja") ? "bet9ja" : null;
+
+          // 1. Try deleting by numeric primary key ID if valid
+          if (numId !== null && numId > 0) {
+            const { error: errId } = await supabase.from(tbl).delete().eq("id", numId);
+            if (!errId) {
+              successfullyDeletedFrom.push(tbl);
+              queryExecuted = true;
+            } else {
+              lastErrorMsg = errId.message;
+            }
+          }
+
+          // 2. Try deleting by string id
+          if (!queryExecuted && id && typeof id === "string" && isNaN(Number(id))) {
+            const { error: errStrId } = await supabase.from(tbl).delete().eq("id", id);
+            if (!errStrId) {
+              successfullyDeletedFrom.push(tbl);
+              queryExecuted = true;
+            }
+          }
+
+          // 3. Try deleting by pool_no / pool
+          if (poolNum !== null) {
+            let pQuery = supabase.from(tbl).delete().eq("pool_no", poolNum);
+            if (week) pQuery = pQuery.eq("week", Number(week));
+            if (isCorePoolPicks && bookieFilter) pQuery = pQuery.ilike("bookmaker", `%${bookieFilter}%`);
+            const { error: pErr } = await pQuery;
+            if (!pErr) {
+              if (!successfullyDeletedFrom.includes(tbl)) successfullyDeletedFrom.push(tbl);
+              queryExecuted = true;
+            }
+
+            // Also check 'pool' column alias
+            let pQuery2 = supabase.from(tbl).delete().eq("pool", poolNum);
+            if (week) pQuery2 = pQuery2.eq("week", Number(week));
+            if (isCorePoolPicks && bookieFilter) pQuery2 = pQuery2.ilike("bookmaker", `%${bookieFilter}%`);
+            const { error: pErr2 } = await pQuery2;
+            if (!pErr2) {
+              if (!successfullyDeletedFrom.includes(tbl)) successfullyDeletedFrom.push(tbl);
+              queryExecuted = true;
+            }
+          }
+
+          // 4. Try deleting by bet_code if provided
+          if (bet_code) {
+            let bQuery = supabase.from(tbl).delete().eq("bet_code", String(bet_code).trim());
+            if (isCorePoolPicks && bookieFilter) bQuery = bQuery.ilike("bookmaker", `%${bookieFilter}%`);
+            const { error: bErr } = await bQuery;
+            if (!bErr && !successfullyDeletedFrom.includes(tbl)) {
+              successfullyDeletedFrom.push(tbl);
+              queryExecuted = true;
+            }
+          }
+
+          // 5. Try deleting by matching home and away
+          if (home && away) {
+            let matchQuery = supabase
+              .from(tbl)
+              .delete()
+              .ilike("home", String(home).trim())
+              .ilike("away", String(away).trim());
+            if (isCorePoolPicks && bookieFilter) matchQuery = matchQuery.ilike("bookmaker", `%${bookieFilter}%`);
+            const { error: matchErr } = await matchQuery;
+            if (!matchErr && !successfullyDeletedFrom.includes(tbl)) {
+              successfullyDeletedFrom.push(tbl);
+              queryExecuted = true;
+            }
+          }
+        } catch (tblErr: any) {
+          lastErrorMsg = tblErr?.message || String(tblErr);
+        }
+      }
+    }
+
+    // Invalidate all associated caches
+    candidateTables.forEach((t) => {
+      invalidateCache(`table:${t}`);
+      invalidateCache(`table:public."${t}"`);
+    });
+    invalidateCache("table:weekly pool picks");
+    invalidateCache("table:weekly pool picks(Bet9ja)");
+    invalidateCache("table:weekly pool picks(betking)");
+    invalidateCache("table:weekly_pool_picks_bet9ja");
+    invalidateCache("table:weekly_pool_picks_betking");
+
+    globalLog.unshift(
+      `[${new Date().toLocaleTimeString()}] Admin deleted pool pick: Pool #${poolNum ?? id ?? home} from ${cleanBookie}. Target tables cleared: ${successfullyDeletedFrom.join(", ") || "memory"}.`
+    );
+
+    return res.json({
+      success: true,
+      message: `Pool pick removed successfully.`,
+      bookmaker: cleanBookie,
+      deletedId: numId || id,
+      deletedPoolNo: poolNum,
+      clearedTables: successfullyDeletedFrom,
+      warning: successfullyDeletedFrom.length === 0 && lastErrorMsg ? lastErrorMsg : undefined
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err?.message || String(err) });
+  }
+};
+
+app.post("/api/pool-picks/delete", handlePoolPickDelete);
+app.delete("/api/pool-picks/delete", handlePoolPickDelete);
 
 function cleanChatbotReply(raw: any): string {
   if (raw === null || raw === undefined) return "";

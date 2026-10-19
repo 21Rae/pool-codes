@@ -26,6 +26,7 @@ import {
   ArrowUpDown,
   Download,
   UploadCloud,
+  Upload,
   X,
   Check,
   Sliders,
@@ -39,6 +40,8 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { DatabaseState, User, SubscriptionPlan, UserSubscription, BookmakerPdfUpload } from '../types';
 import AdminPdfUploadSection, { SUPPORTED_BOOKMAKERS } from './AdminPdfUploadSection';
+import LiveScoresCsvModal from './LiveScoresCsvModal';
+import PoolPicksCsvModal from './PoolPicksCsvModal';
 import { getMergedSubscriptionPlans, isGhanaPlan, isGhanaBookmaker, INITIAL_PLANS } from '../initialData';
 import { getSupabaseClient } from '../lib/supabase';
 
@@ -62,6 +65,8 @@ type AdminSectionTab =
   | 'overview'
   | 'db_explorer'
   | 'admin_pdfs'
+  | 'bet9ja_poolpicks'
+  | 'betking_poolpicks'
   | 'coupons_crud'
   | 'users_crud'
   | 'bookmakers_crud'
@@ -132,6 +137,145 @@ export default function AdminManagementPortal({
       setTableLoading(false);
     }
   };
+
+  // Live Scores Telemetry & CSV Sync State
+  const [showLiveScoresCsvModal, setShowLiveScoresCsvModal] = useState(false);
+  const [adminLiveScores, setAdminLiveScores] = useState<any[]>([]);
+  const [adminLiveScoresLoading, setAdminLiveScoresLoading] = useState(false);
+
+  const fetchAdminLiveScores = async () => {
+    setAdminLiveScoresLoading(true);
+    try {
+      const res = await fetch(`/api/livescores?t=${Date.now()}`, { cache: 'no-store' });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.matches)) {
+          setAdminLiveScores(json.matches);
+        }
+      }
+    } catch (_) {}
+    finally {
+      setAdminLiveScoresLoading(false);
+    }
+  };
+
+  // Sync live scores when tab opens or on fastpool_livescores_updated
+  useEffect(() => {
+    if (activeTab === 'livescores_admin') {
+      fetchAdminLiveScores();
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    const handleLiveScoresUpdated = (e: any) => {
+      if (e?.detail && Array.isArray(e.detail)) {
+        setAdminLiveScores(e.detail);
+      } else {
+        fetchAdminLiveScores();
+      }
+      if (selectedTable === 'livescores' || selectedTable === 'live_scores') {
+        refreshTableRows(selectedTable);
+      }
+    };
+    window.addEventListener('fastpool_livescores_updated', handleLiveScoresUpdated);
+    return () => window.removeEventListener('fastpool_livescores_updated', handleLiveScoresUpdated);
+  }, [selectedTable]);
+
+  // =========================================================================
+  // WEEKLY POOL PICKS STATE (BET9JA & BETKING DEDICATED FEEDS)
+  // =========================================================================
+  const [showPoolPicksCsvModal, setShowPoolPicksCsvModal] = useState(false);
+  const [poolPicksBookmaker, setPoolPicksBookmaker] = useState<'bet9ja' | 'betking' | 'general'>('bet9ja');
+  const [poolPicksActiveWeek, setPoolPicksActiveWeek] = useState<number>(7);
+
+  // Bet9ja Pool Picks State
+  const [adminBet9jaPicks, setAdminBet9jaPicks] = useState<any[]>([]);
+  const [adminBet9jaLoading, setAdminBet9jaLoading] = useState(false);
+
+  const fetchAdminBet9jaPicks = async () => {
+    setAdminBet9jaLoading(true);
+    try {
+      const res = await fetch(`/api/tables/weekly%20pool%20picks(Bet9ja)?t=${Date.now()}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          setAdminBet9jaPicks(json.data);
+          return;
+        }
+      }
+      const stored = localStorage.getItem('fastpool_weekly_picks_bet9ja');
+      if (stored) {
+        setAdminBet9jaPicks(JSON.parse(stored));
+      }
+    } catch (_) {
+    } finally {
+      setAdminBet9jaLoading(false);
+    }
+  };
+
+  // BetKing Pool Picks State
+  const [adminBetKingPicks, setAdminBetKingPicks] = useState<any[]>([]);
+  const [adminBetKingLoading, setAdminBetKingLoading] = useState(false);
+
+  const fetchAdminBetKingPicks = async () => {
+    setAdminBetKingLoading(true);
+    try {
+      const res = await fetch(`/api/tables/weekly%20pool%20picks(betking)?t=${Date.now()}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          setAdminBetKingPicks(json.data);
+          return;
+        }
+      }
+      const stored = localStorage.getItem('fastpool_weekly_picks_betking');
+      if (stored) {
+        setAdminBetKingPicks(JSON.parse(stored));
+      }
+    } catch (_) {
+    } finally {
+      setAdminBetKingLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'bet9ja_poolpicks') {
+      fetchAdminBet9jaPicks();
+    } else if (activeTab === 'betking_poolpicks') {
+      fetchAdminBetKingPicks();
+    }
+  }, [activeTab]);
+
+  // Initial load of pool picks counts for tab badges
+  useEffect(() => {
+    fetchAdminBet9jaPicks();
+    fetchAdminBetKingPicks();
+  }, []);
+
+  useEffect(() => {
+    const handlePicksUpdated = (e: any) => {
+      const detail = e?.detail;
+      if (detail?.bookmaker === 'bet9ja' || !detail?.bookmaker) {
+        if (detail?.picks && Array.isArray(detail.picks)) {
+          setAdminBet9jaPicks(detail.picks);
+        } else {
+          fetchAdminBet9jaPicks();
+        }
+      }
+      if (detail?.bookmaker === 'betking' || !detail?.bookmaker) {
+        if (detail?.picks && Array.isArray(detail.picks)) {
+          setAdminBetKingPicks(detail.picks);
+        } else {
+          fetchAdminBetKingPicks();
+        }
+      }
+      if (selectedTable.toLowerCase().includes('pool') && selectedTable.toLowerCase().includes('pick')) {
+        refreshTableRows(selectedTable);
+      }
+    };
+    window.addEventListener('fastpool_pool_picks_updated', handlePicksUpdated);
+    return () => window.removeEventListener('fastpool_pool_picks_updated', handlePicksUpdated);
+  }, [selectedTable]);
 
   // Sync discovered tables on load
   useEffect(() => {
@@ -224,7 +368,7 @@ export default function AdminManagementPortal({
 
   // Handle Delete Row
   const handleDeleteRow = async (row: any) => {
-    const rowId = row.id ?? row.ID ?? row.user_id ?? row.match_no;
+    const rowId = row.id ?? row.ID ?? row.user_id ?? row.match_no ?? row.pool_no ?? row.pool;
     if (rowId === undefined || rowId === null) {
       triggerToast('Cannot delete row: No identifier found.', 'error');
       return;
@@ -234,16 +378,54 @@ export default function AdminManagementPortal({
     }
 
     try {
-      const res = await fetch(`/api/tables/${selectedTable}/${rowId}`, {
-        method: 'DELETE'
-      });
-      const json = await res.json();
-      if (json.success) {
+      const isPoolTable = selectedTable.toLowerCase().includes('pool') && selectedTable.toLowerCase().includes('pick');
+      let success = false;
+      let errorMsg = '';
+
+      if (isPoolTable) {
+        // Use dedicated pool-picks delete endpoint
+        const res = await fetch('/api/pool-picks/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            targetTable: selectedTable,
+            bookmaker: selectedTable.toLowerCase().includes('betking') ? 'betking' : 'bet9ja',
+            id: row.id,
+            pool_no: row.pool_no ?? row.pool ?? (typeof rowId === 'number' ? rowId : undefined),
+            bet_code: row.bet_code ?? row.betcode,
+            home: row.home ?? row.home_team,
+            away: row.away ?? row.away_team
+          })
+        });
+        const json = await res.json();
+        if (json.success) {
+          success = true;
+        } else {
+          errorMsg = json.error;
+        }
+      } else {
+        const res = await fetch(`/api/tables/${encodeURIComponent(selectedTable)}/${encodeURIComponent(rowId)}`, {
+          method: 'DELETE'
+        });
+        const json = await res.json();
+        if (json.success) {
+          success = true;
+        } else {
+          errorMsg = json.error;
+        }
+      }
+
+      if (success) {
         triggerToast(`Row #${rowId} deleted from '${selectedTable}'.`, 'info');
         refreshTableRows(selectedTable);
+        if (isPoolTable) {
+          fetchAdminBet9jaPicks();
+          fetchAdminBetKingPicks();
+          window.dispatchEvent(new CustomEvent('fastpool_pool_picks_updated', { detail: { action: 'delete' } }));
+        }
         if (fetchRealSupabaseData) fetchRealSupabaseData(true);
       } else {
-        triggerToast(`Delete failed: ${json.error || 'Error'}`, 'error');
+        triggerToast(`Delete failed: ${errorMsg || 'Error'}`, 'error');
       }
     } catch (err: any) {
       triggerToast(`Delete error: ${err.message}`, 'error');
@@ -782,8 +964,9 @@ export default function AdminManagementPortal({
   const navTabs: { id: AdminSectionTab; label: string; icon: React.ReactNode; badge?: string }[] = [
     { id: 'overview', label: 'Admin Dashboard', icon: <Activity className="w-4 h-4 text-emerald-400" /> },
     { id: 'db_explorer', label: 'Database Explorer & SQL', icon: <Database className="w-4 h-4 text-blue-400" />, badge: `${tablesList.length}` },
-    { id: 'admin_pdfs', label: 'Official Admin PDFs', icon: <FileSpreadsheet className="w-4 h-4 text-amber-400" />, badge: `${db.uploaded_bookmaker_pdfs?.length || 9}` },
-    { id: 'coupons_crud', label: 'Posted Coupon Fixtures', icon: <Layers className="w-4 h-4 text-emerald-400" /> },
+    { id: 'bet9ja_poolpicks', label: 'Bet9ja Pool Picks', icon: <FileSpreadsheet className="w-4 h-4 text-emerald-400" />, badge: `${adminBet9jaPicks.length}` },
+    { id: 'betking_poolpicks', label: 'BetKing Pool Picks', icon: <FileSpreadsheet className="w-4 h-4 text-amber-400" />, badge: `${adminBetKingPicks.length}` },
+    { id: 'coupons_crud', label: 'Posted Coupon Fixtures', icon: <Layers className="w-4 h-4 text-teal-400" /> },
     { id: 'users_crud', label: 'Users & Access Control', icon: <Users className="w-4 h-4 text-purple-400" />, badge: `${db.users?.length || 0}` },
     { id: 'bookmakers_crud', label: 'Bookmakers Registry', icon: <Globe className="w-4 h-4 text-cyan-400" /> },
     { id: 'results_crud', label: 'Pool Results Clearance', icon: <Trophy className="w-4 h-4 text-yellow-400" /> },
@@ -915,13 +1098,6 @@ export default function AdminManagementPortal({
                   <Database className="w-3.5 h-3.5" />
                   <span>Open Database Explorer</span>
                 </button>
-                <button
-                  onClick={() => setActiveTab('admin_pdfs')}
-                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-mono font-bold text-xs rounded-xl transition flex items-center gap-1.5 shadow-md shadow-emerald-900/30 cursor-pointer"
-                >
-                  <UploadCloud className="w-3.5 h-3.5" />
-                  <span>Upload Admin PDF</span>
-                </button>
               </div>
             </div>
 
@@ -1013,6 +1189,42 @@ export default function AdminManagementPortal({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 <button
+                  onClick={() => setActiveTab('bet9ja_poolpicks')}
+                  className="p-4 rounded-xl bg-gradient-to-br from-emerald-950/40 to-slate-900/80 border border-emerald-500/40 hover:border-emerald-400 hover:bg-slate-900 transition flex items-center gap-3 cursor-pointer text-left group shadow-lg"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shrink-0 group-hover:scale-105 transition">
+                    <FileSpreadsheet className="w-5 h-5 text-emerald-400" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-xs font-black text-white font-mono uppercase">Bet9ja Pool Picks</h4>
+                      <span className="text-[9px] bg-emerald-500/20 text-emerald-300 font-mono font-black px-1.5 py-0.2 rounded border border-emerald-500/30">{adminBet9jaPicks.length} Games</span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      Upload CSV, view banker draws, and manage Bet9ja coupon table.
+                    </p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('betking_poolpicks')}
+                  className="p-4 rounded-xl bg-gradient-to-br from-blue-950/40 to-slate-900/80 border border-blue-500/40 hover:border-blue-400 hover:bg-slate-900 transition flex items-center gap-3 cursor-pointer text-left group shadow-lg"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-blue-500/20 border border-blue-500/40 flex items-center justify-center text-amber-400 shrink-0 group-hover:scale-105 transition">
+                    <FileSpreadsheet className="w-5 h-5 text-amber-400" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-xs font-black text-white font-mono uppercase">BetKing Pool Picks</h4>
+                      <span className="text-[9px] bg-blue-500/20 text-blue-300 font-mono font-black px-1.5 py-0.2 rounded border border-blue-500/30">{adminBetKingPicks.length} Games</span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      Upload CSV, verify 1X2 odds, and manage BetKing coupon table.
+                    </p>
+                  </div>
+                </button>
+
+                <button
                   onClick={() => setActiveTab('db_explorer')}
                   className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 hover:border-blue-500/50 hover:bg-slate-900 transition flex items-center gap-3 cursor-pointer text-left group"
                 >
@@ -1029,9 +1241,9 @@ export default function AdminManagementPortal({
 
                 <button
                   onClick={() => setActiveTab('coupons_crud')}
-                  className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 hover:border-emerald-500/50 hover:bg-slate-900 transition flex items-center gap-3 cursor-pointer text-left group"
+                  className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 hover:border-teal-500/50 hover:bg-slate-900 transition flex items-center gap-3 cursor-pointer text-left group"
                 >
-                  <div className="w-10 h-10 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0 group-hover:scale-105 transition">
+                  <div className="w-10 h-10 rounded-lg bg-teal-500/10 border border-teal-500/30 flex items-center justify-center text-teal-400 shrink-0 group-hover:scale-105 transition">
                     <Layers className="w-5 h-5" />
                   </div>
                   <div>
@@ -1122,7 +1334,33 @@ export default function AdminManagementPortal({
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                {(selectedTable.toLowerCase().includes('pool') && selectedTable.toLowerCase().includes('pick')) && (
+                  <button
+                    onClick={() => {
+                      const bm = selectedTable.toLowerCase().includes('betking')
+                        ? 'betking'
+                        : selectedTable.toLowerCase().includes('bet9ja')
+                        ? 'bet9ja'
+                        : 'general';
+                      setPoolPicksBookmaker(bm);
+                      setShowPoolPicksCsvModal(true);
+                    }}
+                    className="px-3.5 py-2 bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 text-slate-950 font-mono font-black text-xs rounded-xl transition flex items-center gap-1.5 shadow-md shadow-emerald-950/40 cursor-pointer"
+                  >
+                    <Upload className="w-4 h-4" />
+                    <span>Upload CSV to Pool Picks</span>
+                  </button>
+                )}
+                {(selectedTable === 'livescores' || selectedTable === 'live_scores') && (
+                  <button
+                    onClick={() => setShowLiveScoresCsvModal(true)}
+                    className="px-3.5 py-2 bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 text-slate-950 font-mono font-black text-xs rounded-xl transition flex items-center gap-1.5 shadow-md shadow-emerald-950/40 cursor-pointer"
+                  >
+                    <Upload className="w-4 h-4" />
+                    <span>Upload CSV to '{selectedTable}'</span>
+                  </button>
+                )}
                 <button
                   onClick={() => setShowInsertModal(true)}
                   className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-mono font-bold text-xs rounded-xl transition flex items-center gap-1.5 shadow-md shadow-emerald-950/40 cursor-pointer"
@@ -1337,17 +1575,749 @@ export default function AdminManagementPortal({
           </div>
         )}
 
+
+
         {/* ========================================================================= */}
-        {/* SECTION 3: OFFICIAL ADMIN PDF MANAGER */}
+        {/* SECTION 3A: BET9JA WEEKLY POOL PICKS & CSV MANAGEMENT */}
         {/* ========================================================================= */}
-        {activeTab === 'admin_pdfs' && (
+        {activeTab === 'bet9ja_poolpicks' && (
           <div className="flex flex-col gap-5 animate-fadeIn">
-            <AdminPdfUploadSection
-              currentUser={currentUser}
-              db={db}
-              onUpdateUploadedPdfs={onUpdateUploadedPdfs}
-              triggerToast={triggerToast}
-            />
+            {/* Header & Controls */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-black text-white font-mono uppercase tracking-wide flex items-center gap-2">
+                    <FileSpreadsheet className="w-5 h-5 text-emerald-400" />
+                    Bet9ja Weekly Pool Picks & CSV Console
+                  </h2>
+                  <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-mono font-bold px-2 py-0.5 rounded border border-emerald-500/30">
+                    BET9JA FEED
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 mt-0.5 font-mono">
+                  Batch upload and manage official Bet9ja booking codes, verified banker draws, and 1X2 coupon odds.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={() => {
+                    setPoolPicksBookmaker('bet9ja');
+                    setShowPoolPicksCsvModal(true);
+                  }}
+                  className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-mono font-black text-xs uppercase tracking-wider rounded-xl transition flex items-center gap-2 shadow-lg shadow-emerald-950/40 cursor-pointer active:scale-95"
+                >
+                  <Upload className="w-4 h-4" />
+                  <span>Upload Bet9ja CSV</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    const sampleHeaders = 'pool_no,bet_code,home,away,home_win,draw_x,away_win,bet,status,kick_off,week,is_banker,notes,league';
+                    const sampleRows = [
+                      '2,9JA-2110,Everton,Crystal P.,2.23,3.40,3.35,X,Saturday,3:00 PM,7,TRUE,Bet9ja Premier League Top Banker Draw,Premier League',
+                      '14,9JA-4565,Swansea,Sheff Utd.,2.57,3.30,2.70,X,Saturday,3:00 PM,7,FALSE,Bet9ja Championship Draw Pairing,Championship',
+                      '19,9JA-1072,Wimbledon,Reading,2.50,3.20,2.60,X,Saturday,3:00 PM,7,TRUE,Bet9ja League One Key Forecast,League One',
+                      '20,9JA-1221,Bromley,Cambridge U.,2.68,3.10,2.50,X,Saturday,3:00 PM,7,FALSE,Bet9ja Balanced Coupon Pick,League One',
+                      '30,9JA-1590,Walsall,Grimsby,2.57,3.05,2.63,X,EKO,12:30 PM,7,TRUE,Bet9ja Early Kick Off Alert,League Two',
+                      '34,9JA-1641,Fleetwood,Gillingham,2.13,3.25,3.15,X,Saturday,3:00 PM,7,FALSE,Bet9ja League Two Coupon Pairing,League Two',
+                      '46,9JA-1893,Parma,Cagliari,2.62,3.05,2.94,X,LKO,7:45 PM,7,FALSE,Bet9ja Late Kick Off Serie A Selection,Serie A'
+                    ];
+                    const blob = new Blob([[sampleHeaders, ...sampleRows].join('\n')], { type: 'text/csv;charset=utf-8;' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = 'FastPoolCodes_Bet9ja_PoolPicks_Template.csv';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    triggerToast('Downloaded Bet9ja sample CSV template!', 'success');
+                  }}
+                  className="px-3 py-2 bg-slate-900 hover:bg-slate-850 text-slate-200 border border-slate-750 rounded-xl text-xs font-mono font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm"
+                  title="Download Bet9ja template CSV"
+                >
+                  <Download className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="hidden sm:inline">Template</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    fetchAdminBet9jaPicks();
+                    triggerToast('Refreshed Bet9ja picks from database!', 'info');
+                  }}
+                  disabled={adminBet9jaLoading}
+                  className="p-2 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-750 rounded-xl text-xs transition cursor-pointer"
+                  title="Refresh from Database"
+                >
+                  <RefreshCw className={`w-4 h-4 text-emerald-400 ${adminBet9jaLoading ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Telemetry Metric Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="p-4 rounded-2xl bg-[#0B1120] border border-emerald-500/30 flex flex-col justify-between gap-3 shadow-xl">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-mono font-bold text-emerald-400 uppercase tracking-wider">
+                    Bet9ja Fixtures
+                  </span>
+                  <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                    <Layers className="w-4 h-4" />
+                  </div>
+                </div>
+                <div>
+                  <div className="text-2xl font-black text-white font-mono">
+                    {adminBet9jaPicks.length} Games
+                  </div>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    Active in weekly pool picks(Bet9ja)
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-[#0B1120] border border-amber-500/30 flex flex-col justify-between gap-3 shadow-xl">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-mono font-bold text-amber-400 uppercase tracking-wider">
+                    Bet9ja Bankers (NAP)
+                  </span>
+                  <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                    <Sparkles className="w-4 h-4" />
+                  </div>
+                </div>
+                <div>
+                  <div className="text-2xl font-black text-amber-400 font-mono">
+                    {adminBet9jaPicks.filter((p) => p.is_banker === true || p.banker === true || p.is_banker === 1 || p.banker === 1).length} Bankers
+                  </div>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    High-confidence draw candidates
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-[#0B1120] border border-blue-500/30 flex flex-col justify-between gap-3 shadow-xl">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-mono font-bold text-blue-400 uppercase tracking-wider">
+                    Average Draw (X) Odds
+                  </span>
+                  <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400">
+                    <Activity className="w-4 h-4" />
+                  </div>
+                </div>
+                <div>
+                  <div className="text-2xl font-black text-white font-mono">
+                    {(() => {
+                      const odds = adminBet9jaPicks
+                        .map((p) => Number(p.draw_x ?? p.draw))
+                        .filter((n) => !isNaN(n) && n > 0);
+                      if (odds.length === 0) return '3.20';
+                      return (odds.reduce((a, b) => a + b, 0) / odds.length).toFixed(2);
+                    })()}
+                  </div>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    Mean Bet9ja draw market price
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-[#0B1120] border border-emerald-500/30 flex flex-col justify-between gap-3 shadow-xl">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-mono font-bold text-emerald-400 uppercase tracking-wider">
+                    Target Table
+                  </span>
+                  <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                    <Database className="w-4 h-4" />
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-emerald-300 font-mono truncate" title="weekly pool picks(Bet9ja)">
+                    weekly pool picks(Bet9ja)
+                  </div>
+                  <button
+                    onClick={() => {
+                      setPoolPicksBookmaker('bet9ja');
+                      setShowPoolPicksCsvModal(true);
+                    }}
+                    className="mt-2 w-full py-1.5 px-3 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-mono font-black text-xs uppercase rounded-lg transition text-center cursor-pointer shadow-sm"
+                  >
+                    Upload CSV Now
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Active Fixtures Table List */}
+            <div className="bg-[#0B1120] border border-slate-800 rounded-2xl overflow-hidden flex flex-col shadow-xl">
+              <div className="p-3.5 bg-slate-900 border-b border-slate-800 flex items-center justify-between flex-wrap gap-2">
+                <span className="text-xs font-mono font-bold text-white flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                  <span>Bet9ja Pool Picks Table ({adminBet9jaPicks.length} Fixtures)</span>
+                </span>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      setPoolPicksBookmaker('bet9ja');
+                      setShowPoolPicksCsvModal(true);
+                    }}
+                    className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-mono font-black text-xs rounded-lg transition flex items-center gap-1.5 cursor-pointer shadow-sm"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Upload CSV</span>
+                  </button>
+                </div>
+              </div>
+
+              {adminBet9jaPicks.length === 0 ? (
+                <div className="p-12 text-center text-slate-400 font-mono text-xs flex flex-col items-center justify-center gap-3">
+                  <FileSpreadsheet className="w-8 h-8 text-slate-600" />
+                  <p>No fixtures currently found in Bet9ja pool picks table.</p>
+                  <button
+                    onClick={() => {
+                      setPoolPicksBookmaker('bet9ja');
+                      setShowPoolPicksCsvModal(true);
+                    }}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-mono font-black text-xs uppercase rounded-xl transition cursor-pointer flex items-center gap-2 shadow-md shadow-emerald-950/40"
+                  >
+                    <Upload className="w-4 h-4" />
+                    <span>Upload Bet9ja CSV to Populate Table</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="overflow-x-auto max-h-[60vh]">
+                  <table className="w-full text-left font-mono text-xs border-collapse">
+                    <thead className="bg-slate-950 border-b border-slate-800 text-slate-300 text-[11px] font-semibold sticky top-0">
+                      <tr>
+                        <th className="p-3 text-center w-14">pool</th>
+                        <th className="p-3 text-center">bet_code</th>
+                        <th className="p-3">home</th>
+                        <th className="p-3">away</th>
+                        <th className="p-3 text-center">home_win</th>
+                        <th className="p-3 text-center text-emerald-400 bg-emerald-950/30">draw_x</th>
+                        <th className="p-3 text-center">away_win</th>
+                        <th className="p-3 text-center">bet</th>
+                        <th className="p-3 text-center">status</th>
+                        <th className="p-3 text-center">kick_off</th>
+                        <th className="p-3 text-center">is_banker</th>
+                        <th className="p-3 text-center">week_no</th>
+                        <th className="p-3 text-center">bookmaker</th>
+                        <th className="p-3 text-right">actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60 font-mono text-xs">
+                      {adminBet9jaPicks.map((p, idx) => {
+                        const poolNum = p.pool_no ?? p.pool ?? idx + 1;
+                        const betCode = p.bet_code ?? p.betcode ?? '';
+                        const homeTeam = p.home ?? p.home_team ?? 'Home';
+                        const awayTeam = p.away ?? p.away_team ?? 'Away';
+                        const homeOdds = p.home_win !== undefined && p.home_win !== null && p.home_win !== '' ? Number(p.home_win).toString() : '2.48';
+                        const drawOdds = p.draw_x !== undefined && p.draw_x !== null && p.draw_x !== '' ? Number(p.draw_x).toString() : '3.7';
+                        const awayOdds = p.away_win !== undefined && p.away_win !== null && p.away_win !== '' ? Number(p.away_win).toString() : '2.7';
+                        const isBanker = Boolean(p.is_banker === true || p.is_banker === 'true' || p.banker === true || p.is_banker === 1 || p.banker === 1);
+                        const betTip = p.bet || 'X';
+                        const matchStatus = p.status || 'Saturday';
+                        const kickoff = p.kick_off ?? p.kickoff ?? '3:00 PM';
+                        const weekNo = p.week_no ?? p.week ?? 16;
+                        const bookie = p.bookmaker || 'bet9ja';
+
+                        return (
+                          <tr key={`adm_b9_${poolNum}_${idx}`} className="hover:bg-slate-900/40 transition">
+                            <td className="p-3 text-center font-bold text-slate-200">
+                              <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-slate-900 border border-slate-700/80 text-white font-mono text-xs">
+                                {poolNum}
+                              </span>
+                            </td>
+                            <td className="p-3 text-center font-bold text-emerald-400">
+                              <span className="px-2 py-0.5 rounded bg-emerald-950/40 border border-emerald-500/30">
+                                {betCode}
+                              </span>
+                            </td>
+                            <td className="p-3 text-white font-bold whitespace-nowrap">
+                              {homeTeam}
+                            </td>
+                            <td className="p-3 text-slate-300 font-bold whitespace-nowrap">
+                              {awayTeam}
+                            </td>
+                            <td className="p-3 text-center text-slate-300">
+                              {homeOdds}
+                            </td>
+                            <td className="p-3 text-center font-bold text-emerald-400 bg-emerald-950/20">
+                              {drawOdds}
+                            </td>
+                            <td className="p-3 text-center text-slate-300">
+                              {awayOdds}
+                            </td>
+                            <td className="p-3 text-center">
+                              <span className="px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-300 border border-yellow-500/40 font-bold text-[11px]">
+                                {betTip}
+                              </span>
+                            </td>
+                            <td className="p-3 text-center text-slate-300 whitespace-nowrap">
+                              {matchStatus}
+                            </td>
+                            <td className="p-3 text-center text-slate-300 whitespace-nowrap">
+                              {kickoff}
+                            </td>
+                            <td className="p-3 text-center whitespace-nowrap">
+                              {isBanker ? (
+                                <span className="inline-flex items-center gap-1 text-[10.5px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded border border-amber-500/40 font-black">
+                                  <Sparkles className="w-2.5 h-2.5 text-amber-400" />
+                                  <span>TRUE</span>
+                                </span>
+                              ) : (
+                                <span className="inline-block text-[10.5px] px-2 py-0.5 rounded bg-slate-900 text-slate-400 font-medium border border-slate-800">
+                                  FALSE
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-3 text-center text-slate-300 font-bold">
+                              {weekNo}
+                            </td>
+                            <td className="p-3 text-center whitespace-nowrap">
+                              <span className="px-2 py-0.5 rounded text-[10.5px] font-bold bg-emerald-950/60 text-emerald-300 border border-emerald-500/30">
+                                {bookie}
+                              </span>
+                            </td>
+                            <td className="p-3 text-right">
+                              <button
+                                onClick={async () => {
+                                  if (!window.confirm(`Delete Pool #${poolNum} (${homeTeam} vs ${awayTeam}) from Bet9ja?`)) return;
+                                  try {
+                                    const res = await fetch('/api/pool-picks/delete', {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({
+                                        bookmaker: 'bet9ja',
+                                        id: p.id,
+                                        pool_no: poolNum,
+                                        bet_code: betCode,
+                                        home: homeTeam,
+                                        away: awayTeam
+                                      })
+                                    });
+                                    const json = await res.json();
+                                    if (json.success) {
+                                      triggerToast(`Row #${poolNum} (${homeTeam} vs ${awayTeam}) deleted from Bet9ja.`, 'info');
+                                      let updatedList: any[] = [];
+                                      setAdminBet9jaPicks((prev) => {
+                                        updatedList = prev.filter((item) => {
+                                          if (p.id && item.id && item.id === p.id) return false;
+                                          const itemPool = item.pool_no ?? item.pool;
+                                          if (itemPool !== undefined && poolNum !== undefined && Number(itemPool) === Number(poolNum)) return false;
+                                          if (item.home === homeTeam && item.away === awayTeam) return false;
+                                          return true;
+                                        });
+                                        return updatedList;
+                                      });
+                                      try {
+                                        const stored = localStorage.getItem('fastpool_weekly_picks_bet9ja');
+                                        const baseArr = stored ? JSON.parse(stored) : updatedList;
+                                        const filtered = baseArr.filter((item: any) => {
+                                          if (p.id && item.id && item.id === p.id) return false;
+                                          const itemPool = item.pool_no ?? item.pool;
+                                          if (itemPool !== undefined && poolNum !== undefined && Number(itemPool) === Number(poolNum)) return false;
+                                          if (item.home === homeTeam && item.away === awayTeam) return false;
+                                          return true;
+                                        });
+                                        localStorage.setItem('fastpool_weekly_picks_bet9ja', JSON.stringify(filtered));
+                                      } catch (_) {}
+                                      window.dispatchEvent(
+                                        new CustomEvent('fastpool_pool_picks_updated', {
+                                          detail: { bookmaker: 'bet9ja', action: 'delete', pool_no: poolNum, picks: updatedList }
+                                        })
+                                      );
+                                    } else {
+                                      triggerToast(`Delete failed: ${json.error}`, 'error');
+                                    }
+                                  } catch (err: any) {
+                                    triggerToast(`Error: ${err.message}`, 'error');
+                                  }
+                                }}
+                                className="p-1.5 bg-rose-950 hover:bg-rose-900 text-rose-300 border border-rose-500/30 rounded-lg transition cursor-pointer"
+                                title="Delete Fixture"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* SECTION 3B: BETKING WEEKLY POOL PICKS & CSV MANAGEMENT */}
+        {/* ========================================================================= */}
+        {activeTab === 'betking_poolpicks' && (
+          <div className="flex flex-col gap-5 animate-fadeIn">
+            {/* Header & Controls */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-black text-white font-mono uppercase tracking-wide flex items-center gap-2">
+                    <FileSpreadsheet className="w-5 h-5 text-amber-400" />
+                    BetKing Weekly Pool Picks & CSV Console
+                  </h2>
+                  <span className="text-[10px] bg-blue-500/20 text-blue-300 font-mono font-bold px-2 py-0.5 rounded border border-blue-500/30">
+                    BETKING FEED
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 mt-0.5 font-mono">
+                  Batch upload and manage official BetKing booking codes, verified banker draws, and 1X2 coupon odds.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={() => {
+                    setPoolPicksBookmaker('betking');
+                    setShowPoolPicksCsvModal(true);
+                  }}
+                  className="px-4 py-2 bg-gradient-to-r from-blue-600 via-indigo-600 to-amber-500 hover:from-blue-500 text-white font-mono font-black text-xs uppercase tracking-wider rounded-xl transition flex items-center gap-2 shadow-lg shadow-blue-950/40 cursor-pointer active:scale-95"
+                >
+                  <Upload className="w-4 h-4" />
+                  <span>Upload BetKing CSV</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    const sampleHeaders = 'pool_no,bet_code,home,away,home_win,draw_x,away_win,bet,status,kick_off,week,is_banker,notes,league';
+                    const sampleRows = [
+                      '2,BK-2110,Everton,Crystal P.,2.23,3.40,3.35,X,Saturday,3:00 PM,7,TRUE,BetKing Premier League Banker Selection,Premier League',
+                      '14,BK-4565,Swansea,Sheff Utd.,2.57,3.30,2.70,X,Saturday,3:00 PM,7,FALSE,BetKing Championship Draw Pick,Championship',
+                      '19,BK-1072,Wimbledon,Reading,2.50,3.20,2.60,X,Saturday,3:00 PM,7,TRUE,BetKing League One Statistical Banker,League One',
+                      '20,BK-1221,Bromley,Cambridge U.,2.68,3.10,2.50,X,Saturday,3:00 PM,7,FALSE,BetKing Balanced Pairing,League One',
+                      '30,BK-1590,Walsall,Grimsby,2.57,3.05,2.63,X,EKO,12:30 PM,7,TRUE,BetKing Early Kick Off Alert,League Two',
+                      '34,BK-1641,Fleetwood,Gillingham,2.13,3.25,3.15,X,Saturday,3:00 PM,7,FALSE,BetKing League Two Match Pairing,League Two',
+                      '46,BK-1893,Parma,Cagliari,2.62,3.05,2.94,X,LKO,7:45 PM,7,FALSE,BetKing Late Kick Off Serie A Pick,Serie A'
+                    ];
+                    const blob = new Blob([[sampleHeaders, ...sampleRows].join('\n')], { type: 'text/csv;charset=utf-8;' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = 'FastPoolCodes_BetKing_PoolPicks_Template.csv';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    triggerToast('Downloaded BetKing sample CSV template!', 'success');
+                  }}
+                  className="px-3 py-2 bg-slate-900 hover:bg-slate-850 text-slate-200 border border-slate-750 rounded-xl text-xs font-mono font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm"
+                  title="Download BetKing template CSV"
+                >
+                  <Download className="w-3.5 h-3.5 text-amber-400" />
+                  <span className="hidden sm:inline">Template</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    fetchAdminBetKingPicks();
+                    triggerToast('Refreshed BetKing picks from database!', 'info');
+                  }}
+                  disabled={adminBetKingLoading}
+                  className="p-2 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-750 rounded-xl text-xs transition cursor-pointer"
+                  title="Refresh from Database"
+                >
+                  <RefreshCw className={`w-4 h-4 text-blue-400 ${adminBetKingLoading ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Telemetry Metric Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="p-4 rounded-2xl bg-[#0B1120] border border-blue-500/30 flex flex-col justify-between gap-3 shadow-xl">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-mono font-bold text-blue-400 uppercase tracking-wider">
+                    BetKing Fixtures
+                  </span>
+                  <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400">
+                    <Layers className="w-4 h-4" />
+                  </div>
+                </div>
+                <div>
+                  <div className="text-2xl font-black text-white font-mono">
+                    {adminBetKingPicks.length} Games
+                  </div>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    Active in weekly pool picks(betking)
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-[#0B1120] border border-amber-500/30 flex flex-col justify-between gap-3 shadow-xl">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-mono font-bold text-amber-400 uppercase tracking-wider">
+                    BetKing Bankers (NAP)
+                  </span>
+                  <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                    <Sparkles className="w-4 h-4" />
+                  </div>
+                </div>
+                <div>
+                  <div className="text-2xl font-black text-amber-400 font-mono">
+                    {adminBetKingPicks.filter((p) => p.is_banker === true || p.banker === true || p.is_banker === 1 || p.banker === 1).length} Bankers
+                  </div>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    High-confidence draw candidates
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-[#0B1120] border border-amber-500/30 flex flex-col justify-between gap-3 shadow-xl">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-mono font-bold text-amber-400 uppercase tracking-wider">
+                    Average Draw (X) Odds
+                  </span>
+                  <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                    <Activity className="w-4 h-4" />
+                  </div>
+                </div>
+                <div>
+                  <div className="text-2xl font-black text-white font-mono">
+                    {(() => {
+                      const odds = adminBetKingPicks
+                        .map((p) => Number(p.draw_x ?? p.draw))
+                        .filter((n) => !isNaN(n) && n > 0);
+                      if (odds.length === 0) return '3.20';
+                      return (odds.reduce((a, b) => a + b, 0) / odds.length).toFixed(2);
+                    })()}
+                  </div>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    Mean BetKing draw market price
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-[#0B1120] border border-blue-500/30 flex flex-col justify-between gap-3 shadow-xl">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-mono font-bold text-blue-400 uppercase tracking-wider">
+                    Target Table
+                  </span>
+                  <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400">
+                    <Database className="w-4 h-4" />
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-blue-300 font-mono truncate" title="weekly pool picks(betking)">
+                    weekly pool picks(betking)
+                  </div>
+                  <button
+                    onClick={() => {
+                      setPoolPicksBookmaker('betking');
+                      setShowPoolPicksCsvModal(true);
+                    }}
+                    className="mt-2 w-full py-1.5 px-3 bg-blue-600 hover:bg-blue-500 text-white font-mono font-black text-xs uppercase rounded-lg transition text-center cursor-pointer shadow-sm"
+                  >
+                    Upload CSV Now
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Active Fixtures Table List */}
+            <div className="bg-[#0B1120] border border-slate-800 rounded-2xl overflow-hidden flex flex-col shadow-xl">
+              <div className="p-3.5 bg-slate-900 border-b border-slate-800 flex items-center justify-between flex-wrap gap-2">
+                <span className="text-xs font-mono font-bold text-white flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
+                  <span>BetKing Pool Picks Table ({adminBetKingPicks.length} Fixtures)</span>
+                </span>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      setPoolPicksBookmaker('betking');
+                      setShowPoolPicksCsvModal(true);
+                    }}
+                    className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white font-mono font-black text-xs rounded-lg transition flex items-center gap-1.5 cursor-pointer shadow-sm"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Upload CSV</span>
+                  </button>
+                </div>
+              </div>
+
+              {adminBetKingPicks.length === 0 ? (
+                <div className="p-12 text-center text-slate-400 font-mono text-xs flex flex-col items-center justify-center gap-3">
+                  <FileSpreadsheet className="w-8 h-8 text-slate-600" />
+                  <p>No fixtures currently found in BetKing pool picks table.</p>
+                  <button
+                    onClick={() => {
+                      setPoolPicksBookmaker('betking');
+                      setShowPoolPicksCsvModal(true);
+                    }}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-mono font-black text-xs uppercase rounded-xl transition cursor-pointer flex items-center gap-2 shadow-md shadow-blue-950/40"
+                  >
+                    <Upload className="w-4 h-4" />
+                    <span>Upload BetKing CSV to Populate Table</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="overflow-x-auto max-h-[60vh]">
+                  <table className="w-full text-left font-mono text-xs border-collapse">
+                    <thead className="bg-slate-950 border-b border-slate-800 text-slate-300 text-[11px] font-semibold sticky top-0">
+                      <tr>
+                        <th className="p-3 text-center w-14">pool</th>
+                        <th className="p-3 text-center">bet_code</th>
+                        <th className="p-3">home</th>
+                        <th className="p-3">away</th>
+                        <th className="p-3 text-center">home_win</th>
+                        <th className="p-3 text-center text-amber-400 bg-amber-950/30">draw_x</th>
+                        <th className="p-3 text-center">away_win</th>
+                        <th className="p-3 text-center">bet</th>
+                        <th className="p-3 text-center">status</th>
+                        <th className="p-3 text-center">kick_off</th>
+                        <th className="p-3 text-center">is_banker</th>
+                        <th className="p-3 text-center">week_no</th>
+                        <th className="p-3 text-center">bookmaker</th>
+                        <th className="p-3 text-right">actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60 font-mono text-xs">
+                      {adminBetKingPicks.map((p, idx) => {
+                        const poolNum = p.pool_no ?? p.pool ?? idx + 1;
+                        const betCode = p.bet_code ?? p.betcode ?? '';
+                        const homeTeam = p.home ?? p.home_team ?? 'Home';
+                        const awayTeam = p.away ?? p.away_team ?? 'Away';
+                        const homeOdds = p.home_win !== undefined && p.home_win !== null && p.home_win !== '' ? Number(p.home_win).toString() : '2.48';
+                        const drawOdds = p.draw_x !== undefined && p.draw_x !== null && p.draw_x !== '' ? Number(p.draw_x).toString() : '3.7';
+                        const awayOdds = p.away_win !== undefined && p.away_win !== null && p.away_win !== '' ? Number(p.away_win).toString() : '2.7';
+                        const isBanker = Boolean(p.is_banker === true || p.is_banker === 'true' || p.banker === true || p.is_banker === 1 || p.banker === 1);
+                        const betTip = p.bet || 'X';
+                        const matchStatus = p.status || 'Saturday';
+                        const kickoff = p.kick_off ?? p.kickoff ?? '3:00 PM';
+                        const weekNo = p.week_no ?? p.week ?? 16;
+                        const bookie = p.bookmaker || 'betking';
+
+                        return (
+                          <tr key={`adm_bk_${poolNum}_${idx}`} className="hover:bg-slate-900/40 transition">
+                            <td className="p-3 text-center font-bold text-slate-200">
+                              <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-slate-900 border border-slate-700/80 text-white font-mono text-xs">
+                                {poolNum}
+                              </span>
+                            </td>
+                            <td className="p-3 text-center font-bold text-amber-300">
+                              <span className="px-2 py-0.5 rounded bg-blue-950/40 border border-blue-500/30">
+                                {betCode}
+                              </span>
+                            </td>
+                            <td className="p-3 text-white font-bold whitespace-nowrap">
+                              {homeTeam}
+                            </td>
+                            <td className="p-3 text-slate-300 font-bold whitespace-nowrap">
+                              {awayTeam}
+                            </td>
+                            <td className="p-3 text-center text-slate-300">
+                              {homeOdds}
+                            </td>
+                            <td className="p-3 text-center font-bold text-amber-400 bg-amber-950/20">
+                              {drawOdds}
+                            </td>
+                            <td className="p-3 text-center text-slate-300">
+                              {awayOdds}
+                            </td>
+                            <td className="p-3 text-center">
+                              <span className="px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-300 border border-yellow-500/40 font-bold text-[11px]">
+                                {betTip}
+                              </span>
+                            </td>
+                            <td className="p-3 text-center text-slate-300 whitespace-nowrap">
+                              {matchStatus}
+                            </td>
+                            <td className="p-3 text-center text-slate-300 whitespace-nowrap">
+                              {kickoff}
+                            </td>
+                            <td className="p-3 text-center whitespace-nowrap">
+                              {isBanker ? (
+                                <span className="inline-flex items-center gap-1 text-[10.5px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded border border-amber-500/40 font-black">
+                                  <Sparkles className="w-2.5 h-2.5 text-amber-400" />
+                                  <span>TRUE</span>
+                                </span>
+                              ) : (
+                                <span className="inline-block text-[10.5px] px-2 py-0.5 rounded bg-slate-900 text-slate-400 font-medium border border-slate-800">
+                                  FALSE
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-3 text-center text-slate-300 font-bold">
+                              {weekNo}
+                            </td>
+                            <td className="p-3 text-center whitespace-nowrap">
+                              <span className="px-2 py-0.5 rounded text-[10.5px] font-bold bg-blue-950/60 text-blue-300 border border-blue-500/30">
+                                {bookie}
+                              </span>
+                            </td>
+                            <td className="p-3 text-right">
+                              <button
+                                onClick={async () => {
+                                  if (!window.confirm(`Delete Pool #${poolNum} (${homeTeam} vs ${awayTeam}) from BetKing?`)) return;
+                                  try {
+                                    const res = await fetch('/api/pool-picks/delete', {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({
+                                        bookmaker: 'betking',
+                                        id: p.id,
+                                        pool_no: poolNum,
+                                        bet_code: betCode,
+                                        home: homeTeam,
+                                        away: awayTeam
+                                      })
+                                    });
+                                    const json = await res.json();
+                                    if (json.success) {
+                                      triggerToast(`Row #${poolNum} (${homeTeam} vs ${awayTeam}) deleted from BetKing.`, 'info');
+                                      let updatedList: any[] = [];
+                                      setAdminBetKingPicks((prev) => {
+                                        updatedList = prev.filter((item) => {
+                                          if (p.id && item.id && item.id === p.id) return false;
+                                          const itemPool = item.pool_no ?? item.pool;
+                                          if (itemPool !== undefined && poolNum !== undefined && Number(itemPool) === Number(poolNum)) return false;
+                                          if (item.home === homeTeam && item.away === awayTeam) return false;
+                                          return true;
+                                        });
+                                        return updatedList;
+                                      });
+                                      try {
+                                        const stored = localStorage.getItem('fastpool_weekly_picks_betking');
+                                        const baseArr = stored ? JSON.parse(stored) : updatedList;
+                                        const filtered = baseArr.filter((item: any) => {
+                                          if (p.id && item.id && item.id === p.id) return false;
+                                          const itemPool = item.pool_no ?? item.pool;
+                                          if (itemPool !== undefined && poolNum !== undefined && Number(itemPool) === Number(poolNum)) return false;
+                                          if (item.home === homeTeam && item.away === awayTeam) return false;
+                                          return true;
+                                        });
+                                        localStorage.setItem('fastpool_weekly_picks_betking', JSON.stringify(filtered));
+                                      } catch (_) {}
+                                      window.dispatchEvent(
+                                        new CustomEvent('fastpool_pool_picks_updated', {
+                                          detail: { bookmaker: 'betking', action: 'delete', pool_no: poolNum, picks: updatedList }
+                                        })
+                                      );
+                                    } else {
+                                      triggerToast(`Delete failed: ${json.error}`, 'error');
+                                    }
+                                  } catch (err: any) {
+                                    triggerToast(`Error: ${err.message}`, 'error');
+                                  }
+                                }}
+                                className="p-1.5 bg-rose-950 hover:bg-rose-900 text-rose-300 border border-rose-500/30 rounded-lg transition cursor-pointer"
+                                title="Delete Fixture"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -1982,22 +2952,165 @@ export default function AdminManagementPortal({
                   Live Scores Telemetry & Real-Time Match Feed
                 </h2>
                 <p className="text-xs text-slate-400 mt-0.5 font-mono">
-                  Monitor live match status, minute markers, scores, and manage live match comments.
+                  Monitor live match status, minute markers, scores, and upload CSV fixtures directly to the livescores table.
                 </p>
               </div>
 
-              <button
-                onClick={() => onNavigateToLiveScores && onNavigateToLiveScores()}
-                className="px-3.5 py-2 bg-pink-600 hover:bg-pink-500 text-white font-mono font-bold text-xs rounded-xl transition flex items-center gap-1.5 cursor-pointer shadow-md"
-              >
-                <ExternalLink className="w-4 h-4" />
-                <span>Open Live Scores Arena</span>
-              </button>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={() => setShowLiveScoresCsvModal(true)}
+                  className="px-3.5 py-2 bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 text-slate-950 font-mono font-black text-xs rounded-xl transition flex items-center gap-1.5 shadow-md cursor-pointer"
+                >
+                  <Upload className="w-4 h-4" />
+                  <span>Upload CSV to Live Scores</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    fetchAdminLiveScores();
+                    triggerToast('Refreshing live scores from database...', 'info');
+                  }}
+                  className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition cursor-pointer border border-slate-700"
+                  title="Refresh from Database"
+                >
+                  <RefreshCw className={`w-4 h-4 ${adminLiveScoresLoading ? 'animate-spin text-pink-400' : 'text-slate-300'}`} />
+                </button>
+
+                <button
+                  onClick={() => onNavigateToLiveScores && onNavigateToLiveScores()}
+                  className="px-3.5 py-2 bg-pink-600 hover:bg-pink-500 text-white font-mono font-bold text-xs rounded-xl transition flex items-center gap-1.5 cursor-pointer shadow-md"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  <span>Open Live Scores Arena</span>
+                </button>
+              </div>
             </div>
 
-            <div className="p-6 rounded-2xl bg-[#0B1120] border border-slate-800 text-center font-mono text-xs text-slate-400">
-              Live Scores telemetry is linked in real-time to the public socket feed and API matches registry.
+            {/* Quick summary stats bar */}
+            <div className="flex items-center justify-between p-4 rounded-xl bg-slate-900 border border-slate-800 font-mono text-xs text-slate-300 flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>Active Tracked Games in Database: <strong className="text-white">{adminLiveScores.length}</strong></span>
+              </div>
+              <span className="text-[11px] text-slate-400">
+                Data persists in Supabase <code className="text-emerald-400">livescores</code> table & syncs instantly to user UI
+              </span>
             </div>
+
+            {/* Live Scores Grid / Table */}
+            {adminLiveScores.length === 0 ? (
+              <div className="p-12 rounded-2xl bg-[#0B1120] border border-dashed border-slate-800 text-center font-mono text-xs text-slate-400 flex flex-col items-center gap-3">
+                <Tv className="w-8 h-8 text-slate-600" />
+                <p>No games currently recorded in the livescores table.</p>
+                <button
+                  onClick={() => setShowLiveScoresCsvModal(true)}
+                  className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl transition text-xs font-mono uppercase cursor-pointer flex items-center gap-2"
+                >
+                  <Upload className="w-4 h-4" />
+                  <span>Upload CSV to Populate Live Scores</span>
+                </button>
+              </div>
+            ) : (
+              <div className="bg-[#0B1120] border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+                <div className="overflow-x-auto max-h-[60vh]">
+                  <table className="w-full text-left font-mono text-xs border-collapse">
+                    <thead className="bg-slate-900 border-b border-slate-800 text-slate-400 text-[11px] uppercase tracking-wider font-black sticky top-0">
+                      <tr>
+                        <th className="p-3 text-center">#</th>
+                        <th className="p-3">Fixture</th>
+                        <th className="p-3 text-center">Score</th>
+                        <th className="p-3 text-center">Status</th>
+                        <th className="p-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60">
+                      {adminLiveScores.map((m: any, idx: number) => {
+                        const isLive = m.status === 'live';
+                        const isFinished = m.status === 'finished';
+                        const isPostponed = m.status === 'postponed';
+
+                        return (
+                          <tr key={`adm_ls_${m.id || idx}`} className="hover:bg-slate-900/60 transition">
+                            <td className="p-3 text-center text-slate-500 font-bold">
+                              {m.pool_number || idx + 1}
+                            </td>
+                            <td className="p-3 font-semibold text-white">
+                              {m.fixture || `${m.home_team} vs ${m.away_team}`}
+                            </td>
+                            <td className="p-3 text-center font-bold text-amber-400">
+                              {m.score || '0 - 0'}
+                            </td>
+                            <td className="p-3 text-center">
+                              <span
+                                className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                  isLive
+                                    ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30 animate-pulse'
+                                    : isFinished
+                                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                    : isPostponed
+                                    ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                                    : 'bg-slate-800 text-slate-400'
+                                }`}
+                              >
+                                {m.status}
+                              </span>
+                            </td>
+                            <td className="p-3 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                {!isLive && (
+                                  <button
+                                    onClick={async () => {
+                                      await fetch('/api/livescores/update-status', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ id: m.id, status: 'live' })
+                                      });
+                                      fetchAdminLiveScores();
+                                    }}
+                                    className="px-2 py-1 bg-emerald-950 hover:bg-emerald-900 text-emerald-400 rounded text-[10px] font-bold transition border border-emerald-500/30"
+                                  >
+                                    Live
+                                  </button>
+                                )}
+                                {!isFinished && (
+                                  <button
+                                    onClick={async () => {
+                                      await fetch('/api/livescores/update-status', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ id: m.id, status: 'finished' })
+                                      });
+                                      fetchAdminLiveScores();
+                                    }}
+                                    className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[10px] font-bold transition border border-slate-700"
+                                  >
+                                    FT
+                                  </button>
+                                )}
+                                <button
+                                  onClick={async () => {
+                                    await fetch('/api/livescores/delete', {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ id: m.id })
+                                    });
+                                    fetchAdminLiveScores();
+                                  }}
+                                  className="p-1 text-rose-400 hover:text-rose-300 rounded hover:bg-rose-950/40"
+                                  title="Delete match"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </main>
@@ -2370,6 +3483,43 @@ export default function AdminManagementPortal({
           </div>
         </div>
       )}
+
+      {/* LIVE SCORES CSV UPLOAD MODAL */}
+      <LiveScoresCsvModal
+        isOpen={showLiveScoresCsvModal}
+        onClose={() => setShowLiveScoresCsvModal(false)}
+        onUploadSuccess={(matches) => {
+          setAdminLiveScores(matches);
+          if (selectedTable === 'livescores' || selectedTable === 'live_scores') {
+            refreshTableRows(selectedTable);
+          }
+        }}
+        triggerToast={triggerToast}
+      />
+
+      {/* POOL PICKS CSV UPLOAD MODAL */}
+      <PoolPicksCsvModal
+        isOpen={showPoolPicksCsvModal}
+        onClose={() => setShowPoolPicksCsvModal(false)}
+        initialBookmaker={poolPicksBookmaker}
+        initialWeek={poolPicksActiveWeek}
+        onUploadSuccess={(picks, bm, table) => {
+          if (bm === 'bet9ja') {
+            setAdminBet9jaPicks(picks);
+            fetchAdminBet9jaPicks();
+          } else if (bm === 'betking') {
+            setAdminBetKingPicks(picks);
+            fetchAdminBetKingPicks();
+          }
+          if (selectedTable.toLowerCase().includes('pool') && selectedTable.toLowerCase().includes('pick')) {
+            refreshTableRows(selectedTable);
+          }
+          if (fetchRealSupabaseData) {
+            fetchRealSupabaseData(true);
+          }
+        }}
+        triggerToast={triggerToast}
+      />
     </div>
   );
 }
