@@ -195,6 +195,7 @@ export function normalizeWeeklyPickRecord(
     status,
     kick_off,
     week,
+    week_no: raw.week_no !== undefined ? raw.week_no : week,
     is_banker,
     notes,
     bookmaker
@@ -493,7 +494,7 @@ export const DEFAULT_BET9JA_WEEKLY_PICKS: WeeklyPoolPick[] = [
     is_banker: true,
     notes: '★ KEY BANKER COUPON CLOSER Bromley vs Salford'
   }
-].map((p) => ({ ...p, bookmaker: 'bet9ja' }));
+].map((p) => ({ ...p, bookmaker: 'bet9ja', week_no: p.week }));
 
 export const DEFAULT_BETKING_WEEKLY_PICKS: WeeklyPoolPick[] = [
   {
@@ -656,7 +657,7 @@ export const DEFAULT_BETKING_WEEKLY_PICKS: WeeklyPoolPick[] = [
     is_banker: true,
     notes: '★ KEY BANKER COUPON CLOSER BetKing Bromley vs Salford'
   }
-].map((p) => ({ ...p, bookmaker: 'betking' }));
+].map((p) => ({ ...p, bookmaker: 'betking', week_no: p.week }));
 
 export interface WeeklyPoolPicksTableProps {
   currentUser: User;
@@ -829,6 +830,221 @@ export default function WeeklyPoolPicksTable({
     });
     return Array.from(keys);
   }, [rawRows]);
+
+  // Dynamically determine the active database table columns to render strictly reflecting the database
+  const activeDbColumns = useMemo(() => {
+    const presentKeys = new Set<string>();
+    if (rawRows && rawRows.length > 0) {
+      rawRows.forEach((r) => {
+        if (r && typeof r === 'object') {
+          Object.keys(r).forEach((k) => presentKeys.add(k));
+        }
+      });
+    }
+
+    // Canonical priority ordering matching the Supabase database table schema:
+    // pool_no, pool, bet_code, home, away, home_win, draw_x, away_win, bet, status, kick_off, is_banker, week_no, week, bookmaker, notes, league
+    const canonicalOrder = [
+      'pool_no',
+      'pool',
+      'bet_code',
+      'home',
+      'away',
+      'home_win',
+      'draw_x',
+      'away_win',
+      'bet',
+      'status',
+      'kick_off',
+      'is_banker',
+      'week_no',
+      'week',
+      'bookmaker',
+      'notes',
+      'league'
+    ];
+
+    if (presentKeys.size > 0) {
+      const cols: string[] = [];
+      canonicalOrder.forEach((col) => {
+        if (presentKeys.has(col)) {
+          // If pool_no is present in DB, do not also show duplicate alias pool
+          if (col === 'pool' && presentKeys.has('pool_no')) return;
+          // If week_no is present in DB, do not also show duplicate alias week
+          if (col === 'week' && presentKeys.has('week_no')) return;
+          // Filter out internal system timestamps and raw id from coupon view
+          if (col === 'created_at' || col === 'updated_at' || col === 'id') return;
+          cols.push(col);
+        }
+      });
+      // Append any other user-defined columns in the database table
+      presentKeys.forEach((k) => {
+        if (!canonicalOrder.includes(k) && k !== 'created_at' && k !== 'updated_at' && k !== 'id') {
+          cols.push(k);
+        }
+      });
+      if (cols.length > 0) return cols;
+    }
+
+    // Default fallback to exact database table columns:
+    return [
+      'pool_no',
+      'bet_code',
+      'home',
+      'away',
+      'home_win',
+      'draw_x',
+      'away_win',
+      'bet',
+      'status',
+      'kick_off',
+      'is_banker',
+      'week_no',
+      'bookmaker'
+    ];
+  }, [rawRows]);
+
+  const renderCellContent = (
+    col: string,
+    pick: WeeklyPoolPick,
+    isCopied: boolean,
+    isBanker: boolean,
+    bookieName: string,
+    weekNum: any
+  ) => {
+    const val = (pick as any)[col];
+
+    switch (col) {
+      case 'id':
+        return (
+          <span className="text-slate-500 font-mono text-xs font-semibold">
+            {val !== undefined && val !== null ? String(val) : '—'}
+          </span>
+        );
+
+      case 'pool_no':
+      case 'pool':
+        return (
+          <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-slate-900 border border-slate-700/80 text-white font-mono text-xs font-bold shadow-xs">
+            {val ?? pick.pool_no ?? pick.pool}
+          </span>
+        );
+
+      case 'bet_code':
+      case 'code':
+        return val ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleCopyCode(String(val), pick.id);
+            }}
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-500/30 text-emerald-300 font-bold text-[11px] transition cursor-pointer"
+            title="Click to copy bet code"
+          >
+            <span>{String(val)}</span>
+            {isCopied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3 text-emerald-500/70" />}
+          </button>
+        ) : (
+          <span className="text-slate-600">—</span>
+        );
+
+      case 'home':
+        return (
+          <div className="flex items-center gap-1.5 whitespace-nowrap">
+            {isBanker && (
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" title="Banker Draw" />
+            )}
+            <span className="font-bold text-slate-100">{String(val || '')}</span>
+          </div>
+        );
+
+      case 'away':
+        return (
+          <span className="font-bold text-slate-200 whitespace-nowrap">{String(val || '')}</span>
+        );
+
+      case 'home_win':
+      case 'away_win':
+        return (
+          <span className="text-slate-300 font-mono">
+            {val !== undefined && val !== null && val !== '' && !isNaN(Number(val))
+              ? Number(val).toString()
+              : <span className="text-slate-600">—</span>}
+          </span>
+        );
+
+      case 'draw_x':
+      case 'x':
+        return (
+          <span className="font-bold text-emerald-400 font-mono">
+            {val !== undefined && val !== null && val !== '' && !isNaN(Number(val))
+              ? Number(val).toString()
+              : <span className="text-slate-600">—</span>}
+          </span>
+        );
+
+      case 'bet':
+        return (
+          <span className="inline-flex items-center justify-center px-2 py-0.5 rounded font-black text-[11px] bg-yellow-500/20 text-yellow-300 border border-yellow-500/40">
+            {val || 'X'}
+          </span>
+        );
+
+      case 'status':
+        return (
+          <span className="text-slate-300 whitespace-nowrap">
+            {val || 'Saturday'}
+          </span>
+        );
+
+      case 'kick_off':
+        return (
+          <span className="text-slate-300 whitespace-nowrap font-mono text-[11.5px]">
+            {val || '3:00 PM'}
+          </span>
+        );
+
+      case 'is_banker':
+      case 'banker':
+        return isBanker ? (
+          <span className="inline-flex items-center gap-1 text-[10.5px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-black border border-amber-500/40">
+            <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
+            <span>TRUE</span>
+          </span>
+        ) : (
+          <span className="inline-block text-[10.5px] px-2 py-0.5 rounded bg-slate-900 text-slate-400 font-medium border border-slate-800">
+            FALSE
+          </span>
+        );
+
+      case 'week_no':
+      case 'week':
+        return (
+          <span className="font-bold text-slate-300 font-mono">
+            {val ?? weekNum}
+          </span>
+        );
+
+      case 'bookmaker':
+        return (
+          <span className={`inline-block px-2 py-0.5 rounded text-[10.5px] font-bold whitespace-nowrap ${
+            String(val || bookieName).includes('bet9ja')
+              ? 'bg-emerald-950/60 text-emerald-300 border border-emerald-500/30'
+              : 'bg-blue-950/60 text-blue-300 border border-blue-500/30'
+          }`}>
+            {String(val || bookieName)}
+          </span>
+        );
+
+      default:
+        return (
+          <span className="text-slate-300 font-mono">
+            {val !== undefined && val !== null ? String(val) : <span className="text-slate-600">—</span>}
+          </span>
+        );
+    }
+  };
 
   // Brand visual accents
   const brandTheme = useMemo(() => {
@@ -2294,52 +2510,56 @@ export default function WeeklyPoolPicksTable({
                 <table className="w-full text-left border-collapse" id={`weekly-picks-${bookmakerBrand}-table`}>
                   <thead>
                     <tr className="bg-slate-950 border-b border-slate-800 text-[11px] font-mono text-slate-300">
-                      <th className="py-3 px-3 text-center w-14 font-semibold">pool</th>
-                      <th className="py-3 px-3 text-center font-semibold">bet_code</th>
-                      <th className="py-3 px-4 text-left font-semibold">home</th>
-                      <th className="py-3 px-4 text-left font-semibold">away</th>
-                      <th className="py-3 px-3 text-center font-semibold">home_win</th>
-                      <th className="py-3 px-3 text-center font-semibold text-emerald-400 bg-emerald-950/30">draw_x</th>
-                      <th className="py-3 px-3 text-center font-semibold">away_win</th>
-                      <th className="py-3 px-3 text-center font-semibold">bet</th>
-                      <th className="py-3 px-3 text-center font-semibold">status</th>
-                      <th className="py-3 px-3 text-center font-semibold">kick_off</th>
-                      <th className="py-3 px-3 text-center font-semibold">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const nextFilter = bankerFilter === 'bankers' ? 'all' : 'bankers';
-                            setBankerFilter(nextFilter);
-                            triggerToast(
-                              nextFilter === 'bankers'
-                                ? 'Filtered: Showing only confirmed Banker Draws (is_banker = TRUE).'
-                                : 'Showing all fixtures.',
-                              'info'
-                            );
-                          }}
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded cursor-pointer transition font-mono ${
-                            bankerFilter === 'bankers'
-                              ? 'bg-amber-400 text-slate-950 font-black shadow-sm ring-1 ring-amber-300'
-                              : 'text-slate-300 hover:text-amber-400 hover:bg-slate-900'
-                          }`}
-                          title="Click to toggle: Show only Banker fixtures where is_banker is TRUE"
-                        >
-                          <Star className={`w-3 h-3 ${bankerFilter === 'bankers' ? 'fill-slate-950 text-slate-950' : 'fill-amber-400 text-amber-400'}`} />
-                          <span>is_banker</span>
-                          {bankerFilter === 'bankers' && (
-                            <span className="text-[9px] bg-slate-950 text-amber-300 px-1 rounded font-black">TRUE</span>
-                          )}
-                        </button>
-                      </th>
-                      <th className="py-3 px-3 text-center font-semibold">week_no</th>
-                      <th className="py-3 px-3 text-center font-semibold">bookmaker</th>
-                      {isAdmin && <th className="py-3 px-3 text-center font-semibold">actions</th>}
+                      {activeDbColumns.map((col) => {
+                        const isDraw = col === 'draw_x' || col === 'x';
+                        const isBanker = col === 'is_banker' || col === 'banker';
+                        const isCenter = ['id', 'pool_no', 'pool', 'bet_code', 'code', 'home_win', 'draw_x', 'away_win', 'bet', 'status', 'kick_off', 'is_banker', 'week_no', 'week', 'bookmaker'].includes(col);
+
+                        return (
+                          <th
+                            key={col}
+                            className={`py-3 px-3 font-semibold ${isCenter ? 'text-center' : 'text-left'} ${
+                              isDraw ? 'text-emerald-400 bg-emerald-950/30' : ''
+                            } ${col === 'pool_no' || col === 'pool' ? 'w-16' : ''}`}
+                          >
+                            {isBanker ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const nextFilter = bankerFilter === 'bankers' ? 'all' : 'bankers';
+                                  setBankerFilter(nextFilter);
+                                  triggerToast(
+                                    nextFilter === 'bankers'
+                                      ? 'Filtered: Showing only confirmed Banker Draws (is_banker = TRUE).'
+                                      : 'Showing all fixtures.',
+                                    'info'
+                                  );
+                                }}
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded cursor-pointer transition font-mono ${
+                                  bankerFilter === 'bankers'
+                                    ? 'bg-amber-400 text-slate-950 font-black shadow-sm ring-1 ring-amber-300'
+                                    : 'text-slate-300 hover:text-amber-400 hover:bg-slate-900'
+                                }`}
+                                title="Click to toggle: Show only Banker fixtures where is_banker is TRUE"
+                              >
+                                <Star className={`w-3 h-3 ${bankerFilter === 'bankers' ? 'fill-slate-950 text-slate-950' : 'fill-amber-400 text-amber-400'}`} />
+                                <span>{col}</span>
+                                {bankerFilter === 'bankers' && (
+                                  <span className="text-[9px] bg-slate-950 text-amber-300 px-1 rounded font-black">TRUE</span>
+                                )}
+                              </button>
+                            ) : (
+                              <span>{col}</span>
+                            )}
+                          </th>
+                        );
+                      })}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60 text-xs font-mono">
                     {filteredPicks.length === 0 ? (
                       <tr>
-                        <td colSpan={isAdmin ? 14 : 13} className="py-12 text-center text-slate-400 font-mono">
+                        <td colSpan={activeDbColumns.length} className="py-12 text-center text-slate-400 font-mono">
                           <AlertCircle className="w-6 h-6 mx-auto text-slate-600 mb-2" />
                           <span>No matches found matching your current filter.</span>
                         </td>
@@ -2359,140 +2579,32 @@ export default function WeeklyPoolPicksTable({
                         return (
                           <tr
                             key={pick.id || idx}
-                            className={`hover:bg-slate-800/40 transition-colors ${
+                            onClick={() => {
+                              if (isAdmin) {
+                                setEditingPick(pick);
+                                setIsEditModalOpen(true);
+                              }
+                            }}
+                            className={`hover:bg-slate-800/40 transition-colors ${isAdmin ? 'cursor-pointer' : ''} ${
                               isBanker ? 'bg-amber-500/[0.04]' : idx % 2 === 0 ? 'bg-[#0F172A]' : 'bg-[#0B1322]'
                             }`}
+                            title={isAdmin ? "Admin: Click row to edit or delete" : undefined}
                           >
-                            {/* 1. pool */}
-                            <td className="py-3 px-3 text-center font-bold text-slate-200">
-                              <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-slate-900 border border-slate-700/80 text-white font-mono text-xs shadow-xs">
-                                {pick.pool_no}
-                              </span>
-                            </td>
+                            {activeDbColumns.map((col) => {
+                              const isCenter = ['id', 'pool_no', 'pool', 'bet_code', 'code', 'home_win', 'draw_x', 'away_win', 'bet', 'status', 'kick_off', 'is_banker', 'week_no', 'week', 'bookmaker'].includes(col);
+                              const isDraw = col === 'draw_x' || col === 'x';
 
-                            {/* 2. bet_code */}
-                            <td className="py-3 px-3 text-center">
-                              {pick.bet_code ? (
-                                <button
-                                  onClick={() => handleCopyCode(pick.bet_code, pick.id)}
-                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-500/30 text-emerald-300 font-bold text-[11px] transition cursor-pointer"
-                                  title="Click to copy bet code"
+                              return (
+                                <td
+                                  key={col}
+                                  className={`py-3 px-3 ${isCenter ? 'text-center' : 'text-left'} ${
+                                    isDraw ? 'bg-emerald-950/20 border-x border-emerald-500/10' : ''
+                                  }`}
                                 >
-                                  <span>{pick.bet_code}</span>
-                                  {isCopied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3 text-emerald-500/70" />}
-                                </button>
-                              ) : (
-                                <span className="text-slate-600">—</span>
-                              )}
-                            </td>
-
-                            {/* 3. home */}
-                            <td className="py-3 px-4 font-bold text-slate-100 whitespace-nowrap">
-                              <div className="flex items-center gap-1.5">
-                                {isBanker && (
-                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" title="Banker Draw" />
-                                )}
-                                <span>{pick.home}</span>
-                              </div>
-                            </td>
-
-                            {/* 4. away */}
-                            <td className="py-3 px-4 font-bold text-slate-200 whitespace-nowrap">
-                              <span>{pick.away}</span>
-                            </td>
-
-                            {/* 5. home_win */}
-                            <td className="py-3 px-3 text-center text-slate-300 font-mono">
-                              {pick.home_win !== undefined && pick.home_win !== null && pick.home_win !== '' && !isNaN(Number(pick.home_win))
-                                ? Number(pick.home_win).toString()
-                                : <span className="text-slate-600">—</span>}
-                            </td>
-
-                            {/* 6. draw_x */}
-                            <td className="py-3 px-3 text-center font-bold text-emerald-400 bg-emerald-950/20 border-x border-emerald-500/10 font-mono">
-                              {pick.draw_x !== undefined && pick.draw_x !== null && pick.draw_x !== '' && !isNaN(Number(pick.draw_x))
-                                ? Number(pick.draw_x).toString()
-                                : <span className="text-slate-600">—</span>}
-                            </td>
-
-                            {/* 7. away_win */}
-                            <td className="py-3 px-3 text-center text-slate-300 font-mono">
-                              {pick.away_win !== undefined && pick.away_win !== null && pick.away_win !== '' && !isNaN(Number(pick.away_win))
-                                ? Number(pick.away_win).toString()
-                                : <span className="text-slate-600">—</span>}
-                            </td>
-
-                            {/* 8. bet */}
-                            <td className="py-3 px-3 text-center">
-                              <span className="inline-flex items-center justify-center px-2 py-0.5 rounded font-black text-[11px] bg-yellow-500/20 text-yellow-300 border border-yellow-500/40">
-                                {pick.bet || 'X'}
-                              </span>
-                            </td>
-
-                            {/* 9. status */}
-                            <td className="py-3 px-3 text-center text-slate-300 whitespace-nowrap">
-                              {pick.status || 'Saturday'}
-                            </td>
-
-                            {/* 10. kick_off */}
-                            <td className="py-3 px-3 text-center text-slate-300 whitespace-nowrap">
-                              {pick.kick_off || '3:00 PM'}
-                            </td>
-
-                            {/* 11. is_banker */}
-                            <td className="py-3 px-3 text-center whitespace-nowrap">
-                              {isBanker ? (
-                                <span className="inline-flex items-center gap-1 text-[10.5px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-black border border-amber-500/40">
-                                  <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
-                                  <span>TRUE</span>
-                                </span>
-                              ) : (
-                                <span className="inline-block text-[10.5px] px-2 py-0.5 rounded bg-slate-900 text-slate-400 font-medium border border-slate-800">
-                                  FALSE
-                                </span>
-                              )}
-                            </td>
-
-                            {/* 12. week_no */}
-                            <td className="py-3 px-3 text-center font-bold text-slate-300">
-                              {weekNum}
-                            </td>
-
-                            {/* 13. bookmaker */}
-                            <td className="py-3 px-3 text-center whitespace-nowrap">
-                              <span className={`inline-block px-2 py-0.5 rounded text-[10.5px] font-bold ${
-                                bookieName.includes('bet9ja')
-                                  ? 'bg-emerald-950/60 text-emerald-300 border border-emerald-500/30'
-                                  : 'bg-blue-950/60 text-blue-300 border border-blue-500/30'
-                              }`}>
-                                {bookieName}
-                              </span>
-                            </td>
-
-                            {/* Admin Actions */}
-                            {isAdmin && (
-                              <td className="py-3 px-3 text-center">
-                                <div className="flex items-center justify-center gap-1.5">
-                                  <button
-                                    onClick={() => {
-                                      setEditingPick(pick);
-                                      setIsEditModalOpen(true);
-                                    }}
-                                    className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition cursor-pointer"
-                                    title="Edit Pick"
-                                  >
-                                    <Edit2 className="w-3 h-3" />
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeletePick(pick.id)}
-                                    className="p-1.5 rounded-lg bg-rose-950/40 hover:bg-rose-900/60 text-rose-400 hover:text-rose-200 transition cursor-pointer"
-                                    title="Delete Pick"
-                                  >
-                                    <Trash2 className="w-3 h-3" />
-                                  </button>
-                                </div>
-                              </td>
-                            )}
+                                  {renderCellContent(col, pick, isCopied, isBanker, bookieName, weekNum)}
+                                </td>
+                              );
+                            })}
                           </tr>
                         );
                       })
@@ -2504,11 +2616,18 @@ export default function WeeklyPoolPicksTable({
               {/* Table Footer with Trace */}
               <div className="p-4 bg-slate-950/90 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400 font-mono">
                 <div className="flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                  <span>FastPoolCodes Official Subscriber Feed • Week {activeWeekNumber} Verified {tableDisplayName} Matches</span>
+                  <Database className="w-4 h-4 text-emerald-400" />
+                  <span>
+                    Database Table: <code>{sourceTableName}</code> • Reflecting <strong>{activeDbColumns.length}</strong> columns: {activeDbColumns.join(', ')}
+                  </span>
                 </div>
-                <div className="text-[11px] text-slate-500">
-                  Licensed to: <span className="text-slate-300 font-bold">{currentUser.email || `@${currentUser.username}`}</span>
+                <div className="flex items-center gap-3 text-[11px] text-slate-500">
+                  {isAdmin && (
+                    <span className="text-amber-400 flex items-center gap-1 font-semibold">
+                      <Edit2 className="w-3 h-3" /> Click any row to edit
+                    </span>
+                  )}
+                  <span>Licensed to: <strong className="text-slate-300">{currentUser.email || `@${currentUser.username}`}</strong></span>
                 </div>
               </div>
             </div>
@@ -2742,23 +2861,41 @@ export default function WeeklyPoolPicksTable({
                 </label>
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsEditModalOpen(false);
-                    setEditingPick(null);
-                  }}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold font-mono transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl text-xs font-black uppercase tracking-wider transition shadow-lg shadow-emerald-950/40"
-                >
-                  Save Pick
-                </button>
+              <div className="flex items-center justify-between gap-3 pt-4 border-t border-slate-800">
+                {editingPick.id ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (editingPick.id) {
+                        handleDeletePick(editingPick.id);
+                        setIsEditModalOpen(false);
+                        setEditingPick(null);
+                      }
+                    }}
+                    className="px-3.5 py-2 bg-rose-950/60 hover:bg-rose-900 border border-rose-500/40 text-rose-300 rounded-xl text-xs font-bold font-mono transition cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete Pick</span>
+                  </button>
+                ) : <div />}
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsEditModalOpen(false);
+                      setEditingPick(null);
+                    }}
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold font-mono transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl text-xs font-black uppercase tracking-wider transition shadow-lg shadow-emerald-950/40 cursor-pointer"
+                  >
+                    Save Pick
+                  </button>
+                </div>
               </div>
             </form>
           </div>
