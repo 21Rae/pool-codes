@@ -963,6 +963,7 @@ export default function AdminManagementPortal({
   // =========================================================================
   const navTabs: { id: AdminSectionTab; label: string; icon: React.ReactNode; badge?: string }[] = [
     { id: 'overview', label: 'Admin Dashboard', icon: <Activity className="w-4 h-4 text-emerald-400" /> },
+    { id: 'admin_pdfs', label: 'Upload Bookmaker PDFs', icon: <UploadCloud className="w-4 h-4 text-emerald-400" /> },
     { id: 'db_explorer', label: 'Database Explorer & SQL', icon: <Database className="w-4 h-4 text-blue-400" />, badge: `${tablesList.length}` },
     { id: 'bet9ja_poolpicks', label: 'Bet9ja Pool Picks', icon: <FileSpreadsheet className="w-4 h-4 text-emerald-400" />, badge: `${adminBet9jaPicks.length}` },
     { id: 'betking_poolpicks', label: 'BetKing Pool Picks', icon: <FileSpreadsheet className="w-4 h-4 text-amber-400" />, badge: `${adminBetKingPicks.length}` },
@@ -1220,6 +1221,24 @@ export default function AdminManagementPortal({
                     </div>
                     <p className="text-[11px] text-slate-400 mt-0.5">
                       Upload CSV, verify 1X2 odds, and manage BetKing coupon table.
+                    </p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('admin_pdfs')}
+                  className="p-4 rounded-xl bg-gradient-to-br from-emerald-950/40 via-teal-950/30 to-slate-900/80 border border-emerald-500/40 hover:border-emerald-400 hover:bg-slate-900 transition flex items-center gap-3 cursor-pointer text-left group shadow-lg"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shrink-0 group-hover:scale-105 transition">
+                    <UploadCloud className="w-5 h-5 text-emerald-400" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-xs font-black text-white font-mono uppercase">Upload Bookmaker PDFs</h4>
+                      <span className="text-[9px] bg-emerald-500/20 text-emerald-300 font-mono font-black px-1.5 py-0.2 rounded border border-emerald-500/30">Storage Bucket</span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      Upload, activate, and manage official coupon PDF sheets for Bet9ja, BetKing, and others.
                     </p>
                   </div>
                 </button>
@@ -1612,6 +1631,15 @@ export default function AdminManagementPortal({
                 </button>
 
                 <button
+                  onClick={() => setActiveTab('admin_pdfs')}
+                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-emerald-400 border border-emerald-500/40 font-mono font-black text-xs uppercase tracking-wider rounded-xl transition flex items-center gap-2 cursor-pointer active:scale-95"
+                  title="Upload official Bet9ja PDF coupon"
+                >
+                  <UploadCloud className="w-4 h-4 text-emerald-400" />
+                  <span>Upload PDF Coupon</span>
+                </button>
+
+                <button
                   onClick={() => {
                     const sampleHeaders = 'pool_no,bet_code,home,away,home_win,draw_x,away_win,bet,status,kick_off,week,is_banker,notes,league';
                     const sampleRows = [
@@ -1981,6 +2009,15 @@ export default function AdminManagementPortal({
                 >
                   <Upload className="w-4 h-4" />
                   <span>Upload BetKing CSV</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('admin_pdfs')}
+                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-amber-400 border border-amber-500/40 font-mono font-black text-xs uppercase tracking-wider rounded-xl transition flex items-center gap-2 cursor-pointer active:scale-95"
+                  title="Upload official BetKing PDF coupon"
+                >
+                  <UploadCloud className="w-4 h-4 text-amber-400" />
+                  <span>Upload PDF Coupon</span>
                 </button>
 
                 <button
@@ -3111,6 +3148,20 @@ export default function AdminManagementPortal({
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* TAB 12: UPLOAD BOOKMAKER PDFS MANAGEMENT CONSOLE */}
+        {/* ========================================================================= */}
+        {activeTab === 'admin_pdfs' && (
+          <div className="flex flex-col gap-5 animate-fadeIn">
+            <AdminPdfUploadSection
+              currentUser={currentUser}
+              db={db}
+              onUpdateUploadedPdfs={onUpdateUploadedPdfs}
+              triggerToast={triggerToast}
+            />
           </div>
         )}
       </main>

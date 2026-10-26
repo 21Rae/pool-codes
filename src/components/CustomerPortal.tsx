@@ -61,7 +61,8 @@ import {
   Table,
   LayoutList,
   ShieldCheck,
-  Upload
+  Upload,
+  UploadCloud
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DatabaseState, User, SubscriptionPlan, UserSubscription, PoolCode, parseComponents } from '../types';
@@ -387,7 +388,7 @@ export default function CustomerPortal({
     );
   }
 
-  const [activeSubTab, setActiveSubTab] = useState<'dashboard' | 'picks' | 'picks_bet9ja' | 'picks_betking' | 'comparison' | 'streaming' | 'results' | 'subscription' | 'profile'>('dashboard');
+  const [activeSubTab, setActiveSubTab] = useState<'dashboard' | 'picks' | 'picks_bet9ja' | 'picks_betking' | 'comparison' | 'streaming' | 'results' | 'subscription' | 'profile' | 'admin_pdf_upload'>('dashboard');
 
   const [codeTypeFilter, setCodeTypeFilter] = useState<'all' | 'uk' | 'aussie' | 'international'>('all');
   const [bookmakerFilter, setBookmakerFilter] = useState<string>('all');
@@ -2185,6 +2186,29 @@ export default function CustomerPortal({
                     )}
                   </button>
 
+                  {/* ADMIN ONLY: UPLOAD BOOKMAKER PDF (MOBILE DRAWER) */}
+                  {currentUser?.role === 'admin' && (
+                    <button
+                      onClick={() => {
+                        setActiveSubTab('admin_pdf_upload');
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className={`flex items-center justify-between px-3.5 py-3 rounded-lg text-xs font-bold tracking-wide transition duration-150 ${
+                        activeSubTab === 'admin_pdf_upload'
+                          ? 'bg-gradient-to-r from-emerald-500/20 to-teal-500/10 text-emerald-300 border-l-4 border-emerald-400 pl-2.5'
+                          : 'hover:bg-slate-800/60 text-slate-400 hover:text-slate-100'
+                      }`}
+                    >
+                      <span className="flex items-center gap-3">
+                        <UploadCloud className="w-4 h-4 text-emerald-400" />
+                        <span>UPLOAD BOOKMAKER PDF</span>
+                      </span>
+                      <span className="text-[8.5px] bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 px-2 py-0.5 rounded font-black font-mono tracking-widest leading-none uppercase">
+                        ADMIN
+                      </span>
+                    </button>
+                  )}
+
                   {/* WEEKLY POOL PICKS (ALL / UK) */}
                   <button
                     onClick={() => {
@@ -2439,7 +2463,25 @@ export default function CustomerPortal({
               )}
             </button>
 
-
+            {/* ADMIN ONLY: UPLOAD BOOKMAKER PDF (DESKTOP SIDEBAR) */}
+            {currentUser?.role === 'admin' && (
+              <button
+                onClick={() => setActiveSubTab('admin_pdf_upload')}
+                className={`flex items-center justify-between px-3.5 py-3 rounded-lg text-xs font-bold tracking-wide transition duration-150 ${
+                  activeSubTab === 'admin_pdf_upload'
+                    ? 'bg-gradient-to-r from-emerald-500/20 to-teal-500/10 text-emerald-300 border-l-4 border-emerald-400 pl-2.5'
+                    : 'hover:bg-slate-800/60 text-slate-400 hover:text-slate-100'
+                }`}
+              >
+                <span className="flex items-center gap-3">
+                  <UploadCloud className="w-4 h-4 text-emerald-400" />
+                  <span>UPLOAD BOOKMAKER PDF</span>
+                </span>
+                <span className="text-[8.5px] bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 px-2 py-0.5 rounded font-black font-mono tracking-widest leading-none uppercase">
+                  ADMIN
+                </span>
+              </button>
+            )}
 
             <button
               onClick={() => setActiveSubTab('comparison')}
@@ -5150,6 +5192,7 @@ export default function CustomerPortal({
                     activeWeekNumber={activeWeekNumber}
                     triggerToast={triggerToast}
                     onUpgradeClick={() => setActiveSubTab('subscription')}
+                    onNavigateToPdfUpload={() => setActiveSubTab('admin_pdf_upload')}
                     tableName="weekly pool picks (Bet9ja)"
                     tableDisplayName="Weekly Pool Picks (Bet9ja)"
                     bookmakerBrand="bet9ja"
@@ -5168,6 +5211,7 @@ export default function CustomerPortal({
                     activeWeekNumber={activeWeekNumber}
                     triggerToast={triggerToast}
                     onUpgradeClick={() => setActiveSubTab('subscription')}
+                    onNavigateToPdfUpload={() => setActiveSubTab('admin_pdf_upload')}
                     tableName="weekly pool picks(betking)"
                     tableDisplayName="Weekly Pool Picks (BetKing)"
                     bookmakerBrand="betking"
@@ -5186,6 +5230,7 @@ export default function CustomerPortal({
                     activeWeekNumber={activeWeekNumber}
                     triggerToast={triggerToast}
                     onUpgradeClick={() => setActiveSubTab('subscription')}
+                    onNavigateToPdfUpload={() => setActiveSubTab('admin_pdf_upload')}
                     tableName="weekly pool picks"
                     tableDisplayName="Weekly Pool Picks"
                     bookmakerBrand="general"

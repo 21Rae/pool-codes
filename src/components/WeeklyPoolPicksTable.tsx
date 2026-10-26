@@ -40,7 +40,8 @@ import {
   Archive,
   Eye,
   Share2,
-  RotateCcw
+  RotateCcw,
+  UploadCloud
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { User, SubscriptionPlan, PoolPicksHistoryEdition } from '../types';
@@ -670,6 +671,7 @@ export interface WeeklyPoolPicksTableProps {
   tableName?: string;
   tableDisplayName?: string;
   bookmakerBrand?: 'bet9ja' | 'betking' | 'general';
+  onNavigateToPdfUpload?: () => void;
 }
 
 export default function WeeklyPoolPicksTable({
@@ -682,7 +684,8 @@ export default function WeeklyPoolPicksTable({
   onUpgradeClick,
   tableName = 'weekly pool picks',
   tableDisplayName = 'Weekly Pool Picks',
-  bookmakerBrand = 'general'
+  bookmakerBrand = 'general',
+  onNavigateToPdfUpload
 }: WeeklyPoolPicksTableProps) {
   // Select appropriate default dataset based on bookmaker
   const defaultDataset = useMemo(() => {
@@ -1982,6 +1985,20 @@ export default function WeeklyPoolPicksTable({
                 >
                   <Upload className="w-3.5 h-3.5 text-emerald-400" />
                   <span className="hidden md:inline">Upload CSV</span>
+                </button>
+                <button
+                  onClick={() => {
+                    if (onNavigateToPdfUpload) {
+                      onNavigateToPdfUpload();
+                    } else {
+                      triggerToast('Bookmaker PDF Upload console is available in the admin navigation.', 'info');
+                    }
+                  }}
+                  className="px-2.5 py-1.5 bg-teal-500/20 hover:bg-teal-500/30 border border-teal-500/40 text-teal-300 rounded-xl text-xs font-mono font-bold transition flex items-center gap-1 cursor-pointer active:scale-95 shadow-sm"
+                  title="Upload official Bookmaker PDF coupons (Bet9ja, BetKing, SportyBet, etc.)"
+                >
+                  <UploadCloud className="w-3.5 h-3.5 text-teal-400" />
+                  <span className="hidden md:inline">Upload PDF</span>
                 </button>
                 <button
                   onClick={() => setShowSaveHistoryModal(true)}
