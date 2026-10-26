@@ -192,6 +192,19 @@ export default function AdminManagementPortal({
   const [adminBet9jaPicks, setAdminBet9jaPicks] = useState<any[]>([]);
   const [adminBet9jaLoading, setAdminBet9jaLoading] = useState(false);
 
+  // Helper to sort picks descending by pool and week
+  const sortPicksDescending = (items: any[]) => {
+    if (!Array.isArray(items)) return [];
+    return [...items].sort((a, b) => {
+      const poolA = Number(a.pool_no ?? a.pool ?? 0) || 0;
+      const poolB = Number(b.pool_no ?? b.pool ?? 0) || 0;
+      if (poolB !== poolA) return poolB - poolA;
+      const weekA = Number(String(a.week_no ?? a.week ?? 0).replace(/[^0-9]/g, '')) || 0;
+      const weekB = Number(String(b.week_no ?? b.week ?? 0).replace(/[^0-9]/g, '')) || 0;
+      return weekB - weekA;
+    });
+  };
+
   const fetchAdminBet9jaPicks = async () => {
     setAdminBet9jaLoading(true);
     try {
@@ -199,13 +212,13 @@ export default function AdminManagementPortal({
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
-          setAdminBet9jaPicks(json.data);
+          setAdminBet9jaPicks(sortPicksDescending(json.data));
           return;
         }
       }
       const stored = localStorage.getItem('fastpool_weekly_picks_bet9ja');
       if (stored) {
-        setAdminBet9jaPicks(JSON.parse(stored));
+        setAdminBet9jaPicks(sortPicksDescending(JSON.parse(stored)));
       }
     } catch (_) {
     } finally {
@@ -224,13 +237,13 @@ export default function AdminManagementPortal({
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
-          setAdminBetKingPicks(json.data);
+          setAdminBetKingPicks(sortPicksDescending(json.data));
           return;
         }
       }
       const stored = localStorage.getItem('fastpool_weekly_picks_betking');
       if (stored) {
-        setAdminBetKingPicks(JSON.parse(stored));
+        setAdminBetKingPicks(sortPicksDescending(JSON.parse(stored)));
       }
     } catch (_) {
     } finally {

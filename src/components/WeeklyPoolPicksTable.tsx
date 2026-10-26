@@ -758,7 +758,8 @@ export default function WeeklyPoolPicksTable({
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [betFilter, setBetFilter] = useState<string>('all');
   const [bankerFilter, setBankerFilter] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<'pool_asc' | 'pool_desc' | 'draw_desc' | 'draw_asc'>('pool_asc');
+  const [weekFilter, setWeekFilter] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<'pool_desc' | 'pool_asc' | 'week_desc' | 'week_asc' | 'draw_desc' | 'draw_asc'>('pool_desc');
   const [copiedCodeId, setCopiedCodeId] = useState<string | number | null>(null);
   const [isCopiedAll, setIsCopiedAll] = useState(false);
   const [selectedPick, setSelectedPick] = useState<WeeklyPoolPick | null>(null);
@@ -833,6 +834,52 @@ export default function WeeklyPoolPicksTable({
     });
     return Array.from(keys);
   }, [rawRows]);
+
+  // Distinct available weeks across current effective picks and raw rows (sorted descending)
+  const availableWeeks = useMemo(() => {
+    const weeksSet = new Set<string>();
+
+    picks.forEach((p) => {
+      const rawW = p.week_no ?? p.week ?? (p as any).week_number ?? (p as any).weekno;
+      if (rawW !== undefined && rawW !== null && String(rawW).trim() !== '' && String(rawW).toUpperCase() !== 'NULL') {
+        const clean = String(rawW).replace(/^week\s*/i, '').trim();
+        if (clean) weeksSet.add(clean);
+      }
+    });
+
+    if (Array.isArray(rawRows)) {
+      rawRows.forEach((r) => {
+        const rawW = r?.week_no ?? r?.weekno ?? r?.week_number ?? r?.weekNumber ?? r?.week;
+        if (rawW !== undefined && rawW !== null && String(rawW).trim() !== '' && String(rawW).toUpperCase() !== 'NULL') {
+          const clean = String(rawW).replace(/^week\s*/i, '').trim();
+          if (clean) weeksSet.add(clean);
+        }
+      });
+    }
+
+    if (defaultDataset && defaultDataset.length > 0) {
+      defaultDataset.forEach((p) => {
+        const rawW = p.week_no ?? p.week ?? (p as any).week_number ?? (p as any).weekno;
+        if (rawW !== undefined && rawW !== null && String(rawW).trim() !== '' && String(rawW).toUpperCase() !== 'NULL') {
+          const clean = String(rawW).replace(/^week\s*/i, '').trim();
+          if (clean) weeksSet.add(clean);
+        }
+      });
+    }
+
+    if (activeWeekNumber && String(activeWeekNumber).toUpperCase() !== 'NULL') {
+      const clean = String(activeWeekNumber).replace(/^week\s*/i, '').trim();
+      if (clean) weeksSet.add(clean);
+    }
+
+    // Sort weeks descending (e.g. 18, 17, 16...)
+    return Array.from(weeksSet).sort((a, b) => {
+      const numA = Number(a);
+      const numB = Number(b);
+      if (!isNaN(numA) && !isNaN(numB)) return numB - numA;
+      return b.localeCompare(a);
+    });
+  }, [picks, rawRows, defaultDataset, activeWeekNumber]);
 
   // Dynamically determine the active database table columns to render strictly reflecting the database
   const activeDbColumns = useMemo(() => {
@@ -1214,8 +1261,8 @@ export default function WeeklyPoolPicksTable({
           const mapped: WeeklyPoolPick[] = finalRows.map((r: any, idx: number) =>
             normalizeWeeklyPickRecord(r, idx, activeWeekNumber, bookmakerBrand)
           );
-          // Default sort by pool ascending
-          mapped.sort((a, b) => a.pool_no - b.pool_no);
+          // Default sort by pool descending for users
+          mapped.sort((a, b) => b.pool_no - a.pool_no);
           setPicks(mapped);
           setSourceTableName(usedTable);
           setLastSyncTime(new Date().toLocaleTimeString());
@@ -1690,6 +1737,18 @@ export default function WeeklyPoolPicksTable({
     triggerToast(`Archived Week ${weekNum} Pool Picks into History!`, 'success');
   };
 
+  // Helper to extract numeric week from pick
+  const getPickWeekNumber = useCallback((p: WeeklyPoolPick | any): number => {
+    if (!p) return 0;
+    const rawW = p.week_no ?? p.week ?? p.week_number ?? p.weekno;
+    if (rawW !== undefined && rawW !== null) {
+      const clean = String(rawW).replace(/[^0-9]/g, '');
+      const num = Number(clean);
+      if (!isNaN(num) && num > 0) return num;
+    }
+    return 0;
+  }, []);
+
   // Filter & Sort for Standard Sheet View
   const filteredPicks = useMemo(() => {
     let list = [...effectivePicks];
@@ -1730,26 +1789,94 @@ export default function WeeklyPoolPicksTable({
       });
     }
 
+    // Filter by Week Number if selected
+    if (weekFilter !== 'all') {
+      list = list.filter((p) => {
+        const rawW = p.week_no ?? p.week ?? (p as any).week_number ?? (p as any).weekno;
+        const cleanW = String(rawW ?? '').replace(/^week\s*/i, '').trim();
+        return cleanW === String(weekFilter).replace(/^week\s*/i, '').trim();
+      });
+    }
+
+    // Sort order (default: descending)
     list.sort((a, b) => {
-      if (sortBy === 'pool_asc') return a.pool_no - b.pool_no;
-      if (sortBy === 'pool_desc') return b.pool_no - a.pool_no;
-      if (sortBy === 'draw_desc') return Number(b.draw_x) - Number(a.draw_x);
-      if (sortBy === 'draw_asc') return Number(a.draw_x) - Number(b.draw_x);
+      const poolA = Number(a.pool_no) || 0;
+      const poolB = Number(b.pool_no) || 0;
+      const weekA = getPickWeekNumber(a);
+      const weekB = getPickWeekNumber(b);
+
+      if (sortBy === 'pool_desc') {
+        if (poolB !== poolA) return poolB - poolA;
+        return weekB - weekA;
+      }
+      if (sortBy === 'pool_asc') {
+        if (poolA !== poolB) return poolA - poolB;
+        return weekB - weekA;
+      }
+      if (sortBy === 'week_desc') {
+        if (weekB !== weekA) return weekB - weekA;
+        return poolB - poolA;
+      }
+      if (sortBy === 'week_asc') {
+        if (weekA !== weekB) return weekA - weekB;
+        return poolB - poolA;
+      }
+      if (sortBy === 'draw_desc') return (Number(b.draw_x) || 0) - (Number(a.draw_x) || 0);
+      if (sortBy === 'draw_asc') return (Number(a.draw_x) || 0) - (Number(b.draw_x) || 0);
       return 0;
     });
 
     return list;
-  }, [effectivePicks, searchTerm, statusFilter, betFilter, bankerFilter, sortBy]);
+  }, [effectivePicks, searchTerm, statusFilter, betFilter, bankerFilter, weekFilter, sortBy, getPickWeekNumber]);
 
-  // Filter for All Columns Grid View
+  // Filter & Sort for All Columns Grid View
   const filteredRawRows = useMemo(() => {
-    if (!searchTerm.trim()) return rawRows;
-    const q = searchTerm.toLowerCase().trim();
-    return rawRows.filter((r) => {
-      if (!r || typeof r !== 'object') return false;
-      return Object.values(r).some((v) => String(v).toLowerCase().includes(q));
+    let list = Array.isArray(rawRows) ? [...rawRows] : [];
+    if (searchTerm.trim()) {
+      const q = searchTerm.toLowerCase().trim();
+      list = list.filter((r) => {
+        if (!r || typeof r !== 'object') return false;
+        return Object.values(r).some((v) => String(v).toLowerCase().includes(q));
+      });
+    }
+
+    if (weekFilter !== 'all') {
+      list = list.filter((r) => {
+        const rawW = r?.week_no ?? r?.weekno ?? r?.week_number ?? r?.weekNumber ?? r?.week;
+        const cleanW = String(rawW ?? '').replace(/^week\s*/i, '').trim();
+        return cleanW === String(weekFilter).replace(/^week\s*/i, '').trim();
+      });
+    }
+
+    list.sort((a, b) => {
+      const poolA = Number(a?.pool_no ?? a?.pool ?? 0) || 0;
+      const poolB = Number(b?.pool_no ?? b?.pool ?? 0) || 0;
+      const rawWA = a?.week_no ?? a?.weekno ?? a?.week_number ?? a?.week;
+      const rawWB = b?.week_no ?? b?.weekno ?? b?.week_number ?? b?.week;
+      const weekA = Number(String(rawWA || 0).replace(/[^0-9]/g, '')) || 0;
+      const weekB = Number(String(rawWB || 0).replace(/[^0-9]/g, '')) || 0;
+
+      if (sortBy === 'pool_desc') {
+        if (poolB !== poolA) return poolB - poolA;
+        return weekB - weekA;
+      }
+      if (sortBy === 'pool_asc') {
+        if (poolA !== poolB) return poolA - poolB;
+        return weekB - weekA;
+      }
+      if (sortBy === 'week_desc') {
+        if (weekB !== weekA) return weekB - weekA;
+        return poolB - poolA;
+      }
+      if (sortBy === 'week_asc') {
+        if (weekA !== weekB) return weekA - weekB;
+        return poolB - poolA;
+      }
+      return 0;
     });
-  }, [rawRows, searchTerm]);
+
+    return list;
+  }, [rawRows, searchTerm, weekFilter, sortBy]);
 
   // Admin save pick handler
   const handleSavePick = async (e: React.FormEvent) => {
@@ -1827,6 +1954,8 @@ export default function WeeklyPoolPicksTable({
     if (!window.confirm(`Reset table to official Week ${activeWeekNumber} default picks for ${tableDisplayName}?`)) return;
     setPicks(defaultDataset);
     setRawRows(defaultDataset);
+    setWeekFilter('all');
+    setSortBy('pool_desc');
     localStorage.setItem(storageKey, JSON.stringify(defaultDataset));
     triggerToast(`Reset to official Week ${activeWeekNumber} ${tableDisplayName}.`, 'info');
   };
@@ -2093,27 +2222,6 @@ export default function WeeklyPoolPicksTable({
                 </button>
               )}
 
-              {/* Search Fixtures */}
-              <div className="relative min-w-[150px] sm:min-w-[200px]">
-                <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Filter fixtures..."
-                  className="w-full pl-8 pr-6 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none transition font-mono"
-                />
-                {searchTerm && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchTerm('')}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                )}
-              </div>
-
               {/* Bankers Only Toggle */}
               <button
                 type="button"
@@ -2143,36 +2251,49 @@ export default function WeeklyPoolPicksTable({
                 </span>
               </button>
 
-              {/* Match Day Filter */}
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="shrink-0 bg-slate-950 border border-slate-800 text-xs text-slate-300 font-mono px-2.5 py-1.5 rounded-lg focus:outline-none cursor-pointer"
-              >
-                <option value="all">All Match Days</option>
-                <option value="saturday">Saturday</option>
-                <option value="eko">Early Kick-off (EKO)</option>
-                <option value="lko">Late Kick-off (LKO)</option>
-                <option value="sunday">Sunday</option>
-              </select>
+              {/* Week Number Filter / Selector Dropdown */}
+              <div className="flex items-center gap-1 shrink-0">
+                <select
+                  value={weekFilter}
+                  onChange={(e) => {
+                    const selected = e.target.value;
+                    setWeekFilter(selected);
+                    if (selected !== 'all') {
+                      triggerToast(`Filtered to Week ${selected} pool picks.`, 'info');
+                    } else {
+                      triggerToast('Showing pool picks across all weeks.', 'info');
+                    }
+                  }}
+                  className={`shrink-0 border text-xs font-mono px-2.5 py-1.5 rounded-lg focus:outline-none cursor-pointer transition font-bold ${
+                    weekFilter !== 'all'
+                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/60 ring-1 ring-amber-400/40 shadow-sm'
+                      : 'bg-slate-950 text-slate-300 border-slate-800 hover:border-slate-700'
+                  }`}
+                  title="Filter / Select by Week Number"
+                >
+                  <option value="all">All Weeks ({availableWeeks.length})</option>
+                  {availableWeeks.map((wk) => (
+                    <option key={wk} value={wk}>
+                      Week {wk}
+                    </option>
+                  ))}
+                </select>
+                {weekFilter !== 'all' && (
+                  <button
+                    type="button"
+                    onClick={() => setWeekFilter('all')}
+                    className="p-1 rounded bg-slate-800 text-slate-400 hover:text-white transition"
+                    title="Clear week filter"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
             </div>
 
-            {/* Right Group: View Mode Toggle, Sort, Reset */}
-            <div className="flex items-center gap-2 flex-wrap shrink-0">
-
-              {/* Sort Dropdown */}
-              <select
-                value={sortBy}
-                onChange={(e: any) => setSortBy(e.target.value)}
-                className="bg-slate-950 border border-slate-800 text-xs text-slate-300 font-mono px-2.5 py-1.5 rounded-lg focus:outline-none cursor-pointer"
-              >
-                <option value="pool_asc">Pool # (1 → 49)</option>
-                <option value="pool_desc">Pool # (49 → 1)</option>
-                <option value="draw_desc">Draw Odds (High → Low)</option>
-                <option value="draw_asc">Draw Odds (Low → High)</option>
-              </select>
-
-              {isAdmin && (
+            {/* Right Group: Admin Reset */}
+            {isAdmin && (
+              <div className="flex items-center gap-2 flex-wrap shrink-0">
                 <button
                   type="button"
                   onClick={handleResetToDefaults}
@@ -2181,8 +2302,8 @@ export default function WeeklyPoolPicksTable({
                 >
                   Reset
                 </button>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         )}
       </div>
