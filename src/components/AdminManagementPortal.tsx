@@ -192,16 +192,16 @@ export default function AdminManagementPortal({
   const [adminBet9jaPicks, setAdminBet9jaPicks] = useState<any[]>([]);
   const [adminBet9jaLoading, setAdminBet9jaLoading] = useState(false);
 
-  // Helper to sort picks descending by pool and week
+  // Helper to sort picks descending by week and pool
   const sortPicksDescending = (items: any[]) => {
     if (!Array.isArray(items)) return [];
     return [...items].sort((a, b) => {
-      const poolA = Number(a.pool_no ?? a.pool ?? 0) || 0;
-      const poolB = Number(b.pool_no ?? b.pool ?? 0) || 0;
-      if (poolB !== poolA) return poolB - poolA;
       const weekA = Number(String(a.week_no ?? a.week ?? 0).replace(/[^0-9]/g, '')) || 0;
       const weekB = Number(String(b.week_no ?? b.week ?? 0).replace(/[^0-9]/g, '')) || 0;
-      return weekB - weekA;
+      if (weekB !== weekA) return weekB - weekA;
+      const poolA = Number(a.pool_no ?? a.pool ?? 0) || 0;
+      const poolB = Number(b.pool_no ?? b.pool ?? 0) || 0;
+      return poolB - poolA;
     });
   };
 
