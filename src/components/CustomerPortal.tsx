@@ -2321,30 +2321,57 @@ export default function CustomerPortal({
                     <span>USER PROFILE</span>
                   </button>
 
-                  {/* Mobile Contact Us Shortcut Card */}
-                  <div className="mt-4 p-3 bg-emerald-950/30 border border-emerald-500/20 rounded-xl flex flex-col gap-2">
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                      <span className="text-[9px] font-mono font-bold text-emerald-400 tracking-wider uppercase">CONTACT FASTPOOLCODES</span>
+                  {/* Mobile Community & Contact Us Card */}
+                  <div className="mt-4 p-3 bg-emerald-950/40 border border-emerald-500/30 rounded-xl flex flex-col gap-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <span className="text-[9px] font-mono font-bold text-emerald-400 tracking-wider uppercase">COMMUNITY & SUPPORT</span>
+                      </div>
+                      <span className="text-[9px] bg-emerald-500/20 text-emerald-300 font-bold px-1.5 py-0.5 rounded">Verified</span>
                     </div>
-                    <p className="text-[10px] text-slate-400 leading-normal">
-                      Get in touch with our forecasting desk, 24/7 customer support, and enquiries team.
+                    <p className="text-[10px] text-slate-300 leading-normal">
+                      Join our official channels for live draw sheets, coupons, fixtures, and 24/7 assistance.
                     </p>
-                    <a
-                      href="#contact"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setIsMobileMenuOpen(false);
-                        if (onNavigateToContact) {
-                          onNavigateToContact();
-                        } else if (onNavigateToAbout) {
-                          onNavigateToAbout();
-                        }
-                      }}
-                      className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg text-[10px] font-black bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition shadow-sm cursor-pointer"
-                    >
-                      <span>📞 CONTACT US</span>
-                    </a>
+                    <div className="flex flex-col gap-1.5">
+                      <a
+                        href="https://whatsapp.com/channel/0029VanbsS4EawdxbTTkgc3D"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full flex items-center justify-center gap-2 py-2 rounded-lg text-[11px] font-black bg-[#25D366] hover:bg-[#20ba59] text-white transition shadow-sm cursor-pointer"
+                      >
+                        <svg className="w-3.5 h-3.5 fill-current shrink-0" viewBox="0 0 24 24">
+                          <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91C2.13 13.66 2.59 15.36 3.45 16.86L2.05 22L7.3 20.62C8.75 21.41 10.38 21.83 12.04 21.83C17.5 21.83 21.95 17.38 21.95 11.92C21.95 9.27 20.92 6.78 19.05 4.91C17.18 3.03 14.69 2 12.04 2ZM12.05 3.67C14.25 3.67 16.31 4.53 17.87 6.09C19.42 7.65 20.28 9.72 20.28 11.92C20.28 16.46 16.59 20.15 12.04 20.15C10.56 20.15 9.11 19.76 7.85 19.01L7.55 18.83L4.43 19.65L5.26 16.61L5.06 16.29C4.24 14.99 3.8 13.47 3.8 11.91C3.81 7.37 7.5 3.67 12.05 3.67ZM8.73 7.3C8.54 7.3 8.24 7.37 7.98 7.65C7.73 7.93 7 8.61 7 10C7 11.39 8.01 12.73 8.15 12.92C8.29 13.11 10.14 15.96 12.97 17.18C13.64 17.47 14.17 17.65 14.58 17.78C15.26 18 15.87 17.97 16.36 17.9C16.91 17.82 18.04 17.21 18.28 16.55C18.51 15.89 18.51 15.32 18.44 15.2C18.37 15.09 18.19 15.02 17.91 14.88C17.64 14.74 16.28 14.07 16.03 13.98C15.77 13.88 15.59 13.84 15.4 14.12C15.22 14.39 14.69 15.02 14.53 15.2C14.37 15.39 14.21 15.41 13.93 15.27C13.66 15.14 12.78 14.85 11.73 13.91C10.91 13.18 10.36 12.28 10.2 12C10.04 11.73 10.18 11.58 10.32 11.44C10.45 11.32 10.6 11.12 10.74 10.96C10.88 10.8 10.93 10.68 11.02 10.5C11.12 10.32 11.07 10.15 11 10.02C10.93 9.88 10.38 8.52 10.15 7.97C9.93 7.43 9.7 7.51 9.53 7.5C9.37 7.49 9.19 7.49 9 7.49C8.82 7.49 8.73 7.3 8.73 7.3Z"/>
+                        </svg>
+                        <span>Join WhatsApp Channel</span>
+                      </a>
+                      <a
+                        href="https://t.me/fastpoolcodes"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full flex items-center justify-center gap-2 py-2 rounded-lg text-[11px] font-black bg-[#229ED9] hover:bg-[#1d8bc0] text-white transition shadow-sm cursor-pointer"
+                      >
+                        <svg className="w-3.5 h-3.5 fill-current shrink-0" viewBox="0 0 24 24">
+                          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.75-.55 2.92-1.27 4.86-2.11 5.83-2.52 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .39z"/>
+                        </svg>
+                        <span>Join Telegram Channel</span>
+                      </a>
+                      <a
+                        href="#contact"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setIsMobileMenuOpen(false);
+                          if (onNavigateToContact) {
+                            onNavigateToContact();
+                          } else if (onNavigateToAbout) {
+                            onNavigateToAbout();
+                          }
+                        }}
+                        className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 transition cursor-pointer"
+                      >
+                        <span>📞 Customer Service Desk</span>
+                      </a>
+                    </div>
                   </div>
 
                   {onSignOut && (
@@ -2558,30 +2585,58 @@ export default function CustomerPortal({
 
           </nav>
 
-          {/* Desktop Contact Us Shortcut Card */}
-          <div className="mt-4 p-3.5 bg-emerald-950/30 border border-emerald-500/20 rounded-xl flex flex-col gap-2.5">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span>
-              <span className="text-[10px] font-mono font-bold text-emerald-400 tracking-wider uppercase">CONTACT FASTPOOLCODES</span>
+          {/* Desktop Community & Contact Us Card */}
+          <div className="mt-4 p-3.5 bg-emerald-950/40 border border-emerald-500/30 rounded-xl flex flex-col gap-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span>
+                <span className="text-[10px] font-mono font-bold text-emerald-400 tracking-wider uppercase">COMMUNITY & SUPPORT</span>
+              </div>
+              <span className="text-[9px] bg-emerald-500/20 text-emerald-300 font-bold px-1.5 py-0.5 rounded">Verified</span>
             </div>
-            <p className="text-[10px] text-slate-400 leading-normal">
-              Need assistance? Connect directly with our 24/7 forecasting support desk and enquiries team.
+            <p className="text-[10px] text-slate-300 leading-normal">
+              Official broadcast channels for pool codes, Aussie/UK coupons, live draws, and 24/7 enquiries.
             </p>
-            <a
-              href="#contact"
-              onClick={(e) => {
-                e.preventDefault();
-                if (onNavigateToContact) {
-                  onNavigateToContact();
-                } else if (onNavigateToAbout) {
-                  onNavigateToAbout();
-                }
-              }}
-              className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 hover:text-slate-950 transition cursor-pointer text-center"
-            >
-              <span>📞</span>
-              <span>CONTACT US</span>
-            </a>
+            <div className="flex flex-col gap-1.5">
+              <a
+                href="https://whatsapp.com/channel/0029VanbsS4EawdxbTTkgc3D"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-black bg-[#25D366] hover:bg-[#20ba59] text-white transition shadow-sm cursor-pointer"
+                title="Join our official WhatsApp Channel"
+              >
+                <svg className="w-3.5 h-3.5 fill-current shrink-0" viewBox="0 0 24 24">
+                  <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91C2.13 13.66 2.59 15.36 3.45 16.86L2.05 22L7.3 20.62C8.75 21.41 10.38 21.83 12.04 21.83C17.5 21.83 21.95 17.38 21.95 11.92C21.95 9.27 20.92 6.78 19.05 4.91C17.18 3.03 14.69 2 12.04 2ZM12.05 3.67C14.25 3.67 16.31 4.53 17.87 6.09C19.42 7.65 20.28 9.72 20.28 11.92C20.28 16.46 16.59 20.15 12.04 20.15C10.56 20.15 9.11 19.76 7.85 19.01L7.55 18.83L4.43 19.65L5.26 16.61L5.06 16.29C4.24 14.99 3.8 13.47 3.8 11.91C3.81 7.37 7.5 3.67 12.05 3.67ZM8.73 7.3C8.54 7.3 8.24 7.37 7.98 7.65C7.73 7.93 7 8.61 7 10C7 11.39 8.01 12.73 8.15 12.92C8.29 13.11 10.14 15.96 12.97 17.18C13.64 17.47 14.17 17.65 14.58 17.78C15.26 18 15.87 17.97 16.36 17.9C16.91 17.82 18.04 17.21 18.28 16.55C18.51 15.89 18.51 15.32 18.44 15.2C18.37 15.09 18.19 15.02 17.91 14.88C17.64 14.74 16.28 14.07 16.03 13.98C15.77 13.88 15.59 13.84 15.4 14.12C15.22 14.39 14.69 15.02 14.53 15.2C14.37 15.39 14.21 15.41 13.93 15.27C13.66 15.14 12.78 14.85 11.73 13.91C10.91 13.18 10.36 12.28 10.2 12C10.04 11.73 10.18 11.58 10.32 11.44C10.45 11.32 10.6 11.12 10.74 10.96C10.88 10.8 10.93 10.68 11.02 10.5C11.12 10.32 11.07 10.15 11 10.02C10.93 9.88 10.38 8.52 10.15 7.97C9.93 7.43 9.7 7.51 9.53 7.5C9.37 7.49 9.19 7.49 9 7.49C8.82 7.49 8.73 7.3 8.73 7.3Z"/>
+                </svg>
+                <span>Join WhatsApp Channel</span>
+              </a>
+              <a
+                href="https://t.me/fastpoolcodes"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-black bg-[#229ED9] hover:bg-[#1d8bc0] text-white transition shadow-sm cursor-pointer"
+                title="Join our official Telegram Channel"
+              >
+                <svg className="w-3.5 h-3.5 fill-current shrink-0" viewBox="0 0 24 24">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.75-.55 2.92-1.27 4.86-2.11 5.83-2.52 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .39z"/>
+                </svg>
+                <span>Join Telegram Channel</span>
+              </a>
+              <a
+                href="#contact"
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (onNavigateToContact) {
+                    onNavigateToContact();
+                  } else if (onNavigateToAbout) {
+                    onNavigateToAbout();
+                  }
+                }}
+                className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 transition cursor-pointer text-center"
+              >
+                <span>📞 Customer Support Desk</span>
+              </a>
+            </div>
           </div>
 
           {onSignOut && (
@@ -2671,6 +2726,34 @@ export default function CustomerPortal({
               <RefreshCw className={`w-3.5 h-3.5 text-emerald-400 ${isSyncingSupabase ? 'animate-spin' : ''}`} />
               <span className="hidden sm:inline">{isSyncingSupabase ? 'Fetching...' : 'Fetch Latest Records'}</span>
             </button>
+
+            {/* Quick Access Official WhatsApp Channel */}
+            <a
+              href="https://whatsapp.com/channel/0029VanbsS4EawdxbTTkgc3D"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white text-xs font-bold transition shadow-sm cursor-pointer whitespace-nowrap"
+              title="Join official WhatsApp Channel"
+            >
+              <svg className="w-3.5 h-3.5 fill-current shrink-0" viewBox="0 0 24 24">
+                <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91C2.13 13.66 2.59 15.36 3.45 16.86L2.05 22L7.3 20.62C8.75 21.41 10.38 21.83 12.04 21.83C17.5 21.83 21.95 17.38 21.95 11.92C21.95 9.27 20.92 6.78 19.05 4.91C17.18 3.03 14.69 2 12.04 2ZM12.05 3.67C14.25 3.67 16.31 4.53 17.87 6.09C19.42 7.65 20.28 9.72 20.28 11.92C20.28 16.46 16.59 20.15 12.04 20.15C10.56 20.15 9.11 19.76 7.85 19.01L7.55 18.83L4.43 19.65L5.26 16.61L5.06 16.29C4.24 14.99 3.8 13.47 3.8 11.91C3.81 7.37 7.5 3.67 12.05 3.67ZM8.73 7.3C8.54 7.3 8.24 7.37 7.98 7.65C7.73 7.93 7 8.61 7 10C7 11.39 8.01 12.73 8.15 12.92C8.29 13.11 10.14 15.96 12.97 17.18C13.64 17.47 14.17 17.65 14.58 17.78C15.26 18 15.87 17.97 16.36 17.9C16.91 17.82 18.04 17.21 18.28 16.55C18.51 15.89 18.51 15.32 18.44 15.2C18.37 15.09 18.19 15.02 17.91 14.88C17.64 14.74 16.28 14.07 16.03 13.98C15.77 13.88 15.59 13.84 15.4 14.12C15.22 14.39 14.69 15.02 14.53 15.2C14.37 15.39 14.21 15.41 13.93 15.27C13.66 15.14 12.78 14.85 11.73 13.91C10.91 13.18 10.36 12.28 10.2 12C10.04 11.73 10.18 11.58 10.32 11.44C10.45 11.32 10.6 11.12 10.74 10.96C10.88 10.8 10.93 10.68 11.02 10.5C11.12 10.32 11.07 10.15 11 10.02C10.93 9.88 10.38 8.52 10.15 7.97C9.93 7.43 9.7 7.51 9.53 7.5C9.37 7.49 9.19 7.49 9 7.49C8.82 7.49 8.73 7.3 8.73 7.3Z"/>
+              </svg>
+              <span>WhatsApp Channel</span>
+            </a>
+
+            {/* Quick Access Official Telegram Channel */}
+            <a
+              href="https://t.me/fastpoolcodes"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#229ED9] hover:bg-[#1d8bc0] text-white text-xs font-bold transition shadow-sm cursor-pointer whitespace-nowrap"
+              title="Join official Telegram Channel"
+            >
+              <svg className="w-3.5 h-3.5 fill-current shrink-0" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.75-.55 2.92-1.27 4.86-2.11 5.83-2.52 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .39z"/>
+              </svg>
+              <span>Telegram Channel</span>
+            </a>
 
             {/* Notification Bell Button with Glow & Unread Count */}
             <button

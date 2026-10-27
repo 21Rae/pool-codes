@@ -18,14 +18,19 @@
     <script data-cfasync="false" type="text/javascript" id="clever-core">
 /* <![CDATA[ */
     (function (document, window) {
-        var a, c = document.createElement("script"), f = window.frameElement;
+      try {
+        var f = null;
+        try {
+          f = window.frameElement;
+        } catch (_) {}
+        var a, c = document.createElement("script");
 
         c.id = "CleverCoreLoader106375";
         c.src = "https://scripts.cleverwebserver.com/c657eb552cb25cfc013cac0c813bd384.js";
 
         c.async = !0;
         c.type = "text/javascript";
-        c.setAttribute("data-target", window.name || (f && f.getAttribute("id")));
+        c.setAttribute("data-target", window.name || (f && f.getAttribute && f.getAttribute("id")) || "");
         c.setAttribute("data-callback", "put-your-callback-function-here");
         c.setAttribute("data-callback-url-click", "put-your-click-macro-here");
         c.setAttribute("data-callback-url-view", "put-your-view-macro-here");
@@ -37,7 +42,12 @@
         }
 
         a || (a = document.getElementsByTagName("head")[0] || document.getElementsByTagName("body")[0]);
-        a.parentNode.insertBefore(c, a);
+        if (a && a.parentNode) {
+          a.parentNode.insertBefore(c, a);
+        }
+      } catch (err) {
+        console.warn('Ad loader bypassed gracefully:', err);
+      }
     })(document, window);
 /* ]]> */
     </script>
