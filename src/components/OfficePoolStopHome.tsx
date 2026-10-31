@@ -1040,7 +1040,27 @@ export default function OfficePoolStopHome({
 
 
       {/* Top Page Header Ad Banner */}
-      <div className="max-w-[1360px] mx-auto px-4 pt-4">
+      <div className="max-w-[1360px] mx-auto px-4 pt-4 space-y-3">
+        {/* 8XBET Official Sponsored Header Banner */}
+        <a
+          href="https://8xbet.ng/p/LI4t"
+          target="_blank"
+          rel="noopener noreferrer sponsored"
+          className="block w-full overflow-hidden rounded-xl border border-emerald-950/80 hover:opacity-95 transition shadow-lg"
+        >
+          <picture>
+            <source media="(max-width: 767px)" srcSet="https://i.imgur.com/JNCnRUi.gif" />
+            <img
+              src="https://i.imgur.com/B2ibgW9.gif"
+              width="1600"
+              height="150"
+              alt="8XBET"
+              className="w-full h-auto block"
+              loading="eager"
+            />
+          </picture>
+        </a>
+
         <GoogleAdBanner 
           className="bg-[#020b08] border border-emerald-950/80 rounded-xl p-2 shadow-md"
           onNavigateToContact={() => setCurrentView('contact')}

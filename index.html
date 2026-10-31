@@ -11,9 +11,97 @@
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5745254500272059" crossorigin="anonymous"></script>
     <!-- Paystack Inline JS -->
     <script src="https://js.paystack.co/v1/inline.js"></script>
+
+    <!-- 8XBET Catfish Banner Style -->
+    <style>
+#xbet-catfish {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  z-index: 9999999;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+#xbet-catfish .banner {
+  position: relative;
+  width: min(100%, 1600px);
+  pointer-events: auto;
+}
+
+#xbet-catfish a,
+#xbet-catfish img {
+  display: block;
+  width: 100%;
+}
+
+#xbet-catfish img {
+  height: auto;
+}
+
+#xbet-catfish button {
+  position: absolute;
+  top: -30px;
+  right: 5px;
+  width: 30px;
+  height: 30px;
+  background: #222;
+  color: #fff;
+  border: 0;
+  border-radius: 5px;
+  font-size: 22px;
+  cursor: pointer;
+  z-index: 3;
+}
+
+@media (max-width: 767px) {
+  #xbet-catfish .banner {
+    width: 390px;
+    max-width: 100%;
+  }
+
+  #xbet-catfish img {
+    width: 390px;
+    max-width: 100%;
+    height: auto;
+  }
+}
+    </style>
   </head>
   <body>
     <div id="root"></div>
+
+    <!-- 8XBET Catfish Banner -->
+    <div id="xbet-catfish">
+      <div class="banner">
+
+        <button onclick="document.getElementById('xbet-catfish').remove()">×</button>
+
+        <a href="https://8xbet.ng/p/LI4t"
+           target="_blank"
+           rel="noopener noreferrer sponsored">
+
+          <picture>
+
+            <source
+              media="(max-width: 767px)"
+              srcset="https://i.imgur.com/JNCnRUi.gif">
+
+            <img
+              src="https://i.imgur.com/B2ibgW9.gif"
+              width="1600"
+              height="150"
+              alt="8XBET"
+              loading="eager">
+
+          </picture>
+
+        </a>
+
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
     <script data-cfasync="false" type="text/javascript" id="clever-core">
 /* <![CDATA[ */

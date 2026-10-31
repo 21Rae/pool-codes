@@ -18,6 +18,28 @@ export default function Footer({ triggerToast, className = '', onOpenTerms, onNa
         ? 'bg-[#020705] border-t border-emerald-950/80 text-slate-400' 
         : 'bg-white border-t border-zinc-200 text-zinc-500'
     } ${className}`} id="global-site-footer">
+      {/* 8XBET Official Sponsored Footer Banner */}
+      <div className="max-w-[1360px] mx-auto mb-8">
+        <a
+          href="https://8xbet.ng/p/LI4t"
+          target="_blank"
+          rel="noopener noreferrer sponsored"
+          className="block w-full overflow-hidden rounded-xl border border-zinc-300/80 dark:border-emerald-950/80 hover:opacity-95 transition shadow-sm"
+        >
+          <picture>
+            <source media="(max-width: 767px)" srcSet="https://i.imgur.com/JNCnRUi.gif" />
+            <img
+              src="https://i.imgur.com/B2ibgW9.gif"
+              width="1600"
+              height="150"
+              alt="8XBET"
+              className="w-full h-auto block"
+              loading="lazy"
+            />
+          </picture>
+        </a>
+      </div>
+
       <div className="max-w-[1360px] mx-auto grid grid-cols-1 md:grid-cols-12 gap-8 items-start text-left text-xs">
         
         <div className="md:col-span-5 space-y-3.5">
