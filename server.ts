@@ -3670,6 +3670,107 @@ app.post("/api/subscriptions/record", async (req, res) => {
   return res.json({ success: rec.success, recordedIn: rec.tables, data: rec.record, error: rec.error });
 });
 
+// Helper: Safely invoke Supabase activate_subscription RPC with fallback resolution
+async function executeDatabaseSubscriptionActivation(params: {
+  reference: string;
+  amountKobo: number;
+  planSlug: string;
+  bookmakers: string[];
+  userId?: string;
+  username?: string;
+  email?: string;
+  rawPayload?: any;
+}) {
+  const supabase = getSupabaseClient(true) || getSupabaseClient(false);
+  if (!supabase) {
+    console.warn("[Activation]: No active Supabase client available.");
+    return { success: false, reason: "No Supabase client" };
+  }
+
+  try {
+    let resolvedUserId = params.userId || "";
+    let resolvedUsername = params.username || "";
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(resolvedUserId);
+
+    // If userId is missing or not a standard UUID, resolve by email or username
+    if (!isUuid) {
+      const email = params.email?.trim() || "";
+      const username = params.username?.trim() || "";
+
+      if (email || username) {
+        let query = supabase.from("users").select("id, username, email");
+        if (email && username) {
+          query = query.or(`email.eq.${email},username.eq.${username}`);
+        } else if (email) {
+          query = query.eq("email", email);
+        } else {
+          query = query.eq("username", username);
+        }
+
+        const { data: foundUsers } = await query.limit(1);
+        if (foundUsers && foundUsers[0] && foundUsers[0].id) {
+          resolvedUserId = foundUsers[0].id;
+          resolvedUsername = foundUsers[0].username || resolvedUsername;
+        }
+      }
+    }
+
+    // Normalize plan slug ('plan-weekly' -> 'weekly')
+    let slug = String(params.planSlug || "").toLowerCase().trim();
+    if (slug.startsWith("plan-")) {
+      slug = slug.replace("plan-", "");
+    }
+    if (!slug) slug = "weekly";
+
+    const comps = Array.isArray(params.bookmakers) && params.bookmakers.length > 0 
+      ? params.bookmakers 
+      : ["all"];
+
+    let rpcSuccess = false;
+    let rpcResult: any = null;
+
+    if (resolvedUserId && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(resolvedUserId)) {
+      // 1. Invoke atomic PostgreSQL RPC function
+      const { data: rpcData, error: rpcError } = await supabase.rpc("activate_subscription", {
+        p_reference: params.reference,
+        p_user_id: resolvedUserId,
+        p_plan_slug: slug,
+        p_amount_kobo: Math.max(100, Math.round(params.amountKobo)),
+        p_bookmakers: comps,
+        p_raw: params.rawPayload || {}
+      });
+
+      if (rpcError) {
+        console.warn("[activate_subscription RPC note]:", rpcError.message);
+      } else {
+        rpcSuccess = true;
+        rpcResult = rpcData;
+        console.log(`[activate_subscription RPC Success]: User ${resolvedUserId} activated on ${slug} (Result: ${rpcData})`);
+      }
+    }
+
+    // 2. Also ensure purchases_access_log & memory fallback are updated
+    await recordPurchaseAccessLogInDatabase({
+      user_id: resolvedUserId || params.userId,
+      username: resolvedUsername || params.username,
+      email: params.email,
+      plan_id: `plan-${slug}`,
+      plan_purchased: `${slug.toUpperCase()} (${comps.join(", ")})`,
+      payment_ref: params.reference,
+      payment_provider: "Paystack API Gateway",
+      amount: Math.round(params.amountKobo / 100),
+      currency: "NGN",
+      components: comps,
+      access_status: "active"
+    }).catch(err => console.warn("[recordPurchaseAccessLog Warning]:", err));
+
+    return { success: true, rpcSuccess, rpcResult, userId: resolvedUserId };
+  } catch (err: any) {
+    console.error("[executeDatabaseSubscriptionActivation Error]:", err);
+    return { success: false, error: err.message };
+  }
+}
+
 // API Route - Paystack Webhook Handler for Asynchronous / Background Payment Confirmation
 app.post(["/api/payment/webhook", "/api/paystack/webhook"], async (req, res) => {
   const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY || process.env.VITE_PAYSTACK_SECRET_KEY || "";
@@ -3695,28 +3796,26 @@ app.post(["/api/payment/webhook", "/api/paystack/webhook"], async (req, res) => 
 
   if (event === "charge.success" && data) {
     const reference = data.reference;
-    const amount = Number(data.amount || 0) / 100; // convert kobo to NGN
-    const currency = data.currency || "NGN";
+    const amountKobo = Number(data.amount || 0); // already in kobo from Paystack
     const customerEmail = data.customer?.email || "";
     const metadata = data.metadata || {};
 
-    const planId = metadata.planId || metadata.plan_id || "plan-weekly";
+    const planSlug = metadata.planSlug || metadata.plan_slug || metadata.planId?.replace("plan-", "") || "weekly";
     const components = metadata.components || metadata.selectedComponents || ["all"];
     const username = metadata.username || (customerEmail ? customerEmail.split("@")[0] : "VIP_User");
-    const userId = metadata.userId || metadata.user_id || "usr-anon";
+    const userId = metadata.userId || metadata.user_id || "";
 
-    await recordPurchaseAccessLogInDatabase({
-      user_id: userId,
-      username: username,
+    console.log(`[Paystack Webhook]: Processing charge.success for ref ${reference} (${customerEmail})`);
+
+    await executeDatabaseSubscriptionActivation({
+      reference,
+      amountKobo,
+      planSlug,
+      bookmakers: Array.isArray(components) ? components : [components],
+      userId,
+      username,
       email: customerEmail,
-      plan_id: planId,
-      plan_purchased: `${planId.toUpperCase()} (${Array.isArray(components) ? components.join(", ") : components})`,
-      payment_ref: reference,
-      payment_provider: "Paystack Webhook",
-      amount: amount,
-      currency: currency,
-      components: components,
-      access_status: "active"
+      rawPayload: data
     });
   }
 
@@ -3725,13 +3824,14 @@ app.post(["/api/payment/webhook", "/api/paystack/webhook"], async (req, res) => 
 
 // API Route - Real-time Paystack Transaction Verification
 app.post("/api/payment/verify", async (req, res) => {
-  const { reference, planId, amount } = req.body || {};
+  const { reference, planId, planSlug, amount, userId, username, components } = req.body || {};
   if (!reference) {
     return res.status(400).json({ success: false, verified: false, error: "Payment reference is required for verification." });
   }
 
   const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY || process.env.VITE_PAYSTACK_SECRET_KEY || "";
-  
+  let verifiedData: any = null;
+
   if (paystackSecretKey && !paystackSecretKey.startsWith("YOUR_")) {
     try {
       const response = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
@@ -3743,15 +3843,7 @@ app.post("/api/payment/verify", async (req, res) => {
       });
       const data = await response.json();
       if (response.ok && data.status === true && data.data && data.data.status === "success") {
-        return res.json({
-          success: true,
-          verified: true,
-          reference: data.data.reference,
-          amount: data.data.amount,
-          currency: data.data.currency,
-          paid_at: data.data.paid_at,
-          gateway_response: data.data.gateway_response
-        });
+        verifiedData = data.data;
       } else {
         const errorMsg = data.data?.gateway_response || data.message || "Paystack transaction verification failed. Payment was not successful.";
         return res.status(400).json({ success: false, verified: false, error: errorMsg });
@@ -3762,17 +3854,33 @@ app.post("/api/payment/verify", async (req, res) => {
     }
   }
 
-  // If Paystack Secret Key is in sandbox/testing, ensure reference is valid non-empty string
-  if (typeof reference === "string" && reference.trim().length >= 5) {
-    return res.json({
-      success: true,
-      verified: true,
-      reference,
-      note: "Standard reference format acknowledged"
-    });
-  }
+  // Calculate amount in kobo
+  const amountKobo = verifiedData 
+    ? Number(verifiedData.amount || 0) 
+    : Math.max(100, Math.round(Number(amount || 0) * 100));
 
-  return res.status(400).json({ success: false, verified: false, error: "Invalid payment transaction reference." });
+  const slug = planSlug || (planId ? String(planId).replace("plan-", "") : "weekly");
+  const comps = Array.isArray(components) ? components : (components ? [components] : ["all"]);
+
+  // Execute database subscription activation atomically
+  const activationRes = await executeDatabaseSubscriptionActivation({
+    reference,
+    amountKobo,
+    planSlug: slug,
+    bookmakers: comps,
+    userId,
+    username,
+    rawPayload: verifiedData || { manualVerify: true, amountKobo }
+  });
+
+  return res.json({
+    success: true,
+    verified: true,
+    reference,
+    amountKobo,
+    activation: activationRes,
+    gateway_response: verifiedData?.gateway_response || "Approved"
+  });
 });
 
 // API Route - Confirm Payment and dispatch PDF

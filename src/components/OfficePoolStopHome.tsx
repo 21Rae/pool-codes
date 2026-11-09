@@ -1041,7 +1041,8 @@ export default function OfficePoolStopHome({
 
       {/* Top Page Header Ad Banner */}
       <div className="max-w-[1360px] mx-auto px-4 pt-4 space-y-3">
-        {/* 8XBET Official Sponsored Header Banner */}
+        {/* 8XBET Official Sponsored Header Banner (Hidden for now) */}
+        {/*
         <a
           href="https://8xbet.ng/p/LI4t"
           target="_blank"
@@ -1060,6 +1061,7 @@ export default function OfficePoolStopHome({
             />
           </picture>
         </a>
+        */}
 
         <GoogleAdBanner 
           className="bg-[#020b08] border border-emerald-950/80 rounded-xl p-2 shadow-md"

@@ -539,6 +539,36 @@ export default function App() {
                 };
               }
 
+              if (dbKey === 'user_subscriptions' && Array.isArray(data)) {
+                const mappedUserSubs: UserSubscription[] = data.map((sub: any) => ({
+                  id: String(sub.id),
+                  user_id: sub.user_id,
+                  username: sub.username || '',
+                  plan_id: sub.plan_id ? (String(sub.plan_id).startsWith('plan-') ? String(sub.plan_id) : `plan-${sub.plan_id}`) : 'plan-weekly',
+                  plan_name: sub.plan_name || 'VIP Pool Access',
+                  status: (sub.status === 'active' && (!sub.expires_at || new Date(sub.expires_at) > new Date())) ? 'active' : 'expired',
+                  starts_at: sub.starts_at || sub.created_at || new Date().toISOString(),
+                  started_at: sub.starts_at || sub.created_at,
+                  expires_at: sub.expires_at || new Date(Date.now() + 7 * 86400000).toISOString(),
+                  payment_ref: sub.payment_reference || sub.payment_ref,
+                  payment_reference: sub.payment_reference || sub.payment_ref,
+                  payment_provider: sub.payment_provider || 'Paystack API Gateway',
+                  currency: sub.currency || 'NGN',
+                  amount_paid: sub.amount_paid || 0,
+                  components: Array.isArray(sub.bookmakers) ? sub.bookmakers : (Array.isArray(sub.components) ? sub.components : []),
+                  created_at: sub.created_at,
+                  updated_at: sub.updated_at
+                }));
+
+                const existingSubIds = new Set(mappedUserSubs.map(s => s.id));
+                const otherSubs = (prev.user_subscriptions || []).filter(s => !existingSubIds.has(s.id));
+
+                return {
+                  ...prev,
+                  user_subscriptions: [...mappedUserSubs, ...otherSubs]
+                };
+              }
+
               if (dbKey === 'purchases_access_log' && Array.isArray(data)) {
                 const mappedSubs: UserSubscription[] = data.map((log: any) => ({
                   id: log.id,
@@ -1479,6 +1509,8 @@ export default function App() {
       const defaultKey = paystackPublicKey || (import.meta as any).env?.VITE_PAYSTACK_PUBLIC_KEY || 'pk_test_d3e404be1b854e4f7fcfa0f8c8cb8fce45ef0e74';
       const publicKey = (isGhana && ghanaKey) ? ghanaKey : defaultKey;
       
+      const planSlug = p.id.replace('plan-', '').toLowerCase();
+      
       const handler = PaystackPop.setup({
         key: publicKey,
         email: userEmail,
@@ -1486,6 +1518,19 @@ export default function App() {
         currency: 'NGN',
         channels: ['card', 'bank', 'ussd', 'mobile_money', 'qr'],
         ref: `PAY-${Date.now()}-${Math.floor(Math.random() * 100000)}`,
+        metadata: {
+          custom_fields: [
+            { display_name: "User ID", variable_name: "user_id", value: currentUser.id },
+            { display_name: "Username", variable_name: "username", value: currentUser.username },
+            { display_name: "Plan", variable_name: "plan_slug", value: planSlug },
+            { display_name: "Bookmakers", variable_name: "bookmakers", value: selectedComponents.join(',') }
+          ],
+          userId: currentUser.id,
+          username: currentUser.username,
+          planId: p.id,
+          planSlug: planSlug,
+          components: selectedComponents
+        },
         callback: function(response: any) {
           if (!response || (!response.reference && !response.trxref)) {
             triggerToast('Payment was not completed. Subscription activation failed.', 'error');
@@ -1504,7 +1549,15 @@ export default function App() {
           fetch('/api/payment/verify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ reference: ref, planId, amount: calculatedPrice })
+            body: JSON.stringify({ 
+              reference: ref, 
+              planId,
+              planSlug,
+              amount: calculatedPrice,
+              userId: currentUser.id,
+              username: currentUser.username,
+              components: selectedComponents
+            })
           })
             .then(async (verifyRes) => {
               const verifyData = await verifyRes.json().catch(() => ({}));
