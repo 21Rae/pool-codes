@@ -18,8 +18,7 @@ export default function Footer({ triggerToast, className = '', onOpenTerms, onNa
         ? 'bg-[#020705] border-t border-emerald-950/80 text-slate-400' 
         : 'bg-white border-t border-zinc-200 text-zinc-500'
     } ${className}`} id="global-site-footer">
-      {/* 8XBET Official Sponsored Footer Banner (Hidden for now) */}
-      {/*
+      {/* 8XBET Official Sponsored Footer Banner */}
       <div className="max-w-[1360px] mx-auto mb-8">
         <a
           href="https://8xbet.ng/p/LI4t"
@@ -40,7 +39,6 @@ export default function Footer({ triggerToast, className = '', onOpenTerms, onNa
           </picture>
         </a>
       </div>
-      */}
 
       <div className="max-w-[1360px] mx-auto grid grid-cols-1 md:grid-cols-12 gap-8 items-start text-left text-xs">
         
