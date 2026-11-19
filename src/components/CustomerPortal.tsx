@@ -1,3 +1,4 @@
+import { resolveMatchStatus, isDrawStatus, statusBadgeClasses, statusLabel, statusShortLabel, statusTextColor, statusToOutcome } from '../lib/matchStatus';
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -5946,8 +5947,7 @@ export default function CustomerPortal({
                           >
                             {filteredResults.map((res: any) => {
                               const draws = (res.results_table || []).filter((x: any) => {
-                                const st = x.status || '';
-                                return st === 'ScoreDraw' || st === 'noScoreDraw';
+                                return isDrawStatus(resolveMatchStatus(x));
                               }).length;
                               const wkDisplay = (activeWeekNumber && activeWeekNumber !== 'NULL') ? activeWeekNumber : (res.week_number || 50);
                               const titleDisplay = (res.title || `Week ${wkDisplay} UK Pool results`).replace(/Week\s*\d+/i, `Week ${wkDisplay}`);
@@ -6009,16 +6009,11 @@ export default function CustomerPortal({
                       let homeWins = 0;
                       let awayWins = 0;
                       baseRows.forEach((r: any) => {
-                        const status = r.status || '';
+                        const status = resolveMatchStatus(r);
                         if (status === 'ScoreDraw') scoreDraws++;
                         else if (status === 'noScoreDraw') noScoreDraws++;
                         else if (status === 'Home') homeWins++;
                         else if (status === 'Away') awayWins++;
-                        else {
-                          // Fallback check
-                          if (r.pool_result === '0-:-0') noScoreDraws++;
-                          else scoreDraws++;
-                        }
                       });
 
                       return (
@@ -6055,7 +6050,7 @@ export default function CustomerPortal({
                       let homeWins = 0;
                       let awayWins = 0;
                       baseRows.forEach((r: any) => {
-                        const status = r.status || (r.outcome === 'DRAW' ? 'ScoreDraw' : (r.outcome === 'HOME WIN' ? 'Home' : 'Away'));
+                        const status = resolveMatchStatus(r);
                         if (status === 'ScoreDraw') scoreDraws++;
                         else if (status === 'noScoreDraw') noScoreDraws++;
                         else if (status === 'Home') homeWins++;
@@ -6063,12 +6058,12 @@ export default function CustomerPortal({
                       });
 
                       const filtered = baseRows.filter((row: any) => {
-                        const status = row.status || (row.outcome === 'DRAW' ? 'ScoreDraw' : (row.outcome === 'HOME WIN' ? 'Home' : 'Away'));
-                        const isDraw = status === 'ScoreDraw' || status === 'noScoreDraw' || row.outcome === 'DRAW';
+                        const status = resolveMatchStatus(row);
+                        const isDraw = isDrawStatus(status);
 
                         if (portalOutcomeFilter === 'draws' && !isDraw) return false;
-                        if (portalOutcomeFilter === 'home' && status !== 'Home' && row.outcome !== 'HOME WIN') return false;
-                        if (portalOutcomeFilter === 'away' && status !== 'Away' && row.outcome !== 'AWAY WIN') return false;
+                        if (portalOutcomeFilter === 'home' && status !== 'Home') return false;
+                        if (portalOutcomeFilter === 'away' && status !== 'Away') return false;
 
                         if (!championshipSearchQuery) return true;
                         const q = championshipSearchQuery.toLowerCase().trim();
@@ -6120,7 +6115,7 @@ export default function CustomerPortal({
                           );
                         }
                         return (
-                          <span className="px-1 sm:px-2 py-0.5 rounded text-[7.5px] sm:text-[10px] font-bold font-mono tracking-tighter sm:tracking-wider uppercase bg-slate-900 text-slate-300 border border-slate-700 whitespace-nowrap">
+                          <span className={`px-1 sm:px-2 py-0.5 rounded text-[7.5px] sm:text-[10px] font-bold font-mono tracking-tighter sm:tracking-wider uppercase ${statusBadgeClasses(st)} whitespace-nowrap`}>
                             {st}
                           </span>
                         );
@@ -6188,9 +6183,9 @@ export default function CustomerPortal({
                                         const rowId = row.id ?? row.matchNo ?? (idx + 1);
                                         const homeTeam = row.home_team || row.Home_Team || row.homeTeam || '';
                                         const awayTeam = row.away_team || row.Away_Team || row.awayTeam || '';
-                                        const status = row.status || (row.outcome === 'DRAW' ? 'ScoreDraw' : (row.outcome === 'HOME WIN' ? 'Home' : 'Away'));
+                                        const status = resolveMatchStatus(row);
                                         const poolResult = row.pool_result || (row.Home_Team_Score !== undefined ? `${row.Home_Team_Score}-:-${row.Away_Team_Score}` : row.fullTimeScore?.replace(' - ', '-:-')) || '0-:-0';
-                                        const isDraw = status === 'ScoreDraw' || status === 'noScoreDraw' || row.outcome === 'DRAW';
+                                        const isDraw = isDrawStatus(status);
 
                                         return (
                                           <tr
@@ -6236,9 +6231,9 @@ export default function CustomerPortal({
                                     const rowId = row.id ?? row.matchNo ?? (idx + 1);
                                     const homeTeam = row.home_team || row.Home_Team || row.homeTeam || '';
                                     const awayTeam = row.away_team || row.Away_Team || row.awayTeam || '';
-                                    const status = row.status || (row.outcome === 'DRAW' ? 'ScoreDraw' : (row.outcome === 'HOME WIN' ? 'Home' : 'Away'));
+                                    const status = resolveMatchStatus(row);
                                     const poolResult = row.pool_result || (row.Home_Team_Score !== undefined ? `${row.Home_Team_Score}-:-${row.Away_Team_Score}` : row.fullTimeScore?.replace(' - ', '-:-')) || '0-:-0';
-                                    const isDraw = status === 'ScoreDraw' || status === 'noScoreDraw' || row.outcome === 'DRAW';
+                                    const isDraw = isDrawStatus(status);
 
                                     return (
                                       <div
