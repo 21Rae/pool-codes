@@ -1,3 +1,4 @@
+import { resolveMatchStatus, isDrawStatus, statusBadgeClasses, statusLabel, statusShortLabel, statusTextColor, statusToOutcome } from '../lib/matchStatus';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   ChevronDown,
@@ -1444,17 +1445,17 @@ INSERT INTO public.championship_results (
                 {/* Interactive Pool Result Table Component */}
                 {activeResult && (() => {
                   const baseRows = activeResult.results_table || [];
-                  const totalDraws = baseRows.filter((x: any) => x.outcome === 'DRAW' || x.status === 'ScoreDraw' || x.status === 'noScoreDraw').length;
-                  const homeWins = baseRows.filter((x: any) => x.outcome === 'HOME WIN' || x.status === 'Home').length;
-                  const awayWins = baseRows.filter((x: any) => x.outcome === 'AWAY WIN' || x.status === 'Away').length;
+                  const totalDraws = baseRows.filter((x: any) => isDrawStatus(resolveMatchStatus(x))).length;
+                  const homeWins = baseRows.filter((x: any) => resolveMatchStatus(x) === 'Home').length;
+                  const awayWins = baseRows.filter((x: any) => resolveMatchStatus(x) === 'Away').length;
 
                   const filtered = baseRows.filter((row: any) => {
-                    const status = row.status || (row.outcome === 'DRAW' ? 'ScoreDraw' : (row.outcome === 'HOME WIN' ? 'Home' : 'Away'));
-                    const isDraw = status === 'ScoreDraw' || status === 'noScoreDraw' || row.outcome === 'DRAW';
+                    const status = resolveMatchStatus(row);
+                    const isDraw = isDrawStatus(status);
 
                     if (blogOutcomeFilter === 'draws' && !isDraw) return false;
-                    if (blogOutcomeFilter === 'home' && status !== 'Home' && row.outcome !== 'HOME WIN') return false;
-                    if (blogOutcomeFilter === 'away' && status !== 'Away' && row.outcome !== 'AWAY WIN') return false;
+                    if (blogOutcomeFilter === 'home' && status !== 'Home') return false;
+                    if (blogOutcomeFilter === 'away' && status !== 'Away') return false;
 
                     if (!resultsTableSearch) return true;
                     const q = resultsTableSearch.toLowerCase().trim();
@@ -1506,7 +1507,7 @@ INSERT INTO public.championship_results (
                       );
                     }
                     return (
-                      <span className="px-1 sm:px-2 py-0.5 rounded text-[7.5px] sm:text-[10px] font-bold font-mono tracking-tighter sm:tracking-wider uppercase bg-slate-900 text-slate-300 border border-slate-700 whitespace-nowrap">
+                      <span className={`px-1 sm:px-2 py-0.5 rounded text-[7.5px] sm:text-[10px] font-bold font-mono tracking-tighter sm:tracking-wider uppercase ${statusBadgeClasses(st)} whitespace-nowrap`}>
                         {st}
                       </span>
                     );
@@ -1577,9 +1578,9 @@ INSERT INTO public.championship_results (
                                     const rowId = row.id ?? row.matchNo ?? (idx + 1);
                                     const homeTeam = row.home_team || row.Home_Team || row.homeTeam || '';
                                     const awayTeam = row.away_team || row.Away_Team || row.awayTeam || '';
-                                    const status = row.status || (row.outcome === 'DRAW' ? 'ScoreDraw' : (row.outcome === 'HOME WIN' ? 'Home' : 'Away'));
+                                    const status = resolveMatchStatus(row);
                                     const poolResult = row.pool_result || (row.Home_Team_Score !== undefined ? `${row.Home_Team_Score}-:-${row.Away_Team_Score}` : row.fullTimeScore?.replace(' - ', '-:-')) || '0-:-0';
-                                    const isDraw = status === 'ScoreDraw' || status === 'noScoreDraw' || row.outcome === 'DRAW';
+                                    const isDraw = isDrawStatus(status);
 
                                     return (
                                       <tr
@@ -1625,9 +1626,9 @@ INSERT INTO public.championship_results (
                                 const rowId = row.id ?? row.matchNo ?? (idx + 1);
                                 const homeTeam = row.home_team || row.Home_Team || row.homeTeam || '';
                                 const awayTeam = row.away_team || row.Away_Team || row.awayTeam || '';
-                                const status = row.status || (row.outcome === 'DRAW' ? 'ScoreDraw' : (row.outcome === 'HOME WIN' ? 'Home' : 'Away'));
+                                const status = resolveMatchStatus(row);
                                 const poolResult = row.pool_result || (row.Home_Team_Score !== undefined ? `${row.Home_Team_Score}-:-${row.Away_Team_Score}` : row.fullTimeScore?.replace(' - ', '-:-')) || '0-:-0';
-                                const isDraw = status === 'ScoreDraw' || status === 'noScoreDraw' || row.outcome === 'DRAW';
+                                const isDraw = isDrawStatus(status);
 
                                 return (
                                   <div

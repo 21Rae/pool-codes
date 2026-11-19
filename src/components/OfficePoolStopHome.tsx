@@ -1,3 +1,4 @@
+import { resolveMatchStatus, isDrawStatus, statusBadgeClasses, statusLabel, statusShortLabel, statusTextColor, statusToOutcome } from '../lib/matchStatus';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -257,7 +258,7 @@ export default function OfficePoolStopHome({
         const homeTeam = row.home_team || row.Home_Team || row.homeTeam || '';
         const awayTeam = row.away_team || row.Away_Team || row.awayTeam || '';
         const poolResult = row.pool_result || (row.Home_Team_Score !== undefined ? `${row.Home_Team_Score}-:-${row.Away_Team_Score}` : row.fullTimeScore?.replace(' - ', '-:-')) || '0-:-0';
-        const status = row.status || (row.outcome === 'DRAW' ? 'ScoreDraw' : (row.outcome === 'HOME WIN' ? 'Home' : 'Away'));
+        const status = resolveMatchStatus(row);
         return [rowId, homeTeam, poolResult, awayTeam, status];
       });
 
@@ -400,11 +401,33 @@ export default function OfficePoolStopHome({
         pool_no: Number(r.id ?? r.matchNo ?? idx + 1),
         fixture: `${r.home_team || r.Home_Team || r.homeTeam || 'Home'} vs ${r.away_team || r.Away_Team || r.awayTeam || 'Away'}`,
         score: (r.pool_result || r.fullTimeScore || '0 - 0').replace('-:-', ' - '),
-        status: r.status || (r.outcome === 'DRAW' ? 'ScoreDraw' : r.outcome === 'HOME WIN' ? 'Home' : 'Away')
+        status: resolveMatchStatus(r)
       }));
     }
     return [];
   });
+
+  // "Latest pool scores" ticker: built from the SAME pool_results data as the
+  // Weekly Pool Results table, so updating the results updates the ticker too.
+  // Falls back to the livescores feed only when no pool results are loaded.
+  const poolResultsTickerData = React.useMemo(() => {
+    const rows = db?.pool_results?.[0]?.results_table || [];
+    if (!Array.isArray(rows) || rows.length === 0) return [];
+    return rows
+      .slice()
+      .sort((a: any, b: any) => (Number(a.id ?? a.matchNo) || 0) - (Number(b.id ?? b.matchNo) || 0))
+      .map((r: any, idx: number) => {
+        const poolResult = r.pool_result || (r.Home_Team_Score !== undefined ? `${r.Home_Team_Score}-:-${r.Away_Team_Score}` : r.fullTimeScore?.replace(' - ', '-:-')) || '0-:-0';
+        return {
+          id: String(r.id ?? r.matchNo ?? idx + 1),
+          pool_no: Number(r.id ?? r.matchNo ?? idx + 1),
+          fixture: `${r.home_team || r.Home_Team || r.homeTeam || 'Home'} vs ${r.away_team || r.Away_Team || r.awayTeam || 'Away'}`,
+          score: String(poolResult).replace('-:-', ' - '),
+          status: resolveMatchStatus(r)
+        };
+      });
+  }, [db?.pool_results]);
+  const tickerData = poolResultsTickerData.length > 0 ? poolResultsTickerData : liveScoresData;
   const [showAdminPdfModal, setShowAdminPdfModal] = useState(false);
   const [showLiveScoresCsvModal, setShowLiveScoresCsvModal] = useState(false);
 
@@ -498,7 +521,7 @@ export default function OfficePoolStopHome({
         clearTimeout(touchTimeoutRef.current);
       }
     };
-  }, [isScoreboardHovered, liveScoresData.length]);
+  }, [isScoreboardHovered, tickerData.length]);
 
   // Master fetch blogs function designed by the system and optimized by the user
   const fetchBlogs = async () => {
@@ -962,7 +985,7 @@ export default function OfficePoolStopHome({
             }}
             className="flex-1 flex text-[11px] md:text-xs items-center select-none text-white overflow-x-auto scrollbar-none touch-pan-x"
           >
-            {liveScoresData.length === 0 ? (
+            {tickerData.length === 0 ? (
               <div className="flex items-center gap-2 text-emerald-500/80 font-mono text-[9px] uppercase tracking-widest pl-2">
                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500/30 animate-pulse"></span>
                 <span>Pre-season fixtures indexing... Live fixtures start soon</span>
@@ -970,7 +993,7 @@ export default function OfficePoolStopHome({
             ) : (
               <div className="flex items-center gap-3 whitespace-nowrap h-full">
                 {Array.from({ length: 12 })
-                  .flatMap(() => liveScoresData)
+                  .flatMap(() => tickerData)
                   .map((match: any, idx: number) => {
                   const parts = (match.fixture || "").split(" vs ");
                   const team1 = parts[0]?.trim() || match.home_team || "Home";
@@ -981,28 +1004,13 @@ export default function OfficePoolStopHome({
                   const score1 = scoreParts[0]?.trim() || "0";
                   const score2 = scoreParts[1]?.trim() || "0";
 
-                  const poolNo = match.pool_no || match.id || ((idx % Math.max(1, liveScoresData.length)) + 1);
+                  const poolNo = match.pool_no || match.id || ((idx % Math.max(1, tickerData.length)) + 1);
                   const rawStatus = String(match.status || "").trim();
-                  const isDrawScore = score1 === score2;
-
-                  let typeStr = 'FT';
-                  let typeColor = isDrawScore ? 'text-emerald-400' : 'text-slate-400';
-                  if (rawStatus === 'ScoreDraw' || rawStatus === 'noScoreDraw') {
-                    typeStr = rawStatus;
-                    typeColor = 'text-emerald-400';
-                  } else if (rawStatus === 'Home') {
-                    typeStr = 'Home';
-                    typeColor = 'text-blue-400';
-                  } else if (rawStatus === 'Away') {
-                    typeStr = 'Away';
-                    typeColor = 'text-purple-400';
-                  } else if (rawStatus.toLowerCase() === 'postponed') {
-                    typeStr = 'PPD';
-                    typeColor = 'text-amber-500';
-                  } else if (isDrawScore) {
-                    typeStr = score1 === '0' ? 'noScoreDraw' : 'ScoreDraw';
-                    typeColor = 'text-emerald-400';
-                  }
+                  const rawLower = rawStatus.toLowerCase();
+                  const isLiveFeedStatus = rawLower === 'live' || rawLower === 'ht' || rawLower === 'in progress' || /^\d+'?$/.test(rawLower);
+                  const resolvedStatus = resolveMatchStatus({ status: rawStatus, score: `${score1} - ${score2}` });
+                  const typeStr = isLiveFeedStatus ? rawStatus.toUpperCase() : statusShortLabel(resolvedStatus);
+                  const typeColor = isLiveFeedStatus ? 'text-red-400' : statusTextColor(resolvedStatus);
 
                   return (
                     <div 
@@ -1473,19 +1481,19 @@ export default function OfficePoolStopHome({
                       );
                     }
 
-                    const totalDraws = (activeResult.results_table || []).filter((x: any) => x.outcome === 'DRAW' || x.status === 'ScoreDraw' || x.status === 'noScoreDraw').length;
+                    const totalDraws = (activeResult.results_table || []).filter((x: any) => isDrawStatus(resolveMatchStatus(x))).length;
                     const totalMatches = (activeResult.results_table || []).length;
-                    const homeWinsCount = (activeResult.results_table || []).filter((x: any) => x.outcome === 'HOME WIN' || x.status === 'Home').length;
-                    const awayWinsCount = (activeResult.results_table || []).filter((x: any) => x.outcome === 'AWAY WIN' || x.status === 'Away').length;
+                    const homeWinsCount = (activeResult.results_table || []).filter((x: any) => resolveMatchStatus(x) === 'Home').length;
+                    const awayWinsCount = (activeResult.results_table || []).filter((x: any) => resolveMatchStatus(x) === 'Away').length;
 
                     const activeResultRows = (activeResult.results_table || []).filter((row: any) => {
-                      const status = row.status || (row.outcome === 'DRAW' ? 'ScoreDraw' : (row.outcome === 'HOME WIN' ? 'Home' : 'Away'));
-                      const isDraw = status === 'ScoreDraw' || status === 'noScoreDraw' || row.outcome === 'DRAW';
+                      const status = resolveMatchStatus(row);
+                      const isDraw = isDrawStatus(status);
                       
                       // Outcome Filter
                       if (resultsOutcomeFilter === 'draws' && !isDraw) return false;
-                      if (resultsOutcomeFilter === 'home' && status !== 'Home' && row.outcome !== 'HOME WIN') return false;
-                      if (resultsOutcomeFilter === 'away' && status !== 'Away' && row.outcome !== 'AWAY WIN') return false;
+                      if (resultsOutcomeFilter === 'home' && status !== 'Home') return false;
+                      if (resultsOutcomeFilter === 'away' && status !== 'Away') return false;
 
                       // Text Search Filter
                       if (!resultsTableSearch) return true;
@@ -1527,7 +1535,7 @@ export default function OfficePoolStopHome({
                                 className="w-full bg-[#030a07] text-white border border-emerald-900/60 rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-mono font-bold focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition cursor-pointer appearance-none pr-10"
                               >
                                 {resultsList.map((res: any) => {
-                                  const draws = (res.results_table || []).filter((x: any) => x.outcome === 'DRAW' || x.status === 'ScoreDraw').length;
+                                  const draws = (res.results_table || []).filter((x: any) => isDrawStatus(resolveMatchStatus(x))).length;
                                   return (
                                     <option key={res.id} value={res.id} className="bg-slate-950 text-white py-2">
                                       WEEK {res.week_number} • Year {res.season_year || 2026} — {res.title} ({draws} Draws)
@@ -1712,8 +1720,8 @@ export default function OfficePoolStopHome({
                                       const homeTeam = row.home_team || row.Home_Team || row.homeTeam || '';
                                       const awayTeam = row.away_team || row.Away_Team || row.awayTeam || '';
                                       const poolResult = row.pool_result || (row.Home_Team_Score !== undefined ? `${row.Home_Team_Score}-:-${row.Away_Team_Score}` : row.fullTimeScore?.replace(' - ', '-:-')) || '0-:-0';
-                                      const status = row.status || (row.outcome === 'DRAW' ? 'ScoreDraw' : (row.outcome === 'HOME WIN' ? 'Home' : 'Away'));
-                                      const isDraw = status === 'ScoreDraw' || status === 'noScoreDraw' || row.outcome === 'DRAW';
+                                      const status = resolveMatchStatus(row);
+                                      const isDraw = isDrawStatus(status);
 
                                       return (
                                         <tr
@@ -1740,15 +1748,7 @@ export default function OfficePoolStopHome({
                                           </td>
                                           <td className="py-2.5 px-2.5 sm:px-4 text-center">
                                             <span
-                                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider ${
-                                                status === 'ScoreDraw'
-                                                  ? 'bg-emerald-950 text-emerald-300 border border-emerald-700'
-                                                  : status === 'noScoreDraw'
-                                                  ? 'bg-teal-950 text-teal-300 border border-teal-700'
-                                                  : status === 'Home'
-                                                  ? 'bg-blue-950 text-blue-300 border border-blue-700'
-                                                  : 'bg-purple-950 text-purple-300 border border-purple-700'
-                                              }`}
+                                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider ${statusBadgeClasses(status)}`}
                                             >
                                               {isDraw && (
                                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
@@ -1775,8 +1775,8 @@ export default function OfficePoolStopHome({
                                   const homeTeam = row.home_team || row.Home_Team || row.homeTeam || '';
                                   const awayTeam = row.away_team || row.Away_Team || row.awayTeam || '';
                                   const poolResult = row.pool_result || (row.Home_Team_Score !== undefined ? `${row.Home_Team_Score}-:-${row.Away_Team_Score}` : row.fullTimeScore?.replace(' - ', '-:-')) || '0-:-0';
-                                  const status = row.status || (row.outcome === 'DRAW' ? 'ScoreDraw' : (row.outcome === 'HOME WIN' ? 'Home' : 'Away'));
-                                  const isDraw = status === 'ScoreDraw' || status === 'noScoreDraw' || row.outcome === 'DRAW';
+                                  const status = resolveMatchStatus(row);
+                                  const isDraw = isDrawStatus(status);
 
                                   return (
                                     <div
@@ -1793,15 +1793,7 @@ export default function OfficePoolStopHome({
                                           #{rowId}
                                         </span>
                                         <span
-                                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider ${
-                                            status === 'ScoreDraw'
-                                              ? 'bg-emerald-950 text-emerald-300 border border-emerald-700'
-                                              : status === 'noScoreDraw'
-                                              ? 'bg-teal-950 text-teal-300 border border-teal-700'
-                                              : status === 'Home'
-                                              ? 'bg-blue-950 text-blue-300 border border-blue-700'
-                                              : 'bg-purple-950 text-purple-300 border border-purple-700'
-                                          }`}
+                                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider ${statusBadgeClasses(status)}`}
                                         >
                                           {isDraw && (
                                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>

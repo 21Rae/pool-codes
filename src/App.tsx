@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, FormEvent } from 'react';
+import { resolveMatchStatus, statusToOutcome } from './lib/matchStatus';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import {
@@ -471,10 +472,9 @@ export default function App() {
             if (data.length > 0) {
               if (tableName === 'pool_result' || tableName === 'pool_results' || tableName === 'results' || tableName === 'championship_results') {
                 const mappedRows = data.map((r: any, idx: number) => {
-                  const rawStatus = r.status || r.outcome || r.result_status || '';
-                  const isDraw = rawStatus === 'ScoreDraw' || rawStatus === 'noScoreDraw' || rawStatus === 'Draw' || rawStatus === 'DRAW' || String(rawStatus).toLowerCase().includes('draw');
-                  const outcome = isDraw ? 'DRAW' : (rawStatus === 'Home' || rawStatus === 'HOME WIN' || rawStatus === 'HOME' ? 'HOME WIN' : 'AWAY WIN');
-                  const statusFormatted = rawStatus === 'ScoreDraw' ? 'ScoreDraw' : (rawStatus === 'noScoreDraw' ? 'noScoreDraw' : (isDraw ? 'ScoreDraw' : (outcome === 'HOME WIN' ? 'Home' : 'Away')));
+                  // Shared resolver: supports Home / Away / Draw plus Pending, Cancelled, Postponed and Panel
+                  const statusFormatted = resolveMatchStatus(r);
+                  const outcome = statusToOutcome(statusFormatted);
 
                   const homeTeam = r.home_team || r.Home_Team || r.homeTeam || r.team_home || r.home || '';
                   const awayTeam = r.away_team || r.Away_Team || r.awayTeam || r.team_away || r.away || '';

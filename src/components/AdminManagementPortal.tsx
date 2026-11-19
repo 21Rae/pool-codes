@@ -1,3 +1,4 @@
+import { resolveMatchStatus, statusToOutcome, statusBadgeClasses, isDrawStatus, SPECIAL_STATUSES, type MatchStatus } from '../lib/matchStatus';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Database,
@@ -843,7 +844,15 @@ export default function AdminManagementPortal({
       const hNum = Number(homeScore);
       const aNum = Number(awayScore);
 
-      if (!isNaN(hNum) && !isNaN(aNum)) {
+      const isManualStatus = ['Pending', 'Postponed', 'Cancelled', 'Panel'].includes(match.status);
+      if (!isManualStatus) {
+        match.pool_result = homeScore !== '' && awayScore !== '' ? `${homeScore}-:-${awayScore}` : undefined;
+        match.Home_Team_Score = homeScore;
+        match.Away_Team_Score = awayScore;
+        match.home_team_score = homeScore;
+        match.away_team_score = awayScore;
+      }
+      if (!isManualStatus && homeScore !== '' && awayScore !== '' && !isNaN(hNum) && !isNaN(aNum)) {
         if (hNum === aNum) {
           match.outcome = 'DRAW';
           match.status = hNum > 0 ? 'ScoreDraw' : 'noScoreDraw';
@@ -854,6 +863,33 @@ export default function AdminManagementPortal({
           match.outcome = 'AWAY WIN';
           match.status = 'Away';
         }
+      }
+      copy[idx] = match;
+      return copy;
+    });
+  };
+
+  // Manually set Pending / Postponed / Cancelled / Panel, or 'auto' to work it out from the score
+  const handleSetResultStatus = (idx: number, value: string) => {
+    setResultsList((prev) => {
+      const copy = [...prev];
+      const match = { ...copy[idx] };
+      const letter: Record<string, string> = { Postponed: 'P', Cancelled: 'C', Panel: 'P', Pending: '?' };
+      if (value === 'auto') {
+        delete match.status;
+        delete match.outcome;
+        if (['P', 'C', '?'].includes(String(match.homeScore))) match.homeScore = '';
+        if (['P', 'C', '?'].includes(String(match.awayScore))) match.awayScore = '';
+        match.pool_result = match.homeScore !== '' && match.awayScore !== '' && match.homeScore !== undefined
+          ? `${match.homeScore}-:-${match.awayScore}`
+          : undefined;
+        const resolved = resolveMatchStatus(match);
+        match.status = resolved;
+        match.outcome = statusToOutcome(resolved);
+      } else {
+        match.status = value;
+        match.outcome = statusToOutcome(value as MatchStatus);
+        match.pool_result = `${letter[value]}-:-${letter[value]}`;
       }
       copy[idx] = match;
       return copy;
@@ -2806,7 +2842,7 @@ export default function AdminManagementPortal({
               <div className="p-3 bg-slate-900 border-b border-slate-800 flex items-center justify-between text-xs font-mono text-slate-400">
                 <span>Total Fixtures: {resultsList.length} matches (Matches 1 to 49)</span>
                 <span className="text-emerald-400 font-bold">
-                  Draws Classified: {resultsList.filter((r) => r.outcome === 'DRAW').length}
+                  Draws Classified: {resultsList.filter((r) => isDrawStatus(resolveMatchStatus(r))).length}
                 </span>
               </div>
 
@@ -2847,17 +2883,29 @@ export default function AdminManagementPortal({
                         </td>
                         <td className="p-3 text-white font-bold">{res.awayTeam || res.away_team || 'Away'}</td>
                         <td className="p-3 text-center">
-                          <span
-                            className={`text-[10px] font-black px-2 py-0.5 rounded font-mono uppercase ${
-                              res.outcome === 'DRAW'
-                                ? 'bg-amber-950 text-amber-300 border border-amber-500/40'
-                                : res.outcome === 'HOME WIN'
-                                ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/30'
-                                : 'bg-blue-950 text-blue-300 border border-blue-500/30'
-                            }`}
-                          >
-                            {res.status || res.outcome}
-                          </span>
+                          {(() => {
+                            const st = resolveMatchStatus(res);
+                            const isManual = SPECIAL_STATUSES.includes(st);
+                            return (
+                              <div className="flex items-center justify-center gap-2">
+                                <span className={`text-[10px] font-black px-2 py-0.5 rounded font-mono uppercase ${statusBadgeClasses(st)}`}>
+                                  {st}
+                                </span>
+                                <select
+                                  value={isManual ? st : 'auto'}
+                                  onChange={(e) => handleSetResultStatus(idx, e.target.value)}
+                                  className="bg-slate-900 border border-slate-700 rounded-lg px-1.5 py-1 text-[10px] font-bold text-slate-200"
+                                  title="Set match status"
+                                >
+                                  <option value="auto">Auto (from score)</option>
+                                  <option value="Pending">Pending</option>
+                                  <option value="Postponed">Postponed</option>
+                                  <option value="Cancelled">Cancelled</option>
+                                  <option value="Panel">Panel</option>
+                                </select>
+                              </div>
+                            );
+                          })()}
                         </td>
                       </tr>
                     ))}
